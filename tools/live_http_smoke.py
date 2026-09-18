@@ -213,7 +213,14 @@ def main() -> int:
     expect(kill_res.get("hit") is True and kill_res.get("kill") is True, "kill hit+kill", str(kill_res))
     expect(kill_snap.get("status") == "ended", "status ended")
     expect(kill_snap.get("winner") == "a", "winner a")
-    expect(((kill_snap.get("you") or {}).get("marks") == 1), "marks +1")
+    you_a = (kill_snap.get("you") or {})
+    start_marks = 0
+    after = int(you_a.get("marks") or 0)
+    expect(after == start_marks + 25, f"M1 you.marks +25 ({start_marks} → {after})")
+    expect(kill_snap.get("endReason") == "kill", "endReason kill")
+    status, replay, _ = req("GET", f"/matches/{match_id}", None, token_a)
+    replay_marks = int(((replay.get("you") or {}).get("marks") or 0))
+    expect(status == 200 and replay_marks == after, "replay GET does not double-pay (M4)")
 
     # SSE with Bearer join token — if Vercel drops the stream, poll GET /matches/:id.
     sse_ok = False

@@ -49,6 +49,7 @@ Public LIVE (Neon): **`https://glassline-api.vercel.app`**. Click **LIVE** on th
 ```bash
 GLASSLINE_USE_LIVE_API=1 godot --path .
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_http_smoke.py
+GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_jobs_smoke.py   # POST /jobs T1 + you.marks +10 once
 GLASSLINE_USE_LIVE_API=1 godot --headless --path . res://tools/live_loop_test.tscn
 ```
 
@@ -74,8 +75,8 @@ Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` 
 
 | Scene | Path | Role |
 | --- | --- | --- |
-| Hideout | `scenes/lobby/hideout_lobby.tscn` | Canon room, PLAY, MOCK/LIVE toggle |
-| Match | `scenes/match/match_screen.tscn` | 9×7 axial, dummy `select_hex`, START, Attack/Recon/UAV, END TURN |
+| Hideout | `scenes/lobby/hideout_lobby.tscn` | Canon room, PLAY, JOBS (SP vs bot), Marks chip, MOCK/LIVE toggle |
+| Match | `scenes/match/match_screen.tscn` | 9×7 axial, dummy `select_hex`, START, Attack/Recon/UAV ability, END TURN |
 | Optic | `scenes/optic/optic_overlay.gd` | Zoom / wobble stub + FIRE |
 | Types | `types/` | Snapshot, ActionIntent, ActionResult (`{ ok, snapshot, result }`) |
 | Mock | `autoload/mock_match_server.gd` | Local secret positions |
@@ -90,7 +91,9 @@ Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` 
 4. ATTACK miss → optic FIRE → server `result.hit == false`. END TURN.
 5. Dummy recon + end_turn (or watch SSE `your_turn`).
 6. UAV once → `enemy.visibleHex`. END TURN.
-7. ATTACK that hex → `hit` / `kill`, Marks +1.
+7. ATTACK that hex → `hit` / `kill`. End overlay reads server `payout` (`marks`, `marksDelta`, `reason`) — never local `marks +=`.
+
+Hideout **JOBS → START JOB** calls `POST /jobs` `{ tier: 1|2|3 }` on LIVE (mock uses the same shape). Ability chrome is labeled **UAV** and still posts `{ type: "uav" }`. Balance is `you.marks`. Earn table + field names: `artifacts/MARKS_SP_NOTES.md`.
 
 ## Layout
 

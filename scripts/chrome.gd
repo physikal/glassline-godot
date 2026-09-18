@@ -55,6 +55,10 @@ static func flat(bg: Color, radius: int = 14, border: Color = Color(0, 0, 0, 0),
 	return box
 
 
+static func marks_chip_text(balance: int) -> String:
+	return "MARKS  ★%d" % balance
+
+
 static func chunk_button(text: String, bg: Color, fg: Color, min_size: Vector2 = Vector2(220, 64)) -> Button:
 	var button := Button.new()
 	button.text = text

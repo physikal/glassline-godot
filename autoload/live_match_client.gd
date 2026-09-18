@@ -36,11 +36,39 @@ func health() -> Dictionary:
 	return _json("GET", "/health", null, "")
 
 
-func create_match() -> Dictionary:
-	var body: Dictionary = _json("POST", "/matches", {}, "")
+func create_match(opts: Dictionary = {}) -> Dictionary:
+	## Live POST /matches currently ignores body. Forward mode/job flags for Coder.
+	var payload: Dictionary = opts.duplicate(true)
+	var body: Dictionary = _json("POST", "/matches", payload, "")
 	if body.has("error") and not body.has("matchId"):
 		last_error = str(body.get("error", "create_failed"))
 	return body
+
+
+func wallet() -> Dictionary:
+	## No dedicated LIVE wallet route. Hideout binds `you.marks`.
+	return {}
+
+
+func create_job(tier: int = 1) -> Dictionary:
+	var body: Dictionary = _json("POST", "/jobs", {"tier": clampi(tier, 1, 3)}, "")
+	if body.has("error") and not body.has("matchId"):
+		last_error = str(body.get("error", "job_create_failed"))
+	return body
+
+
+func get_job(job_id: String) -> Dictionary:
+	var token := ClientSession.join_token
+	var body: Dictionary = _json("GET", "/jobs/%s" % job_id, null, token)
+	if body.has("error") and not body.has("jobId"):
+		last_error = str(body.get("error", "job_get_failed"))
+	return body
+
+
+func heartbeat() -> Dictionary:
+	if ClientSession.match_id == "" or ClientSession.join_token == "":
+		return {}
+	return _json("POST", "/matches/%s/heartbeat" % ClientSession.match_id, {}, ClientSession.join_token)
 
 
 func join(match_id: String, token: String) -> Dictionary:
@@ -179,11 +207,13 @@ func _poll_once() -> void:
 	if not (js is Dictionary) or not js.has("matchId"):
 		return
 	var snap: Dictionary = js
-	var fp := "%s|%s|%s|%s" % [
+	heartbeat()
+	var fp := "%s|%s|%s|%s|%s" % [
 		str(snap.get("status", "")),
 		str(snap.get("phase", "")),
 		str(snap.get("whoseTurn", "")),
 		str(snap.get("turnIndex", "")),
+		str(snap.get("endReason", "")),
 	]
 	var last: Variant = snap.get("lastAction", {})
 	if last is Dictionary:

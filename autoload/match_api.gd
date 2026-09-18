@@ -20,10 +20,34 @@ func using_live() -> bool:
 	return ClientSession.use_live_api()
 
 
-func create_match() -> Dictionary:
+func create_match(opts: Dictionary = {}) -> Dictionary:
 	if using_live():
-		return LiveMatchClient.create_match()
-	return MockMatchServer.create_match()
+		return LiveMatchClient.create_match(opts)
+	return MockMatchServer.create_match(opts)
+
+
+func wallet() -> Dictionary:
+	if using_live():
+		return LiveMatchClient.wallet()
+	return MockMatchServer.wallet()
+
+
+func create_job(tier: int = 1) -> Dictionary:
+	if using_live():
+		return LiveMatchClient.create_job(tier)
+	return MockMatchServer.create_job(tier)
+
+
+func get_job(job_id: String) -> Dictionary:
+	if using_live():
+		return LiveMatchClient.get_job(job_id)
+	return MockMatchServer.get_job(job_id)
+
+
+func heartbeat() -> Dictionary:
+	if using_live():
+		return LiveMatchClient.heartbeat()
+	return {"ok": true, "mock": true}
 
 
 func join(match_id: String, token: String) -> Dictionary:

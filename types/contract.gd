@@ -30,6 +30,7 @@ const ACT_ATTACK := "attack"
 const ACT_RECON := "recon"
 const ACT_UAV := "uav"
 const ACT_END_TURN := "end_turn"
+const ACT_FORFEIT := "forfeit"
 
 const EVENT_SNAPSHOT := "snapshot"
 const EVENT_YOUR_TURN := "your_turn"
@@ -38,6 +39,63 @@ const WIN_DRAW := "draw"
 
 const ACT_REJECT := "reject"
 const DEFAULT_API_BASE := "https://glassline-api.vercel.app"
+
+const MODE_PVP := "pvp"
+const MODE_SP_JOB := "sp_job"
+
+const END_KILL := "kill"
+const END_STANDOFF := "standoff"
+const END_LOSS := "loss"
+const END_JOB := "job"
+const END_JOB_FAIL := "job_fail"
+const END_FORFEIT := "forfeit"
+const END_DISCONNECT := "disconnect"
+
+## Soft A4 — treat these snapshot/result tokens as forfeit chrome.
+const FORFEIT_REASONS := ["forfeit", "disconnect", "disconnected", "ragequit"]
+
+## Ability slot chrome (M5). Intent type stays `uav`.
+const ABILITY_LABEL := "UAV"
+const ABILITY_SLOT := "ABILITY"
+
+## Mock hideout stub until Coder's ledger / GET wallet exists.
+const MOCK_WALLET_STUB := 24
+
+## Locked GD earn table (2026-09-18). Mock display grants only; LIVE ledger is Coder.
+const MARKS_PVP_WIN := 25
+const MARKS_PVP_LOSS := 3
+const MARKS_STANDOFF := 8
+const MARKS_JOB_T1 := 10
+const MARKS_JOB_T2 := 15
+const MARKS_JOB_T3 := 20
+const MARKS_JOB_FAIL := 0
+const MARKS_FORFEIT_WIN := 12
+const MARKS_FORFEIT_LOSS := 0
+const FORFEIT_GRACE_SEC := 30
+
+const JOB_NAME_T1 := "Rooftop Rookie"
+const JOB_NAME_T2 := "Warehouse Watch"
+const JOB_NAME_T3 := "Night Contract"
+
+
+static func job_name(tier: int) -> String:
+	match tier:
+		2:
+			return JOB_NAME_T2
+		3:
+			return JOB_NAME_T3
+		_:
+			return JOB_NAME_T1
+
+
+static func job_tier_delta(tier: int) -> int:
+	match tier:
+		2:
+			return MARKS_JOB_T2
+		3:
+			return MARKS_JOB_T3
+		_:
+			return MARKS_JOB_T1
 
 static func on_board(q: int, r: int) -> bool:
 	return q >= 0 and q < BOARD_Q and r >= 0 and r < BOARD_R

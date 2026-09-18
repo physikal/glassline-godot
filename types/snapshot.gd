@@ -2,6 +2,7 @@ extends RefCounted
 ## Caller-scoped snapshot. Wrap a contract dictionary; do not invent fields.
 
 const Contract := preload("res://types/contract.gd")
+const MarksPayout := preload("res://types/marks_payout.gd")
 
 var raw: Dictionary = {}
 
@@ -41,7 +42,74 @@ func phase() -> Variant:
 
 
 func uav_remaining() -> int:
-	return int(raw.get("uavRemaining", 0))
+	if raw.has("uavRemaining"):
+		return int(raw.get("uavRemaining", 0))
+	if raw.has("uavAvailable"):
+		return 1 if bool(raw.get("uavAvailable", false)) else 0
+	return 0
+
+
+func kind() -> String:
+	var value := str(raw.get("kind", ""))
+	if value != "":
+		return Contract.MODE_SP_JOB if value in ["sp_job", "job"] else value
+	return mode()
+
+
+func mode() -> String:
+	var kind_value := str(raw.get("kind", ""))
+	if kind_value in ["sp_job", "job"]:
+		return Contract.MODE_SP_JOB
+	if kind_value == Contract.MODE_PVP:
+		return Contract.MODE_PVP
+	var value := str(raw.get("mode", raw.get("matchMode", "")))
+	if value == "":
+		var job_obj: Variant = raw.get("job", null)
+		if job_obj is Dictionary and not job_obj.is_empty():
+			return Contract.MODE_SP_JOB
+		if bool(raw.get("spJob", false)) or str(raw.get("jobId", "")) != "":
+			return Contract.MODE_SP_JOB
+		return Contract.MODE_PVP
+	if value in ["job", "sp", "spJob", "sp_job"]:
+		return Contract.MODE_SP_JOB
+	return value
+
+
+func is_job() -> bool:
+	return mode() == Contract.MODE_SP_JOB
+
+
+func job() -> Dictionary:
+	var value: Variant = raw.get("job", {})
+	return value if value is Dictionary else {}
+
+
+func job_tier() -> int:
+	var bag := job()
+	if bag.has("tier"):
+		return int(bag.get("tier", 1))
+	return int(raw.get("jobTier", raw.get("tier", 1)))
+
+
+func payout():
+	return MarksPayout.from_any(raw)
+
+
+func marks_delta() -> Variant:
+	var pay = MarksPayout.from_any(raw)
+	return pay.marks_delta
+
+
+func end_reason() -> String:
+	var pay = MarksPayout.from_any(raw)
+	var why: String = str(pay.reason)
+	if why != "":
+		return why
+	return str(raw.get("endReason", raw.get("reason", "")))
+
+
+func is_forfeit() -> bool:
+	return MarksPayout.is_forfeit_payload(raw)
 
 
 func you() -> Dictionary:

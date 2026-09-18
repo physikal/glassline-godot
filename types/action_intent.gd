@@ -23,6 +23,11 @@ static func uav() -> Dictionary:
 	return {"type": Contract.ACT_UAV}
 
 
+static func ability() -> Dictionary:
+	## Ability slot still posts the locked `uav` action.
+	return uav()
+
+
 static func end_turn(exposure_pct: float, hex: Variant = null) -> Dictionary:
 	var body := {"type": Contract.ACT_END_TURN, "exposurePct": exposure_pct}
 	if hex != null:
