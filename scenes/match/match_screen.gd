@@ -270,15 +270,18 @@ func _refresh(snap: Snapshot) -> void:
 		Contract.STATUS_ACTIVE:
 			_btn_start.visible = false
 			var yours := snap.is_your_turn()
-			if str(snap.phase()) == Contract.PHASE_ACTION:
-				_status.text = "Your action." if yours else "Rival is lining up…"
-				_set_actions(yours)
+			if yours and str(snap.phase()) == Contract.PHASE_ACTION:
+				_status.text = "Your action — Attack, Recon, or UAV."
+				_set_actions(true)
 				_end_panel.visible = false
-			elif str(snap.phase()) == Contract.PHASE_END_TURN:
+			elif yours and str(snap.phase()) == Contract.PHASE_END_TURN:
 				_status.text = "End turn — set exposure, optional adjacent move."
 				_set_actions(false)
-				_end_panel.visible = yours
-			if not yours:
+				_end_panel.visible = true
+			else:
+				_status.text = "Rival is lining up…"
+				_set_actions(false)
+				_end_panel.visible = false
 				_queue_dummy(snap)
 		Contract.STATUS_ENDED:
 			_btn_start.visible = false
@@ -445,23 +448,21 @@ func _queue_dummy(snap: Snapshot) -> void:
 	if str(snap.whose_turn()) == snap.you_seat():
 		return
 	_dummy_busy = true
-	get_tree().create_timer(0.45).timeout.connect(_dummy_step)
+	_toast.text = "RivalSniper is taking the glass…"
+	get_tree().create_timer(0.85).timeout.connect(_dummy_step)
 
 
 func _dummy_step() -> void:
-	_dummy_busy = false
 	var dummy_snap: Snapshot = Snapshot.from_dict(MockMatchServer.get_snapshot(ClientSession.match_id, ClientSession.dummy_player_id))
-	if dummy_snap.status() != Contract.STATUS_ACTIVE:
-		return
-	if str(dummy_snap.whose_turn()) == ClientSession.seat:
+	if dummy_snap.status() != Contract.STATUS_ACTIVE or str(dummy_snap.whose_turn()) == ClientSession.seat:
+		_dummy_busy = false
 		return
 	if str(dummy_snap.phase()) == Contract.PHASE_ACTION:
 		_submit_as(ClientSession.dummy_player_id, ActionIntent.recon(4, 3))
-		_dummy_busy = true
-		get_tree().create_timer(0.35).timeout.connect(_dummy_step)
+		get_tree().create_timer(0.7).timeout.connect(_dummy_step)
 	elif str(dummy_snap.phase()) == Contract.PHASE_END_TURN:
 		_submit_as(ClientSession.dummy_player_id, ActionIntent.end_turn(Contract.DEFAULT_EXPOSURE))
-		# Human snapshot updates via broadcast.
+		_dummy_busy = false
 
 
 func _show_ended(snap: Snapshot) -> void:

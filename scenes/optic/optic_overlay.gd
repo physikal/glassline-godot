@@ -95,11 +95,26 @@ func _build() -> void:
 	rock.color = Color("9aa0a6")
 	_world.add_child(rock)
 
-	var figure := ColorRect.new()
+	var figure := Control.new()
 	figure.name = "Figure"
-	figure.size = Vector2(10, 22)
-	figure.position = Vector2(635, 338)
-	figure.color = Color("2b2b2b")
+	figure.position = Vector2(610, 300)
+	figure.size = Vector2(50, 80)
+	figure.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var body := ColorRect.new()
+	body.color = Color("2a2a2a")
+	body.position = Vector2(16, 22)
+	body.size = Vector2(16, 28)
+	figure.add_child(body)
+	var head := ColorRect.new()
+	head.color = Color("3a332c")
+	head.position = Vector2(18, 8)
+	head.size = Vector2(12, 12)
+	figure.add_child(head)
+	var pin := ColorRect.new()
+	pin.color = Color("e23b3b")
+	pin.position = Vector2(21, 0)
+	pin.size = Vector2(6, 6)
+	figure.add_child(pin)
 	_world.add_child(figure)
 
 	var hud := Control.new()
@@ -178,7 +193,7 @@ func _refresh_area() -> void:
 		var ground := _world.get_node_or_null("Ground") as ColorRect
 		if ground:
 			ground.color = Chrome.terrain_color(terrain_type)
-		var fig := _world.get_node_or_null("Figure") as ColorRect
+		var fig := _world.get_node_or_null("Figure")
 		if fig:
 			fig.visible = intel_visible
 	if _area:
