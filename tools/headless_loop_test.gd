@@ -169,19 +169,38 @@ func _a2_reconnect_case(failed: PackedStringArray) -> void:
 	dirty["terrain"] = rows
 	dirty["lastAction"] = {"type": "attack", "hit": true, "kill": true}
 	dirty["status"] = "ended"
+	dirty["turnIndex"] = 99
+	var you_dirty: Dictionary = dirty.get("you", {})
+	if not (you_dirty is Dictionary):
+		you_dirty = {}
+	you_dirty = you_dirty.duplicate(true)
+	you_dirty["hex"] = {"q": 0, "r": 0}
+	you_dirty["exposurePct"] = 99
+	you_dirty["marks"] = 999
+	dirty["you"] = you_dirty
 	session.last_snapshot = dirty
+	session.bind_marks(999)
 	_expect(failed, session.terrain_keys().has("8,6"), "A2 dirty invented terrain present")
 	_expect(failed, session.last_server_hit() == true, "A2 dirty invented hit")
+	_expect(failed, session.marks == 999, "A2 dirty invented wallet")
 	var fresh: Dictionary = server.get_snapshot(mid, pid_a)
 	session.apply_snapshot(fresh)
 	var snap: Snapshot = session.typed_snapshot()
 	_expect(failed, snap.match_id() == mid, "A2 reconnect matchId")
 	_expect(failed, snap.status() == str(noted.get("status", "")), "A2 status from server")
 	_expect(failed, str(snap.whose_turn()) == str(noted.get("whoseTurn", "")), "A2 whoseTurn from server")
+	_expect(failed, snap.turn_index() == int(noted.get("turnIndex", 0)), "A2 turnIndex from server")
 	_expect(failed, not session.terrain_keys().has("8,6"), "A2 invented terrain wiped")
 	_expect(failed, session.terrain_keys().has("2,2"), "A2 select terrain kept from server")
 	_expect(failed, session.last_server_hit() != true, "A2 invented I-hit wiped")
 	_expect(failed, snap.you_exposure() == 50, "A2 exposure 50 from server")
+	_expect(failed, Contract.same_hex(snap.you_hex(), Contract.hex_dict(2, 2)), "A2 you.hex from server")
+	var noted_you: Variant = noted.get("you", {})
+	var noted_marks := 0
+	if noted_you is Dictionary:
+		noted_marks = int(noted_you.get("marks", 0))
+	_expect(failed, snap.you_marks() == noted_marks, "A2 you.marks from server")
+	_expect(failed, session.marks == snap.you_marks(), "A2 wallet bind replaced invented 999")
 	session.free()
 
 

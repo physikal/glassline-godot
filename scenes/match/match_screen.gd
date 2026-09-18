@@ -103,11 +103,16 @@ func _apply_server_reconnect() -> Dictionary:
 	var fresh: Dictionary = MatchAPI.reconnect()
 	var snap: Snapshot = ClientSession.typed_snapshot()
 	_exposure.value = snap.you_exposure()
-	if _exposure_doll:
-		_exposure_doll.set_exposure(_exposure.value)
+	_bind_server_exposure(snap)
 	_refresh(snap)
 	_show_server_snapshot_banner()
 	return fresh
+
+
+func _bind_server_exposure(snap: Snapshot) -> void:
+	## Doll is server you.exposurePct. Slider is the next end_turn intent only.
+	if _exposure_doll:
+		_exposure_doll.bind_server_pct(snap.you_exposure())
 
 
 func _show_server_snapshot_banner() -> void:
@@ -333,13 +338,11 @@ func _build() -> void:
 	_exposure.value = Contract.DEFAULT_EXPOSURE
 	_exposure.custom_minimum_size = Vector2(280, 20)
 	_exposure.value_changed.connect(func(v: float) -> void:
-		_exposure_lbl.text = "EXPOSURE  %d%%" % int(v)
-		if _exposure_doll:
-			_exposure_doll.set_exposure(v)
+		_exposure_lbl.text = "NEXT  %d%%" % int(v)
 	)
 	expose_col.add_child(_exposure)
-	_exposure_lbl.text = "EXPOSURE  50%"
-	_exposure_doll.set_exposure(Contract.DEFAULT_EXPOSURE)
+	_exposure_lbl.text = "NEXT  50%"
+	_exposure_doll.bind_server_pct(Contract.DEFAULT_EXPOSURE)
 	var move_hint := Label.new()
 	move_hint.text = "Optional: click an adjacent hex to relocate"
 	Chrome.apply_label(move_hint, 8, Chrome.CREAM)
@@ -432,11 +435,14 @@ func _on_match_event(player_id: String, _event_name: String, snapshot: Dictionar
 	if player_id != ClientSession.player_id:
 		return
 	ClientSession.apply_snapshot(snapshot)
-	_refresh(Snapshot.from_dict(snapshot))
+	var snap := Snapshot.from_dict(snapshot)
+	_bind_server_exposure(snap)
+	_refresh(snap)
 	_show_server_snapshot_banner()
 
 
 func _refresh(snap: Snapshot) -> void:
+	_bind_server_exposure(snap)
 	_board.apply_snapshot(snap, _selected, _highlights(snap))
 	_you_chip.text = "%s  SEAT %s  %s" % [ClientSession.HANDLE, snap.you_seat().to_upper(), Chrome.marks_chip_text(snap.you_marks())]
 	_rival_chip.text = "BOT" if ClientSession.is_job() or snap.is_job() else ClientSession.RIVAL
@@ -468,8 +474,7 @@ func _refresh(snap: Snapshot) -> void:
 				_status.text = "End turn — set exposure, optional adjacent move."
 				_set_actions(false)
 				_end_panel.visible = true
-				if _exposure_doll:
-					_exposure_doll.set_exposure(_exposure.value)
+				_bind_server_exposure(snap)
 			else:
 				_status.text = "Rival is lining up…"
 				_set_actions(false)

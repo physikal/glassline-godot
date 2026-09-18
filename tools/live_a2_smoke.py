@@ -95,6 +95,7 @@ def field_bag(snap: dict) -> dict:
         "winner": snap.get("winner"),
         "you.hex": (you.get("hex") if isinstance(you, dict) else None),
         "you.exposurePct": (you.get("exposurePct") if isinstance(you, dict) else None),
+        "you.marks": (you.get("marks") if isinstance(you, dict) else None),
         "terrain": sorted(terrain_keys(snap)),
         "lastHit": last_hit(snap),
     }
@@ -164,8 +165,16 @@ def main() -> int:
     polluted["lastAction"] = {"type": "attack", "hit": True, "kill": True}
     polluted["status"] = "ended"
     polluted["whoseTurn"] = "invented"
+    polluted["turnIndex"] = 99
+    you_p = dict(polluted.get("you") or {})
+    you_p["hex"] = {"q": 0, "r": 0}
+    you_p["exposurePct"] = 99
+    you_p["marks"] = 999
+    polluted["you"] = you_p
     expect("8,6" in terrain_keys(polluted), "local cache invented terrain 8,6")
     expect(last_hit(polluted) is True, "local cache invented I-hit")
+    expect(you_p.get("marks") == 999, "local cache invented wallet")
+    expect(you_p.get("exposurePct") == 99, "local cache invented exposure")
 
     status, server_snap, _ = req("GET", f"/matches/{match_id}", None, token_a)
     expect(status == 200 and server_snap.get("matchId") == match_id, "reconnect GET /matches/:id")
@@ -182,7 +191,12 @@ def main() -> int:
     expect(client.get("phase") == server_snap.get("phase"), "phase from server")
     expect(client.get("turnIndex") == server_snap.get("turnIndex"), "turnIndex from server")
     you = client.get("you") or {}
-    expect(you.get("hex") == (server_snap.get("you") or {}).get("hex"), "you.hex from server")
+    server_you = server_snap.get("you") or {}
+    expect(you.get("hex") == server_you.get("hex"), "you.hex from server")
+    expect(you.get("exposurePct") == server_you.get("exposurePct"), "you.exposurePct from server")
+    expect(you.get("marks") == server_you.get("marks"), "you.marks from server (no invented wallet)")
+    expect(you.get("exposurePct") != 99, "invented exposure wiped")
+    expect(you.get("marks") != 999, "invented wallet wiped")
     expect("hit" not in {"type": "attack", "hex": {"q": 0, "r": 0}}, "intent body has no hit field")
 
     print()
@@ -199,6 +213,7 @@ def main() -> int:
             print(f"  - {line}")
         return 1
     print("LIVE_A2_SMOKE_OK", match_id)
+    print("GD_PING A2 locked — server snapshot sole truth (hex, turn, exposure, Marks); no invented terrain/hit/wallet")
     return 0
 
 

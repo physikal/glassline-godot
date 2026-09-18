@@ -1,6 +1,6 @@
 extends Control
-## End-turn exposure doll stub (default 50%). Toy silhouette, not mil-sim.
-## Cover rises as exposure falls. Owner Godot for polish / art.
+## End-turn exposure doll. Display is snapshot you.exposurePct (server).
+## Art stub — soft gap, owner Godot for polish. Not mil-sim. Not a Marks grant.
 
 const Chrome := preload("res://scripts/chrome.gd")
 
@@ -16,6 +16,11 @@ func _ready() -> void:
 func set_exposure(value: float) -> void:
 	exposure_pct = clampf(value, 0.0, 100.0)
 	queue_redraw()
+
+
+func bind_server_pct(value: float) -> void:
+	## A2: doll follows server you.exposurePct only.
+	set_exposure(value)
 
 
 func _draw() -> void:

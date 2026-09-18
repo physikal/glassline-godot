@@ -60,9 +60,10 @@ func apply_snapshot(snap: Dictionary) -> void:
 	if you is Dictionary:
 		if str(you.get("seat", "")) != "":
 			seat = str(you.get("seat", seat))
-		## Coder lock: wallet is you.marks only. Never grant locally.
-		if you.has("marks"):
-			bind_marks(int(you.get("marks")))
+		## A2: wallet is snapshot you.marks only. Replace — never invent / keep a local grant.
+		bind_marks(int(you.get("marks", 0)))
+	else:
+		bind_marks(0)
 	var payout = MarksPayout.from_any(snap)
 	var why: String = MarksPayout.display_reason(snap, is_job())
 	if payout.has_delta() or why != "":
