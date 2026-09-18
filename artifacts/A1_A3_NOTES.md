@@ -7,13 +7,13 @@ Godot 4.3, `DISPLAY=:1`, `project.godot` with **MOCK** (no `GLASSLINE_USE_LIVE_A
 1. Boot: `/tmp/godot --path /workspace --resolution 1280x720`
 2. Confirm hideout: wood room, operative front-center, rifle rack, intel desk, **PLAY** CTA. Top-right shows **MOCK**.
 3. Click green **PLAY** (bottom center). Do not click LIVE.
-4. Drop board is the toy war-table (not a black fog stub): walnut desk chrome, **P1 Specter7 / P2 RivalSniper**, printed Open / Brush / Hard stamps with unknown rim, Attack / Recon / **Ability** / Highground icons. MatchAPI path unchanged; UAV still posts `uav`. Placeholder table terrain is visual only.
+4. Drop board is the toy war-table (not a black fog stub): walnut desk chrome, **P1 Specter7 / P2 RivalSniper**, printed Open / Brush / Hard stamps with unknown rim, Attack / Recon / **Ability** icons. Board is **9×7 axial** (9 cols × 7 rows, 63 hexes). v0 actions are Attack / Recon / UAV only — no HIGHGROUND buff chrome. Ability still posts MatchAPI `uav`. Placeholder table terrain is visual only.
 
 Stills: `a1-lobby.png`, `a1-after-play.png`.
 
 ### After-Play HOLD (2026-09-18)
 
-`artifacts/a1-after-play.png` was a black 9×7 unknown stub and failed the hex-map plate. Match screen now draws desk wood, hex legend swatches, chunky terrain stamps, P1/P2 tokens, and Ability (UAV) so the still matches `assets/canon/hex-map.jpg` language. A3 miss/kill stills left as-is.
+`artifacts/a1-after-play.png` was a black unknown stub and failed the hex-map plate. Match screen now draws desk wood, hex legend swatches, chunky terrain stamps, P1/P2 tokens, and Ability (UAV) on a **9×7 axial** board (9 cols × 7 rows). HIGHGROUND buff chrome parked (P2). A3 miss/kill stills left as-is.
 
 ## A3 — miss then kill (same match)
 

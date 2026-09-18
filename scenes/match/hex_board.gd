@@ -1,6 +1,7 @@
 extends Node2D
-## Interactive 9×7 axial board. Printed table terrain is a visual placeholder;
-## MatchAPI / snapshot still owns revealed types, tokens, and hit/miss.
+## Interactive 9×7 axial board (BOARD_Q=9 cols × BOARD_R=7 rows, 63 hexes).
+## Printed table terrain is a visual placeholder; MatchAPI / snapshot still
+## owns revealed types, tokens, and hit/miss.
 
 const HexMath := preload("res://scripts/hex_math.gd")
 const Contract := preload("res://types/contract.gd")

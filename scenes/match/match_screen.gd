@@ -189,20 +189,16 @@ func _build() -> void:
 	row.add_theme_constant_override("separation", 16)
 	add_child(row)
 
-	_btn_attack = Chrome.action_button("attack", "ATTACK", Chrome.ATTACK_RED, Color.WHITE, Vector2(220, 68))
+	_btn_attack = Chrome.action_button("attack", "ATTACK", Chrome.ATTACK_RED, Color.WHITE, Vector2(260, 68))
 	_btn_attack.pressed.connect(_on_attack)
 	row.add_child(_btn_attack)
-	_btn_recon = Chrome.action_button("recon", "RECON", Chrome.RECON_BLUE, Color.WHITE, Vector2(220, 68))
+	_btn_recon = Chrome.action_button("recon", "RECON", Chrome.RECON_BLUE, Color.WHITE, Vector2(260, 68))
 	_btn_recon.pressed.connect(_on_recon)
 	row.add_child(_btn_recon)
-	_btn_uav = Chrome.action_button("ability", "ABILITY", Chrome.ABILITY_PURPLE, Color.WHITE, Vector2(220, 68))
-	_btn_uav.tooltip_text = "Ability / UAV — one reveal, MatchAPI owns the result."
+	_btn_uav = Chrome.action_button("ability", "ABILITY", Chrome.ABILITY_PURPLE, Color.WHITE, Vector2(260, 68))
+	_btn_uav.tooltip_text = "Ability maps to v0 UAV. MatchAPI owns the reveal."
 	_btn_uav.pressed.connect(_on_uav)
 	row.add_child(_btn_uav)
-	var high := Chrome.action_button("highground", "HIGHGROUND", Chrome.HIGH_GOLD, Chrome.INK, Vector2(260, 68))
-	high.disabled = true
-	high.tooltip_text = "Flavor chip from the hex-map plate. Hit/miss stays server-side."
-	row.add_child(high)
 
 	_btn_start = Chrome.chunk_button("START", Chrome.PLAY_GREEN, Color.WHITE, Vector2(160, 40))
 	_btn_start.position = Vector2(1096, 64)

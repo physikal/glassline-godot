@@ -126,8 +126,6 @@ static func make_icon(kind: String, color: Color, px: int = 28) -> Texture2D:
 			_icon_binoculars(img, color)
 		"ability":
 			_icon_star(img, color)
-		"highground":
-			_icon_layers(img, color)
 		"clock":
 			_icon_clock(img, color)
 		_:
@@ -215,26 +213,10 @@ static func _icon_star(img: Image, color: Color) -> void:
 	_fill_circle(img, 14, 14, 3, color)
 
 
-static func _icon_layers(img: Image, color: Color) -> void:
-	_hex_outline(img, 14, 20, 7, color)
-	_hex_outline(img, 14, 14, 7, color)
-	_hex_outline(img, 14, 8, 7, color)
-
-
 static func _icon_clock(img: Image, color: Color) -> void:
 	_stroke_circle(img, 14, 14, 10, color)
 	_fill_rect(img, 13, 8, 2, 7, color)
 	_fill_rect(img, 13, 13, 7, 2, color)
-
-
-static func _hex_outline(img: Image, cx: int, cy: int, radius: int, color: Color) -> void:
-	var prev := Vector2.ZERO
-	for i in 7:
-		var angle := deg_to_rad(60.0 * float(i % 6) - 30.0)
-		var pt := Vector2(cx, cy) + Vector2(cos(angle), sin(angle)) * float(radius)
-		if i > 0:
-			_line(img, prev.x, prev.y, pt.x, pt.y, color)
-		prev = pt
 
 
 static func _px(img: Image, x: int, y: int, color: Color) -> void:
