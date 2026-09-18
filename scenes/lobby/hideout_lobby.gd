@@ -170,8 +170,8 @@ func _refresh_marks() -> void:
 			_last_pay.text = "Server-owned  ·  display only"
 		else:
 			var pay = MarksPayout.from_any(ClientSession.last_payout)
-			var line := pay.payout_line()
-			var why := pay.reason
+			var line: String = pay.payout_line()
+			var why: String = str(pay.reason)
 			if line != "" and why != "":
 				_last_pay.text = "Last hunt  %s  ·  %s" % [line, why]
 			elif line != "":

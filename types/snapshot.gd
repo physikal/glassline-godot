@@ -69,14 +69,15 @@ func payout():
 
 
 func marks_delta() -> Variant:
-	var pay = payout()
+	var pay = MarksPayout.from_any(raw)
 	return pay.marks_delta
 
 
 func end_reason() -> String:
-	var pay = payout()
-	if pay.reason != "":
-		return pay.reason
+	var pay = MarksPayout.from_any(raw)
+	var why: String = str(pay.reason)
+	if why != "":
+		return why
 	return str(raw.get("endReason", raw.get("reason", "")))
 
 

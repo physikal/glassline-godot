@@ -147,12 +147,12 @@ static func end_headline(payload: Dictionary, you_seat: String, job: bool) -> St
 static func end_overlay(payload: Dictionary, you_seat: String, job: bool = false) -> String:
 	var payout = from_any(payload)
 	var lines: PackedStringArray = [end_headline(payload, you_seat, job)]
-	var pay := payout.payout_line()
+	var pay: String = payout.payout_line()
 	if pay != "":
 		lines.append(pay)
 	elif payout.has_marks():
 		lines.append(payout.balance_line())
-	var why := payout.reason
+	var why: String = str(payout.reason)
 	if why != "":
 		lines.append(why)
 	return "\n".join(lines)

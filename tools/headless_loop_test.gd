@@ -111,7 +111,7 @@ func _run() -> int:
 	_expect(failed, snap.marks_delta() == 1, "marksDelta +1 from server payout")
 	_expect(failed, snap.end_reason() == Contract.END_KILL, "payout reason kill")
 	_expect(failed, int(snap.payout().balance()) == 1, "payout.marks wallet")
-	var replay_wallet := server.account_marks
+	var replay_wallet: int = server.account_marks
 	var again: Dictionary = server.get_snapshot(match_id, pid_a)
 	_expect(failed, server.account_marks == replay_wallet, "replay snapshot does not grant again")
 	_expect(failed, Snapshot.from_dict(again).marks_delta() == 1, "settled payout stays")
