@@ -10,7 +10,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=false
 [application]
 
 config/name="Glassline"
-config/description="Hex Sniper client spike — offline loop against MockMatchServer"
+config/description="Hex Sniper client spike — MockMatchServer default, optional live HTTPS+SSE"
 config/version="0.1.0"
 run/main_scene="res://scenes/lobby/hideout_lobby.tscn"
 config/features=PackedStringArray("4.3", "GL Compatibility")
@@ -18,8 +18,15 @@ config/icon="res://icon.svg"
 
 [autoload]
 
-MockMatchServer="*res://autoload/mock_match_server.gd"
 ClientSession="*res://autoload/client_session.gd"
+MockMatchServer="*res://autoload/mock_match_server.gd"
+LiveMatchClient="*res://autoload/live_match_client.gd"
+MatchAPI="*res://autoload/match_api.gd"
+
+[glassline]
+
+use_live_api=false
+api_base_url="http://127.0.0.1:8787"
 
 [debug]
 

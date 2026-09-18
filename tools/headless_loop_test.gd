@@ -102,9 +102,12 @@ func _run() -> int:
 	snap = Snapshot.from_dict(r.snapshot)
 	last = snap.last_action()
 	_expect(failed, last is Dictionary and last.get("hit") == true, "kill hit=true")
+	_expect(failed, last is Dictionary and last.get("kill") == true, "kill flag")
 	_expect(failed, snap.status() == Contract.STATUS_ENDED, "ended")
 	_expect(failed, str(snap.winner()) == "a", "winner a")
 	_expect(failed, snap.you_marks() == 1, "marks +1")
+
+	_live_shape_case(failed)
 
 	# Recon odds: in-sector + forced roll.
 	_recon_case(failed)
@@ -121,6 +124,20 @@ func _run() -> int:
 	return 1
 
 
+func _live_shape_case(failed: PackedStringArray) -> void:
+	var hit_body := {
+		"ok": true,
+		"snapshot": {"matchId": "m_x", "status": "ended", "lastAction": {"type": "attack", "hit": true, "kill": true}},
+		"result": {"type": "attack", "hit": true, "kill": true},
+	}
+	var parsed: ActionResult = ActionResult.from_http(200, hit_body)
+	_expect(failed, parsed.ok, "live action ok")
+	_expect(failed, bool(parsed.result.get("kill", false)), "live result.kill")
+	var reject_body := {"ok": false, "snapshot": {}, "result": {"type": "reject", "reason": "not_your_turn"}}
+	parsed = ActionResult.from_http(400, reject_body)
+	_expect(failed, not parsed.ok and parsed.error == "not_your_turn", "live reject")
+
+
 func _recon_case(failed: PackedStringArray) -> void:
 	server.clear_all()
 	server.test_recon_roll = 0.0
@@ -134,7 +151,7 @@ func _recon_case(failed: PackedStringArray) -> void:
 	var r: ActionResult = server.apply_action(mid, a["playerId"], ActionIntent.recon(4, 3))
 	_expect(failed, r.ok, "recon apply")
 	var snap: Snapshot = Snapshot.from_dict(r.snapshot)
-	_expect(failed, bool(snap.last_action().get("found", false)), "recon found at roll 0")
+	_expect(failed, bool(snap.last_action().get("spotted", false)), "recon spotted at roll 0")
 	_expect(failed, Contract.same_hex(snap.enemy_visible_hex(), Contract.hex_dict(4, 4)), "recon intel")
 	server.test_recon_roll = 1.0
 	# Need a fresh action window — skip, already used action.
@@ -150,7 +167,7 @@ func _recon_case(failed: PackedStringArray) -> void:
 	server.apply_action(mid, a["playerId"], ActionIntent.start())
 	r = server.apply_action(mid, a["playerId"], ActionIntent.recon(4, 3))
 	snap = Snapshot.from_dict(r.snapshot)
-	_expect(failed, snap.last_action().get("found", true) == false, "recon miss at roll 1")
+	_expect(failed, snap.last_action().get("spotted", true) == false, "recon miss at roll 1")
 	_expect(failed, snap.enemy_visible_hex() == null, "recon miss no intel")
 
 

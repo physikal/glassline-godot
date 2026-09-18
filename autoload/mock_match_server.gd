@@ -263,10 +263,10 @@ func _act_attack(match_state: Dictionary, seat: String, action: Dictionary) -> A
 		match_state["phase"] = null
 		match_state["winner"] = seat
 		match_state["seats"][seat]["marks"] = int(match_state["seats"][seat]["marks"]) + 1
-		_set_last(match_state, {"type": Contract.ACT_ATTACK, "seat": seat, "hex": hex, "hit": true})
+		_set_last(match_state, {"type": Contract.ACT_ATTACK, "seat": seat, "hex": hex, "hit": true, "kill": true})
 	else:
 		match_state["phase"] = Contract.PHASE_END_TURN
-		_set_last(match_state, {"type": Contract.ACT_ATTACK, "seat": seat, "hex": hex, "hit": false})
+		_set_last(match_state, {"type": Contract.ACT_ATTACK, "seat": seat, "hex": hex, "hit": false, "kill": false})
 	return _ok(match_state, seat)
 
 
@@ -300,12 +300,15 @@ func _act_recon(match_state: Dictionary, seat: String, action: Dictionary) -> Ac
 			"softHotTurnsLeft": 2,
 		}
 	match_state["phase"] = Contract.PHASE_END_TURN
-	_set_last(match_state, {
+	var recon_last := {
 		"type": Contract.ACT_RECON,
 		"seat": seat,
-		"hex": hex,
+		"spotted": found,
 		"found": found,
-	})
+	}
+	if found:
+		recon_last["hex"] = enemy["hex"].duplicate()
+	_set_last(match_state, recon_last)
 	return _ok(match_state, seat)
 
 

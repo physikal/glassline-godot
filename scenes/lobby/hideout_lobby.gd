@@ -5,6 +5,8 @@ const Chrome := preload("res://scripts/chrome.gd")
 var _bg: TextureRect
 var _toast: Label
 var _marks: Label
+var _mode_lbl: Label
+var _mode_btn: Button
 
 
 func _ready() -> void:
@@ -48,11 +50,18 @@ func _build() -> void:
 	Chrome.apply_label(title, 28, Color.WHITE, true)
 	add_child(title)
 
-	var offline := Label.new()
-	offline.text = "OFFLINE MOCK"
-	offline.position = Vector2(1040, 22)
-	Chrome.apply_label(offline, 8, Chrome.TEAL, true)
-	add_child(offline)
+	_mode_lbl = Label.new()
+	_mode_lbl.position = Vector2(900, 18)
+	_mode_lbl.size = Vector2(360, 20)
+	_mode_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	Chrome.apply_label(_mode_lbl, 8, Chrome.TEAL, true)
+	add_child(_mode_lbl)
+
+	_mode_btn = Chrome.chunk_button("MOCK", Chrome.INK, Chrome.CREAM, Vector2(140, 36))
+	_mode_btn.position = Vector2(1120, 42)
+	_mode_btn.pressed.connect(_toggle_live)
+	add_child(_mode_btn)
+	_refresh_mode()
 
 	var bottom := ColorRect.new()
 	bottom.color = Color(0.08, 0.06, 0.05, 0.88)
@@ -109,24 +118,48 @@ func _toast_msg(text: String) -> void:
 	_toast.text = text
 
 
+func _toggle_live() -> void:
+	ClientSession.live_override = 0 if ClientSession.use_live_api() else 1
+	_refresh_mode()
+
+
+func _refresh_mode() -> void:
+	if ClientSession.use_live_api():
+		_mode_lbl.text = "LIVE  %s" % ClientSession.api_base_url()
+		_mode_btn.text = "LIVE"
+	else:
+		_mode_lbl.text = "OFFLINE MOCK"
+		_mode_btn.text = "MOCK"
+
+
 func _on_play() -> void:
-	MockMatchServer.clear_all()
+	MatchAPI.clear_all()
 	ClientSession.reset_match()
-	var created: Dictionary = MockMatchServer.create_match()
+	if ClientSession.use_live_api():
+		var health: Dictionary = MatchAPI.health()
+		if not bool(health.get("ok", false)):
+			_toast_msg("Live API down at %s  (GET /health)" % ClientSession.api_base_url())
+			return
+	var created: Dictionary = MatchAPI.create_match()
 	var match_id := str(created.get("matchId", ""))
 	var tokens: Dictionary = created.get("joinTokens", {})
-	var human: Dictionary = MockMatchServer.join(match_id, str(tokens.get("a", "")))
-	var dummy: Dictionary = MockMatchServer.join(match_id, str(tokens.get("b", "")))
+	if match_id == "" or tokens.is_empty():
+		_toast_msg("Create failed: %s" % str(created.get("error", "no matchId")))
+		return
+	ClientSession.join_token = str(tokens.get("a", ""))
+	ClientSession.dummy_token = str(tokens.get("b", ""))
+	var human: Dictionary = MatchAPI.join(match_id, ClientSession.join_token)
+	var dummy: Dictionary = MatchAPI.join(match_id, ClientSession.dummy_token)
 	if human.has("error") or dummy.has("error"):
-		_toast_msg("Mock join failed.")
+		_toast_msg("Join failed: %s" % str(human.get("error", dummy.get("error", ""))))
 		return
 	ClientSession.match_id = match_id
 	ClientSession.player_id = str(human.get("playerId", ""))
 	ClientSession.seat = str(human.get("seat", "a"))
 	ClientSession.dummy_player_id = str(dummy.get("playerId", ""))
-	# Join A is still `waiting`; pull the caller-scoped snap after B sits.
-	var ready_snap: Dictionary = MockMatchServer.get_snapshot(match_id, ClientSession.player_id)
+	var ready_snap: Dictionary = MatchAPI.get_snapshot(match_id, ClientSession.player_id)
 	if ready_snap.is_empty():
 		ready_snap = human.get("snapshot", {})
 	ClientSession.apply_snapshot(ready_snap)
+	MatchAPI.start_events()
 	get_tree().change_scene_to_file("res://scenes/match/match_screen.tscn")

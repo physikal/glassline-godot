@@ -43,16 +43,17 @@ func _ready() -> void:
 	set_anchors_preset(PRESET_FULL_RECT)
 	set_process(true)
 	_build()
-	MockMatchServer.match_event.connect(_on_match_event)
-	var fresh: Dictionary = MockMatchServer.get_snapshot(ClientSession.match_id, ClientSession.player_id)
+	MatchAPI.match_event.connect(_on_match_event)
+	var fresh: Dictionary = MatchAPI.get_snapshot(ClientSession.match_id, ClientSession.player_id)
 	if not fresh.is_empty():
 		ClientSession.apply_snapshot(fresh)
 	_refresh(ClientSession.typed_snapshot())
 
 
 func _exit_tree() -> void:
-	if MockMatchServer.match_event.is_connected(_on_match_event):
-		MockMatchServer.match_event.disconnect(_on_match_event)
+	if MatchAPI.match_event.is_connected(_on_match_event):
+		MatchAPI.match_event.disconnect(_on_match_event)
+	MatchAPI.stop_events()
 
 
 func _build() -> void:
@@ -441,7 +442,7 @@ func _submit(action: Dictionary) -> ActionResult:
 
 
 func _submit_as(player_id: String, action: Dictionary) -> ActionResult:
-	var result: ActionResult = MockMatchServer.apply_action(ClientSession.match_id, player_id, action)
+	var result: ActionResult = MatchAPI.apply_action(ClientSession.match_id, player_id, action)
 	if player_id == ClientSession.player_id:
 		if result.ok:
 			ClientSession.apply_snapshot(result.snapshot)
@@ -474,7 +475,10 @@ func _queue_dummy(snap: Snapshot) -> void:
 
 
 func _dummy_step() -> void:
-	var dummy_snap: Snapshot = Snapshot.from_dict(MockMatchServer.get_snapshot(ClientSession.match_id, ClientSession.dummy_player_id))
+	var raw: Dictionary = MatchAPI.get_snapshot(ClientSession.match_id, ClientSession.dummy_player_id)
+	if raw.is_empty():
+		raw = ClientSession.last_snapshot
+	var dummy_snap: Snapshot = Snapshot.from_dict(raw)
 	if dummy_snap.status() != Contract.STATUS_ACTIVE or str(dummy_snap.whose_turn()) == ClientSession.seat:
 		_dummy_busy = false
 		_dummy_delay = 0.0
@@ -506,7 +510,10 @@ func _describe_last(last: Dictionary) -> String:
 		Contract.ACT_ATTACK:
 			return "lastAction attack  hit=%s  (server)" % str(last.get("hit", false))
 		Contract.ACT_RECON:
-			return "lastAction recon  found=%s  (server)" % str(last.get("found", false))
+			var spotted: Variant = last.get("spotted", last.get("found", false))
+			return "lastAction recon  spotted=%s  (server)" % str(spotted)
+		Contract.ACT_REJECT:
+			return "lastAction reject  %s" % str(last.get("reason", ""))
 		Contract.ACT_UAV:
 			return "lastAction uav  revealed=%s  (server)" % str(last.get("revealed", false))
 		Contract.ACT_END_TURN:

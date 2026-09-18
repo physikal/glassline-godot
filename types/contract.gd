@@ -36,6 +36,9 @@ const EVENT_YOUR_TURN := "your_turn"
 
 const WIN_DRAW := "draw"
 
+const ACT_REJECT := "reject"
+const DEFAULT_API_BASE := "http://127.0.0.1:8787"
+
 static func on_board(q: int, r: int) -> bool:
 	return q >= 0 and q < BOARD_Q and r >= 0 and r < BOARD_R
 
