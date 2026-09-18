@@ -41,6 +41,7 @@ var _relocate_hex: Variant = null
 
 func _ready() -> void:
 	set_anchors_preset(PRESET_FULL_RECT)
+	set_process(true)
 	_build()
 	MockMatchServer.match_event.connect(_on_match_event)
 	var fresh: Dictionary = MockMatchServer.get_snapshot(ClientSession.match_id, ClientSession.player_id)
@@ -271,7 +272,11 @@ func _refresh(snap: Snapshot) -> void:
 		Contract.STATUS_ACTIVE:
 			_btn_start.visible = false
 			var yours := snap.is_your_turn()
-			if yours and str(snap.phase()) == Contract.PHASE_ACTION:
+			if _dummy_delay > 0.0:
+				_status.text = "Rival is lining up…  %.1fs" % _dummy_delay
+				_set_actions(false)
+				_end_panel.visible = false
+			elif yours and str(snap.phase()) == Contract.PHASE_ACTION:
 				_status.text = "Your action — Attack, Recon, or UAV."
 				_set_actions(true)
 				_end_panel.visible = false
@@ -423,6 +428,11 @@ func _on_end_turn() -> void:
 	var body := ActionIntent.end_turn(_exposure.value, _relocate_hex)
 	_relocate_hex = null
 	_selected = null
+	_dummy_delay = 1.4
+	_dummy_busy = true
+	_status.text = "Rival is lining up…  1.4s"
+	_set_actions(false)
+	_end_panel.visible = false
 	_submit(body)
 
 
