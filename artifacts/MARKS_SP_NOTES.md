@@ -122,4 +122,4 @@ Checklist + stills: `artifacts/LIVE_MARKS_SMOKE.md`.
 
 ## Out of this slice
 
-Art desk framing · parts/hideout sinks · Chips/IAP · ranked · Coder ledger implementation.
+Art desk framing · Chips/IAP · ranked · Coder ledger implementation. Hideout Marks sink (ARMORY / ghillie recolor ★50): `artifacts/MARKS_SINK_NOTES.md`.

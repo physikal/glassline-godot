@@ -7,6 +7,7 @@ const ActionIntent := preload("res://types/action_intent.gd")
 const ActionResult := preload("res://types/action_result.gd")
 const Snapshot := preload("res://types/snapshot.gd")
 const MarksPayout := preload("res://types/marks_payout.gd")
+const Shop := preload("res://types/shop.gd")
 const MockScript := preload("res://autoload/mock_match_server.gd")
 const SessionScript := preload("res://autoload/client_session.gd")
 
@@ -127,6 +128,7 @@ func _run() -> int:
 	_payout_shape_case(failed)
 	_job_case(failed)
 	_a2_reconnect_case(failed)
+	_shop_case(failed)
 
 	# Recon odds: in-sector + forced roll.
 	_recon_case(failed)
@@ -341,6 +343,66 @@ func _job_case(failed: PackedStringArray) -> void:
 	r = server.apply_action(mid, a["playerId"], ActionIntent.attack(7, 5))
 	snap = Snapshot.from_dict(r.snapshot)
 	_expect(failed, snap.marks_delta() == Contract.MARKS_JOB_T3, "job T3 marksDelta +20")
+
+
+func _shop_case(failed: PackedStringArray) -> void:
+	## S1–S4: catalog, buy snapshot bind, insufficient reject, visual equip. No combat delta.
+	server.clear_all()
+	server.reset_wallet(Contract.MOCK_WALLET_STUB)
+	var catalog: Dictionary = server.get_shop()
+	var listed = Shop.from_any(catalog)
+	_expect(failed, listed.item_id() == Contract.SHOP_STUB_ITEM_ID, "S1 shop stub itemId")
+	_expect(failed, listed.price() == Contract.SHOP_STUB_PRICE, "S1 GD price 50")
+	_expect(failed, listed.price() == 50, "S1 catalog price is 50 not 40")
+	_expect(failed, listed.balance() == Contract.MOCK_WALLET_STUB, "S1 you.marks stub 24")
+	_expect(failed, not listed.owns_stub(), "S1 not owned yet")
+	_expect(failed, Contract.RECON_BASE == 0.35 and Contract.MARKS_PVP_WIN == 25, "S4 combat table unchanged")
+
+	var session = SessionScript.new()
+	session.apply_shop(catalog)
+	_expect(failed, session.marks == 24, "S1 session binds you.marks")
+	var before: int = session.marks
+	var poor: Dictionary = server.buy_shop(Contract.SHOP_STUB_ITEM_ID, Contract.new_client_buy_id())
+	var poor_shop = Shop.from_any(poor)
+	_expect(failed, not bool(poor.get("ok", true)), "S3 buy rejected")
+	_expect(failed, poor_shop.is_insufficient(), "S3 insufficient_marks")
+	_expect(failed, server.account_marks == before, "S3 mock ledger unchanged")
+	session.bind_marks(999)
+	session.apply_shop(poor)
+	_expect(failed, session.marks == before, "S3 apply_shop replaces 999 with snapshot 24")
+	_expect(failed, session.marks == server.account_marks, "S3 never marks -= on client")
+
+	var buy_id := "00000000-0000-4000-8000-0000000000aa"
+	server.reset_wallet(80)
+	session.apply_shop(server.get_shop())
+	_expect(failed, session.marks == 80, "S2 seeded wallet from snapshot")
+	var bought: Dictionary = server.buy_shop(Contract.SHOP_STUB_ITEM_ID, buy_id)
+	_expect(failed, bool(bought.get("ok", false)), "S2 buy ok")
+	session.bind_marks(80)
+	session.apply_shop(bought)
+	_expect(failed, session.marks == 30, "S2 you.marks 80-50 from snapshot")
+	_expect(failed, server.account_marks == 30, "S2 mock ledger debited once")
+	_expect(failed, session.owns_cosmetic(Contract.SHOP_STUB_ITEM_ID), "S2 owned")
+	_expect(failed, session.is_equipped(Contract.SHOP_STUB_ITEM_ID), "S2 auto-equipped")
+	_expect(failed, session.ghillie, "S4 ghillie visual flag from equipped")
+	var replay: Dictionary = server.buy_shop(Contract.SHOP_STUB_ITEM_ID, buy_id)
+	_expect(failed, bool(replay.get("ok", false)), "S2 clientBuyId idempotent ok")
+	_expect(failed, server.account_marks == 30, "S2 replay does not debit again")
+	session.apply_shop(replay)
+	_expect(failed, session.marks == 30, "S2 replay snapshot still 30")
+	var second: Dictionary = server.buy_shop(Contract.SHOP_STUB_ITEM_ID, Contract.new_client_buy_id())
+	_expect(failed, str(second.get("error", "")) == Contract.SHOP_ERR_ALREADY_OWNED, "S2 second id already_owned")
+	_expect(failed, server.account_marks == 30, "S2 already_owned no debit")
+
+	var unequip: Dictionary = server.equip_cosmetic("")
+	session.apply_shop(unequip)
+	_expect(failed, session.owns_cosmetic(Contract.SHOP_STUB_ITEM_ID), "S4 still owned")
+	_expect(failed, not session.ghillie, "S4 unequip teal jacket")
+	var equip: Dictionary = server.equip_cosmetic(Contract.SHOP_STUB_ITEM_ID)
+	session.apply_shop(equip)
+	_expect(failed, session.ghillie, "S4 re-equip ghillie recolor")
+	_expect(failed, session.marks == 30, "S4 equip does not touch marks")
+	session.free()
 
 
 func _recon_case(failed: PackedStringArray) -> void:

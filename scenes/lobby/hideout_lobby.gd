@@ -3,6 +3,7 @@ extends Control
 const Chrome := preload("res://scripts/chrome.gd")
 const Contract := preload("res://types/contract.gd")
 const MarksPayout := preload("res://types/marks_payout.gd")
+const Shop := preload("res://types/shop.gd")
 
 var _bg: TextureRect
 var _wood_covers: Array[ColorRect] = []
@@ -12,6 +13,12 @@ var _last_pay: Label
 var _mode_lbl: Label
 var _mode_btn: Button
 var _jobs_panel: PanelContainer
+var _shop_row: PanelContainer
+var _shop_name: Label
+var _shop_price: Label
+var _shop_btn: Button
+var _shop_status: Label
+var _buying: bool = false
 
 
 func _ready() -> void:
@@ -19,12 +26,22 @@ func _ready() -> void:
 	_build()
 	_refresh_bg()
 	_bind_wallet()
+	_bind_shop()
 	_refresh_marks()
+	_refresh_shop()
 	var args := OS.get_cmdline_user_args()
 	if "--capture-lobby" in args:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 		DisplayServer.window_set_size(Vector2i(1280, 720))
 		await _capture_lobby()
+	elif "--capture-shop" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await _capture_named("res://artifacts/ux/shop_row.png", "S5_SHOP_ROW")
+	elif "--capture-shop-buy" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await _capture_shop_buy()
 	elif "--capture-a1" in args:
 		await get_tree().process_frame
 		_on_play()
@@ -46,6 +63,33 @@ func _capture_lobby() -> void:
 	img.save_png(path)
 	print("A1_LOBBY_CAPTURE ", path)
 	get_tree().quit()
+
+
+func _capture_named(res_path: String, tag: String) -> void:
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	var path := ProjectSettings.globalize_path(res_path)
+	img.save_png(path)
+	print("%s %s" % [tag, path])
+	get_tree().quit()
+
+
+func _capture_shop_buy() -> void:
+	## Mock ledger only — seed enough Marks, then bind the buy snapshot (never marks -=).
+	if not ClientSession.use_live_api():
+		MockMatchServer.reset_wallet(80)
+	_bind_wallet()
+	_bind_shop()
+	_refresh_marks()
+	_refresh_shop()
+	await get_tree().process_frame
+	_on_shop_primary()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await _capture_named("res://artifacts/ux/shop_post_buy_marks.png", "S5_SHOP_POST_BUY")
 
 
 func _build() -> void:
@@ -115,7 +159,7 @@ func _build() -> void:
 	add_child(row)
 
 	var loadout := Chrome.dock_button("LOADOUT", Chrome.LOADOUT_BLUE, Color.WHITE, Vector2(268, 68), "loadout")
-	loadout.pressed.connect(_toast_msg.bind("Slice 1: loadout stays in the hideout."))
+	loadout.pressed.connect(_focus_shop)
 	row.add_child(loadout)
 
 	var play := Chrome.dock_button("PLAY", Chrome.PLAY_GREEN, Color.WHITE, Vector2(380, 78), "play")
@@ -126,10 +170,12 @@ func _build() -> void:
 	jobs.pressed.connect(_toggle_jobs)
 	row.add_child(jobs)
 
+	_build_shop_row()
+
 	_toast = Label.new()
 	_toast.set_anchors_preset(PRESET_BOTTOM_WIDE)
-	_toast.offset_top = -148
-	_toast.offset_bottom = -112
+	_toast.offset_top = -248
+	_toast.offset_bottom = -212
 	_toast.offset_left = 80
 	_toast.offset_right = -80
 	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -226,6 +272,59 @@ func _currency_chip(icon_kind: String, color: Color, amount: String) -> PanelCon
 	return chip
 
 
+func _build_shop_row() -> void:
+	## Hideout ARMORY row — lobby-canon language. One cosmetic stub. No IAP / combat.
+	_shop_row = PanelContainer.new()
+	_shop_row.set_anchors_preset(PRESET_BOTTOM_WIDE)
+	_shop_row.offset_left = 72
+	_shop_row.offset_right = -72
+	_shop_row.offset_top = -200
+	_shop_row.offset_bottom = -118
+	var box := Chrome.flat(Color(0.10, 0.08, 0.06, 0.94), 20, Chrome.HIGH_GOLD, 3)
+	box.content_margin_left = 18
+	box.content_margin_right = 18
+	box.content_margin_top = 8
+	box.content_margin_bottom = 8
+	_shop_row.add_theme_stylebox_override("panel", box)
+	add_child(_shop_row)
+
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 6)
+	_shop_row.add_child(col)
+
+	var line := HBoxContainer.new()
+	line.alignment = BoxContainer.ALIGNMENT_CENTER
+	line.add_theme_constant_override("separation", 22)
+	col.add_child(line)
+
+	var kicker := Label.new()
+	kicker.text = "ARMORY"
+	kicker.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	Chrome.apply_label(kicker, 10, Chrome.HIGH_GOLD, true)
+	line.add_child(kicker)
+
+	_shop_name = Label.new()
+	_shop_name.text = Contract.SHOP_STUB_ITEM_NAME
+	_shop_name.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	Chrome.apply_label(_shop_name, 12, Chrome.CREAM, true)
+	line.add_child(_shop_name)
+
+	_shop_price = Label.new()
+	_shop_price.text = Chrome.marks_star_text(Contract.SHOP_STUB_PRICE)
+	_shop_price.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	Chrome.apply_label(_shop_price, 12, Chrome.HIGH_GOLD, true)
+	line.add_child(_shop_price)
+
+	_shop_btn = Chrome.chunk_button("BUY", Chrome.LOADOUT_BLUE, Color.WHITE, Vector2(168, 48))
+	_shop_btn.pressed.connect(_on_shop_primary)
+	line.add_child(_shop_btn)
+
+	_shop_status = Label.new()
+	_shop_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	Chrome.apply_label(_shop_status, 8, Color("f0e3b0"), true)
+	col.add_child(_shop_status)
+
+
 func _build_jobs_panel() -> void:
 	_jobs_panel = PanelContainer.new()
 	_jobs_panel.visible = false
@@ -269,6 +368,14 @@ func _bind_wallet() -> void:
 	var wallet: Dictionary = MatchAPI.wallet()
 	if wallet.has("marks"):
 		ClientSession.bind_marks(int(wallet.get("marks")))
+	if wallet.has("owned") or wallet.has("equipped") or wallet.has("you"):
+		ClientSession.apply_shop(wallet)
+
+
+func _bind_shop() -> void:
+	var bag: Dictionary = MatchAPI.get_shop()
+	ClientSession.apply_shop(bag)
+	_refresh_shop()
 
 
 func _refresh_marks() -> void:
@@ -333,9 +440,85 @@ func _stamp_wood(img: Image, x0: int, y0: int, x1: int, y1: int, px: int, py: in
 			img.set_pixel(x, y, img.get_pixel(px + posmod(x - x0, pw), py + posmod(y - y0, ph)))
 
 
-func _toggle_suit() -> void:
-	ClientSession.ghillie = not ClientSession.ghillie
+func _focus_shop() -> void:
+	if _shop_row:
+		_shop_row.visible = true
+	_toast_msg("ARMORY  ·  Ghillie Recolor  ★%d  ·  visual only" % Contract.SHOP_STUB_PRICE)
+
+
+func _refresh_shop() -> void:
+	if _shop_name == null:
+		return
+	var bag = Shop.from_any(MatchAPI.get_shop() if not ClientSession.use_live_api() else {
+		"items": [Contract.shop_stub_item()],
+		"owned": ClientSession.owned_cosmetics,
+		"equipped": ClientSession.equipped_cosmetic,
+		"you": {"marks": ClientSession.marks},
+	})
+	_shop_name.text = bag.item_name()
+	_shop_price.text = Chrome.marks_star_text(bag.price())
+	_shop_btn.disabled = _buying
+	if ClientSession.owns_cosmetic(Contract.SHOP_STUB_ITEM_ID):
+		if ClientSession.is_equipped(Contract.SHOP_STUB_ITEM_ID):
+			_shop_btn.text = "EQUIPPED"
+		else:
+			_shop_btn.text = "EQUIP"
+		if _shop_status.text == "" or _shop_status.text == "Not enough Marks.":
+			_shop_status.text = "OWNED  ·  visual only"
+	else:
+		_shop_btn.text = "BUY"
 	_refresh_bg()
+
+
+func _on_shop_primary() -> void:
+	if _buying:
+		return
+	if ClientSession.owns_cosmetic(Contract.SHOP_STUB_ITEM_ID):
+		_on_equip_toggle()
+		return
+	_buying = true
+	_shop_btn.disabled = true
+	var buy_id := Contract.new_client_buy_id()
+	var body: Dictionary = MatchAPI.buy_shop(Contract.SHOP_STUB_ITEM_ID, buy_id)
+	var shop = Shop.from_any(body)
+	## Snapshot is sole Marks truth — never marks -= on this client.
+	ClientSession.apply_shop(body)
+	_refresh_marks()
+	_buying = false
+	if shop.is_insufficient():
+		_shop_status.text = "Not enough Marks."
+		_toast_msg("ARMORY rejected  ·  insufficient_marks")
+	elif shop.is_unavailable():
+		_shop_status.text = "LIVE shop not ready"
+		_toast_msg("LIVE /shop 404  ·  mock ARMORY on F2")
+	elif not shop.ok:
+		_shop_status.text = str(shop.error)
+		_toast_msg("ARMORY rejected  ·  %s" % shop.error)
+	else:
+		_shop_status.text = "OWNED  ·  visual only"
+		_toast_msg("Ghillie Recolor stowed.")
+	_refresh_shop()
+
+
+func _on_equip_toggle() -> void:
+	if not ClientSession.owns_cosmetic(Contract.SHOP_STUB_ITEM_ID):
+		_toast_msg("Buy Ghillie Recolor in ARMORY.")
+		return
+	var next_id := "" if ClientSession.is_equipped(Contract.SHOP_STUB_ITEM_ID) else Contract.SHOP_STUB_ITEM_ID
+	var body: Dictionary = MatchAPI.equip_cosmetic(next_id)
+	if ClientSession.use_live_api():
+		ClientSession.bind_equip_local(next_id)
+	else:
+		ClientSession.apply_shop(body)
+	_refresh_shop()
+	_toast_msg("Ghillie Recolor equipped." if ClientSession.ghillie else "Teal jacket back on.")
+
+
+func _toggle_suit() -> void:
+	if ClientSession.owns_cosmetic(Contract.SHOP_STUB_ITEM_ID):
+		_on_equip_toggle()
+		return
+	_toast_msg("Buy Ghillie Recolor in ARMORY  ·  ★%d" % Contract.SHOP_STUB_PRICE)
 
 
 func _toast_msg(text: String) -> void:
@@ -357,7 +540,9 @@ func _toggle_live() -> void:
 	ClientSession.live_override = 0 if ClientSession.use_live_api() else 1
 	_refresh_mode()
 	_bind_wallet()
+	_bind_shop()
 	_refresh_marks()
+	_refresh_shop()
 
 
 func _refresh_mode() -> void:

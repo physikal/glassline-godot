@@ -4,6 +4,7 @@ extends Node
 const Snapshot := preload("res://types/snapshot.gd")
 const Contract := preload("res://types/contract.gd")
 const MarksPayout := preload("res://types/marks_payout.gd")
+const Shop := preload("res://types/shop.gd")
 
 const HANDLE := "Specter7"
 const RIVAL := "RivalSniper"
@@ -22,6 +23,9 @@ var match_mode: String = Contract.MODE_PVP
 var job_id: String = ""
 var job_tier: int = 1
 var ghillie: bool = false
+## Cosmetic display cache from shop snapshot. Visual only — no combat.
+var owned_cosmetics: Array = []
+var equipped_cosmetic: String = ""
 ## -1 follow project/env/export; 0 mock; 1 live
 var live_override: int = -1
 
@@ -44,6 +48,32 @@ func bind_marks(balance: int) -> void:
 	marks = balance
 
 
+func apply_shop(bag: Dictionary) -> void:
+	## Bind Marks + cosmetics from a shop / buy snapshot. Never marks -=.
+	var shop = Shop.from_any(bag)
+	if shop.has_marks():
+		bind_marks(shop.balance())
+	owned_cosmetics = shop.owned.duplicate()
+	equipped_cosmetic = str(shop.equipped)
+	ghillie = owns_cosmetic(Contract.SHOP_STUB_ITEM_ID) and is_equipped(Contract.SHOP_STUB_ITEM_ID)
+
+
+func owns_cosmetic(item_id: String) -> bool:
+	return owned_cosmetics.has(item_id)
+
+
+func is_equipped(item_id: String) -> bool:
+	return equipped_cosmetic == item_id
+
+
+func bind_equip_local(item_id: String) -> void:
+	## Visual toggle after a successful mock persist / LIVE local-only equip.
+	if item_id != "" and not owns_cosmetic(item_id):
+		return
+	equipped_cosmetic = item_id
+	ghillie = is_equipped(Contract.SHOP_STUB_ITEM_ID)
+
+
 func apply_snapshot(snap: Dictionary) -> void:
 	## A2: full replace. Never merge invented terrain tags or lastAction.hit.
 	last_snapshot = snap.duplicate(true)
@@ -62,6 +92,8 @@ func apply_snapshot(snap: Dictionary) -> void:
 			seat = str(you.get("seat", seat))
 		## A2: wallet is snapshot you.marks only. Replace — never invent / keep a local grant.
 		bind_marks(int(you.get("marks", 0)))
+		if you.has("owned") or you.has("equipped") or you.has("cosmetics"):
+			apply_shop({"you": you, "owned": you.get("owned", owned_cosmetics), "equipped": you.get("equipped", equipped_cosmetic)})
 	else:
 		bind_marks(0)
 	var payout = MarksPayout.from_any(snap)

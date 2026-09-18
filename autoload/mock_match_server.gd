@@ -17,6 +17,10 @@ signal match_event(player_id: String, event_name: String, snapshot: Dictionary)
 var test_recon_roll: float = -1.0
 ## Display stub for hideout. Persists across matches; tests call reset_wallet().
 var account_marks: int = Contract.MOCK_WALLET_STUB
+## Cosmetic ledger (visual only). Never touches combat / hit / exposure.
+var owned_cosmetics: Array = []
+var equipped_cosmetic: String = ""
+var _shop_receipts: Dictionary = {}
 
 var _matches: Dictionary = {}
 var _next_id: int = 1
@@ -64,11 +68,86 @@ func create_match(opts: Dictionary = {}) -> Dictionary:
 
 
 func wallet() -> Dictionary:
-	return {"marks": account_marks, "source": "mock"}
+	return _shop_snapshot()
 
 
 func reset_wallet(value: int = Contract.MOCK_WALLET_STUB) -> void:
 	account_marks = value
+	owned_cosmetics.clear()
+	equipped_cosmetic = ""
+	_shop_receipts.clear()
+
+
+func get_shop() -> Dictionary:
+	return _shop_snapshot()
+
+
+func buy_shop(item_id: String, client_buy_id: String = "") -> Dictionary:
+	## Mock ledger. Client still binds you.marks from this payload — never marks -=.
+	if client_buy_id != "" and _shop_receipts.has(client_buy_id):
+		return (_shop_receipts[client_buy_id] as Dictionary).duplicate(true)
+	if item_id != Contract.SHOP_STUB_ITEM_ID:
+		return _shop_reject(Contract.SHOP_ERR_UNKNOWN_ITEM)
+	if owned_cosmetics.has(item_id):
+		return _shop_reject(Contract.SHOP_ERR_ALREADY_OWNED)
+	var price := Contract.SHOP_STUB_PRICE
+	if account_marks < price:
+		return _shop_reject(Contract.SHOP_ERR_INSUFFICIENT)
+	account_marks -= price
+	if not owned_cosmetics.has(item_id):
+		owned_cosmetics.append(item_id)
+	equipped_cosmetic = item_id
+	var bought := _shop_ok({"type": "buy", "itemId": item_id, "clientBuyId": client_buy_id})
+	if client_buy_id != "":
+		_shop_receipts[client_buy_id] = bought.duplicate(true)
+	return bought
+
+
+func equip_cosmetic(item_id: String) -> Dictionary:
+	## Visual only. Empty item_id unequips. Unknown / unowned → reject.
+	if item_id == "":
+		equipped_cosmetic = ""
+		return _shop_ok({"type": "equip", "itemId": "", "equipped": null})
+	if not owned_cosmetics.has(item_id):
+		return _shop_reject("not_owned")
+	equipped_cosmetic = item_id
+	return _shop_ok({"type": "equip", "itemId": item_id, "equipped": item_id})
+
+
+func _shop_snapshot() -> Dictionary:
+	var bag: Dictionary = Contract.shop_catalog_stub(account_marks, owned_cosmetics, equipped_cosmetic)
+	bag["source"] = "mock"
+	bag["wallet"] = {"marks": account_marks}
+	return bag
+
+
+func _shop_ok(result: Dictionary = {}) -> Dictionary:
+	var snap := _shop_snapshot()
+	return {
+		"ok": true,
+		"error": "",
+		"snapshot": snap,
+		"you": snap.get("you", {}),
+		"owned": owned_cosmetics.duplicate(),
+		"equipped": equipped_cosmetic if equipped_cosmetic != "" else null,
+		"marks": account_marks,
+		"result": result,
+	}
+
+
+func _shop_reject(reason: String) -> Dictionary:
+	var snap := _shop_snapshot()
+	return {
+		"ok": false,
+		"error": reason,
+		"reason": reason,
+		"snapshot": snap,
+		"you": snap.get("you", {}),
+		"owned": owned_cosmetics.duplicate(),
+		"equipped": equipped_cosmetic if equipped_cosmetic != "" else null,
+		"marks": account_marks,
+		"result": {"type": Contract.ACT_REJECT, "reason": reason},
+	}
 
 
 func create_job(tier: int = 1) -> Dictionary:
