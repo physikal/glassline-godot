@@ -35,6 +35,7 @@ var _aim: int = Aim.NONE
 var _selected: Variant = null
 var _dummy_placed: bool = false
 var _dummy_busy: bool = false
+var _dummy_delay: float = 0.0
 var _relocate_hex: Variant = null
 
 
@@ -62,7 +63,7 @@ func _build() -> void:
 	var top := ColorRect.new()
 	top.color = Color(0.07, 0.05, 0.04, 0.94)
 	top.set_anchors_and_offsets_preset(PRESET_TOP_WIDE)
-	top.offset_bottom = 72
+	top.offset_bottom = 118
 	add_child(top)
 
 	_you_chip = Label.new()
@@ -109,26 +110,26 @@ func _build() -> void:
 	add_child(_legend_hover)
 
 	_board_host = Control.new()
-	_board_host.position = Vector2(230, 90)
-	_board_host.size = Vector2(820, 500)
+	_board_host.position = Vector2(230, 124)
+	_board_host.size = Vector2(820, 470)
 	_board_host.mouse_filter = Control.MOUSE_FILTER_STOP
 	_board_host.gui_input.connect(_on_board_input)
 	add_child(_board_host)
 
 	_board = HexBoard.new()
 	_board_host.add_child(_board)
-	_board.position = Vector2(410, 250)
+	_board.position = Vector2(410, 235)
 
 	_status = Label.new()
-	_status.position = Vector2(240, 88)
-	_status.size = Vector2(800, 24)
+	_status.position = Vector2(160, 70)
+	_status.size = Vector2(960, 24)
 	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	Chrome.apply_label(_status, 10, Color("f0e3b0"), true)
 	add_child(_status)
 
 	_phase = Label.new()
-	_phase.position = Vector2(240, 108)
-	_phase.size = Vector2(800, 20)
+	_phase.position = Vector2(160, 94)
+	_phase.size = Vector2(960, 20)
 	_phase.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	Chrome.apply_label(_phase, 8, Chrome.TEAL, true)
 	add_child(_phase)
@@ -161,7 +162,7 @@ func _build() -> void:
 	row.add_child(high)
 
 	_btn_start = Chrome.chunk_button("START", Chrome.PLAY_GREEN, Color.WHITE, Vector2(180, 48))
-	_btn_start.position = Vector2(1050, 88)
+	_btn_start.position = Vector2(1080, 68)
 	_btn_start.pressed.connect(_on_start)
 	add_child(_btn_start)
 
@@ -440,29 +441,42 @@ func _submit_as(player_id: String, action: Dictionary) -> ActionResult:
 	return result
 
 
+func _process(delta: float) -> void:
+	if _dummy_delay <= 0.0:
+		return
+	_dummy_delay = maxf(0.0, _dummy_delay - delta)
+	_status.text = "Rival is lining up…  %.1fs" % _dummy_delay
+	if _dummy_delay <= 0.0:
+		_dummy_step()
+
+
 func _queue_dummy(snap: Snapshot) -> void:
-	if _dummy_busy:
+	if _dummy_busy or _dummy_delay > 0.0:
 		return
 	if snap.status() != Contract.STATUS_ACTIVE:
 		return
 	if str(snap.whose_turn()) == snap.you_seat():
 		return
 	_dummy_busy = true
+	_dummy_delay = 1.1
+	_status.text = "Rival is lining up…  1.1s"
 	_toast.text = "RivalSniper is taking the glass…"
-	get_tree().create_timer(0.85).timeout.connect(_dummy_step)
 
 
 func _dummy_step() -> void:
 	var dummy_snap: Snapshot = Snapshot.from_dict(MockMatchServer.get_snapshot(ClientSession.match_id, ClientSession.dummy_player_id))
 	if dummy_snap.status() != Contract.STATUS_ACTIVE or str(dummy_snap.whose_turn()) == ClientSession.seat:
 		_dummy_busy = false
+		_dummy_delay = 0.0
 		return
 	if str(dummy_snap.phase()) == Contract.PHASE_ACTION:
 		_submit_as(ClientSession.dummy_player_id, ActionIntent.recon(4, 3))
-		get_tree().create_timer(0.7).timeout.connect(_dummy_step)
+		_dummy_delay = 0.9
+		_status.text = "Rival is lining up…  0.9s"
 	elif str(dummy_snap.phase()) == Contract.PHASE_END_TURN:
 		_submit_as(ClientSession.dummy_player_id, ActionIntent.end_turn(Contract.DEFAULT_EXPOSURE))
 		_dummy_busy = false
+		_dummy_delay = 0.0
 
 
 func _show_ended(snap: Snapshot) -> void:
