@@ -19,6 +19,9 @@ func _ready() -> void:
 	_refresh_bg()
 	_bind_wallet()
 	_refresh_marks()
+	if "--capture-a1" in OS.get_cmdline_user_args():
+		await get_tree().process_frame
+		_on_play()
 
 
 func _build() -> void:

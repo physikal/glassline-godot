@@ -52,6 +52,19 @@ func _ready() -> void:
 	if not fresh.is_empty():
 		ClientSession.apply_snapshot(fresh)
 	_refresh(ClientSession.typed_snapshot())
+	if "--capture-a1" in OS.get_cmdline_user_args():
+		_capture_after_play()
+
+
+func _capture_after_play() -> void:
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	var path := ProjectSettings.globalize_path("res://artifacts/a1-after-play.png")
+	img.save_png(path)
+	print("A1_AFTER_PLAY_CAPTURE ", path)
+	get_tree().quit()
 
 
 func _exit_tree() -> void:
@@ -61,21 +74,35 @@ func _exit_tree() -> void:
 
 
 func _build() -> void:
-	var bg := ColorRect.new()
-	bg.color = Color("1c1410")
-	bg.set_anchors_preset(PRESET_FULL_RECT)
-	add_child(bg)
+	var desk := TextureRect.new()
+	desk.texture = Chrome.make_wood_texture(320, 180)
+	desk.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	desk.stretch_mode = TextureRect.STRETCH_SCALE
+	desk.set_anchors_preset(PRESET_FULL_RECT)
+	desk.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(desk)
+
+	var wash := ColorRect.new()
+	wash.color = Color(0.08, 0.04, 0.03, 0.28)
+	wash.set_anchors_preset(PRESET_FULL_RECT)
+	wash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(wash)
 
 	var top := ColorRect.new()
-	top.color = Color(0.07, 0.05, 0.04, 0.94)
+	top.color = Color(0.10, 0.06, 0.04, 0.88)
 	top.set_anchors_and_offsets_preset(PRESET_TOP_WIDE)
-	top.offset_bottom = 118
+	top.offset_bottom = 108
 	add_child(top)
 
-	_you_chip = Label.new()
-	_you_chip.position = Vector2(16, 18)
-	Chrome.apply_label(_you_chip, 10, Chrome.CREAM, true)
-	add_child(_you_chip)
+	_add_player_card(true)
+	_add_player_card(false)
+
+	var reticle := TextureRect.new()
+	reticle.texture = Chrome.make_icon("attack", Color.WHITE, 28)
+	reticle.position = Vector2(430, 18)
+	reticle.size = Vector2(36, 36)
+	reticle.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(reticle)
 
 	var title := Label.new()
 	title.text = "SP JOB" if ClientSession.is_job() else "GLASSLINE"
@@ -85,23 +112,29 @@ func _build() -> void:
 	Chrome.apply_label(title, 22, Color.WHITE, true)
 	add_child(title)
 
-	_rival_chip = Label.new()
-	_rival_chip.position = Vector2(980, 18)
-	_rival_chip.size = Vector2(280, 24)
-	_rival_chip.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	Chrome.apply_label(_rival_chip, 10, Chrome.CREAM, true)
-	add_child(_rival_chip)
+	var clock := TextureRect.new()
+	clock.texture = Chrome.make_icon("clock", Chrome.CREAM, 28)
+	clock.position = Vector2(24, 118)
+	clock.size = Vector2(24, 24)
+	clock.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(clock)
+	var timer := Label.new()
+	timer.text = "01:30"
+	timer.position = Vector2(52, 118)
+	timer.size = Vector2(120, 24)
+	Chrome.apply_label(timer, 12, Chrome.CREAM, true)
+	add_child(timer)
 
 	_turn = Label.new()
-	_turn.position = Vector2(0, 48)
-	_turn.size = Vector2(1280, 20)
+	_turn.position = Vector2(0, 56)
+	_turn.size = Vector2(1280, 22)
 	_turn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	Chrome.apply_label(_turn, 8, Chrome.HIGH_GOLD, true)
+	Chrome.apply_label(_turn, 10, Chrome.HIGH_GOLD, true)
 	add_child(_turn)
 
 	var legend := VBoxContainer.new()
-	legend.position = Vector2(16, 160)
-	legend.add_theme_constant_override("separation", 10)
+	legend.position = Vector2(16, 168)
+	legend.add_theme_constant_override("separation", 12)
 	add_child(legend)
 	_legend_row(legend, Chrome.OPEN, "OPEN")
 	_legend_row(legend, Chrome.BRUSH, "BRUSH")
@@ -109,54 +142,61 @@ func _build() -> void:
 	_legend_row(legend, Chrome.UNKNOWN, "UNKNOWN")
 
 	_legend_hover = Label.new()
-	_legend_hover.position = Vector2(16, 360)
+	_legend_hover.position = Vector2(16, 380)
 	_legend_hover.size = Vector2(200, 80)
 	_legend_hover.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	Chrome.apply_label(_legend_hover, 8, Chrome.CREAM, true)
 	add_child(_legend_hover)
 
+	var well := ColorRect.new()
+	well.color = Color(0.07, 0.05, 0.04, 0.55)
+	well.position = Vector2(210, 128)
+	well.size = Vector2(860, 478)
+	well.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(well)
+
 	_board_host = Control.new()
-	_board_host.position = Vector2(230, 124)
-	_board_host.size = Vector2(820, 470)
+	_board_host.position = Vector2(220, 132)
+	_board_host.size = Vector2(840, 470)
 	_board_host.mouse_filter = Control.MOUSE_FILTER_STOP
 	_board_host.gui_input.connect(_on_board_input)
 	add_child(_board_host)
 
 	_board = HexBoard.new()
 	_board_host.add_child(_board)
-	_board.position = Vector2(410, 235)
+	_board.position = Vector2(420, 235)
 
 	_status = Label.new()
-	_status.position = Vector2(160, 70)
-	_status.size = Vector2(960, 24)
+	_status.position = Vector2(200, 82)
+	_status.size = Vector2(880, 22)
 	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	Chrome.apply_label(_status, 10, Color("f0e3b0"), true)
+	Chrome.apply_label(_status, 8, Color("f0e3b0"), true)
 	add_child(_status)
 
 	_phase = Label.new()
-	_phase.position = Vector2(160, 94)
-	_phase.size = Vector2(960, 20)
+	_phase.position = Vector2(200, 100)
+	_phase.size = Vector2(880, 18)
 	_phase.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	Chrome.apply_label(_phase, 8, Chrome.TEAL, true)
 	add_child(_phase)
 
 	var bottom := ColorRect.new()
-	bottom.color = Color(0.07, 0.05, 0.04, 0.94)
+	bottom.color = Color(0.10, 0.06, 0.04, 0.90)
 	bottom.set_anchors_and_offsets_preset(PRESET_BOTTOM_WIDE)
 	bottom.offset_top = -108
 	add_child(bottom)
 
 	var row := HBoxContainer.new()
-	row.position = Vector2(40, 628)
-	row.size = Vector2(1200, 76)
+	row.position = Vector2(40, 624)
+	row.size = Vector2(1200, 80)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 16)
 	add_child(row)
 
-	_btn_attack = Chrome.chunk_button("ATTACK", Chrome.ATTACK_RED, Color.WHITE, Vector2(200, 64))
+	_btn_attack = Chrome.action_button("attack", "ATTACK", Chrome.ATTACK_RED, Color.WHITE, Vector2(260, 68))
 	_btn_attack.pressed.connect(_on_attack)
 	row.add_child(_btn_attack)
-	_btn_recon = Chrome.chunk_button("RECON", Chrome.RECON_BLUE, Color.WHITE, Vector2(200, 64))
+	_btn_recon = Chrome.action_button("recon", "RECON", Chrome.RECON_BLUE, Color.WHITE, Vector2(260, 68))
 	_btn_recon.pressed.connect(_on_recon)
 	row.add_child(_btn_recon)
 	var uav_col := VBoxContainer.new()
@@ -167,18 +207,14 @@ func _build() -> void:
 	_ability_cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	Chrome.apply_label(_ability_cap, 8, Chrome.HIGH_GOLD, true)
 	uav_col.add_child(_ability_cap)
-	_btn_uav = Chrome.chunk_button(Contract.ABILITY_LABEL, Chrome.ABILITY_PURPLE, Color.WHITE, Vector2(200, 56))
+	_btn_uav = Chrome.action_button("ability", Contract.ABILITY_LABEL, Chrome.ABILITY_PURPLE, Color.WHITE, Vector2(260, 56))
 	_btn_uav.tooltip_text = "Ability — UAV Sweep. Posts type: uav."
 	_btn_uav.pressed.connect(_on_uav)
 	uav_col.add_child(_btn_uav)
 	row.add_child(uav_col)
-	var high := Chrome.chunk_button("HIGHGROUND", Chrome.HIGH_GOLD, Chrome.INK, Vector2(240, 64))
-	high.disabled = true
-	high.tooltip_text = "Flavor chip from the hex-map plate. Hit/miss stays server-side."
-	row.add_child(high)
 
-	_btn_start = Chrome.chunk_button("START", Chrome.PLAY_GREEN, Color.WHITE, Vector2(180, 48))
-	_btn_start.position = Vector2(1080, 68)
+	_btn_start = Chrome.chunk_button("START", Chrome.PLAY_GREEN, Color.WHITE, Vector2(160, 40))
+	_btn_start.position = Vector2(1096, 64)
 	_btn_start.pressed.connect(_on_start)
 	add_child(_btn_start)
 
@@ -248,13 +284,47 @@ func _build() -> void:
 	_over.add_child(back)
 
 
+func _add_player_card(is_you: bool) -> void:
+	var card := ColorRect.new()
+	card.color = Color(0.08, 0.05, 0.04, 0.72)
+	card.size = Vector2(300, 72)
+	if is_you:
+		card.position = Vector2(16, 12)
+	else:
+		card.position = Vector2(1008, 12)
+		card.size = Vector2(256, 72)
+	add_child(card)
+
+	var face := TextureRect.new()
+	face.texture = Chrome.make_face("p1" if is_you else "p2", 44)
+	face.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	face.position = card.position + Vector2(8, 14)
+	face.size = Vector2(44, 44)
+	face.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(face)
+
+	var tag := Label.new()
+	tag.text = "P1" if is_you else "P2"
+	tag.position = card.position + Vector2(60, 8)
+	Chrome.apply_label(tag, 8, Chrome.HIGH_GOLD if is_you else Chrome.P2, true)
+	add_child(tag)
+
+	var chip := Label.new()
+	chip.position = card.position + Vector2(60, 26)
+	chip.size = Vector2(230, 42)
+	chip.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	Chrome.apply_label(chip, 10, Chrome.CREAM, true)
+	add_child(chip)
+	if is_you:
+		_you_chip = chip
+	else:
+		_rival_chip = chip
+
+
 func _legend_row(parent: VBoxContainer, color: Color, text: String) -> void:
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
-	var swatch := ColorRect.new()
-	swatch.custom_minimum_size = Vector2(22, 22)
-	swatch.color = color
-	row.add_child(swatch)
+	row.add_theme_constant_override("separation", 10)
+	row.add_child(Chrome.hex_swatch(color, 22))
 	var lbl := Label.new()
 	lbl.text = text
 	Chrome.apply_label(lbl, 8, Chrome.CREAM, true)
@@ -280,7 +350,9 @@ func _refresh(snap: Snapshot) -> void:
 
 	match snap.status():
 		Contract.STATUS_READY:
-			_status.text = "DROP: click a hex. Re-drop until START. Dummy seats through select_hex."
+			_status.text = ""
+			_phase.text = ""
+			_toast.text = ""
 			_btn_start.visible = snap.you_placed() and _dummy_placed
 			_set_actions(false)
 			_end_panel.visible = false
@@ -313,7 +385,7 @@ func _refresh(snap: Snapshot) -> void:
 			_status.text = snap.status()
 
 	var last: Variant = snap.last_action()
-	if last is Dictionary:
+	if last is Dictionary and snap.status() != Contract.STATUS_READY:
 		_toast.text = _describe_last(last)
 	_btn_uav.disabled = _btn_uav.disabled or snap.uav_remaining() <= 0
 	if snap.uav_remaining() <= 0:
@@ -343,7 +415,7 @@ func _on_board_input(event: InputEvent) -> void:
 		_board.set_hover(hex)
 		if hex != null:
 			var snap: Snapshot = ClientSession.typed_snapshot()
-			var kind := str(snap.terrain_map().get(Contract.hex_key(hex), "unknown"))
+			var kind := _board.cell_kind(int(hex["q"]), int(hex["r"]))
 			_legend_hover.text = "Q%d R%d\n%s" % [int(hex["q"]), int(hex["r"]), kind.to_upper()]
 	elif event is InputEventMouseButton:
 		var mouse := event as InputEventMouseButton

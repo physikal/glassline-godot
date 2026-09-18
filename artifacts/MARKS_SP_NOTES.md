@@ -105,7 +105,12 @@ GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_jobs_smok
 
 Expect `LIVE_JOBS_SMOKE_OK` and `you.marks +10` once. Godot demo: hideout **LIVE** → **JOBS → START JOB** → drop → **UAV** → END TURN → ATTACK the revealed hex → FIRE. Overlay: JOB COMPLETE / table +10 / ★balance. Ability label is **UAV**.
 
-Verified 2026-09-18 against `https://glassline-api.vercel.app`: `LIVE_JOBS_SMOKE_OK j_5838afbb4638437fb4b12a2f978632cd marks 0->10` (replay GET stayed 10).
+Verified 2026-09-18 against `https://glassline-api.vercel.app`:
+
+- `LIVE_JOBS_SMOKE_OK j_b168c483a11a427a96031e38124a9f97 marks 0->10` (replay GET stayed 10)
+- Earlier: `j_f4ce6783556f4df99265c33ad5c4bdbc`, `j_5838afbb4638437fb4b12a2f978632cd` same 0→10 / M4
+
+Checklist + stills: `artifacts/LIVE_MARKS_SMOKE.md`.
 
 ## Out of this slice
 
