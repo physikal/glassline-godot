@@ -36,11 +36,18 @@ func health() -> Dictionary:
 	return _json("GET", "/health", null, "")
 
 
-func create_match() -> Dictionary:
-	var body: Dictionary = _json("POST", "/matches", {}, "")
+func create_match(opts: Dictionary = {}) -> Dictionary:
+	## Live POST /matches currently ignores body. Forward mode/job flags for Coder.
+	var payload: Dictionary = opts.duplicate(true)
+	var body: Dictionary = _json("POST", "/matches", payload, "")
 	if body.has("error") and not body.has("matchId"):
 		last_error = str(body.get("error", "create_failed"))
 	return body
+
+
+func wallet() -> Dictionary:
+	## No dedicated LIVE wallet route yet. Hideout binds the last snapshot.
+	return {}
 
 
 func join(match_id: String, token: String) -> Dictionary:

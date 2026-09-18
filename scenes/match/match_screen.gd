@@ -7,6 +7,7 @@ const ActionIntent := preload("res://types/action_intent.gd")
 const ActionResult := preload("res://types/action_result.gd")
 const Snapshot := preload("res://types/snapshot.gd")
 const HexMath := preload("res://scripts/hex_math.gd")
+const MarksPayout := preload("res://types/marks_payout.gd")
 
 enum Aim { NONE, ATTACK, RECON, RELOCATE }
 
@@ -24,6 +25,7 @@ var _exposure_lbl: Label
 var _btn_attack: Button
 var _btn_recon: Button
 var _btn_uav: Button
+var _ability_cap: Label
 var _btn_start: Button
 var _btn_end: Button
 var _over: ColorRect
@@ -74,7 +76,7 @@ func _build() -> void:
 	add_child(_you_chip)
 
 	var title := Label.new()
-	title.text = "GLASSLINE"
+	title.text = "SP JOB" if ClientSession.is_job() else "GLASSLINE"
 	title.position = Vector2(0, 16)
 	title.size = Vector2(1280, 40)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -155,9 +157,19 @@ func _build() -> void:
 	_btn_recon = Chrome.chunk_button("RECON", Chrome.RECON_BLUE, Color.WHITE, Vector2(200, 64))
 	_btn_recon.pressed.connect(_on_recon)
 	row.add_child(_btn_recon)
-	_btn_uav = Chrome.chunk_button("UAV", Chrome.ABILITY_PURPLE, Color.WHITE, Vector2(200, 64))
+	var uav_col := VBoxContainer.new()
+	uav_col.alignment = BoxContainer.ALIGNMENT_CENTER
+	uav_col.add_theme_constant_override("separation", 2)
+	_ability_cap = Label.new()
+	_ability_cap.text = Contract.ABILITY_SLOT
+	_ability_cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	Chrome.apply_label(_ability_cap, 8, Chrome.HIGH_GOLD, true)
+	uav_col.add_child(_ability_cap)
+	_btn_uav = Chrome.chunk_button(Contract.ABILITY_LABEL, Chrome.ABILITY_PURPLE, Color.WHITE, Vector2(200, 56))
+	_btn_uav.tooltip_text = "Ability — UAV Sweep. Posts type: uav."
 	_btn_uav.pressed.connect(_on_uav)
-	row.add_child(_btn_uav)
+	uav_col.add_child(_btn_uav)
+	row.add_child(uav_col)
 	var high := Chrome.chunk_button("HIGHGROUND", Chrome.HIGH_GOLD, Chrome.INK, Vector2(240, 64))
 	high.disabled = true
 	high.tooltip_text = "Flavor chip from the hex-map plate. Hit/miss stays server-side."
@@ -257,8 +269,8 @@ func _on_match_event(player_id: String, _event_name: String, snapshot: Dictionar
 
 func _refresh(snap: Snapshot) -> void:
 	_board.apply_snapshot(snap, _selected, _highlights(snap))
-	_you_chip.text = "%s  SEAT %s  ★%d" % [ClientSession.HANDLE, snap.you_seat().to_upper(), snap.you_marks()]
-	_rival_chip.text = "%s" % ClientSession.RIVAL
+	_you_chip.text = "%s  SEAT %s  %s" % [ClientSession.HANDLE, snap.you_seat().to_upper(), Chrome.marks_chip_text(snap.you_marks())]
+	_rival_chip.text = "BOT" if ClientSession.is_job() or snap.is_job() else ClientSession.RIVAL
 	_turn.text = "TURN  %d / %d" % [snap.turn_index(), snap.turn_cap()]
 	var whose := str(snap.whose_turn()) if snap.whose_turn() != null else "-"
 	var phase_txt := str(snap.phase()) if snap.phase() != null else "-"
@@ -278,7 +290,7 @@ func _refresh(snap: Snapshot) -> void:
 				_set_actions(false)
 				_end_panel.visible = false
 			elif yours and str(snap.phase()) == Contract.PHASE_ACTION:
-				_status.text = "Your action — Attack, Recon, or UAV."
+				_status.text = "Your action — Attack, Recon, or %s." % Contract.ABILITY_LABEL
 				_set_actions(true)
 				_end_panel.visible = false
 			elif yours and str(snap.phase()) == Contract.PHASE_END_TURN:
@@ -303,7 +315,9 @@ func _refresh(snap: Snapshot) -> void:
 		_toast.text = _describe_last(last)
 	_btn_uav.disabled = _btn_uav.disabled or snap.uav_remaining() <= 0
 	if snap.uav_remaining() <= 0:
-		_btn_uav.text = "UAV SPENT"
+		_btn_uav.text = "%s SPENT" % Contract.ABILITY_LABEL
+	else:
+		_btn_uav.text = Contract.ABILITY_LABEL
 
 
 func _highlights(snap: Snapshot) -> Dictionary:
@@ -409,7 +423,7 @@ func _on_recon() -> void:
 
 
 func _on_uav() -> void:
-	_submit(ActionIntent.uav())
+	_submit(ActionIntent.ability())
 
 
 func _on_optic_fire() -> void:
@@ -499,13 +513,7 @@ func _dummy_step() -> void:
 
 func _show_ended(snap: Snapshot) -> void:
 	_over.visible = true
-	var win: Variant = snap.winner()
-	if win == Contract.WIN_DRAW:
-		_over_lbl.text = "DRAW\nTurn cap 16 — no kill."
-	elif str(win) == snap.you_seat():
-		_over_lbl.text = "MARK CONFIRMED\nMarks +1"
-	else:
-		_over_lbl.text = "ELIMINATED"
+	_over_lbl.text = MarksPayout.end_overlay(snap.raw, snap.you_seat(), ClientSession.is_job() or snap.is_job())
 
 
 func _describe_last(last: Dictionary) -> String:

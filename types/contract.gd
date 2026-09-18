@@ -39,6 +39,36 @@ const WIN_DRAW := "draw"
 const ACT_REJECT := "reject"
 const DEFAULT_API_BASE := "https://glassline-api.vercel.app"
 
+const MODE_PVP := "pvp"
+const MODE_SP_JOB := "sp_job"
+
+const END_KILL := "kill"
+const END_STANDOFF := "standoff"
+const END_LOSS := "loss"
+const END_JOB := "job"
+const END_JOB_FAIL := "job_fail"
+const END_FORFEIT := "forfeit"
+const END_DISCONNECT := "disconnect"
+
+## Soft A4 — treat these snapshot/result tokens as forfeit chrome.
+const FORFEIT_REASONS := ["forfeit", "disconnect", "disconnected", "ragequit"]
+
+## Ability slot chrome (M5). Intent type stays `uav`.
+const ABILITY_LABEL := "UAV"
+const ABILITY_SLOT := "ABILITY"
+
+## Mock hideout stub until Coder's ledger / GET wallet exists.
+const MOCK_WALLET_STUB := 24
+
+## Assumed stub table (GD one-pager TBD). Mock display grants only.
+const MARKS_PVP_WIN := 1
+const MARKS_PVP_LOSS := 0
+const MARKS_STANDOFF := 0
+const MARKS_JOB_WIN := 1
+const MARKS_JOB_FAIL := 0
+const MARKS_FORFEIT_WIN := 1
+const MARKS_FORFEIT_LOSS := 0
+
 static func on_board(q: int, r: int) -> bool:
 	return q >= 0 and q < BOARD_Q and r >= 0 and r < BOARD_R
 

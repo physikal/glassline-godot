@@ -4,6 +4,7 @@ extends RefCounted
 ## Mock also fills ok/error/event so scenes stay the same.
 
 const Contract := preload("res://types/contract.gd")
+const MarksPayout := preload("res://types/marks_payout.gd")
 
 var ok: bool = false
 var error: String = ""
@@ -63,6 +64,13 @@ static func fail(code: String, snap: Dictionary = {}):
 	parsed.event = Contract.EVENT_SNAPSHOT
 	parsed.result = {"type": Contract.ACT_REJECT, "reason": code}
 	return parsed
+
+
+func payout():
+	var from_result = MarksPayout.from_any(result)
+	if from_result.has_marks() or from_result.has_delta() or from_result.reason != "":
+		return from_result
+	return MarksPayout.from_any(snapshot)
 
 
 static func ok_result(snap: Dictionary, event_name: String = Contract.EVENT_SNAPSHOT):

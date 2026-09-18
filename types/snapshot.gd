@@ -2,6 +2,7 @@ extends RefCounted
 ## Caller-scoped snapshot. Wrap a contract dictionary; do not invent fields.
 
 const Contract := preload("res://types/contract.gd")
+const MarksPayout := preload("res://types/marks_payout.gd")
 
 var raw: Dictionary = {}
 
@@ -41,7 +42,46 @@ func phase() -> Variant:
 
 
 func uav_remaining() -> int:
-	return int(raw.get("uavRemaining", 0))
+	if raw.has("uavRemaining"):
+		return int(raw.get("uavRemaining", 0))
+	if raw.has("uavAvailable"):
+		return 1 if bool(raw.get("uavAvailable", false)) else 0
+	return 0
+
+
+func mode() -> String:
+	var value := str(raw.get("mode", raw.get("matchMode", "")))
+	if value == "":
+		if bool(raw.get("job", false)) or bool(raw.get("spJob", false)) or str(raw.get("jobId", "")) != "":
+			return Contract.MODE_SP_JOB
+		return Contract.MODE_PVP
+	if value in ["job", "sp", "spJob", "sp_job"]:
+		return Contract.MODE_SP_JOB
+	return value
+
+
+func is_job() -> bool:
+	return mode() == Contract.MODE_SP_JOB
+
+
+func payout():
+	return MarksPayout.from_any(raw)
+
+
+func marks_delta() -> Variant:
+	var pay = payout()
+	return pay.marks_delta
+
+
+func end_reason() -> String:
+	var pay = payout()
+	if pay.reason != "":
+		return pay.reason
+	return str(raw.get("endReason", raw.get("reason", "")))
+
+
+func is_forfeit() -> bool:
+	return MarksPayout.is_forfeit_payload(raw)
 
 
 func you() -> Dictionary:

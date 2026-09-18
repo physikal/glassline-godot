@@ -3,6 +3,7 @@ extends Node
 
 const Snapshot := preload("res://types/snapshot.gd")
 const Contract := preload("res://types/contract.gd")
+const MarksPayout := preload("res://types/marks_payout.gd")
 
 const HANDLE := "Specter7"
 const RIVAL := "RivalSniper"
@@ -14,7 +15,10 @@ var dummy_player_id: String = ""
 var join_token: String = ""
 var dummy_token: String = ""
 var last_snapshot: Dictionary = {}
+## Display cache of server Marks. Never treat as a writable ledger.
 var marks: int = 0
+var last_payout: Dictionary = {}
+var match_mode: String = Contract.MODE_PVP
 var ghillie: bool = false
 ## -1 follow project/env/export; 0 mock; 1 live
 var live_override: int = -1
@@ -28,15 +32,35 @@ func reset_match() -> void:
 	join_token = ""
 	dummy_token = ""
 	last_snapshot = {}
+	match_mode = Contract.MODE_PVP
+
+
+func bind_marks(balance: int) -> void:
+	## Display bind only. Callers must pass a server/mock snapshot value.
+	marks = balance
 
 
 func apply_snapshot(snap: Dictionary) -> void:
 	last_snapshot = snap.duplicate(true)
+	if str(snap.get("mode", "")) != "":
+		match_mode = str(snap.get("mode"))
 	var you: Variant = snap.get("you", {})
 	if you is Dictionary:
-		marks = int(you.get("marks", marks))
 		if str(you.get("seat", "")) != "":
 			seat = str(you.get("seat", seat))
+	var payout = MarksPayout.from_any(snap)
+	if payout.has_marks():
+		bind_marks(payout.balance())
+	if payout.has_delta() or payout.reason != "":
+		last_payout = {
+			"marks": payout.marks,
+			"marksDelta": payout.marks_delta,
+			"reason": payout.reason,
+		}
+
+
+func is_job() -> bool:
+	return match_mode == Contract.MODE_SP_JOB
 
 
 func typed_snapshot() -> Snapshot:

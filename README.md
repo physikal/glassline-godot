@@ -74,8 +74,8 @@ Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` 
 
 | Scene | Path | Role |
 | --- | --- | --- |
-| Hideout | `scenes/lobby/hideout_lobby.tscn` | Canon room, PLAY, MOCK/LIVE toggle |
-| Match | `scenes/match/match_screen.tscn` | 9×7 axial, dummy `select_hex`, START, Attack/Recon/UAV, END TURN |
+| Hideout | `scenes/lobby/hideout_lobby.tscn` | Canon room, PLAY, JOBS (SP vs bot), Marks chip, MOCK/LIVE toggle |
+| Match | `scenes/match/match_screen.tscn` | 9×7 axial, dummy `select_hex`, START, Attack/Recon/UAV ability, END TURN |
 | Optic | `scenes/optic/optic_overlay.gd` | Zoom / wobble stub + FIRE |
 | Types | `types/` | Snapshot, ActionIntent, ActionResult (`{ ok, snapshot, result }`) |
 | Mock | `autoload/mock_match_server.gd` | Local secret positions |
@@ -90,7 +90,9 @@ Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` 
 4. ATTACK miss → optic FIRE → server `result.hit == false`. END TURN.
 5. Dummy recon + end_turn (or watch SSE `your_turn`).
 6. UAV once → `enemy.visibleHex`. END TURN.
-7. ATTACK that hex → `hit` / `kill`, Marks +1.
+7. ATTACK that hex → `hit` / `kill`. End overlay reads server `payout` (`marks`, `marksDelta`, `reason`) — never local `marks +=`.
+
+Hideout **JOBS → START JOB** is the SP job stub (`POST /matches` with `mode: "sp_job"`). Ability chrome is labeled **UAV** and still posts `{ type: "uav" }`. Assumed ledger field names: `artifacts/MARKS_SP_NOTES.md`.
 
 ## Layout
 

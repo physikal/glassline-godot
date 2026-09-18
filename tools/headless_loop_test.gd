@@ -6,6 +6,7 @@ const Contract := preload("res://types/contract.gd")
 const ActionIntent := preload("res://types/action_intent.gd")
 const ActionResult := preload("res://types/action_result.gd")
 const Snapshot := preload("res://types/snapshot.gd")
+const MarksPayout := preload("res://types/marks_payout.gd")
 const MockScript := preload("res://autoload/mock_match_server.gd")
 
 var server
@@ -20,6 +21,7 @@ func _init() -> void:
 func _run() -> int:
 	var failed: PackedStringArray = []
 	server.clear_all()
+	server.reset_wallet(0)
 
 	var created: Dictionary = server.create_match()
 	_expect(failed, created.has("matchId"), "create_match.matchId")
@@ -106,8 +108,20 @@ func _run() -> int:
 	_expect(failed, snap.status() == Contract.STATUS_ENDED, "ended")
 	_expect(failed, str(snap.winner()) == "a", "winner a")
 	_expect(failed, snap.you_marks() == 1, "marks +1")
+	_expect(failed, snap.marks_delta() == 1, "marksDelta +1 from server payout")
+	_expect(failed, snap.end_reason() == Contract.END_KILL, "payout reason kill")
+	_expect(failed, int(snap.payout().balance()) == 1, "payout.marks wallet")
+	var replay_wallet := server.account_marks
+	var again: Dictionary = server.get_snapshot(match_id, pid_a)
+	_expect(failed, server.account_marks == replay_wallet, "replay snapshot does not grant again")
+	_expect(failed, Snapshot.from_dict(again).marks_delta() == 1, "settled payout stays")
+	r = server.apply_action(match_id, pid_a, ActionIntent.attack(6, 5))
+	_expect(failed, not r.ok, "replay end refused")
+	_expect(failed, server.account_marks == replay_wallet, "refused replay does not double grant")
 
 	_live_shape_case(failed)
+	_payout_shape_case(failed)
+	_job_case(failed)
 
 	# Recon odds: in-sector + forced roll.
 	_recon_case(failed)
@@ -138,8 +152,68 @@ func _live_shape_case(failed: PackedStringArray) -> void:
 	_expect(failed, not parsed.ok and parsed.error == "not_your_turn", "live reject")
 
 
+func _payout_shape_case(failed: PackedStringArray) -> void:
+	var live_body := {
+		"ok": true,
+		"snapshot": {
+			"matchId": "m_pay",
+			"status": "ended",
+			"winner": "a",
+			"you": {"seat": "a", "marks": 12},
+			"payout": {"marks": 12, "marksDelta": 1, "reason": "kill"},
+		},
+		"result": {"type": "attack", "hit": true, "kill": true, "marks": 12, "marksDelta": 1, "reason": "kill"},
+	}
+	var parsed: ActionResult = ActionResult.from_http(200, live_body)
+	var pay = parsed.payout()
+	_expect(failed, pay.has_marks() and pay.balance() == 12, "result payout.marks")
+	_expect(failed, pay.has_delta() and pay.delta() == 1, "result payout.marksDelta")
+	_expect(failed, pay.reason == "kill", "result payout.reason")
+	var overlay := MarksPayout.end_overlay(live_body["snapshot"], "a", false)
+	_expect(failed, overlay.find("MARK CONFIRMED") >= 0, "end overlay win")
+	_expect(failed, overlay.find("+1 MARK") >= 0, "end overlay delta")
+	_expect(failed, overlay.find("★12") >= 0, "end overlay balance")
+	var forfeit_snap := {
+		"status": "ended",
+		"winner": "a",
+		"endReason": "forfeit",
+		"you": {"seat": "a", "marks": 8},
+		"payout": {"marks": 8, "marksDelta": 1, "reason": "forfeit"},
+	}
+	var foil := MarksPayout.end_overlay(forfeit_snap, "a", false)
+	_expect(failed, foil.find("RIVAL FORFEIT") >= 0, "forfeit winner chrome")
+	var you_forfeit := MarksPayout.end_overlay({"endReason": "disconnect", "winner": "b", "you": {"seat": "a", "marks": 7}}, "a", false)
+	_expect(failed, you_forfeit.find("FORFEIT") >= 0, "disconnect loser chrome")
+	var job_win := MarksPayout.end_overlay({"winner": "a", "payout": {"marks": 5, "marksDelta": 1, "reason": "job"}}, "a", true)
+	_expect(failed, job_win.find("JOB COMPLETE") >= 0, "job win chrome")
+
+
+func _job_case(failed: PackedStringArray) -> void:
+	server.clear_all()
+	server.reset_wallet(10)
+	var created: Dictionary = server.create_match({"mode": "sp_job"})
+	_expect(failed, str(created.get("mode", "")) == Contract.MODE_SP_JOB, "create_match mode sp_job")
+	var mid := str(created["matchId"])
+	var a: Dictionary = server.join(mid, created["joinTokens"]["a"])
+	var b: Dictionary = server.join(mid, created["joinTokens"]["b"])
+	var snap: Snapshot = Snapshot.from_dict(a["snapshot"])
+	_expect(failed, snap.is_job(), "join snapshot mode job")
+	_expect(failed, snap.you_marks() == 10, "job stub wallet on drop")
+	server.apply_action(mid, a["playerId"], ActionIntent.select_hex(2, 2))
+	server.apply_action(mid, b["playerId"], ActionIntent.select_hex(7, 5))
+	server.apply_action(mid, a["playerId"], ActionIntent.start())
+	var r: ActionResult = server.apply_action(mid, a["playerId"], ActionIntent.attack(7, 5))
+	snap = Snapshot.from_dict(r.snapshot)
+	_expect(failed, r.ok and snap.status() == Contract.STATUS_ENDED, "job kill ends")
+	_expect(failed, snap.end_reason() == Contract.END_JOB, "job payout reason")
+	_expect(failed, snap.marks_delta() == 1, "job marksDelta")
+	_expect(failed, snap.you_marks() == 11, "job wallet from server")
+	_expect(failed, server.account_marks == 11, "mock ledger not client +=")
+
+
 func _recon_case(failed: PackedStringArray) -> void:
 	server.clear_all()
+	server.reset_wallet(0)
 	server.test_recon_roll = 0.0
 	var created: Dictionary = server.create_match()
 	var mid := str(created["matchId"])
@@ -173,6 +247,7 @@ func _recon_case(failed: PackedStringArray) -> void:
 
 func _draw_case(failed: PackedStringArray) -> void:
 	server.clear_all()
+	server.reset_wallet(4)
 	var created: Dictionary = server.create_match()
 	var mid := str(created["matchId"])
 	var a: Dictionary = server.join(mid, created["joinTokens"]["a"])
@@ -191,7 +266,10 @@ func _draw_case(failed: PackedStringArray) -> void:
 	var snap: Snapshot = Snapshot.from_dict(server.get_snapshot(mid, a["playerId"]))
 	_expect(failed, snap.status() == Contract.STATUS_ENDED, "cap ended")
 	_expect(failed, str(snap.winner()) == Contract.WIN_DRAW, "cap draw")
-	_expect(failed, snap.you_marks() == 0, "draw no marks")
+	_expect(failed, snap.you_marks() == 4, "draw keeps wallet")
+	_expect(failed, snap.marks_delta() == 0, "standoff marksDelta 0")
+	_expect(failed, snap.end_reason() == Contract.END_STANDOFF, "standoff reason")
+	_expect(failed, server.account_marks == 4, "standoff does not invent +1")
 
 
 func _expect(failed: PackedStringArray, cond: bool, label: String) -> void:

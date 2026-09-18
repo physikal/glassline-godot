@@ -15,16 +15,19 @@ signal match_event(player_id: String, event_name: String, snapshot: Dictionary)
 
 ## If >= 0, recon uses this roll instead of randf() (headless tests).
 var test_recon_roll: float = -1.0
+## Display stub for hideout. Persists across matches; tests call reset_wallet().
+var account_marks: int = Contract.MOCK_WALLET_STUB
 
 var _matches: Dictionary = {}
 var _next_id: int = 1
 
 
-func create_match() -> Dictionary:
+func create_match(opts: Dictionary = {}) -> Dictionary:
 	var match_id := "m_%d" % _next_id
 	_next_id += 1
 	var token_a := "tok_%s_a" % match_id
 	var token_b := "tok_%s_b" % match_id
+	var mode := _read_mode(opts)
 	_matches[match_id] = {
 		"matchId": match_id,
 		"status": Contract.STATUS_WAITING,
@@ -34,6 +37,11 @@ func create_match() -> Dictionary:
 		"phase": null,
 		"winner": null,
 		"lastAction": null,
+		"mode": mode,
+		"jobId": str(opts.get("jobId", match_id if mode == Contract.MODE_SP_JOB else "")),
+		"endReason": null,
+		"payoutSettled": false,
+		"payouts": {Contract.SEAT_A: {}, Contract.SEAT_B: {}},
 		"salt": "%s:%s" % [Contract.TERRAIN_SALT, match_id],
 		"tokens": {Contract.SEAT_A: token_a, Contract.SEAT_B: token_b},
 		"seats": {
@@ -49,7 +57,30 @@ func create_match() -> Dictionary:
 	return {
 		"matchId": match_id,
 		"joinTokens": {Contract.SEAT_A: token_a, Contract.SEAT_B: token_b},
+		"mode": mode,
+		"wallet": {"marks": account_marks},
 	}
+
+
+func wallet() -> Dictionary:
+	return {"marks": account_marks, "source": "mock"}
+
+
+func reset_wallet(value: int = Contract.MOCK_WALLET_STUB) -> void:
+	account_marks = value
+
+
+func _read_mode(opts: Dictionary) -> String:
+	var mode := str(opts.get("mode", opts.get("matchMode", "")))
+	if mode in ["job", "sp", "spJob", "sp_job"]:
+		return Contract.MODE_SP_JOB
+	if bool(opts.get("job", false)) or bool(opts.get("sp", false)) or bool(opts.get("spJob", false)):
+		return Contract.MODE_SP_JOB
+	if str(opts.get("jobId", "")) != "":
+		return Contract.MODE_SP_JOB
+	if mode != "":
+		return mode
+	return Contract.MODE_PVP
 
 
 func join(match_id: String, token: String) -> Dictionary:
@@ -123,6 +154,7 @@ func apply_action(match_id: String, player_id: String, action: Dictionary) -> Ac
 func clear_all() -> void:
 	_matches.clear()
 	test_recon_roll = -1.0
+	## Wallet stays — PLAY must not wipe hideout Marks. Tests call reset_wallet().
 
 
 func _empty_seat(token: String) -> Dictionary:
@@ -262,8 +294,18 @@ func _act_attack(match_state: Dictionary, seat: String, action: Dictionary) -> A
 		match_state["whoseTurn"] = null
 		match_state["phase"] = null
 		match_state["winner"] = seat
-		match_state["seats"][seat]["marks"] = int(match_state["seats"][seat]["marks"]) + 1
-		_set_last(match_state, {"type": Contract.ACT_ATTACK, "seat": seat, "hex": hex, "hit": true, "kill": true})
+		_settle_payout(match_state, Contract.END_KILL)
+		var pay: Dictionary = match_state["payouts"][seat]
+		_set_last(match_state, {
+			"type": Contract.ACT_ATTACK,
+			"seat": seat,
+			"hex": hex,
+			"hit": true,
+			"kill": true,
+			"marks": pay.get("marks", account_marks),
+			"marksDelta": pay.get("marksDelta", 0),
+			"reason": pay.get("reason", Contract.END_KILL),
+		})
 	else:
 		match_state["phase"] = Contract.PHASE_END_TURN
 		_set_last(match_state, {"type": Contract.ACT_ATTACK, "seat": seat, "hex": hex, "hit": false, "kill": false})
@@ -376,6 +418,7 @@ func _act_end_turn(match_state: Dictionary, seat: String, action: Dictionary) ->
 		match_state["whoseTurn"] = null
 		match_state["phase"] = null
 		match_state["winner"] = Contract.WIN_DRAW
+		_settle_payout(match_state, Contract.END_STANDOFF)
 	else:
 		match_state["whoseTurn"] = Contract.other_seat(seat)
 		match_state["phase"] = Contract.PHASE_ACTION
@@ -387,6 +430,48 @@ func _act_end_turn(match_state: Dictionary, seat: String, action: Dictionary) ->
 		"hex": seat_state["hex"],
 	})
 	return _ok(match_state, seat)
+
+
+func _settle_payout(match_state: Dictionary, end_reason: String) -> void:
+	if bool(match_state.get("payoutSettled", false)):
+		return
+	match_state["payoutSettled"] = true
+	var job := str(match_state.get("mode", Contract.MODE_PVP)) == Contract.MODE_SP_JOB
+	var winner: Variant = match_state.get("winner", null)
+	if end_reason == Contract.END_KILL and job:
+		end_reason = Contract.END_JOB
+	match_state["endReason"] = end_reason
+	for seat in [Contract.SEAT_A, Contract.SEAT_B]:
+		var reason := end_reason
+		var delta := 0
+		if end_reason in [Contract.END_FORFEIT, Contract.END_DISCONNECT]:
+			if winner != null and str(winner) == seat:
+				delta = Contract.MARKS_FORFEIT_WIN
+			else:
+				delta = Contract.MARKS_FORFEIT_LOSS
+				reason = Contract.END_FORFEIT
+		elif winner == Contract.WIN_DRAW or str(winner) == Contract.WIN_DRAW:
+			delta = Contract.MARKS_STANDOFF
+			reason = Contract.END_STANDOFF
+		elif winner != null and str(winner) == seat:
+			delta = Contract.MARKS_JOB_WIN if job else Contract.MARKS_PVP_WIN
+			reason = Contract.END_JOB if job else Contract.END_KILL
+		else:
+			delta = Contract.MARKS_JOB_FAIL if job else Contract.MARKS_PVP_LOSS
+			reason = Contract.END_JOB_FAIL if job else Contract.END_LOSS
+		var balance := account_marks
+		if seat == Contract.SEAT_A:
+			account_marks += delta
+			balance = account_marks
+		else:
+			var seat_state: Dictionary = match_state["seats"][seat]
+			seat_state["marks"] = int(seat_state.get("marks", 0)) + delta
+			balance = int(seat_state["marks"])
+		match_state["payouts"][seat] = {
+			"marks": balance,
+			"marksDelta": delta,
+			"reason": reason,
+		}
 
 
 func _event_name(match_state: Dictionary, seat: String) -> String:
@@ -423,7 +508,16 @@ func _snapshot_for_seat(match_state: Dictionary, seat: String) -> Dictionary:
 	var last: Variant = match_state["lastAction"]
 	if last != null and last is Dictionary:
 		last = last.duplicate(true)
-	return {
+	var pay: Dictionary = {}
+	var payouts: Variant = match_state.get("payouts", {})
+	if payouts is Dictionary:
+		var stored: Variant = payouts.get(seat, {})
+		if stored is Dictionary:
+			pay = stored.duplicate(true)
+	var balance := account_marks if seat == Contract.SEAT_A else int(you.get("marks", 0))
+	if pay.has("marks"):
+		balance = int(pay.get("marks"))
+	var snap := {
 		"matchId": match_state["matchId"],
 		"status": match_state["status"],
 		"turnIndex": match_state["turnIndex"],
@@ -431,11 +525,14 @@ func _snapshot_for_seat(match_state: Dictionary, seat: String) -> Dictionary:
 		"whoseTurn": match_state["whoseTurn"],
 		"phase": match_state["phase"],
 		"uavRemaining": int(you["uavRemaining"]),
+		"uavAvailable": int(you["uavRemaining"]) > 0,
+		"mode": str(match_state.get("mode", Contract.MODE_PVP)),
+		"jobId": str(match_state.get("jobId", "")),
 		"you": {
 			"seat": seat,
 			"hex": you_hex,
 			"placed": bool(you["placed"]),
-			"marks": int(you["marks"]),
+			"marks": balance,
 			"exposurePct": you["exposurePct"],
 			"movedLastTurn": bool(you["movedLastTurn"]),
 		},
@@ -448,6 +545,16 @@ func _snapshot_for_seat(match_state: Dictionary, seat: String) -> Dictionary:
 		"lastAction": last,
 		"winner": match_state["winner"],
 	}
+	if match_state.get("endReason", null) != null:
+		snap["endReason"] = match_state.get("endReason")
+	if not pay.is_empty():
+		snap["payout"] = pay
+		snap["marks"] = balance
+		snap["marksDelta"] = pay.get("marksDelta", 0)
+		snap["reason"] = str(pay.get("reason", ""))
+	else:
+		snap["marks"] = balance
+	return snap
 
 
 func _emit_for_player(player_id: String, event_name: String, snapshot: Dictionary) -> void:
