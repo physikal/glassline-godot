@@ -5,6 +5,7 @@ const Contract := preload("res://types/contract.gd")
 const MarksPayout := preload("res://types/marks_payout.gd")
 
 var _bg: TextureRect
+var _wood_covers: Array[ColorRect] = []
 var _toast: Label
 var _marks: Label
 var _last_pay: Label
@@ -21,6 +22,8 @@ func _ready() -> void:
 	_refresh_marks()
 	var args := OS.get_cmdline_user_args()
 	if "--capture-lobby" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
 		await _capture_lobby()
 	elif "--capture-a1" in args:
 		await get_tree().process_frame
@@ -33,6 +36,7 @@ func _ready() -> void:
 func _capture_lobby() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
+	await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
 	var path := ProjectSettings.globalize_path("res://artifacts/a1-lobby.png")
@@ -42,12 +46,45 @@ func _capture_lobby() -> void:
 
 
 func _build() -> void:
+	var wood := ColorRect.new()
+	wood.color = Color("7a4e2c")
+	wood.set_anchors_preset(PRESET_FULL_RECT)
+	wood.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(wood)
+
 	_bg = TextureRect.new()
 	_bg.set_anchors_preset(PRESET_FULL_RECT)
 	_bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_bg.stretch_mode = TextureRect.STRETCH_SCALE
 	_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_bg)
+
+	var hud_cover := ColorRect.new()
+	hud_cover.color = Color("7a4e2c")
+	hud_cover.position = Vector2(0, 44)
+	hud_cover.size = Vector2(400, 72)
+	hud_cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(hud_cover)
+	_wood_covers.append(hud_cover)
+
+	var gem_cover := ColorRect.new()
+	gem_cover.color = Color("7a4e2c")
+	gem_cover.set_anchors_preset(PRESET_TOP_RIGHT)
+	gem_cover.offset_left = -460
+	gem_cover.offset_right = -112
+	gem_cover.offset_top = 0
+	gem_cover.offset_bottom = 54
+	gem_cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(gem_cover)
+	_wood_covers.append(gem_cover)
+
+	var dock_cover := ColorRect.new()
+	dock_cover.color = Color("7a4e2c")
+	dock_cover.set_anchors_and_offsets_preset(PRESET_BOTTOM_WIDE)
+	dock_cover.offset_top = -128
+	dock_cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(dock_cover)
+	_wood_covers.append(dock_cover)
 
 	## Operative hit — ghillie stays off the dock so PLAY can read as the CTA.
 	var operative := Button.new()
@@ -107,31 +144,12 @@ func _build() -> void:
 	_mode_lbl.visible = false
 	add_child(_mode_lbl)
 
-	var scope := _ScopeMark.new()
-	scope.set_anchors_preset(PRESET_CENTER_TOP)
-	scope.offset_left = -40
-	scope.offset_right = 40
-	scope.offset_top = 6
-	scope.offset_bottom = 70
-	scope.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(scope)
-
-	var title := Label.new()
-	title.text = "GLASSLINE"
-	title.set_anchors_preset(PRESET_TOP_WIDE)
-	title.offset_top = 28
-	title.offset_bottom = 88
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	Chrome.apply_label(title, 32, Color.WHITE, true)
-	add_child(title)
-
-	_mode_btn = Chrome.dock_button("MOCK", Chrome.INK, Chrome.CREAM, Vector2(108, 36))
+	_mode_btn = Chrome.dock_button("MOCK", Chrome.INK, Chrome.CREAM, Vector2(118, 36))
 	_mode_btn.set_anchors_preset(PRESET_TOP_RIGHT)
-	_mode_btn.offset_left = -124
-	_mode_btn.offset_right = -16
-	_mode_btn.offset_top = 14
-	_mode_btn.offset_bottom = 50
+	_mode_btn.offset_left = -134
+	_mode_btn.offset_right = -12
+	_mode_btn.offset_top = 12
+	_mode_btn.offset_bottom = 48
 	_mode_btn.pressed.connect(_toggle_live)
 	add_child(_mode_btn)
 	_refresh_mode()
@@ -243,7 +261,7 @@ func _refresh_bg() -> void:
 
 
 func _plate_without_baked_chrome(src: Texture2D) -> Texture2D:
-	## Clone nearby wall/floor over the plate's baked HUD + dock so live chrome can sit on wood.
+	## Stamp wall/floor wood over the plate's baked HUD + dock so live chrome can sit on the room.
 	if src == null:
 		return src
 	var img := src.get_image()
@@ -251,25 +269,29 @@ func _plate_without_baked_chrome(src: Texture2D) -> Texture2D:
 		return src
 	if img.is_compressed():
 		img.decompress()
+	img.convert(Image.FORMAT_RGBA8)
 	var w := img.get_width()
 	var h := img.get_height()
-	## Top-left player HUD / XP
-	_clone_band(img, 0, 0, mini(400, w), mini(72, h), 0, mini(82, h - 1))
-	## Top-right currency / settings
-	_clone_band(img, maxi(0, w - 440), 0, w, mini(72, h), maxi(0, w - 440), mini(82, h - 1))
-	## Baked title / tiny scope
-	_clone_band(img, 260, 8, mini(1020, w), mini(112, h), 260, mini(128, h - 1))
-	## Bottom dock pills
-	_clone_band(img, 0, maxi(0, h - 118), w, h, 0, maxi(0, h - 126))
+	## Patch from open wall (left of operative, under the rifles).
+	var px := clampi(int(w * 0.40), 0, w - 2)
+	var py := clampi(int(h * 0.42), 0, h - 2)
+	var pw := mini(96, w - px)
+	var ph := mini(48, h - py)
+	_stamp_wood(img, 0, 40, mini(400, w), mini(130, h), px, py, pw, ph)
+	_stamp_wood(img, maxi(0, w - 460), 0, maxi(0, w - 110), mini(58, h), px, py, pw, ph)
+	_stamp_wood(img, 0, maxi(0, h - 140), w, h, px, py, pw, ph)
+	var wood := img.get_pixel(px, py)
+	for cover in _wood_covers:
+		cover.color = wood
 	return ImageTexture.create_from_image(img)
 
 
-func _clone_band(img: Image, x0: int, y0: int, x1: int, y1: int, src_x: int, src_y: int) -> void:
+func _stamp_wood(img: Image, x0: int, y0: int, x1: int, y1: int, px: int, py: int, pw: int, ph: int) -> void:
+	if pw <= 0 or ph <= 0:
+		return
 	for y in range(y0, y1):
 		for x in range(x0, x1):
-			var sx := clampi(src_x + (x - x0), 0, img.get_width() - 1)
-			var sy := clampi(src_y, 0, img.get_height() - 1)
-			img.set_pixel(x, y, img.get_pixel(sx, sy))
+			img.set_pixel(x, y, img.get_pixel(px + posmod(x - x0, pw), py + posmod(y - y0, ph)))
 
 
 func _toggle_suit() -> void:
@@ -388,16 +410,3 @@ func _start_job(tier: int) -> void:
 	ClientSession.apply_snapshot(ready_snap)
 	MatchAPI.start_events()
 	get_tree().change_scene_to_file("res://scenes/match/match_screen.tscn")
-
-
-class _ScopeMark extends Control:
-	func _draw() -> void:
-		var center := size * 0.5
-		var radius := minf(size.x, size.y) * 0.42
-		var color := Color(1, 1, 1, 0.92)
-		draw_arc(center, radius, 0.0, TAU, 56, color, 3.2, true)
-		draw_arc(center, radius * 0.22, 0.0, TAU, 28, color, 2.4, true)
-		draw_line(center + Vector2(0, -radius), center + Vector2(0, -radius * 0.34), color, 3.0, true)
-		draw_line(center + Vector2(0, radius * 0.34), center + Vector2(0, radius), color, 3.0, true)
-		draw_line(center + Vector2(-radius, 0), center + Vector2(-radius * 0.34, 0), color, 3.0, true)
-		draw_line(center + Vector2(radius * 0.34, 0), center + Vector2(radius, 0), color, 3.0, true)

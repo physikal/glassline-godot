@@ -17,14 +17,14 @@ Hideout chrome was fighting `lobby-canon.jpg` (dark bars, second title, SUIT on 
 
 | Was (A1 capture) | Canon-pass |
 | --- | --- |
-| Dark top/bottom bars over the room | Full-bleed hideout; baked HUD/dock cloned out so wood reads through |
-| Duplicate `GLASSLINE` + plate title | One wordmark + scope reticle, center-top |
+| Dark top/bottom bars over the room | Full-bleed hideout; baked HUD/currency/dock stamped out so the room reads |
+| Duplicate `GLASSLINE` + plate title | Plate wordmark + scope kept (no second title) |
 | `MARKS ★24` text stacked on the plate chip | Compact operative chip: face + Specter7 + live `★` Marks |
 | SUIT + LOADOUT + PLAY + JOBS (SUIT shoved the CTA) | LOADOUT / **PLAY** (hero pill + triangle) / JOBS. Suit is a click on the operative |
 | MOCK covering currency | Quiet MOCK/LIVE pill, top-right |
 | No HIGHGROUND | Still none |
 
-JOBS → START JOB and wallet bind are unchanged. Capture: `godot --resolution 1280x720 -- --capture-lobby`.
+JOBS → START JOB and wallet bind are unchanged. Capture: `godot --resolution 1280x720 -- --capture-lobby`. Headless contract still `HEADLESS_LOOP_OK`.
 
 ### After-Play HOLD (2026-09-18)
 
