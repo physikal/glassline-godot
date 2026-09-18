@@ -143,7 +143,7 @@ func _build_jobs_panel() -> void:
 	var blurb := Label.new()
 	blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	blurb.custom_minimum_size = Vector2(500, 80)
-	blurb.text = "Same Attack / Recon / UAV rules against a scripted seat. Stub is T1 (+10 Marks on complete). The server ledger grants; this client only displays the snapshot."
+	blurb.text = "T1 Rooftop Rookie  +10   ·   T2 +15   ·   T3 +20\nSame Attack / Recon / UAV vs a scripted seat. Server grants; client displays you.marks."
 	Chrome.apply_label(blurb, 8, Chrome.CREAM)
 	col.add_child(blurb)
 
@@ -222,7 +222,7 @@ func _on_play() -> void:
 
 func _on_start_job() -> void:
 	_jobs_panel.visible = false
-	_start_match(Contract.MODE_SP_JOB)
+	_start_job(1)
 
 
 func _start_match(mode: String) -> void:
@@ -259,6 +259,43 @@ func _start_match(mode: String) -> void:
 	var ready_snap: Dictionary = MatchAPI.get_snapshot(match_id, ClientSession.player_id)
 	if ready_snap.is_empty():
 		ready_snap = human.get("snapshot", {})
+	ClientSession.apply_snapshot(ready_snap)
+	MatchAPI.start_events()
+	get_tree().change_scene_to_file("res://scenes/match/match_screen.tscn")
+
+
+func _start_job(tier: int) -> void:
+	MatchAPI.clear_all()
+	ClientSession.reset_match()
+	ClientSession.match_mode = Contract.MODE_SP_JOB
+	ClientSession.job_tier = tier
+	if ClientSession.use_live_api():
+		var health: Dictionary = MatchAPI.health()
+		if not bool(health.get("ok", false)):
+			_toast_msg("Live API down at %s  (GET /health)" % ClientSession.api_base_url())
+			return
+	var created: Dictionary = MatchAPI.create_job(tier)
+	var match_id := str(created.get("matchId", ""))
+	if match_id == "" or created.has("error"):
+		_toast_msg("Job failed: %s" % str(created.get("error", "no matchId")))
+		return
+	ClientSession.match_id = match_id
+	ClientSession.job_id = str(created.get("jobId", ""))
+	ClientSession.player_id = str(created.get("playerId", ""))
+	ClientSession.seat = str(created.get("seat", "a"))
+	ClientSession.join_token = str(created.get("joinToken", ""))
+	if ClientSession.join_token == "":
+		var tokens: Variant = created.get("joinTokens", {})
+		if tokens is Dictionary:
+			ClientSession.join_token = str(tokens.get("a", ""))
+	ClientSession.job_tier = int(created.get("tier", tier))
+	## LIVE job: server bot is seat B. Mock still returns dummy ids for the local loop.
+	if not ClientSession.use_live_api():
+		ClientSession.dummy_token = str(created.get("dummyToken", ""))
+		ClientSession.dummy_player_id = str(created.get("dummyPlayerId", ""))
+	var ready_snap: Dictionary = created.get("snapshot", {})
+	if ready_snap.is_empty():
+		ready_snap = MatchAPI.get_snapshot(match_id, ClientSession.player_id)
 	ClientSession.apply_snapshot(ready_snap)
 	MatchAPI.start_events()
 	get_tree().change_scene_to_file("res://scenes/match/match_screen.tscn")

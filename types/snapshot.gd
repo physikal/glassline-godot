@@ -49,10 +49,25 @@ func uav_remaining() -> int:
 	return 0
 
 
+func kind() -> String:
+	var value := str(raw.get("kind", ""))
+	if value != "":
+		return Contract.MODE_SP_JOB if value in ["sp_job", "job"] else value
+	return mode()
+
+
 func mode() -> String:
+	var kind_value := str(raw.get("kind", ""))
+	if kind_value in ["sp_job", "job"]:
+		return Contract.MODE_SP_JOB
+	if kind_value == Contract.MODE_PVP:
+		return Contract.MODE_PVP
 	var value := str(raw.get("mode", raw.get("matchMode", "")))
 	if value == "":
-		if bool(raw.get("job", false)) or bool(raw.get("spJob", false)) or str(raw.get("jobId", "")) != "":
+		var job_obj: Variant = raw.get("job", null)
+		if job_obj is Dictionary and not job_obj.is_empty():
+			return Contract.MODE_SP_JOB
+		if bool(raw.get("spJob", false)) or str(raw.get("jobId", "")) != "":
 			return Contract.MODE_SP_JOB
 		return Contract.MODE_PVP
 	if value in ["job", "sp", "spJob", "sp_job"]:
@@ -64,7 +79,15 @@ func is_job() -> bool:
 	return mode() == Contract.MODE_SP_JOB
 
 
+func job() -> Dictionary:
+	var value: Variant = raw.get("job", {})
+	return value if value is Dictionary else {}
+
+
 func job_tier() -> int:
+	var bag := job()
+	if bag.has("tier"):
+		return int(bag.get("tier", 1))
 	return int(raw.get("jobTier", raw.get("tier", 1)))
 
 

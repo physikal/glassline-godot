@@ -72,6 +72,20 @@ const MARKS_FORFEIT_WIN := 12
 const MARKS_FORFEIT_LOSS := 0
 const FORFEIT_GRACE_SEC := 30
 
+const JOB_NAME_T1 := "Rooftop Rookie"
+const JOB_NAME_T2 := "Warehouse Watch"
+const JOB_NAME_T3 := "Night Contract"
+
+
+static func job_name(tier: int) -> String:
+	match tier:
+		2:
+			return JOB_NAME_T2
+		3:
+			return JOB_NAME_T3
+		_:
+			return JOB_NAME_T1
+
 
 static func job_tier_delta(tier: int) -> int:
 	match tier:

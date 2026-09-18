@@ -58,18 +58,28 @@ Aliases the client also reads:
 
 Soft A4 also treats `disconnected` and `ragequit` as forfeit UI.
 
-## Create / join — SP job stub
+## LIVE API (Coder PR merged)
 
-LIVE `POST /matches` currently ignores the body (`createMatch()` takes no args). Client still sends:
+| Method | Path | Body / notes |
+| --- | --- | --- |
+| POST | `/jobs` | `{ tier: 1\|2\|3 }` → `{ jobId, matchId, playerId, seat: "a", joinToken, tier, name, snapshot }`. Bot is seat B, already dropped. |
+| GET | `/jobs/:id` | Bearer. `{ …job, snapshot }` |
+| POST | `/matches/:id/heartbeat` | Bearer. Keeps A4 last-seen. **30s** silence while `active` → `endReason: forfeit`. |
+| GET | `/matches/:id` | Caller snapshot. Adds `kind`, `endReason`, `job`. Balance is **`you.marks` only**. |
+| POST | `/matches` | PvP create (unchanged). |
 
-```
-POST /matches
-{ "mode": "sp_job", "job": true, "sp": true, "jobTier": 1 }
-```
+Snapshot extras: `kind: pvp|sp_job`, `endReason: kill|standoff|forfeit|null`, `job: { jobId, tier, name, status }|null`.
 
-If Coder adds a dedicated route, prefer keeping this body so the Godot path does not fork. `jobId` (when present) is treated as the idempotency key; mock uses `matchId` until then.
+Hideout **JOBS → START JOB** calls `MatchAPI.create_job(1)` → LIVE `POST /jobs`. Mock still simulates the same shape and runs a local dummy seat.
 
-No `/jobs` endpoint exists — the hideout **JOBS → START JOB** button hits the existing create/join/actions loop with `mode: "sp_job"` and the local dummy seat as the bot. Stub defaults to **T1**.
+## Demo one LIVE payout (GD M1–M5 + A4)
+
+1. Hideout **LIVE** (base `https://glassline-api.vercel.app`).
+2. **JOBS → START JOB** (T1 Rooftop Rookie).
+3. Drop a hex. Bot is already placed. Hunt: UAV → END TURN → ATTACK revealed hex → FIRE.
+4. End overlay: headline + `you.marks` balance. If `marksDelta` is absent, chrome shows `table +10` (display copy only).
+5. Replay the ended match / refetch snapshot: `you.marks` must not increase again (M4).
+6. Soft A4: stop heartbeat/poll for 30s while `active` → `endReason: forfeit`, forfeit overlay.
 
 ## Client surfaces
 
@@ -77,7 +87,7 @@ No `/jobs` endpoint exists — the hideout **JOBS → START JOB** button hits th
 | --- | --- |
 | Hideout Marks chip | `MARKS ★N` from `you.marks` / last snapshot / `MatchAPI.wallet()` mock stub (`24` until a match writes the wallet). |
 | Hideout last-hunt line | `marksDelta` + `reason` from `ClientSession.last_payout` after returning from a match. |
-| JOBS panel | SP job vs bot; same Attack/Recon/UAV rules. |
+| JOBS panel | `POST /jobs` T1 (LIVE) or mock stub; table copy T1 +10 / T2 +15 / T3 +20. |
 | Ability button (M5) | Slot caption **ABILITY**, label **UAV**. Still posts `{ type: "uav" }` (`ActionIntent.ability()` is an alias). |
 | End overlay | Headline from winner / forfeit / job; then `+N MARK · ★balance` and `reason`. Never hardcodes a local table. |
 

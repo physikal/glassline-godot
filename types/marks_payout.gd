@@ -144,15 +144,44 @@ static func end_headline(payload: Dictionary, you_seat: String, job: bool) -> St
 	return "JOB FAILED" if job else "ELIMINATED"
 
 
+static func table_copy(end_reason: String, you_won: bool, job_tier: int = 1) -> String:
+	## Display chrome only — never apply these as a local grant.
+	var why := end_reason.to_lower()
+	if why == Contract.END_KILL:
+		return "table  +%d" % (Contract.MARKS_PVP_WIN if you_won else Contract.MARKS_PVP_LOSS)
+	if why == Contract.END_STANDOFF:
+		return "table  +%d" % Contract.MARKS_STANDOFF
+	if why in Contract.FORFEIT_REASONS:
+		return "table  +%d" % (Contract.MARKS_FORFEIT_WIN if you_won else Contract.MARKS_FORFEIT_LOSS)
+	if why in [Contract.END_JOB, Contract.END_JOB_FAIL]:
+		if you_won:
+			return "table  T%d +%d" % [job_tier, Contract.job_tier_delta(job_tier)]
+		return "table  +0"
+	if why == Contract.END_LOSS:
+		return "table  +%d" % Contract.MARKS_PVP_LOSS
+	return ""
+
+
 static func end_overlay(payload: Dictionary, you_seat: String, job: bool = false) -> String:
 	var payout = from_any(payload)
 	var lines: PackedStringArray = [end_headline(payload, you_seat, job)]
 	var pay: String = payout.payout_line()
-	if pay != "":
+	if payout.has_delta() and pay != "":
 		lines.append(pay)
-	elif payout.has_marks():
-		lines.append(payout.balance_line())
-	var why: String = str(payout.reason)
-	if why != "":
-		lines.append(why)
+	else:
+		var win: Variant = payload.get("winner", null)
+		var you_won := win != null and str(win) == you_seat
+		var why: String = str(payload.get("endReason", payout.reason))
+		var job_obj: Variant = payload.get("job", {})
+		var tier := 1
+		if job_obj is Dictionary:
+			tier = int(job_obj.get("tier", 1))
+		var table: String = table_copy(why, you_won, tier)
+		if table != "":
+			lines.append(table)
+		if payout.has_marks():
+			lines.append(payout.balance_line())
+	var why2: String = str(payload.get("endReason", payout.reason))
+	if why2 != "":
+		lines.append(why2)
 	return "\n".join(lines)

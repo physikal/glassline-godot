@@ -189,9 +189,25 @@ func _payout_shape_case(failed: PackedStringArray) -> void:
 	_expect(failed, you_forfeit.find("FORFEIT") >= 0, "disconnect loser chrome")
 	var job_win := MarksPayout.end_overlay({"winner": "a", "payout": {"marks": 5, "marksDelta": 1, "reason": "job"}}, "a", true)
 	_expect(failed, job_win.find("JOB COMPLETE") >= 0, "job win chrome")
+	var live_ended := {
+		"status": "ended",
+		"winner": "a",
+		"kind": "pvp",
+		"endReason": "kill",
+		"you": {"seat": "a", "marks": 25},
+	}
+	var live_copy := MarksPayout.end_overlay(live_ended, "a", false)
+	_expect(failed, live_copy.find("MARK CONFIRMED") >= 0, "live endReason kill")
+	_expect(failed, live_copy.find("★25") >= 0, "live you.marks balance")
+	_expect(failed, live_copy.find("table  +25") >= 0, "table copy when delta omitted")
 
 
 func _job_case(failed: PackedStringArray) -> void:
+	server.clear_all()
+	server.reset_wallet(10)
+	var job: Dictionary = server.create_job(1)
+	_expect(failed, str(job.get("name", "")) == Contract.JOB_NAME_T1, "job T1 name")
+	_expect(failed, str(job.get("snapshot", {}).get("kind", "")) == Contract.MODE_SP_JOB, "job snapshot.kind")
 	server.clear_all()
 	server.reset_wallet(10)
 	var created: Dictionary = server.create_match({"mode": "sp_job"})

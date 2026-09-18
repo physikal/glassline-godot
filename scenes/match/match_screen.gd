@@ -46,6 +46,8 @@ func _ready() -> void:
 	set_process(true)
 	_build()
 	MatchAPI.match_event.connect(_on_match_event)
+	if ClientSession.dummy_player_id == "" and ClientSession.is_job():
+		_dummy_placed = true
 	var fresh: Dictionary = MatchAPI.get_snapshot(ClientSession.match_id, ClientSession.player_id)
 	if not fresh.is_empty():
 		ClientSession.apply_snapshot(fresh)
@@ -382,7 +384,7 @@ func _handle_hex(q: int, r: int) -> void:
 
 
 func _maybe_dummy_drop(_q: int, _r: int) -> void:
-	if _dummy_placed:
+	if _dummy_placed or ClientSession.dummy_player_id == "":
 		return
 	get_tree().create_timer(0.35).timeout.connect(func() -> void:
 		var you: Variant = ClientSession.typed_snapshot().you_hex()
@@ -480,6 +482,8 @@ func _process(delta: float) -> void:
 
 
 func _queue_dummy(snap: Snapshot) -> void:
+	if ClientSession.dummy_player_id == "":
+		return
 	if _dummy_busy or _dummy_delay > 0.0:
 		return
 	if snap.status() != Contract.STATUS_ACTIVE:

@@ -71,6 +71,54 @@ func reset_wallet(value: int = Contract.MOCK_WALLET_STUB) -> void:
 	account_marks = value
 
 
+func create_job(tier: int = 1) -> Dictionary:
+	var job_tier := clampi(tier, 1, 3)
+	var created: Dictionary = create_match({
+		"mode": Contract.MODE_SP_JOB,
+		"job": true,
+		"jobTier": job_tier,
+	})
+	var match_id := str(created.get("matchId", ""))
+	var tokens: Dictionary = created.get("joinTokens", {})
+	var human: Dictionary = join(match_id, str(tokens.get("a", "")))
+	var bot: Dictionary = join(match_id, str(tokens.get("b", "")))
+	var bot_hex := {1: Contract.hex_dict(8, 6), 2: Contract.hex_dict(7, 5), 3: Contract.hex_dict(8, 5)}
+	apply_action(match_id, str(bot.get("playerId", "")), {
+		"type": Contract.ACT_SELECT_HEX,
+		"hex": bot_hex[job_tier],
+	})
+	var snap: Dictionary = get_snapshot(match_id, str(human.get("playerId", "")))
+	return {
+		"jobId": str(created.get("jobId", match_id)),
+		"matchId": match_id,
+		"playerId": str(human.get("playerId", "")),
+		"seat": str(human.get("seat", Contract.SEAT_A)),
+		"joinToken": str(tokens.get("a", "")),
+		"dummyToken": str(tokens.get("b", "")),
+		"dummyPlayerId": str(bot.get("playerId", "")),
+		"tier": job_tier,
+		"name": Contract.job_name(job_tier),
+		"snapshot": snap,
+	}
+
+
+func get_job(job_id: String) -> Dictionary:
+	for match_id in _matches.keys():
+		var match_state: Dictionary = _matches[match_id]
+		if str(match_state.get("jobId", "")) == job_id or str(match_id) == job_id:
+			var seat_a: Dictionary = match_state["seats"][Contract.SEAT_A]
+			return {
+				"jobId": str(match_state.get("jobId", match_id)),
+				"matchId": str(match_id),
+				"tier": int(match_state.get("jobTier", 1)),
+				"name": Contract.job_name(int(match_state.get("jobTier", 1))),
+				"playerId": str(seat_a.get("playerId", "")),
+				"status": "won" if match_state.get("winner") == Contract.SEAT_A else ("failed" if match_state["status"] == Contract.STATUS_ENDED else "active"),
+				"snapshot": _snapshot_for_seat(match_state, Contract.SEAT_A),
+			}
+	return {"error": "unknown_job"}
+
+
 func _read_mode(opts: Dictionary) -> String:
 	var mode := str(opts.get("mode", opts.get("matchMode", "")))
 	if mode in ["job", "sp", "spJob", "sp_job"]:
@@ -528,6 +576,7 @@ func _snapshot_for_seat(match_state: Dictionary, seat: String) -> Dictionary:
 		"phase": match_state["phase"],
 		"uavRemaining": int(you["uavRemaining"]),
 		"uavAvailable": int(you["uavRemaining"]) > 0,
+		"kind": str(match_state.get("mode", Contract.MODE_PVP)),
 		"mode": str(match_state.get("mode", Contract.MODE_PVP)),
 		"jobId": str(match_state.get("jobId", "")),
 		"jobTier": int(match_state.get("jobTier", 1)),
@@ -548,8 +597,26 @@ func _snapshot_for_seat(match_state: Dictionary, seat: String) -> Dictionary:
 		"lastAction": last,
 		"winner": match_state["winner"],
 	}
+	if str(match_state.get("mode", "")) == Contract.MODE_SP_JOB:
+		snap["job"] = {
+			"jobId": str(match_state.get("jobId", match_state.get("matchId", ""))),
+			"tier": int(match_state.get("jobTier", 1)),
+			"name": Contract.job_name(int(match_state.get("jobTier", 1))),
+			"status": "active" if match_state["status"] != Contract.STATUS_ENDED else ("won" if match_state.get("winner") == seat else "failed"),
+		}
 	if match_state.get("endReason", null) != null:
-		snap["endReason"] = match_state.get("endReason")
+		var ended := str(match_state.get("endReason"))
+		if ended == Contract.END_JOB:
+			ended = Contract.END_KILL
+		elif ended == Contract.END_JOB_FAIL:
+			ended = Contract.END_STANDOFF if match_state.get("winner") == Contract.WIN_DRAW else Contract.END_KILL
+		## LIVE vocabulary: kill | standoff | forfeit. Keep job as extra reason on payout.
+		if ended in [Contract.END_KILL, Contract.END_STANDOFF, Contract.END_FORFEIT, Contract.END_DISCONNECT]:
+			snap["endReason"] = ended if ended != Contract.END_DISCONNECT else Contract.END_FORFEIT
+		elif ended == Contract.END_LOSS:
+			snap["endReason"] = Contract.END_KILL
+		else:
+			snap["endReason"] = match_state.get("endReason")
 	if not pay.is_empty():
 		snap["payout"] = pay
 		snap["marks"] = balance

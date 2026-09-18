@@ -92,7 +92,7 @@ Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` 
 6. UAV once → `enemy.visibleHex`. END TURN.
 7. ATTACK that hex → `hit` / `kill`. End overlay reads server `payout` (`marks`, `marksDelta`, `reason`) — never local `marks +=`.
 
-Hideout **JOBS → START JOB** is the SP job stub (`POST /matches` with `mode: "sp_job"`). Ability chrome is labeled **UAV** and still posts `{ type: "uav" }`. Assumed ledger field names: `artifacts/MARKS_SP_NOTES.md`.
+Hideout **JOBS → START JOB** calls `POST /jobs` `{ tier: 1|2|3 }` on LIVE (mock uses the same shape). Ability chrome is labeled **UAV** and still posts `{ type: "uav" }`. Balance is `you.marks`. Earn table + field names: `artifacts/MARKS_SP_NOTES.md`.
 
 ## Layout
 

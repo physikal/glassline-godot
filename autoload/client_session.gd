@@ -19,6 +19,8 @@ var last_snapshot: Dictionary = {}
 var marks: int = 0
 var last_payout: Dictionary = {}
 var match_mode: String = Contract.MODE_PVP
+var job_id: String = ""
+var job_tier: int = 1
 var ghillie: bool = false
 ## -1 follow project/env/export; 0 mock; 1 live
 var live_override: int = -1
@@ -33,6 +35,8 @@ func reset_match() -> void:
 	dummy_token = ""
 	last_snapshot = {}
 	match_mode = Contract.MODE_PVP
+	job_id = ""
+	job_tier = 1
 
 
 func bind_marks(balance: int) -> void:
@@ -42,20 +46,28 @@ func bind_marks(balance: int) -> void:
 
 func apply_snapshot(snap: Dictionary) -> void:
 	last_snapshot = snap.duplicate(true)
-	if str(snap.get("mode", "")) != "":
-		match_mode = str(snap.get("mode"))
+	var kind := str(snap.get("kind", snap.get("mode", "")))
+	if kind != "":
+		match_mode = Contract.MODE_SP_JOB if kind in ["sp_job", "job"] else kind
+	var job: Variant = snap.get("job", {})
+	if job is Dictionary:
+		if str(job.get("jobId", "")) != "":
+			job_id = str(job.get("jobId"))
+		if job.has("tier"):
+			job_tier = int(job.get("tier", job_tier))
 	var you: Variant = snap.get("you", {})
 	if you is Dictionary:
 		if str(you.get("seat", "")) != "":
 			seat = str(you.get("seat", seat))
+		## Coder lock: wallet is you.marks only. Never grant locally.
+		if you.has("marks"):
+			bind_marks(int(you.get("marks")))
 	var payout = MarksPayout.from_any(snap)
-	if payout.has_marks():
-		bind_marks(payout.balance())
-	if payout.has_delta() or payout.reason != "":
+	if payout.has_delta() or str(snap.get("endReason", payout.reason)) != "":
 		last_payout = {
-			"marks": payout.marks,
+			"marks": marks,
 			"marksDelta": payout.marks_delta,
-			"reason": payout.reason,
+			"reason": str(snap.get("endReason", payout.reason)),
 		}
 
 

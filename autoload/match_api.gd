@@ -32,6 +32,24 @@ func wallet() -> Dictionary:
 	return MockMatchServer.wallet()
 
 
+func create_job(tier: int = 1) -> Dictionary:
+	if using_live():
+		return LiveMatchClient.create_job(tier)
+	return MockMatchServer.create_job(tier)
+
+
+func get_job(job_id: String) -> Dictionary:
+	if using_live():
+		return LiveMatchClient.get_job(job_id)
+	return MockMatchServer.get_job(job_id)
+
+
+func heartbeat() -> Dictionary:
+	if using_live():
+		return LiveMatchClient.heartbeat()
+	return {"ok": true, "mock": true}
+
+
 func join(match_id: String, token: String) -> Dictionary:
 	if using_live():
 		return LiveMatchClient.join(match_id, token)
