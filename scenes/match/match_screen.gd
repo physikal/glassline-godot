@@ -54,6 +54,8 @@ func _ready() -> void:
 	_refresh(ClientSession.typed_snapshot())
 	if "--capture-a1" in OS.get_cmdline_user_args():
 		_capture_after_play()
+	elif "--capture-sp-end" in OS.get_cmdline_user_args():
+		_capture_sp_end()
 
 
 func _capture_after_play() -> void:
@@ -64,6 +66,30 @@ func _capture_after_play() -> void:
 	var path := ProjectSettings.globalize_path("res://artifacts/a1-after-play.png")
 	img.save_png(path)
 	print("A1_AFTER_PLAY_CAPTURE ", path)
+	get_tree().quit()
+
+
+func _capture_sp_end() -> void:
+	await get_tree().process_frame
+	var snap: Snapshot = ClientSession.typed_snapshot()
+	if snap.status() == Contract.STATUS_READY or snap.status() == Contract.STATUS_WAITING:
+		_submit(ActionIntent.select_hex(2, 2))
+		await get_tree().process_frame
+		snap = ClientSession.typed_snapshot()
+	if snap.status() == Contract.STATUS_READY:
+		_submit(ActionIntent.start())
+		await get_tree().process_frame
+		snap = ClientSession.typed_snapshot()
+	if snap.status() == Contract.STATUS_ACTIVE:
+		## T1 mock bot sits at (8,6). Attack ends the job.
+		_submit(ActionIntent.attack(8, 6))
+		await get_tree().process_frame
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	var path := ProjectSettings.globalize_path("res://artifacts/ux/sp_job_end_reason_job.png")
+	img.save_png(path)
+	print("SP_END_REASON_CAPTURE ", path)
 	get_tree().quit()
 
 

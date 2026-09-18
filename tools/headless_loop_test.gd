@@ -189,6 +189,7 @@ func _payout_shape_case(failed: PackedStringArray) -> void:
 	_expect(failed, you_forfeit.find("FORFEIT") >= 0, "disconnect loser chrome")
 	var job_win := MarksPayout.end_overlay({"winner": "a", "payout": {"marks": 5, "marksDelta": 1, "reason": "job"}}, "a", true)
 	_expect(failed, job_win.find("JOB COMPLETE") >= 0, "job win chrome")
+	_expect(failed, job_win.find("job") >= 0, "job win reason")
 	var live_ended := {
 		"status": "ended",
 		"winner": "a",
@@ -200,6 +201,43 @@ func _payout_shape_case(failed: PackedStringArray) -> void:
 	_expect(failed, live_copy.find("MARK CONFIRMED") >= 0, "live endReason kill")
 	_expect(failed, live_copy.find("★25") >= 0, "live you.marks balance")
 	_expect(failed, live_copy.find("table  +25") >= 0, "table copy when delta omitted")
+	_expect(failed, live_copy.find("kill") >= 0, "pvp keeps kill")
+	var sp_live_kill := {
+		"status": "ended",
+		"winner": "a",
+		"kind": "sp_job",
+		"endReason": "kill",
+		"job": {"jobId": "j_x", "tier": 1, "name": "Rooftop Rookie"},
+		"you": {"seat": "a", "marks": 10},
+	}
+	var sp_copy := MarksPayout.end_overlay(sp_live_kill, "a", true)
+	_expect(failed, sp_copy.find("JOB COMPLETE") >= 0, "sp kill maps headline")
+	_expect(failed, sp_copy.find("job") >= 0, "sp kill displays reason job")
+	_expect(failed, sp_copy.find("kill") < 0, "sp kill not shown as kill")
+	_expect(failed, sp_copy.find("★10") >= 0, "sp overlay uses you.marks")
+	_expect(failed, sp_copy.find("table  T1 +10") >= 0, "sp table copy uses job row")
+	_expect(failed, MarksPayout.display_reason(sp_live_kill, true) == Contract.END_JOB, "display_reason kill->job")
+	var sp_delta := {
+		"status": "ended",
+		"winner": "a",
+		"kind": "sp_job",
+		"endReason": "kill",
+		"you": {"seat": "a", "marks": 34},
+		"payout": {"marks": 34, "marksDelta": 10, "reason": "kill"},
+	}
+	var sp_delta_copy := MarksPayout.end_overlay(sp_delta, "a", true)
+	_expect(failed, sp_delta_copy.find("+10 MARK") >= 0, "sp delta from you.marks envelope")
+	_expect(failed, sp_delta_copy.find("★34") >= 0, "sp delta balance you.marks")
+	_expect(failed, sp_delta_copy.find("\njob") >= 0, "sp delta reason job")
+	_expect(failed, sp_delta_copy.find("kill") < 0, "sp delta not kill")
+	var sp_loss := {
+		"status": "ended",
+		"winner": "b",
+		"kind": "sp_job",
+		"endReason": "kill",
+		"you": {"seat": "a", "marks": 24},
+	}
+	_expect(failed, MarksPayout.display_reason(sp_loss, true) == Contract.END_JOB_FAIL, "sp loss kill->job_fail")
 
 
 func _job_case(failed: PackedStringArray) -> void:

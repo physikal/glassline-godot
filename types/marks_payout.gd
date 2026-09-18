@@ -1,6 +1,7 @@
 extends RefCounted
 ## Server-owned Marks payout. Client displays only — never `marks +=`.
 ## Assumed result fields (Coder ledger TBD): marks, marksDelta, reason.
+## LIVE still sends endReason=kill on SP bot elimination; display chrome maps that to `job`.
 
 const Contract := preload("res://types/contract.gd")
 
@@ -144,6 +145,43 @@ static func end_headline(payload: Dictionary, you_seat: String, job: bool) -> St
 	return "JOB FAILED" if job else "ELIMINATED"
 
 
+static func payload_is_job(payload: Dictionary, job_hint: bool = false) -> bool:
+	if job_hint:
+		return true
+	var kind := str(payload.get("kind", payload.get("mode", payload.get("matchMode", "")))).to_lower()
+	if kind in ["sp_job", "job", "sp", "spjob"]:
+		return true
+	var job_obj: Variant = payload.get("job", null)
+	if job_obj is Dictionary and not job_obj.is_empty():
+		return true
+	if bool(payload.get("spJob", false)) or bool(payload.get("sp", false)):
+		return true
+	if str(payload.get("jobId", "")) != "":
+		return true
+	return false
+
+
+static func display_reason(payload: Dictionary, job_hint: bool = false) -> String:
+	var payout = from_any(payload)
+	## Prefer the payout bag (winner `kill` / loser `loss` / SP `job`) over LIVE `endReason`.
+	var why: String = str(payout.reason).to_lower()
+	if why == "":
+		why = str(payload.get("endReason", payload.get("reason", ""))).to_lower()
+	if why == "":
+		return ""
+	if not payload_is_job(payload, job_hint):
+		return why
+	## LIVE still sends endReason=kill (and sometimes payout.reason=kill) for SP bot elimination.
+	if why == Contract.END_KILL:
+		var win: Variant = payload.get("winner", null)
+		var you: Variant = payload.get("you", {})
+		var you_seat := str(you.get("seat", "")) if you is Dictionary else ""
+		if win != null and you_seat != "" and str(win) != you_seat and str(win) != Contract.WIN_DRAW:
+			return Contract.END_JOB_FAIL
+		return Contract.END_JOB
+	return why
+
+
 static func table_copy(end_reason: String, you_won: bool, job_tier: int = 1) -> String:
 	## Display chrome only — never apply these as a local grant.
 	var why := end_reason.to_lower()
@@ -164,6 +202,7 @@ static func table_copy(end_reason: String, you_won: bool, job_tier: int = 1) -> 
 
 static func end_overlay(payload: Dictionary, you_seat: String, job: bool = false) -> String:
 	var payout = from_any(payload)
+	var why: String = display_reason(payload, job)
 	var lines: PackedStringArray = [end_headline(payload, you_seat, job)]
 	var pay: String = payout.payout_line()
 	if payout.has_delta() and pay != "":
@@ -171,17 +210,17 @@ static func end_overlay(payload: Dictionary, you_seat: String, job: bool = false
 	else:
 		var win: Variant = payload.get("winner", null)
 		var you_won := win != null and str(win) == you_seat
-		var why: String = str(payload.get("endReason", payout.reason))
 		var job_obj: Variant = payload.get("job", {})
 		var tier := 1
 		if job_obj is Dictionary:
 			tier = int(job_obj.get("tier", 1))
+		elif payload.has("jobTier"):
+			tier = int(payload.get("jobTier", 1))
 		var table: String = table_copy(why, you_won, tier)
 		if table != "":
 			lines.append(table)
 		if payout.has_marks():
 			lines.append(payout.balance_line())
-	var why2: String = str(payload.get("endReason", payout.reason))
-	if why2 != "":
-		lines.append(why2)
+	if why != "":
+		lines.append(why)
 	return "\n".join(lines)

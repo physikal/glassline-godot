@@ -22,6 +22,9 @@ func _ready() -> void:
 	if "--capture-a1" in OS.get_cmdline_user_args():
 		await get_tree().process_frame
 		_on_play()
+	elif "--capture-sp-end" in OS.get_cmdline_user_args():
+		await get_tree().process_frame
+		_on_start_job()
 
 
 func _build() -> void:
@@ -146,7 +149,7 @@ func _build_jobs_panel() -> void:
 	var blurb := Label.new()
 	blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	blurb.custom_minimum_size = Vector2(500, 80)
-	blurb.text = "T1 Rooftop Rookie  +10   ·   T2 +15   ·   T3 +20\nSame Attack / Recon / UAV vs a scripted seat. Server grants; client displays you.marks."
+	blurb.text = "T1 Rooftop Rookie  +10   ·   T2 +15   ·   T3 +20\nSame Attack / Recon / UAV vs a scripted seat."
 	Chrome.apply_label(blurb, 8, Chrome.CREAM)
 	col.add_child(blurb)
 
@@ -170,7 +173,7 @@ func _refresh_marks() -> void:
 		_marks.text = Chrome.marks_chip_text(ClientSession.marks)
 	if _last_pay:
 		if ClientSession.last_payout.is_empty():
-			_last_pay.text = "Server-owned  ·  display only"
+			_last_pay.text = ""
 		else:
 			var pay = MarksPayout.from_any(ClientSession.last_payout)
 			var line: String = pay.payout_line()
@@ -200,7 +203,7 @@ func _toast_msg(text: String) -> void:
 func _toggle_jobs() -> void:
 	_jobs_panel.visible = not _jobs_panel.visible
 	if _jobs_panel.visible:
-		_toast_msg("SP job stub — same hunt, Marks from the server result.")
+		_toast_msg("Hunt a bot — same Attack / Recon / UAV.")
 
 
 func _toggle_live() -> void:
