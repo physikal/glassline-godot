@@ -81,15 +81,23 @@ Hideout **JOBS → START JOB** calls `MatchAPI.create_job(1)` → LIVE `POST /jo
 5. Replay the ended match / refetch snapshot: `you.marks` must not increase again (M4).
 6. Soft A4: stop heartbeat/poll for 30s while `active` → `endReason: forfeit`, forfeit overlay.
 
+## P2 chrome (after taste PASS)
+
+Release hideout / Marks / SP copy no longer shows debug tags (`Server-owned`, `display only`, `client displays you.marks`, `SP job stub`). Those stay in comments/docs. JOBS button color is **parked** (still `Chrome.JOBS_WHITE`).
+
+SP job end overlay maps LIVE `endReason: kill` (bot elimination) to display reason **`job`** so payout copy matches the earn table (`job` +10/+15/+20, not `kill` +25). Marks chrome still binds `you.marks` / `marksDelta` — no client `marks +=`. SP loss + `kill` displays `job_fail`. PvP `kill` is unchanged.
+
+Still: `artifacts/ux/sp_job_end_reason_job.png` (JOB COMPLETE / +N MARK · ★balance / `job`).
+
 ## Client surfaces
 
 | Surface | Behavior |
 | --- | --- |
-| Hideout Marks chip | `MARKS ★N` from `you.marks` / last snapshot / `MatchAPI.wallet()` mock stub (`24` until a match writes the wallet). |
-| Hideout last-hunt line | `marksDelta` + `reason` from `ClientSession.last_payout` after returning from a match. |
-| JOBS panel | `POST /jobs` T1 (LIVE) or mock stub; table copy T1 +10 / T2 +15 / T3 +20. |
+| Hideout Marks chip | `MARKS ★N` from `you.marks` / last snapshot / `MatchAPI.wallet()` mock stub (`24` until a match writes the wallet). Empty last-hunt line until a payout exists (no debug tag). |
+| Hideout last-hunt line | `marksDelta` + display `reason` from `ClientSession.last_payout` after returning from a match. |
+| JOBS panel | `POST /jobs` T1 (LIVE) or mock stub; table copy T1 +10 / T2 +15 / T3 +20. Button color parked. |
 | Ability button (M5) | Slot caption **ABILITY**, label **UAV**. Still posts `{ type: "uav" }` (`ActionIntent.ability()` is an alias). |
-| End overlay | Headline from winner / forfeit / job; then `+N MARK · ★balance` and `reason`. Never hardcodes a local table. |
+| End overlay | Headline from winner / forfeit / job; then `+N MARK · ★balance` and display `reason`. SP `kill` → `job`. Never hardcodes a local grant. |
 
 ## LIVE ledger (Coder PR #2)
 

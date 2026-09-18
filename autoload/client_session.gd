@@ -63,11 +63,12 @@ func apply_snapshot(snap: Dictionary) -> void:
 		if you.has("marks"):
 			bind_marks(int(you.get("marks")))
 	var payout = MarksPayout.from_any(snap)
-	if payout.has_delta() or str(snap.get("endReason", payout.reason)) != "":
+	var why := MarksPayout.display_reason(snap, is_job())
+	if payout.has_delta() or why != "":
 		last_payout = {
 			"marks": marks,
 			"marksDelta": payout.marks_delta,
-			"reason": str(snap.get("endReason", payout.reason)),
+			"reason": why,
 		}
 
 
