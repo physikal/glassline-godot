@@ -101,7 +101,7 @@ func marks_delta() -> Variant:
 
 
 func end_reason() -> String:
-	var why := MarksPayout.display_reason(raw, is_job())
+	var why: String = MarksPayout.display_reason(raw, is_job())
 	if why != "":
 		return why
 	var pay = MarksPayout.from_any(raw)

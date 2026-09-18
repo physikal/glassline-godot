@@ -163,12 +163,15 @@ static func payload_is_job(payload: Dictionary, job_hint: bool = false) -> bool:
 
 static func display_reason(payload: Dictionary, job_hint: bool = false) -> String:
 	var payout = from_any(payload)
-	var why := str(payload.get("endReason", payout.reason)).to_lower()
+	## Prefer the payout bag (winner `kill` / loser `loss` / SP `job`) over LIVE `endReason`.
+	var why: String = str(payout.reason).to_lower()
 	if why == "":
-		why = payout.reason.to_lower()
+		why = str(payload.get("endReason", payload.get("reason", ""))).to_lower()
+	if why == "":
+		return ""
 	if not payload_is_job(payload, job_hint):
 		return why
-	## LIVE / mock snapshot endReason stays kill|standoff|forfeit. Earn table uses `job`.
+	## LIVE still sends endReason=kill (and sometimes payout.reason=kill) for SP bot elimination.
 	if why == Contract.END_KILL:
 		var win: Variant = payload.get("winner", null)
 		var you: Variant = payload.get("you", {})
