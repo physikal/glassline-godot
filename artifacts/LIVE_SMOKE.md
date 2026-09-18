@@ -4,6 +4,8 @@
 
 A1/A3 mock stills were already on `main`. This pass used a local copy of [physikal/glassline-api](https://github.com/physikal/glassline-api) — **not pushed**.
 
+**Neon blocker (2026-09-18):** `/home/box/.config/glassline-api/database-url` is not on this cloud VM (`/home/box` does not exist; no `box` user; no `database-url` file on mounts). No `DATABASE_URL` / Neon env key either. Did not print any secret. Fell back to local Postgres 16 as instructed.
+
 Anonymous `git clone` 404s (private repo). Working tree was materialized under `/tmp/glassline-api` from GitHub MCP file contents. Local Postgres 16:
 
 ```
