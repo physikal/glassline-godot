@@ -1,0 +1,182 @@
+extends SceneTree
+## Offline contract loop: drop both seats, miss, UAV reveal, kill, marks +1.
+## Run: godot --headless --path . -s res://tools/headless_loop_test.gd
+
+const Contract := preload("res://types/contract.gd")
+const ActionIntent := preload("res://types/action_intent.gd")
+const ActionResult := preload("res://types/action_result.gd")
+const Snapshot := preload("res://types/snapshot.gd")
+const MockScript := preload("res://autoload/mock_match_server.gd")
+
+var server
+
+
+func _init() -> void:
+	server = MockScript.new()
+	var code := _run()
+	quit(code)
+
+
+func _run() -> int:
+	var failed: PackedStringArray = []
+	server.clear_all()
+
+	var created: Dictionary = server.create_match()
+	_expect(failed, created.has("matchId"), "create_match.matchId")
+	_expect(failed, created.has("joinTokens"), "create_match.joinTokens")
+	var match_id := str(created["matchId"])
+	var tokens: Dictionary = created["joinTokens"]
+
+	var join_a: Dictionary = server.join(match_id, str(tokens["a"]))
+	var join_b: Dictionary = server.join(match_id, str(tokens["b"]))
+	_expect(failed, str(join_a.get("seat", "")) == "a", "join a seat")
+	_expect(failed, str(join_b.get("seat", "")) == "b", "join b seat")
+	var pid_a := str(join_a["playerId"])
+	var pid_b := str(join_b["playerId"])
+	var snap: Snapshot = Snapshot.from_dict(join_b["snapshot"])
+	_expect(failed, snap.status() == Contract.STATUS_READY, "both joined -> ready")
+
+	var r: ActionResult = server.apply_action(match_id, pid_a, ActionIntent.select_hex(1, 1))
+	_expect(failed, r.ok, "a select_hex")
+	_expect(failed, Snapshot.from_dict(r.snapshot).you_placed(), "a placed")
+
+	# Re-drop allowed until start.
+	r = server.apply_action(match_id, pid_a, ActionIntent.select_hex(2, 2))
+	_expect(failed, r.ok, "a re-drop")
+	_expect(failed, Contract.same_hex(Snapshot.from_dict(r.snapshot).you_hex(), Contract.hex_dict(2, 2)), "a hex 2,2")
+
+	r = server.apply_action(match_id, pid_b, ActionIntent.select_hex(7, 5))
+	_expect(failed, r.ok, "b select_hex")
+
+	r = server.apply_action(match_id, pid_a, ActionIntent.start())
+	_expect(failed, r.ok, "start")
+	snap = Snapshot.from_dict(r.snapshot)
+	_expect(failed, snap.status() == Contract.STATUS_ACTIVE, "active")
+	_expect(failed, str(snap.whose_turn()) == "a", "whoseTurn a")
+	_expect(failed, str(snap.phase()) == Contract.PHASE_ACTION, "await_action")
+	_expect(failed, int(snap.you_exposure()) == 50, "exposure 50")
+	_expect(failed, snap.enemy_visible_hex() == null, "no free intel")
+
+	# Attack miss — empty hex, must not invent Hot.
+	r = server.apply_action(match_id, pid_a, ActionIntent.attack(0, 0))
+	_expect(failed, r.ok, "attack miss ok")
+	snap = Snapshot.from_dict(r.snapshot)
+	var last: Variant = snap.last_action()
+	_expect(failed, last is Dictionary and last.get("hit") == false, "miss hit=false")
+	_expect(failed, snap.enemy_visible_hex() == null, "miss does not invent Hot")
+	_expect(failed, str(snap.phase()) == Contract.PHASE_END_TURN, "miss -> end_turn")
+	# Terrain revealed only for the attacked hex on first select.
+	var tmap: Dictionary = snap.terrain_map()
+	_expect(failed, tmap.has("0,0"), "miss reveals target terrain")
+
+	r = server.apply_action(match_id, pid_a, ActionIntent.end_turn(50))
+	_expect(failed, r.ok, "a end_turn after miss")
+	_expect(failed, str(Snapshot.from_dict(r.snapshot).whose_turn()) == "b", "turn passed to b")
+
+	r = server.apply_action(match_id, pid_b, ActionIntent.recon(4, 3))
+	_expect(failed, r.ok, "b recon")
+	r = server.apply_action(match_id, pid_b, ActionIntent.end_turn(40, Contract.hex_dict(6, 5)))
+	_expect(failed, r.ok, "b end_turn optional adjacent move")
+	snap = Snapshot.from_dict(server.get_snapshot(match_id, pid_b))
+	_expect(failed, snap.you_moved_last_turn(), "b movedLastTurn")
+
+	# UAV once — deterministic reveal of enemy hex to caller snapshot only.
+	r = server.apply_action(match_id, pid_a, ActionIntent.uav())
+	_expect(failed, r.ok, "uav")
+	snap = Snapshot.from_dict(r.snapshot)
+	_expect(failed, snap.uav_remaining() == 0, "uavRemaining 0")
+	_expect(failed, Contract.same_hex(snap.enemy_visible_hex(), Contract.hex_dict(6, 5)), "uav visibleHex is b")
+	r = server.apply_action(match_id, pid_a, ActionIntent.uav())
+	_expect(failed, not r.ok, "second uav refused (phase or spent)")
+
+	r = server.apply_action(match_id, pid_a, ActionIntent.end_turn(50))
+	_expect(failed, r.ok, "a end after uav")
+	r = server.apply_action(match_id, pid_b, ActionIntent.recon(1, 1))
+	_expect(failed, r.ok, "b filler recon")
+	r = server.apply_action(match_id, pid_b, ActionIntent.end_turn(50))
+	_expect(failed, r.ok, "b filler end")
+
+	# Attack kill via server — hex == enemy secret.
+	r = server.apply_action(match_id, pid_a, ActionIntent.attack(6, 5))
+	_expect(failed, r.ok, "attack kill ok")
+	snap = Snapshot.from_dict(r.snapshot)
+	last = snap.last_action()
+	_expect(failed, last is Dictionary and last.get("hit") == true, "kill hit=true")
+	_expect(failed, snap.status() == Contract.STATUS_ENDED, "ended")
+	_expect(failed, str(snap.winner()) == "a", "winner a")
+	_expect(failed, snap.you_marks() == 1, "marks +1")
+
+	# Recon odds: in-sector + forced roll.
+	_recon_case(failed)
+
+	# Turn cap draw.
+	_draw_case(failed)
+
+	if failed.is_empty():
+		print("HEADLESS_LOOP_OK")
+		return 0
+	for line in failed:
+		push_error(line)
+		print("FAIL: ", line)
+	return 1
+
+
+func _recon_case(failed: PackedStringArray) -> void:
+	server.clear_all()
+	server.test_recon_roll = 0.0
+	var created: Dictionary = server.create_match()
+	var mid := str(created["matchId"])
+	var a: Dictionary = server.join(mid, created["joinTokens"]["a"])
+	var b: Dictionary = server.join(mid, created["joinTokens"]["b"])
+	server.apply_action(mid, a["playerId"], ActionIntent.select_hex(4, 3))
+	server.apply_action(mid, b["playerId"], ActionIntent.select_hex(4, 4))
+	server.apply_action(mid, a["playerId"], ActionIntent.start())
+	var r: ActionResult = server.apply_action(mid, a["playerId"], ActionIntent.recon(4, 3))
+	_expect(failed, r.ok, "recon apply")
+	var snap: Snapshot = Snapshot.from_dict(r.snapshot)
+	_expect(failed, bool(snap.last_action().get("found", false)), "recon found at roll 0")
+	_expect(failed, Contract.same_hex(snap.enemy_visible_hex(), Contract.hex_dict(4, 4)), "recon intel")
+	server.test_recon_roll = 1.0
+	# Need a fresh action window — skip, already used action.
+	# Second match for miss-in-sector.
+	server.clear_all()
+	server.test_recon_roll = 1.0
+	created = server.create_match()
+	mid = str(created["matchId"])
+	a = server.join(mid, created["joinTokens"]["a"])
+	b = server.join(mid, created["joinTokens"]["b"])
+	server.apply_action(mid, a["playerId"], ActionIntent.select_hex(4, 3))
+	server.apply_action(mid, b["playerId"], ActionIntent.select_hex(4, 4))
+	server.apply_action(mid, a["playerId"], ActionIntent.start())
+	r = server.apply_action(mid, a["playerId"], ActionIntent.recon(4, 3))
+	snap = Snapshot.from_dict(r.snapshot)
+	_expect(failed, snap.last_action().get("found", true) == false, "recon miss at roll 1")
+	_expect(failed, snap.enemy_visible_hex() == null, "recon miss no intel")
+
+
+func _draw_case(failed: PackedStringArray) -> void:
+	server.clear_all()
+	var created: Dictionary = server.create_match()
+	var mid := str(created["matchId"])
+	var a: Dictionary = server.join(mid, created["joinTokens"]["a"])
+	var b: Dictionary = server.join(mid, created["joinTokens"]["b"])
+	server.apply_action(mid, a["playerId"], ActionIntent.select_hex(0, 0))
+	server.apply_action(mid, b["playerId"], ActionIntent.select_hex(8, 6))
+	server.apply_action(mid, a["playerId"], ActionIntent.start())
+	var whose := "a"
+	for _i in Contract.TURN_CAP:
+		var pid: String = a["playerId"] if whose == "a" else b["playerId"]
+		var r: ActionResult = server.apply_action(mid, pid, ActionIntent.recon(3, 3))
+		_expect(failed, r.ok, "draw loop recon %s" % whose)
+		r = server.apply_action(mid, pid, ActionIntent.end_turn(50))
+		_expect(failed, r.ok, "draw loop end %s" % whose)
+		whose = "b" if whose == "a" else "a"
+	var snap: Snapshot = Snapshot.from_dict(server.get_snapshot(mid, a["playerId"]))
+	_expect(failed, snap.status() == Contract.STATUS_ENDED, "cap ended")
+	_expect(failed, str(snap.winner()) == Contract.WIN_DRAW, "cap draw")
+	_expect(failed, snap.you_marks() == 0, "draw no marks")
+
+
+func _expect(failed: PackedStringArray, cond: bool, label: String) -> void:
+	if not cond:
+		failed.append(label)

@@ -1,0 +1,490 @@
+extends Control
+
+const Chrome := preload("res://scripts/chrome.gd")
+const HexBoard := preload("res://scenes/match/hex_board.gd")
+const Contract := preload("res://types/contract.gd")
+const ActionIntent := preload("res://types/action_intent.gd")
+const ActionResult := preload("res://types/action_result.gd")
+const Snapshot := preload("res://types/snapshot.gd")
+const HexMath := preload("res://scripts/hex_math.gd")
+
+enum Aim { NONE, ATTACK, RECON, RELOCATE }
+
+var _board: HexBoard
+var _board_host: Control
+var _optic
+var _status: Label
+var _turn: Label
+var _phase: Label
+var _legend_hover: Label
+var _toast: Label
+var _end_panel: PanelContainer
+var _exposure: HSlider
+var _exposure_lbl: Label
+var _btn_attack: Button
+var _btn_recon: Button
+var _btn_uav: Button
+var _btn_start: Button
+var _btn_end: Button
+var _over: ColorRect
+var _over_lbl: Label
+var _you_chip: Label
+var _rival_chip: Label
+
+var _aim: int = Aim.NONE
+var _selected: Variant = null
+var _dummy_placed: bool = false
+var _dummy_busy: bool = false
+var _relocate_hex: Variant = null
+
+
+func _ready() -> void:
+	set_anchors_preset(PRESET_FULL_RECT)
+	_build()
+	MockMatchServer.match_event.connect(_on_match_event)
+	_refresh(ClientSession.typed_snapshot())
+
+
+func _exit_tree() -> void:
+	if MockMatchServer.match_event.is_connected(_on_match_event):
+		MockMatchServer.match_event.disconnect(_on_match_event)
+
+
+func _build() -> void:
+	var bg := ColorRect.new()
+	bg.color = Color("1c1410")
+	bg.set_anchors_preset(PRESET_FULL_RECT)
+	add_child(bg)
+
+	var top := ColorRect.new()
+	top.color = Color(0.07, 0.05, 0.04, 0.94)
+	top.set_anchors_and_offsets_preset(PRESET_TOP_WIDE)
+	top.offset_bottom = 72
+	add_child(top)
+
+	_you_chip = Label.new()
+	_you_chip.position = Vector2(16, 18)
+	Chrome.apply_label(_you_chip, 10, Chrome.CREAM, true)
+	add_child(_you_chip)
+
+	var title := Label.new()
+	title.text = "GLASSLINE"
+	title.position = Vector2(0, 16)
+	title.size = Vector2(1280, 40)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	Chrome.apply_label(title, 22, Color.WHITE, true)
+	add_child(title)
+
+	_rival_chip = Label.new()
+	_rival_chip.position = Vector2(980, 18)
+	_rival_chip.size = Vector2(280, 24)
+	_rival_chip.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	Chrome.apply_label(_rival_chip, 10, Chrome.CREAM, true)
+	add_child(_rival_chip)
+
+	_turn = Label.new()
+	_turn.position = Vector2(0, 48)
+	_turn.size = Vector2(1280, 20)
+	_turn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	Chrome.apply_label(_turn, 8, Chrome.HIGH_GOLD, true)
+	add_child(_turn)
+
+	var legend := VBoxContainer.new()
+	legend.position = Vector2(16, 160)
+	legend.add_theme_constant_override("separation", 10)
+	add_child(legend)
+	_legend_row(legend, Chrome.OPEN, "OPEN")
+	_legend_row(legend, Chrome.BRUSH, "BRUSH")
+	_legend_row(legend, Chrome.HARD, "HARD")
+	_legend_row(legend, Chrome.UNKNOWN, "UNKNOWN")
+
+	_legend_hover = Label.new()
+	_legend_hover.position = Vector2(16, 360)
+	_legend_hover.size = Vector2(200, 80)
+	_legend_hover.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	Chrome.apply_label(_legend_hover, 8, Chrome.CREAM, true)
+	add_child(_legend_hover)
+
+	_board_host = Control.new()
+	_board_host.position = Vector2(230, 90)
+	_board_host.size = Vector2(820, 500)
+	_board_host.mouse_filter = Control.MOUSE_FILTER_STOP
+	_board_host.gui_input.connect(_on_board_input)
+	add_child(_board_host)
+
+	_board = HexBoard.new()
+	_board_host.add_child(_board)
+	_board.position = Vector2(410, 250)
+
+	_status = Label.new()
+	_status.position = Vector2(240, 88)
+	_status.size = Vector2(800, 24)
+	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	Chrome.apply_label(_status, 10, Color("f0e3b0"), true)
+	add_child(_status)
+
+	_phase = Label.new()
+	_phase.position = Vector2(240, 108)
+	_phase.size = Vector2(800, 20)
+	_phase.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	Chrome.apply_label(_phase, 8, Chrome.TEAL, true)
+	add_child(_phase)
+
+	var bottom := ColorRect.new()
+	bottom.color = Color(0.07, 0.05, 0.04, 0.94)
+	bottom.set_anchors_and_offsets_preset(PRESET_BOTTOM_WIDE)
+	bottom.offset_top = -108
+	add_child(bottom)
+
+	var row := HBoxContainer.new()
+	row.position = Vector2(40, 628)
+	row.size = Vector2(1200, 76)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 16)
+	add_child(row)
+
+	_btn_attack = Chrome.chunk_button("ATTACK", Chrome.ATTACK_RED, Color.WHITE, Vector2(200, 64))
+	_btn_attack.pressed.connect(_on_attack)
+	row.add_child(_btn_attack)
+	_btn_recon = Chrome.chunk_button("RECON", Chrome.RECON_BLUE, Color.WHITE, Vector2(200, 64))
+	_btn_recon.pressed.connect(_on_recon)
+	row.add_child(_btn_recon)
+	_btn_uav = Chrome.chunk_button("UAV", Chrome.ABILITY_PURPLE, Color.WHITE, Vector2(200, 64))
+	_btn_uav.pressed.connect(_on_uav)
+	row.add_child(_btn_uav)
+	var high := Chrome.chunk_button("HIGHGROUND", Chrome.HIGH_GOLD, Chrome.INK, Vector2(240, 64))
+	high.disabled = true
+	high.tooltip_text = "Flavor chip from the hex-map plate. Hit/miss stays server-side."
+	row.add_child(high)
+
+	_btn_start = Chrome.chunk_button("START", Chrome.PLAY_GREEN, Color.WHITE, Vector2(180, 48))
+	_btn_start.position = Vector2(1050, 88)
+	_btn_start.pressed.connect(_on_start)
+	add_child(_btn_start)
+
+	_end_panel = PanelContainer.new()
+	_end_panel.position = Vector2(430, 520)
+	_end_panel.visible = false
+	var end_box := Chrome.flat(Color(0.12, 0.09, 0.07, 0.95), 16, Color("f0e3b0"), 2)
+	_end_panel.add_theme_stylebox_override("panel", end_box)
+	add_child(_end_panel)
+	var end_col := VBoxContainer.new()
+	end_col.add_theme_constant_override("separation", 8)
+	_end_panel.add_child(end_col)
+	var end_title := Label.new()
+	end_title.text = "END TURN"
+	Chrome.apply_label(end_title, 10, Chrome.CREAM, true)
+	end_col.add_child(end_title)
+	_exposure_lbl = Label.new()
+	Chrome.apply_label(_exposure_lbl, 8, Chrome.HIGH_GOLD, true)
+	end_col.add_child(_exposure_lbl)
+	_exposure = HSlider.new()
+	_exposure.min_value = 0
+	_exposure.max_value = 100
+	_exposure.value = Contract.DEFAULT_EXPOSURE
+	_exposure.custom_minimum_size = Vector2(360, 20)
+	_exposure.value_changed.connect(func(v: float) -> void:
+		_exposure_lbl.text = "EXPOSURE  %d%%" % int(v)
+	)
+	end_col.add_child(_exposure)
+	_exposure_lbl.text = "EXPOSURE  50%"
+	var move_hint := Label.new()
+	move_hint.text = "Optional: click an adjacent hex to relocate"
+	Chrome.apply_label(move_hint, 8, Chrome.CREAM)
+	end_col.add_child(move_hint)
+	_btn_end = Chrome.chunk_button("END TURN", Chrome.TEAL, Color.WHITE, Vector2(220, 44))
+	_btn_end.pressed.connect(_on_end_turn)
+	end_col.add_child(_btn_end)
+
+	_toast = Label.new()
+	_toast.position = Vector2(240, 580)
+	_toast.size = Vector2(800, 28)
+	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	Chrome.apply_label(_toast, 10, Color("f7e7a8"), true)
+	add_child(_toast)
+
+	_optic = preload("res://scenes/optic/optic_overlay.gd").new()
+	_optic.set_anchors_preset(PRESET_FULL_RECT)
+	add_child(_optic)
+	_optic.fire_pressed.connect(_on_optic_fire)
+	_optic.cancelled.connect(func() -> void: _aim = Aim.NONE)
+
+	_over = ColorRect.new()
+	_over.color = Color(0.05, 0.03, 0.02, 0.82)
+	_over.set_anchors_preset(PRESET_FULL_RECT)
+	_over.visible = false
+	add_child(_over)
+	_over_lbl = Label.new()
+	_over_lbl.set_anchors_preset(PRESET_FULL_RECT)
+	_over_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_over_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	Chrome.apply_label(_over_lbl, 18, Color.WHITE, true)
+	_over.add_child(_over_lbl)
+	var back := Chrome.chunk_button("HIDEOUT", Chrome.PLAY_GREEN, Color.WHITE, Vector2(240, 56))
+	back.position = Vector2(520, 460)
+	back.pressed.connect(func() -> void:
+		get_tree().change_scene_to_file("res://scenes/lobby/hideout_lobby.tscn")
+	)
+	_over.add_child(back)
+
+
+func _legend_row(parent: VBoxContainer, color: Color, text: String) -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	var swatch := ColorRect.new()
+	swatch.custom_minimum_size = Vector2(22, 22)
+	swatch.color = color
+	row.add_child(swatch)
+	var lbl := Label.new()
+	lbl.text = text
+	Chrome.apply_label(lbl, 8, Chrome.CREAM, true)
+	row.add_child(lbl)
+	parent.add_child(row)
+
+
+func _on_match_event(player_id: String, _event_name: String, snapshot: Dictionary) -> void:
+	if player_id != ClientSession.player_id:
+		return
+	ClientSession.apply_snapshot(snapshot)
+	_refresh(Snapshot.from_dict(snapshot))
+
+
+func _refresh(snap: Snapshot) -> void:
+	_board.apply_snapshot(snap, _selected, _highlights(snap))
+	_you_chip.text = "%s  SEAT %s  ★%d" % [ClientSession.HANDLE, snap.you_seat().to_upper(), snap.you_marks()]
+	_rival_chip.text = "%s" % ClientSession.RIVAL
+	_turn.text = "TURN  %d / %d" % [snap.turn_index(), snap.turn_cap()]
+	var whose := str(snap.whose_turn()) if snap.whose_turn() != null else "-"
+	_phase.text = "STATUS %s   PHASE %s   TO %s" % [snap.status(), str(snap.phase()), whose.to_upper()]
+
+	match snap.status():
+		Contract.STATUS_READY:
+			_status.text = "DROP: click a hex. Re-drop until START. Dummy seats through select_hex."
+			_btn_start.visible = snap.you_placed() and _dummy_placed
+			_set_actions(false)
+			_end_panel.visible = false
+		Contract.STATUS_ACTIVE:
+			_btn_start.visible = false
+			var yours := snap.is_your_turn()
+			if str(snap.phase()) == Contract.PHASE_ACTION:
+				_status.text = "Your action." if yours else "Rival is lining up…"
+				_set_actions(yours)
+				_end_panel.visible = false
+			elif str(snap.phase()) == Contract.PHASE_END_TURN:
+				_status.text = "End turn — set exposure, optional adjacent move."
+				_set_actions(false)
+				_end_panel.visible = yours
+			if not yours:
+				_queue_dummy(snap)
+		Contract.STATUS_ENDED:
+			_btn_start.visible = false
+			_set_actions(false)
+			_end_panel.visible = false
+			_show_ended(snap)
+		_:
+			_status.text = snap.status()
+
+	var last: Variant = snap.last_action()
+	if last is Dictionary:
+		_toast.text = _describe_last(last)
+	_btn_uav.disabled = _btn_uav.disabled or snap.uav_remaining() <= 0
+	if snap.uav_remaining() <= 0:
+		_btn_uav.text = "UAV SPENT"
+
+
+func _highlights(snap: Snapshot) -> Dictionary:
+	var extra := {}
+	if _relocate_hex != null:
+		extra[Contract.hex_key(_relocate_hex)] = Color("7ec8e3")
+	if snap.enemy_soft_hot() > 0 and snap.enemy_visible_hex() != null:
+		extra[Contract.hex_key(snap.enemy_visible_hex())] = Color("f0a020")
+	return extra
+
+
+func _set_actions(on: bool) -> void:
+	_btn_attack.disabled = not on
+	_btn_recon.disabled = not on
+	_btn_uav.disabled = not on
+
+
+func _on_board_input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion:
+		var hex: Variant = _pick(event.position)
+		_board.set_hover(hex)
+		if hex != null:
+			var snap: Snapshot = ClientSession.typed_snapshot()
+			var kind := str(snap.terrain_map().get(Contract.hex_key(hex), "unknown"))
+			_legend_hover.text = "Q%d R%d\n%s" % [int(hex["q"]), int(hex["r"]), kind.to_upper()]
+	elif event is InputEventMouseButton:
+		var mouse := event as InputEventMouseButton
+		if mouse.pressed and mouse.button_index == MOUSE_BUTTON_LEFT:
+			var hex: Variant = _pick(mouse.position)
+			if hex != null:
+				_handle_hex(int(hex["q"]), int(hex["r"]))
+
+
+func _pick(local: Vector2) -> Variant:
+	return _board.pick_local(local - _board.position)
+
+
+func _handle_hex(q: int, r: int) -> void:
+	var snap: Snapshot = ClientSession.typed_snapshot()
+	if snap.status() == Contract.STATUS_READY:
+		_submit(ActionIntent.select_hex(q, r))
+		_maybe_dummy_drop(q, r)
+		return
+	if _aim == Aim.RELOCATE or (_end_panel.visible and _aim != Aim.ATTACK and _aim != Aim.RECON):
+		_relocate_hex = Contract.hex_dict(q, r)
+		_selected = _relocate_hex
+		_toast.text = "Relocate queued Q%d R%d (must be adjacent)." % [q, r]
+		_refresh(snap)
+		return
+	if _aim == Aim.RECON:
+		_aim = Aim.NONE
+		_submit(ActionIntent.recon(q, r))
+		return
+	if _aim == Aim.ATTACK:
+		_selected = Contract.hex_dict(q, r)
+		var kind := str(snap.terrain_map().get("%d,%d" % [q, r], "unknown"))
+		var show_fig := Contract.same_hex(snap.enemy_visible_hex(), _selected)
+		_optic.open_for(_selected, kind, show_fig)
+		return
+	_selected = Contract.hex_dict(q, r)
+	_refresh(snap)
+
+
+func _maybe_dummy_drop(_q: int, _r: int) -> void:
+	if _dummy_placed:
+		return
+	get_tree().create_timer(0.35).timeout.connect(func() -> void:
+		var you: Variant = ClientSession.typed_snapshot().you_hex()
+		var dest := Vector2i(7, 5)
+		if you is Dictionary:
+			var best := dest
+			var best_d := -1
+			for qq in Contract.BOARD_Q:
+				for rr in Contract.BOARD_R:
+					var d := HexMath.distance(int(you["q"]), int(you["r"]), qq, rr)
+					if d > best_d:
+						best_d = d
+						best = Vector2i(qq, rr)
+			dest = best
+		var dummy_result := _submit_as(ClientSession.dummy_player_id, ActionIntent.select_hex(dest.x, dest.y))
+		if dummy_result.ok:
+			_dummy_placed = true
+			_refresh(ClientSession.typed_snapshot())
+	)
+
+
+func _on_start() -> void:
+	_submit(ActionIntent.start())
+
+
+func _on_attack() -> void:
+	_aim = Aim.ATTACK
+	_toast.text = "ATTACK: click a hex, then FIRE in the optic. Server decides hit."
+
+
+func _on_recon() -> void:
+	_aim = Aim.RECON
+	_toast.text = "RECON: click a sector center (hex + 6 neighbors)."
+
+
+func _on_uav() -> void:
+	_submit(ActionIntent.uav())
+
+
+func _on_optic_fire() -> void:
+	if _selected == null:
+		return
+	var q := int(_selected["q"])
+	var r := int(_selected["r"])
+	var result := _submit(ActionIntent.attack(q, r))
+	if result != null and result.ok:
+		var last: Variant = result.snapshot.get("lastAction", {})
+		var hit := last is Dictionary and bool(last.get("hit", false))
+		_optic.show_server_result("SERVER  HIT" if hit else "SERVER  MISS")
+		if hit:
+			get_tree().create_timer(0.9).timeout.connect(func() -> void: _optic.close())
+		else:
+			get_tree().create_timer(0.8).timeout.connect(func() -> void: _optic.close())
+	_aim = Aim.NONE
+
+
+func _on_end_turn() -> void:
+	var body := ActionIntent.end_turn(_exposure.value, _relocate_hex)
+	_relocate_hex = null
+	_selected = null
+	_submit(body)
+
+
+func _submit(action: Dictionary) -> ActionResult:
+	return _submit_as(ClientSession.player_id, action)
+
+
+func _submit_as(player_id: String, action: Dictionary) -> ActionResult:
+	var result: ActionResult = MockMatchServer.apply_action(ClientSession.match_id, player_id, action)
+	if player_id == ClientSession.player_id:
+		if result.ok:
+			ClientSession.apply_snapshot(result.snapshot)
+			_refresh(Snapshot.from_dict(result.snapshot))
+		else:
+			_toast.text = "REFUSED  %s" % result.error
+	return result
+
+
+func _queue_dummy(snap: Snapshot) -> void:
+	if _dummy_busy:
+		return
+	if snap.status() != Contract.STATUS_ACTIVE:
+		return
+	if str(snap.whose_turn()) == snap.you_seat():
+		return
+	_dummy_busy = true
+	get_tree().create_timer(0.45).timeout.connect(_dummy_step)
+
+
+func _dummy_step() -> void:
+	_dummy_busy = false
+	var dummy_snap: Snapshot = Snapshot.from_dict(MockMatchServer.get_snapshot(ClientSession.match_id, ClientSession.dummy_player_id))
+	if dummy_snap.status() != Contract.STATUS_ACTIVE:
+		return
+	if str(dummy_snap.whose_turn()) == ClientSession.seat:
+		return
+	if str(dummy_snap.phase()) == Contract.PHASE_ACTION:
+		_submit_as(ClientSession.dummy_player_id, ActionIntent.recon(4, 3))
+		_dummy_busy = true
+		get_tree().create_timer(0.35).timeout.connect(_dummy_step)
+	elif str(dummy_snap.phase()) == Contract.PHASE_END_TURN:
+		_submit_as(ClientSession.dummy_player_id, ActionIntent.end_turn(Contract.DEFAULT_EXPOSURE))
+		# Human snapshot updates via broadcast.
+
+
+func _show_ended(snap: Snapshot) -> void:
+	_over.visible = true
+	var win: Variant = snap.winner()
+	if win == Contract.WIN_DRAW:
+		_over_lbl.text = "DRAW\nTurn cap 16 — no kill."
+	elif str(win) == snap.you_seat():
+		_over_lbl.text = "MARK CONFIRMED\nMarks +1"
+	else:
+		_over_lbl.text = "ELIMINATED"
+
+
+func _describe_last(last: Dictionary) -> String:
+	var kind := str(last.get("type", ""))
+	match kind:
+		Contract.ACT_ATTACK:
+			return "lastAction attack  hit=%s  (server)" % str(last.get("hit", false))
+		Contract.ACT_RECON:
+			return "lastAction recon  found=%s  (server)" % str(last.get("found", false))
+		Contract.ACT_UAV:
+			return "lastAction uav  revealed=%s  (server)" % str(last.get("revealed", false))
+		Contract.ACT_END_TURN:
+			return "lastAction end_turn  moved=%s" % str(last.get("moved", false))
+		Contract.ACT_SELECT_HEX:
+			return "lastAction select_hex  seat %s" % str(last.get("seat", ""))
+		Contract.ACT_START:
+			return "lastAction start — seat A shoots first"
+		_:
+			return ""
