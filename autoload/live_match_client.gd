@@ -46,8 +46,68 @@ func create_match(opts: Dictionary = {}) -> Dictionary:
 
 
 func wallet() -> Dictionary:
-	## No dedicated LIVE wallet route. Hideout binds `you.marks`.
-	return {}
+	## Prefer GET /shop when Coder ships it (you.marks + cosmetics). Else {}.
+	var shop: Dictionary = get_shop()
+	if _shop_unavailable(shop):
+		return {}
+	return shop
+
+
+func get_shop() -> Dictionary:
+	## LIVE GET /shop — catalog + you.marks + owned/equipped. 404 until Coder ships.
+	var raw: Dictionary = _raw("GET", "/shop", null, ClientSession.join_token)
+	return _shop_from_raw(raw)
+
+
+func buy_shop(item_id: String, client_buy_id: String = "") -> Dictionary:
+	## LIVE POST /shop/buy { itemId, clientBuyId? }. Idempotent on clientBuyId.
+	var payload := {"itemId": item_id}
+	if client_buy_id != "":
+		payload["clientBuyId"] = client_buy_id
+	var raw: Dictionary = _raw("POST", "/shop/buy", payload, ClientSession.join_token)
+	return _shop_from_raw(raw, true)
+
+
+func equip_cosmetic(_item_id: String) -> Dictionary:
+	## No LIVE equip route yet. Hideout applies visual locally after a shop snapshot.
+	return {"ok": true, "error": "", "visualOnly": true, "source": "live_local"}
+
+
+func _shop_unavailable(body: Dictionary) -> bool:
+	var err := str(body.get("error", ""))
+	return err in [Contract.SHOP_ERR_UNAVAILABLE, "http_404", "bad_json"] or int(body.get("status", 0)) == 404
+
+
+func _shop_from_raw(raw: Dictionary, is_buy: bool = false) -> Dictionary:
+	var status := int(raw.get("status", 0))
+	var js: Variant = raw.get("json", {})
+	if status == 404:
+		return {
+			"ok": false,
+			"error": Contract.SHOP_ERR_UNAVAILABLE,
+			"status": 404,
+			"snapshot": {},
+		}
+	if not (js is Dictionary):
+		var fallback := str(raw.get("error", "bad_json"))
+		return {"ok": false, "error": fallback, "status": status, "snapshot": {}}
+	var body: Dictionary = js
+	if status >= 400 and not body.has("error"):
+		var result: Variant = body.get("result", {})
+		if result is Dictionary and str(result.get("reason", "")) != "":
+			body["error"] = str(result.get("reason"))
+		else:
+			body["error"] = "http_%s" % str(status)
+	if is_buy:
+		if body.has("ok"):
+			body["ok"] = bool(body.get("ok"))
+		else:
+			body["ok"] = status >= 200 and status < 300 and str(body.get("error", "")) == ""
+		if not body.has("snapshot"):
+			if body.has("you") or body.has("marks") or body.has("owned"):
+				body["snapshot"] = body.duplicate(true)
+	body["status"] = status
+	return body
 
 
 func create_job(tier: int = 1) -> Dictionary:

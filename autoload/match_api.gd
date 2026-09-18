@@ -5,6 +5,7 @@ extends Node
 signal match_event(player_id: String, event_name: String, snapshot: Dictionary)
 
 const ActionResult := preload("res://types/action_result.gd")
+const Contract := preload("res://types/contract.gd")
 
 
 func _ready() -> void:
@@ -30,6 +31,33 @@ func wallet() -> Dictionary:
 	if using_live():
 		return LiveMatchClient.wallet()
 	return MockMatchServer.wallet()
+
+
+func get_shop() -> Dictionary:
+	if using_live():
+		var body: Dictionary = LiveMatchClient.get_shop()
+		if _shop_live_missing(body):
+			## LIVE /shop 404 — keep the stub row visible; buy still posts LIVE.
+			return Contract.shop_catalog_stub(ClientSession.marks)
+		return body
+	return MockMatchServer.get_shop()
+
+
+func buy_shop(item_id: String, client_buy_id: String = "") -> Dictionary:
+	if using_live():
+		return LiveMatchClient.buy_shop(item_id, client_buy_id)
+	return MockMatchServer.buy_shop(item_id, client_buy_id)
+
+
+func equip_cosmetic(item_id: String) -> Dictionary:
+	if using_live():
+		return LiveMatchClient.equip_cosmetic(item_id)
+	return MockMatchServer.equip_cosmetic(item_id)
+
+
+func _shop_live_missing(body: Dictionary) -> bool:
+	var err := str(body.get("error", ""))
+	return err in [Contract.SHOP_ERR_UNAVAILABLE, "http_404", "bad_json"] or int(body.get("status", 0)) == 404
 
 
 func create_job(tier: int = 1) -> Dictionary:

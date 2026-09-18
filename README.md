@@ -70,6 +70,8 @@ Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` 
 | POST | `/matches/:id/actions` | intent → `{ ok, snapshot, result }` |
 | GET | `/matches/:id` | caller-scoped snapshot (reconnect / dummy seat) |
 | GET | `/matches/:id/events` | SSE `{ event: snapshot\|your_turn, snapshot }` — on drop, poll `GET /matches/:id` |
+| GET | `/shop` | Catalog + `you.marks` + owned/equipped — **404 on LIVE 2026-09-18**; mock + client methods ready |
+| POST | `/shop/buy` | `{ itemId, clientBuyId? }` → snapshot `you.marks` + cosmetic. Reject `insufficient_marks`. Idempotent on `clientBuyId` |
 | Auth | | `Authorization: Bearer <join token>` |
 
 `PLAY` still joins **both** seats (you = `a`, local dummy = `b`) against the same server so the offline dummy loop works on live HTTPS. Dummy actions use token `b`; the UI SSE stream uses token `a`.
@@ -78,7 +80,7 @@ Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` 
 
 | Scene | Path | Role |
 | --- | --- | --- |
-| Hideout | `scenes/lobby/hideout_lobby.tscn` | Canon room, PLAY, JOBS (SP vs bot), Marks chip, MOCK/LIVE toggle |
+| Hideout | `scenes/lobby/hideout_lobby.tscn` | Canon room, ARMORY shop row (ghillie recolor ★50), PLAY, JOBS, Marks chip |
 | Match | `scenes/match/match_screen.tscn` | 9×7 axial, dummy `select_hex`, START, Attack/Recon/UAV ability, END TURN |
 | Optic | `scenes/optic/optic_overlay.gd` | Zoom / wobble stub + FIRE |
 | Types | `types/` | Snapshot, ActionIntent, ActionResult (`{ ok, snapshot, result }`) |
@@ -96,7 +98,7 @@ Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` 
 6. UAV once → `enemy.visibleHex`. END TURN.
 7. ATTACK that hex → `hit` / `kill`. End overlay reads server `payout` (`marks`, `marksDelta`, `reason`) — never local `marks +=`.
 
-Hideout **JOBS → START JOB** calls `POST /jobs` `{ tier: 1|2|3 }` on LIVE (mock uses the same shape). Ability chrome is labeled **UAV** and still posts `{ type: "uav" }`. Balance is `you.marks`. Earn table + field names: `artifacts/MARKS_SP_NOTES.md`.
+Hideout **JOBS → START JOB** calls `POST /jobs` `{ tier: 1|2|3 }` on LIVE (mock uses the same shape). Ability chrome is labeled **UAV** and still posts `{ type: "uav" }`. Balance is `you.marks`. Earn table + field names: `artifacts/MARKS_SP_NOTES.md`. Hideout **ARMORY** is the Marks sink stub (ghillie recolor **★50**, `POST /shop/buy`, no combat / no IAP): `artifacts/MARKS_SINK_NOTES.md`.
 
 ## Layout
 

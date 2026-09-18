@@ -61,6 +61,16 @@ const ABILITY_SLOT := "ABILITY"
 ## Mock hideout stub until Coder's ledger / GET wallet exists.
 const MOCK_WALLET_STUB := 24
 
+## Marks sink stub — one hideout cosmetic. GD stamped price 50 (2026-09-18).
+const SHOP_STUB_ITEM_ID := "ghillie_recolor"
+const SHOP_STUB_ITEM_NAME := "GHILLIE RECOLOR"
+const SHOP_STUB_KIND := "recolor"
+const SHOP_STUB_PRICE := 50
+const SHOP_ERR_INSUFFICIENT := "insufficient_marks"
+const SHOP_ERR_ALREADY_OWNED := "already_owned"
+const SHOP_ERR_UNKNOWN_ITEM := "unknown_item"
+const SHOP_ERR_UNAVAILABLE := "shop_unavailable"
+
 ## Locked GD earn table (2026-09-18). Mock display grants only; LIVE ledger is Coder.
 const MARKS_PVP_WIN := 25
 const MARKS_PVP_LOSS := 3
@@ -121,3 +131,50 @@ static func same_hex(a: Variant, b: Variant) -> bool:
 
 static func other_seat(seat: String) -> String:
 	return SEAT_B if seat == SEAT_A else SEAT_A
+
+
+static func shop_stub_item() -> Dictionary:
+	return {
+		"itemId": SHOP_STUB_ITEM_ID,
+		"name": SHOP_STUB_ITEM_NAME,
+		"kind": SHOP_STUB_KIND,
+		"price": SHOP_STUB_PRICE,
+		"priceMarks": SHOP_STUB_PRICE,
+		"cosmetic": true,
+		"combat": false,
+	}
+
+
+static func shop_catalog_stub(marks: int = 0, owned: Array = [], equipped: String = "") -> Dictionary:
+	var owned_ids: Array = owned.duplicate()
+	return {
+		"items": [shop_stub_item()],
+		"you": {
+			"marks": marks,
+			"owned": owned_ids,
+			"equipped": equipped if equipped != "" else null,
+		},
+		"owned": owned_ids,
+		"equipped": equipped if equipped != "" else null,
+		"marks": marks,
+	}
+
+
+static func new_client_buy_id() -> String:
+	## UUID v4 for POST /shop/buy clientBuyId. New id on every Buy click.
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var bytes := PackedByteArray()
+	bytes.resize(16)
+	for i in 16:
+		bytes[i] = rng.randi_range(0, 255)
+	bytes[6] = (bytes[6] & 0x0f) | 0x40
+	bytes[8] = (bytes[8] & 0x3f) | 0x80
+	var hex := bytes.hex_encode()
+	return "%s-%s-%s-%s-%s" % [
+		hex.substr(0, 8),
+		hex.substr(8, 4),
+		hex.substr(12, 4),
+		hex.substr(16, 4),
+		hex.substr(20, 12),
+	]
