@@ -192,7 +192,7 @@ func _build_top_bar() -> void:
 
 	var wallet := HBoxContainer.new()
 	wallet.set_anchors_preset(PRESET_TOP_RIGHT)
-	wallet.offset_left = -430
+	wallet.offset_left = -500
 	wallet.offset_right = -16
 	wallet.offset_top = 12
 	wallet.offset_bottom = 64
@@ -307,13 +307,14 @@ func _plate_without_baked_chrome(src: Texture2D) -> Texture2D:
 	var w := img.get_width()
 	var h := img.get_height()
 	## Patch from open wall (left of operative, under the rifles).
-	var px := clampi(int(w * 0.40), 0, w - 2)
-	var py := clampi(int(h * 0.42), 0, h - 2)
+	## Open wall left of the operative mid-torso — skip jacket, beanbag, rifles.
+	var px := clampi(int(w * 0.34), 0, w - 2)
+	var py := clampi(int(h * 0.47), 0, h - 2)
 	var pw := mini(96, w - px)
 	var ph := mini(48, h - py)
 	## Island stamps under live chips only — not a full-width brown bar.
-	_stamp_wood(img, 0, 0, mini(420, w), mini(110, h), px, py, pw, ph)
-	_stamp_wood(img, maxi(0, w - 430), 0, w, mini(62, h), px, py, pw, ph)
+	_stamp_wood(img, 0, 0, mini(400, w), mini(122, h), px, py, pw, ph)
+	_stamp_wood(img, maxi(0, w - 500), 0, w, mini(62, h), px, py, pw, ph)
 	_stamp_wood(img, 0, maxi(0, h - 140), w, h, px, py, pw, ph)
 	var wood := img.get_pixel(px, py)
 	for cover in _wood_covers:
