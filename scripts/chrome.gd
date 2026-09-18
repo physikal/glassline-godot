@@ -17,6 +17,9 @@ const ATTACK_RED := Color("c23b3b")
 const RECON_BLUE := Color("1f6feb")
 const ABILITY_PURPLE := Color("6b4ac7")
 const HIGH_GOLD := Color("c9a24a")
+const COIN_GOLD := Color("f0c44a")
+const GEM_PURPLE := Color("b45cff")
+const XP_GREEN := Color("3dcf6e")
 const OPEN := Color("e6d4a0")
 const BRUSH := Color("7cb34a")
 const HARD := Color("9aa3ad")
@@ -66,6 +69,18 @@ static func marks_star_text(balance: int) -> String:
 
 static func chunk_button(text: String, bg: Color, fg: Color, min_size: Vector2 = Vector2(220, 64)) -> Button:
 	return _styled_button(text, bg, fg, min_size, 18, 12)
+
+
+static func pill_chip(bg: Color = INK, border: Color = Color("3d2a1c")) -> PanelContainer:
+	var panel := PanelContainer.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var box := flat(bg, 22, border, 2)
+	box.content_margin_left = 12
+	box.content_margin_right = 14
+	box.content_margin_top = 7
+	box.content_margin_bottom = 7
+	panel.add_theme_stylebox_override("panel", box)
+	return panel
 
 
 static func dock_button(text: String, bg: Color, fg: Color, min_size: Vector2, icon_kind: String = "") -> Button:
@@ -155,6 +170,10 @@ static func make_icon(kind: String, color: Color, px: int = 28) -> Texture2D:
 			_icon_play(img, color)
 		"jobs":
 			_icon_clipboard(img, color)
+		"coin":
+			_icon_coin(img, color)
+		"gem":
+			_icon_gem(img, color)
 		_:
 			_icon_star(img, color)
 	return ImageTexture.create_from_image(img)
@@ -252,6 +271,19 @@ static func _icon_play(img: Image, color: Color) -> void:
 		var width := 13 - dy
 		if width > 0:
 			_fill_rect(img, 8, y, width, 1, color)
+
+
+static func _icon_coin(img: Image, color: Color) -> void:
+	_fill_circle(img, 14, 14, 10, color)
+	_stroke_circle(img, 14, 14, 10, INK)
+	_fill_circle(img, 14, 14, 4, Color("fff3b0"))
+
+
+static func _icon_gem(img: Image, color: Color) -> void:
+	_fill_rect(img, 13, 4, 3, 20, color)
+	_fill_rect(img, 8, 8, 13, 12, color)
+	_fill_rect(img, 10, 6, 9, 16, color)
+	_fill_rect(img, 12, 10, 5, 5, Color(1, 1, 1, 0.45))
 
 
 static func _icon_clipboard(img: Image, color: Color) -> void:

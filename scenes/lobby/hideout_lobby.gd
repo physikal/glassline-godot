@@ -59,25 +59,6 @@ func _build() -> void:
 	_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_bg)
 
-	var hud_cover := ColorRect.new()
-	hud_cover.color = Color("7a4e2c")
-	hud_cover.position = Vector2(0, 44)
-	hud_cover.size = Vector2(400, 72)
-	hud_cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(hud_cover)
-	_wood_covers.append(hud_cover)
-
-	var gem_cover := ColorRect.new()
-	gem_cover.color = Color("7a4e2c")
-	gem_cover.set_anchors_preset(PRESET_TOP_RIGHT)
-	gem_cover.offset_left = -460
-	gem_cover.offset_right = 0
-	gem_cover.offset_top = 0
-	gem_cover.offset_bottom = 54
-	gem_cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(gem_cover)
-	_wood_covers.append(gem_cover)
-
 	var dock_cover := ColorRect.new()
 	dock_cover.color = Color("7a4e2c")
 	dock_cover.set_anchors_and_offsets_preset(PRESET_BOTTOM_WIDE)
@@ -103,38 +84,7 @@ func _build() -> void:
 	operative.pressed.connect(_toggle_suit)
 	add_child(operative)
 
-	var chip := PanelContainer.new()
-	chip.position = Vector2(16, 14)
-	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var chip_box := Chrome.flat(Chrome.INK, 24, Color("3d2a1c"), 2)
-	chip_box.content_margin_left = 10
-	chip_box.content_margin_right = 16
-	chip_box.content_margin_top = 6
-	chip_box.content_margin_bottom = 6
-	chip.add_theme_stylebox_override("panel", chip_box)
-	add_child(chip)
-
-	var chip_row := HBoxContainer.new()
-	chip_row.add_theme_constant_override("separation", 10)
-	chip.add_child(chip_row)
-
-	var face := TextureRect.new()
-	face.texture = Chrome.make_face("p1", 36)
-	face.custom_minimum_size = Vector2(36, 36)
-	face.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	face.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	chip_row.add_child(face)
-
-	var handle := Label.new()
-	handle.text = ClientSession.HANDLE
-	handle.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	Chrome.apply_label(handle, 10, Chrome.CREAM, true)
-	chip_row.add_child(handle)
-
-	_marks = Label.new()
-	_marks.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	Chrome.apply_label(_marks, 10, Chrome.HIGH_GOLD, true)
-	chip_row.add_child(_marks)
+	_build_top_bar()
 
 	_last_pay = Label.new()
 	_last_pay.visible = false
@@ -186,6 +136,93 @@ func _build() -> void:
 	_build_jobs_panel()
 
 
+func _build_top_bar() -> void:
+	## Floating canon chrome — identity + readable Marks + gold/gems. No brown blocker bar.
+	var left := HBoxContainer.new()
+	left.position = Vector2(14, 12)
+	left.add_theme_constant_override("separation", 12)
+	add_child(left)
+
+	var identity := Chrome.pill_chip()
+	left.add_child(identity)
+	var id_row := HBoxContainer.new()
+	id_row.add_theme_constant_override("separation", 10)
+	identity.add_child(id_row)
+
+	var face := TextureRect.new()
+	face.texture = Chrome.make_face("p1", 40)
+	face.custom_minimum_size = Vector2(40, 40)
+	face.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	face.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	id_row.add_child(face)
+
+	var id_col := VBoxContainer.new()
+	id_col.add_theme_constant_override("separation", 4)
+	id_row.add_child(id_col)
+
+	var handle := Label.new()
+	handle.text = ClientSession.HANDLE
+	Chrome.apply_label(handle, 11, Chrome.CREAM, true)
+	id_col.add_child(handle)
+
+	var xp_track := Panel.new()
+	xp_track.custom_minimum_size = Vector2(132, 10)
+	xp_track.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var track_box := Chrome.flat(Color("14110e"), 6, Color("2a2018"), 1)
+	track_box.content_margin_left = 0
+	track_box.content_margin_right = 0
+	track_box.content_margin_top = 0
+	track_box.content_margin_bottom = 0
+	xp_track.add_theme_stylebox_override("panel", track_box)
+	id_col.add_child(xp_track)
+
+	var xp_fill := ColorRect.new()
+	xp_fill.color = Chrome.XP_GREEN
+	xp_fill.position = Vector2(2, 2)
+	xp_fill.size = Vector2(84, 6)
+	xp_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	xp_track.add_child(xp_fill)
+
+	var marks_chip := Chrome.pill_chip(Chrome.INK, Chrome.HIGH_GOLD)
+	left.add_child(marks_chip)
+	_marks = Label.new()
+	_marks.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	Chrome.apply_label(_marks, 12, Chrome.HIGH_GOLD, true)
+	marks_chip.add_child(_marks)
+
+	var wallet := HBoxContainer.new()
+	wallet.set_anchors_preset(PRESET_TOP_RIGHT)
+	wallet.offset_left = -430
+	wallet.offset_right = -16
+	wallet.offset_top = 12
+	wallet.offset_bottom = 64
+	wallet.alignment = BoxContainer.ALIGNMENT_END
+	wallet.add_theme_constant_override("separation", 10)
+	add_child(wallet)
+
+	wallet.add_child(_currency_chip("coin", Chrome.COIN_GOLD, "4,250"))
+	wallet.add_child(_currency_chip("gem", Chrome.GEM_PURPLE, "310"))
+
+
+func _currency_chip(icon_kind: String, color: Color, amount: String) -> PanelContainer:
+	var chip := Chrome.pill_chip()
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	chip.add_child(row)
+	var icon := TextureRect.new()
+	icon.texture = Chrome.make_icon(icon_kind, color, 22)
+	icon.custom_minimum_size = Vector2(22, 22)
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(icon)
+	var label := Label.new()
+	label.text = amount
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	Chrome.apply_label(label, 10, Chrome.CREAM, true)
+	row.add_child(label)
+	return chip
+
+
 func _build_jobs_panel() -> void:
 	_jobs_panel = PanelContainer.new()
 	_jobs_panel.visible = false
@@ -233,7 +270,7 @@ func _bind_wallet() -> void:
 
 func _refresh_marks() -> void:
 	if _marks:
-		_marks.text = Chrome.marks_star_text(ClientSession.marks)
+		_marks.text = Chrome.marks_chip_text(ClientSession.marks)
 	if _last_pay:
 		if ClientSession.last_payout.is_empty():
 			_last_pay.text = ""
@@ -274,8 +311,9 @@ func _plate_without_baked_chrome(src: Texture2D) -> Texture2D:
 	var py := clampi(int(h * 0.42), 0, h - 2)
 	var pw := mini(96, w - px)
 	var ph := mini(48, h - py)
-	_stamp_wood(img, 0, 40, mini(400, w), mini(130, h), px, py, pw, ph)
-	_stamp_wood(img, maxi(0, w - 460), 0, w, mini(58, h), px, py, pw, ph)
+	## Island stamps under live chips only — not a full-width brown bar.
+	_stamp_wood(img, 0, 0, mini(420, w), mini(110, h), px, py, pw, ph)
+	_stamp_wood(img, maxi(0, w - 430), 0, w, mini(62, h), px, py, pw, ph)
 	_stamp_wood(img, 0, maxi(0, h - 140), w, h, px, py, pw, ph)
 	var wood := img.get_pixel(px, py)
 	for cover in _wood_covers:

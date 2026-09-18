@@ -5,7 +5,7 @@ Godot 4.3, `DISPLAY=:1`, `project.godot` with **MOCK** (no `GLASSLINE_USE_LIVE_A
 ## A1 — lobby → Play
 
 1. Boot: `/tmp/godot --path /workspace --resolution 1280x720`
-2. Confirm hideout: wood room, operative front-center, rifle rack, intel desk, **PLAY** CTA, orange **JOBS**. No MOCK/LIVE debug chip (F2 still toggles live).
+2. Confirm hideout: wood room, operative front-center, rifle rack, intel desk, **PLAY** CTA, orange **JOBS**. Top bar: Specter7 + XP, readable **MARKS ★N**, gold/gem chips. No MOCK/LIVE debug chip (F2 still toggles live).
 3. Click green **PLAY** (bottom center). Do not click LIVE.
 4. Drop board is the toy war-table (not a black fog stub): walnut desk chrome, **P1 Specter7 / P2 RivalSniper**, printed Open / Brush / Hard stamps with unknown rim, Attack / Recon / **Ability** icons. Board is **9×7 axial** (9 cols × 7 rows, 63 hexes). v0 actions are Attack / Recon / UAV only — no HIGHGROUND buff chrome. Ability still posts MatchAPI `uav`. Placeholder table terrain is visual only.
 
@@ -26,6 +26,10 @@ Hideout chrome was fighting `lobby-canon.jpg` (dark bars, second title, SUIT on 
 | No HIGHGROUND | Still none |
 
 JOBS → START JOB and wallet bind are unchanged. Capture: `godot --resolution 1280x720 -- --capture-lobby`. Headless contract still `HEADLESS_LOOP_OK`.
+
+### Lobby top-chrome HOLD (2026-09-18)
+
+UX+GD held the brown blocker bars. Top chrome now matches the canon plate language: Specter7 + XP, a labeled **MARKS ★N** chip (Marks loop), and gold/gem currency chips. Dock stay: LOADOUT / PLAY / orange JOBS. No MOCK tag. No mil-sim.
 
 ### After-Play HOLD (2026-09-18)
 
