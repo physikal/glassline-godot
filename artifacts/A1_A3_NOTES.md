@@ -5,7 +5,7 @@ Godot 4.3, `DISPLAY=:1`, `project.godot` with **MOCK** (no `GLASSLINE_USE_LIVE_A
 ## A1 — lobby → Play
 
 1. Boot: `/tmp/godot --path /workspace --resolution 1280x720`
-2. Confirm hideout: wood room, operative front-center, rifle rack, intel desk, **PLAY** CTA. Top-right shows **MOCK**.
+2. Confirm hideout: wood room, operative front-center, rifle rack, intel desk, **PLAY** CTA, orange **JOBS**. No MOCK/LIVE debug chip (F2 still toggles live).
 3. Click green **PLAY** (bottom center). Do not click LIVE.
 4. Drop board is the toy war-table (not a black fog stub): walnut desk chrome, **P1 Specter7 / P2 RivalSniper**, printed Open / Brush / Hard stamps with unknown rim, Attack / Recon / **Ability** icons. Board is **9×7 axial** (9 cols × 7 rows, 63 hexes). v0 actions are Attack / Recon / UAV only — no HIGHGROUND buff chrome. Ability still posts MatchAPI `uav`. Placeholder table terrain is visual only.
 
@@ -20,8 +20,9 @@ Hideout chrome was fighting `lobby-canon.jpg` (dark bars, second title, SUIT on 
 | Dark top/bottom bars over the room | Full-bleed hideout; baked HUD/currency/dock stamped out so the room reads |
 | Duplicate `GLASSLINE` + plate title | Plate wordmark + scope kept (no second title) |
 | `MARKS ★24` text stacked on the plate chip | Compact operative chip: face + Specter7 + live `★` Marks |
-| SUIT + LOADOUT + PLAY + JOBS (SUIT shoved the CTA) | LOADOUT / **PLAY** (hero pill + triangle) / JOBS. Suit is a click on the operative |
-| MOCK covering currency | Quiet MOCK/LIVE pill, top-right |
+| SUIT + LOADOUT + PLAY + JOBS (SUIT shoved the CTA) | LOADOUT / **PLAY** (hero pill + triangle) / orange **JOBS**. Suit is a click on the operative |
+| MOCK covering currency | No debug tags in frame (F2 still toggles live) |
+| White JOBS (parked) | Canon orange JOBS |
 | No HIGHGROUND | Still none |
 
 JOBS → START JOB and wallet bind are unchanged. Capture: `godot --resolution 1280x720 -- --capture-lobby`. Headless contract still `HEADLESS_LOOP_OK`.

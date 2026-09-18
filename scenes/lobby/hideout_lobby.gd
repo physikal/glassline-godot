@@ -71,7 +71,7 @@ func _build() -> void:
 	gem_cover.color = Color("7a4e2c")
 	gem_cover.set_anchors_preset(PRESET_TOP_RIGHT)
 	gem_cover.offset_left = -460
-	gem_cover.offset_right = -112
+	gem_cover.offset_right = 0
 	gem_cover.offset_top = 0
 	gem_cover.offset_bottom = 54
 	gem_cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -144,12 +144,9 @@ func _build() -> void:
 	_mode_lbl.visible = false
 	add_child(_mode_lbl)
 
+	## Live/mock stays on F2 — no MOCK/LIVE debug chip in the hideout still.
 	_mode_btn = Chrome.dock_button("MOCK", Chrome.INK, Chrome.CREAM, Vector2(118, 36))
-	_mode_btn.set_anchors_preset(PRESET_TOP_RIGHT)
-	_mode_btn.offset_left = -134
-	_mode_btn.offset_right = -12
-	_mode_btn.offset_top = 12
-	_mode_btn.offset_bottom = 48
+	_mode_btn.visible = false
 	_mode_btn.pressed.connect(_toggle_live)
 	add_child(_mode_btn)
 	_refresh_mode()
@@ -172,7 +169,7 @@ func _build() -> void:
 	play.pressed.connect(_on_play)
 	row.add_child(play)
 
-	var jobs := Chrome.dock_button("JOBS", Chrome.JOBS_WHITE, Chrome.INK, Vector2(268, 68), "jobs")
+	var jobs := Chrome.dock_button("JOBS", Chrome.JOBS_ORANGE, Color.WHITE, Vector2(268, 68), "jobs")
 	jobs.pressed.connect(_toggle_jobs)
 	row.add_child(jobs)
 
@@ -278,7 +275,7 @@ func _plate_without_baked_chrome(src: Texture2D) -> Texture2D:
 	var pw := mini(96, w - px)
 	var ph := mini(48, h - py)
 	_stamp_wood(img, 0, 40, mini(400, w), mini(130, h), px, py, pw, ph)
-	_stamp_wood(img, maxi(0, w - 460), 0, maxi(0, w - 110), mini(58, h), px, py, pw, ph)
+	_stamp_wood(img, maxi(0, w - 460), 0, w, mini(58, h), px, py, pw, ph)
 	_stamp_wood(img, 0, maxi(0, h - 140), w, h, px, py, pw, ph)
 	var wood := img.get_pixel(px, py)
 	for cover in _wood_covers:
@@ -307,6 +304,11 @@ func _toggle_jobs() -> void:
 	_jobs_panel.visible = not _jobs_panel.visible
 	if _jobs_panel.visible:
 		_toast_msg("Hunt a bot — same Attack / Recon / UAV.")
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F2:
+		_toggle_live()
 
 
 func _toggle_live() -> void:
