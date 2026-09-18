@@ -30,6 +30,7 @@ const ACT_ATTACK := "attack"
 const ACT_RECON := "recon"
 const ACT_UAV := "uav"
 const ACT_END_TURN := "end_turn"
+const ACT_FORFEIT := "forfeit"
 
 const EVENT_SNAPSHOT := "snapshot"
 const EVENT_YOUR_TURN := "your_turn"

@@ -49,6 +49,7 @@ Public LIVE (Neon): **`https://glassline-api.vercel.app`**. Click **LIVE** on th
 ```bash
 GLASSLINE_USE_LIVE_API=1 godot --path .
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_http_smoke.py
+GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_jobs_smoke.py   # POST /jobs T1 + you.marks +10 once
 GLASSLINE_USE_LIVE_API=1 godot --headless --path . res://tools/live_loop_test.tscn
 ```
 

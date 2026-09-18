@@ -91,11 +91,21 @@ Hideout **JOBS → START JOB** calls `MatchAPI.create_job(1)` → LIVE `POST /jo
 | Ability button (M5) | Slot caption **ABILITY**, label **UAV**. Still posts `{ type: "uav" }` (`ActionIntent.ability()` is an alias). |
 | End overlay | Headline from winner / forfeit / job; then `+N MARK · ★balance` and `reason`. Never hardcodes a local table. |
 
-## LIVE today (do not break)
+## LIVE ledger (Coder PR #2)
 
-`you.marks` is already the persistent `marks` table. Kill currently increments **+1** on the live API until Coder lands this table. Snapshot has no `marksDelta` / `reason` / `mode` yet — the end screen then shows **balance only** (no invented delta).
+`you.marks` is the wallet. Kill/job grants use the locked table (T1 job **+10**, PvP kill **+25**). Snapshot carries `kind` / `endReason` / `job`. Client never invents a delta; if `marksDelta` is missing the overlay shows `table +N` plus `★you.marks`.
 
-Grant is idempotent on `matchId` in the mock (`payoutSettled`). Replay of the same ended match does not add again (M4).
+Replay of the same `jobId` / `matchId` must not increase `you.marks` (M4). Mock `payoutSettled` matches that.
+
+HTTP demo (no Godot):
+
+```bash
+GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_jobs_smoke.py
+```
+
+Expect `LIVE_JOBS_SMOKE_OK` and `you.marks +10` once. Godot demo: hideout **LIVE** → **JOBS → START JOB** → drop → **UAV** → END TURN → ATTACK the revealed hex → FIRE. Overlay: JOB COMPLETE / table +10 / ★balance. Ability label is **UAV**.
+
+Verified 2026-09-18 against `https://glassline-api.vercel.app`: `LIVE_JOBS_SMOKE_OK j_5838afbb4638437fb4b12a2f978632cd marks 0->10` (replay GET stayed 10).
 
 ## Out of this slice
 

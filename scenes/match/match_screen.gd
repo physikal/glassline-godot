@@ -532,6 +532,8 @@ func _describe_last(last: Dictionary) -> String:
 			return "lastAction reject  %s" % str(last.get("reason", ""))
 		Contract.ACT_UAV:
 			return "lastAction uav  revealed=%s  (server)" % str(last.get("revealed", false))
+		Contract.ACT_FORFEIT:
+			return "lastAction forfeit  winner=%s  (server)" % str(last.get("winner", ""))
 		Contract.ACT_END_TURN:
 			return "lastAction end_turn  moved=%s" % str(last.get("moved", false))
 		Contract.ACT_SELECT_HEX:
