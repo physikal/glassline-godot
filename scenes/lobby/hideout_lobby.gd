@@ -124,5 +124,9 @@ func _on_play() -> void:
 	ClientSession.player_id = str(human.get("playerId", ""))
 	ClientSession.seat = str(human.get("seat", "a"))
 	ClientSession.dummy_player_id = str(dummy.get("playerId", ""))
-	ClientSession.apply_snapshot(human.get("snapshot", {}))
+	# Join A is still `waiting`; pull the caller-scoped snap after B sits.
+	var ready_snap: Dictionary = MockMatchServer.get_snapshot(match_id, ClientSession.player_id)
+	if ready_snap.is_empty():
+		ready_snap = human.get("snapshot", {})
+	ClientSession.apply_snapshot(ready_snap)
 	get_tree().change_scene_to_file("res://scenes/match/match_screen.tscn")

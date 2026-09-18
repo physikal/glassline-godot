@@ -42,6 +42,9 @@ func _ready() -> void:
 	set_anchors_preset(PRESET_FULL_RECT)
 	_build()
 	MockMatchServer.match_event.connect(_on_match_event)
+	var fresh: Dictionary = MockMatchServer.get_snapshot(ClientSession.match_id, ClientSession.player_id)
+	if not fresh.is_empty():
+		ClientSession.apply_snapshot(fresh)
 	_refresh(ClientSession.typed_snapshot())
 
 
@@ -255,7 +258,8 @@ func _refresh(snap: Snapshot) -> void:
 	_rival_chip.text = "%s" % ClientSession.RIVAL
 	_turn.text = "TURN  %d / %d" % [snap.turn_index(), snap.turn_cap()]
 	var whose := str(snap.whose_turn()) if snap.whose_turn() != null else "-"
-	_phase.text = "STATUS %s   PHASE %s   TO %s" % [snap.status(), str(snap.phase()), whose.to_upper()]
+	var phase_txt := str(snap.phase()) if snap.phase() != null else "-"
+	_phase.text = "STATUS %s   PHASE %s   TO %s" % [snap.status(), phase_txt, whose.to_upper()]
 
 	match snap.status():
 		Contract.STATUS_READY:
