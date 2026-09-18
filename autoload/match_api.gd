@@ -62,6 +62,16 @@ func get_snapshot(match_id: String, player_id: String) -> Dictionary:
 	return MockMatchServer.get_snapshot(match_id, player_id)
 
 
+func reconnect() -> Dictionary:
+	## A2: re-GET the caller snapshot and replace client state. No local merge.
+	if ClientSession.match_id == "" or ClientSession.player_id == "":
+		return {}
+	var fresh: Dictionary = get_snapshot(ClientSession.match_id, ClientSession.player_id)
+	if not fresh.is_empty():
+		ClientSession.apply_snapshot(fresh)
+	return fresh
+
+
 func apply_action(match_id: String, player_id: String, action: Dictionary) -> ActionResult:
 	if using_live():
 		return LiveMatchClient.apply_action(match_id, player_id, action)

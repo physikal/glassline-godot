@@ -2,6 +2,7 @@ extends Control
 
 const Chrome := preload("res://scripts/chrome.gd")
 const HexBoard := preload("res://scenes/match/hex_board.gd")
+const ExposureDoll := preload("res://scenes/match/exposure_doll.gd")
 const Contract := preload("res://types/contract.gd")
 const ActionIntent := preload("res://types/action_intent.gd")
 const ActionResult := preload("res://types/action_result.gd")
@@ -22,6 +23,8 @@ var _toast: Label
 var _end_panel: PanelContainer
 var _exposure: HSlider
 var _exposure_lbl: Label
+var _exposure_doll: ExposureDoll
+var _snap_banner: Label
 var _btn_attack: Button
 var _btn_recon: Button
 var _btn_uav: Button
@@ -48,13 +51,13 @@ func _ready() -> void:
 	MatchAPI.match_event.connect(_on_match_event)
 	if ClientSession.dummy_player_id == "" and ClientSession.is_job():
 		_dummy_placed = true
-	var fresh: Dictionary = MatchAPI.get_snapshot(ClientSession.match_id, ClientSession.player_id)
-	if not fresh.is_empty():
-		ClientSession.apply_snapshot(fresh)
-	_refresh(ClientSession.typed_snapshot())
-	if "--capture-a1" in OS.get_cmdline_user_args():
+	_apply_server_reconnect()
+	var args := OS.get_cmdline_user_args()
+	if "--capture-a1" in args:
 		_capture_after_play()
-	elif "--capture-sp-end" in OS.get_cmdline_user_args():
+	elif "--capture-a2" in args:
+		_capture_a2_reconnect()
+	elif "--capture-sp-end" in args:
 		_capture_sp_end()
 
 
@@ -90,6 +93,52 @@ func _capture_sp_end() -> void:
 	var path := ProjectSettings.globalize_path("res://artifacts/ux/sp_job_end_reason_job.png")
 	img.save_png(path)
 	print("SP_END_REASON_CAPTURE ", path)
+	get_tree().quit()
+
+
+func _apply_server_reconnect() -> Dictionary:
+	## A2: GET /matches/:id (or mock) replaces last_snapshot. No local merge.
+	_aim = Aim.NONE
+	_relocate_hex = null
+	var fresh: Dictionary = MatchAPI.reconnect()
+	var snap: Snapshot = ClientSession.typed_snapshot()
+	_exposure.value = snap.you_exposure()
+	if _exposure_doll:
+		_exposure_doll.set_exposure(_exposure.value)
+	_refresh(snap)
+	_show_server_snapshot_banner()
+	return fresh
+
+
+func _show_server_snapshot_banner() -> void:
+	if _snap_banner:
+		_snap_banner.visible = true
+		_snap_banner.text = "SERVER SNAPSHOT"
+
+
+func _capture_a2_reconnect() -> void:
+	await get_tree().process_frame
+	if ClientSession.typed_snapshot().status() == Contract.STATUS_READY:
+		_submit(ActionIntent.select_hex(2, 2))
+		await get_tree().process_frame
+	## Invent local terrain + "I hit" — reconnect must wipe both.
+	var dirty: Dictionary = ClientSession.last_snapshot.duplicate(true)
+	var rows: Array = dirty.get("terrain", [])
+	if not (rows is Array):
+		rows = []
+	rows = rows.duplicate()
+	rows.append({"q": 8, "r": 6, "type": "hard"})
+	dirty["terrain"] = rows
+	dirty["lastAction"] = {"type": "attack", "hit": true, "kill": true}
+	ClientSession.last_snapshot = dirty
+	_apply_server_reconnect()
+	_end_panel.visible = true
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	var path := ProjectSettings.globalize_path("res://artifacts/ux/a2_reconnect_server_snapshot.png")
+	img.save_png(path)
+	print("A2_RECONNECT_CAPTURE ", path)
 	get_tree().quit()
 
 
@@ -206,6 +255,15 @@ func _build() -> void:
 	Chrome.apply_label(_phase, 8, Chrome.TEAL, true)
 	add_child(_phase)
 
+	_snap_banner = Label.new()
+	_snap_banner.text = "SERVER SNAPSHOT"
+	_snap_banner.position = Vector2(980, 118)
+	_snap_banner.size = Vector2(280, 18)
+	_snap_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_snap_banner.visible = false
+	Chrome.apply_label(_snap_banner, 8, Chrome.TEAL, true)
+	add_child(_snap_banner)
+
 	var bottom := ColorRect.new()
 	bottom.color = Color(0.10, 0.06, 0.04, 0.90)
 	bottom.set_anchors_and_offsets_preset(PRESET_BOTTOM_WIDE)
@@ -257,19 +315,31 @@ func _build() -> void:
 	end_title.text = "END TURN"
 	Chrome.apply_label(end_title, 10, Chrome.CREAM, true)
 	end_col.add_child(end_title)
+	var expose_row := HBoxContainer.new()
+	expose_row.add_theme_constant_override("separation", 12)
+	end_col.add_child(expose_row)
+	_exposure_doll = ExposureDoll.new()
+	_exposure_doll.custom_minimum_size = Vector2(72, 96)
+	expose_row.add_child(_exposure_doll)
+	var expose_col := VBoxContainer.new()
+	expose_col.add_theme_constant_override("separation", 6)
+	expose_row.add_child(expose_col)
 	_exposure_lbl = Label.new()
 	Chrome.apply_label(_exposure_lbl, 8, Chrome.HIGH_GOLD, true)
-	end_col.add_child(_exposure_lbl)
+	expose_col.add_child(_exposure_lbl)
 	_exposure = HSlider.new()
 	_exposure.min_value = 0
 	_exposure.max_value = 100
 	_exposure.value = Contract.DEFAULT_EXPOSURE
-	_exposure.custom_minimum_size = Vector2(360, 20)
+	_exposure.custom_minimum_size = Vector2(280, 20)
 	_exposure.value_changed.connect(func(v: float) -> void:
 		_exposure_lbl.text = "EXPOSURE  %d%%" % int(v)
+		if _exposure_doll:
+			_exposure_doll.set_exposure(v)
 	)
-	end_col.add_child(_exposure)
+	expose_col.add_child(_exposure)
 	_exposure_lbl.text = "EXPOSURE  50%"
+	_exposure_doll.set_exposure(Contract.DEFAULT_EXPOSURE)
 	var move_hint := Label.new()
 	move_hint.text = "Optional: click an adjacent hex to relocate"
 	Chrome.apply_label(move_hint, 8, Chrome.CREAM)
@@ -363,6 +433,7 @@ func _on_match_event(player_id: String, _event_name: String, snapshot: Dictionar
 		return
 	ClientSession.apply_snapshot(snapshot)
 	_refresh(Snapshot.from_dict(snapshot))
+	_show_server_snapshot_banner()
 
 
 func _refresh(snap: Snapshot) -> void:
@@ -397,6 +468,8 @@ func _refresh(snap: Snapshot) -> void:
 				_status.text = "End turn — set exposure, optional adjacent move."
 				_set_actions(false)
 				_end_panel.visible = true
+				if _exposure_doll:
+					_exposure_doll.set_exposure(_exposure.value)
 			else:
 				_status.text = "Rival is lining up…"
 				_set_actions(false)
@@ -441,7 +514,8 @@ func _on_board_input(event: InputEvent) -> void:
 		_board.set_hover(hex)
 		if hex != null:
 			var snap: Snapshot = ClientSession.typed_snapshot()
-			var kind := _board.cell_kind(int(hex["q"]), int(hex["r"]))
+			var key := "%d,%d" % [int(hex["q"]), int(hex["r"])]
+			var kind := str(snap.terrain_map().get(key, "unknown"))
 			_legend_hover.text = "Q%d R%d\n%s" % [int(hex["q"]), int(hex["r"]), kind.to_upper()]
 	elif event is InputEventMouseButton:
 		var mouse := event as InputEventMouseButton

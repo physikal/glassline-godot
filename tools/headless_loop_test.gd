@@ -8,6 +8,7 @@ const ActionResult := preload("res://types/action_result.gd")
 const Snapshot := preload("res://types/snapshot.gd")
 const MarksPayout := preload("res://types/marks_payout.gd")
 const MockScript := preload("res://autoload/mock_match_server.gd")
+const SessionScript := preload("res://autoload/client_session.gd")
 
 var server
 
@@ -125,6 +126,7 @@ func _run() -> int:
 	_live_shape_case(failed)
 	_payout_shape_case(failed)
 	_job_case(failed)
+	_a2_reconnect_case(failed)
 
 	# Recon odds: in-sector + forced roll.
 	_recon_case(failed)
@@ -139,6 +141,48 @@ func _run() -> int:
 		push_error(line)
 		print("FAIL: ", line)
 	return 1
+
+
+func _a2_reconnect_case(failed: PackedStringArray) -> void:
+	## A2: polluted client cache (invented terrain + I-hit) is replaced by GET snapshot.
+	server.clear_all()
+	server.reset_wallet(0)
+	var created: Dictionary = server.create_match()
+	var mid := str(created["matchId"])
+	var a: Dictionary = server.join(mid, created["joinTokens"]["a"])
+	var b: Dictionary = server.join(mid, created["joinTokens"]["b"])
+	var pid_a := str(a["playerId"])
+	server.apply_action(mid, pid_a, ActionIntent.select_hex(2, 2))
+	server.apply_action(mid, b["playerId"], ActionIntent.select_hex(7, 5))
+	server.apply_action(mid, pid_a, ActionIntent.start())
+	var noted: Dictionary = server.get_snapshot(mid, pid_a)
+	var session = SessionScript.new()
+	session.apply_snapshot(noted)
+	_expect(failed, session.terrain_keys().has("2,2"), "A2 noted select terrain 2,2")
+	_expect(failed, session.last_server_hit() == null, "A2 no invented hit after drop")
+	var dirty: Dictionary = session.last_snapshot.duplicate(true)
+	var rows: Array = dirty.get("terrain", [])
+	if not (rows is Array):
+		rows = []
+	rows = rows.duplicate()
+	rows.append({"q": 8, "r": 6, "type": "hard"})
+	dirty["terrain"] = rows
+	dirty["lastAction"] = {"type": "attack", "hit": true, "kill": true}
+	dirty["status"] = "ended"
+	session.last_snapshot = dirty
+	_expect(failed, session.terrain_keys().has("8,6"), "A2 dirty invented terrain present")
+	_expect(failed, session.last_server_hit() == true, "A2 dirty invented hit")
+	var fresh: Dictionary = server.get_snapshot(mid, pid_a)
+	session.apply_snapshot(fresh)
+	var snap: Snapshot = session.typed_snapshot()
+	_expect(failed, snap.match_id() == mid, "A2 reconnect matchId")
+	_expect(failed, snap.status() == str(noted.get("status", "")), "A2 status from server")
+	_expect(failed, str(snap.whose_turn()) == str(noted.get("whoseTurn", "")), "A2 whoseTurn from server")
+	_expect(failed, not session.terrain_keys().has("8,6"), "A2 invented terrain wiped")
+	_expect(failed, session.terrain_keys().has("2,2"), "A2 select terrain kept from server")
+	_expect(failed, session.last_server_hit() != true, "A2 invented I-hit wiped")
+	_expect(failed, snap.you_exposure() == 50, "A2 exposure 50 from server")
+	session.free()
 
 
 func _live_shape_case(failed: PackedStringArray) -> void:

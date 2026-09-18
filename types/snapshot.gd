@@ -133,6 +133,14 @@ func last_action() -> Variant:
 	return raw.get("lastAction", null)
 
 
+func last_hit() -> Variant:
+	## Server lastAction.hit only. Null if the snapshot did not say hit.
+	var last: Variant = last_action()
+	if last is Dictionary and last.has("hit"):
+		return last.get("hit")
+	return null
+
+
 func winner() -> Variant:
 	return raw.get("winner", null)
 
