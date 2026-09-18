@@ -64,6 +64,10 @@ func is_job() -> bool:
 	return mode() == Contract.MODE_SP_JOB
 
 
+func job_tier() -> int:
+	return int(raw.get("jobTier", raw.get("tier", 1)))
+
+
 func payout():
 	return MarksPayout.from_any(raw)
 

@@ -60,14 +60,27 @@ const ABILITY_SLOT := "ABILITY"
 ## Mock hideout stub until Coder's ledger / GET wallet exists.
 const MOCK_WALLET_STUB := 24
 
-## Assumed stub table (GD one-pager TBD). Mock display grants only.
-const MARKS_PVP_WIN := 1
-const MARKS_PVP_LOSS := 0
-const MARKS_STANDOFF := 0
-const MARKS_JOB_WIN := 1
+## Locked GD earn table (2026-09-18). Mock display grants only; LIVE ledger is Coder.
+const MARKS_PVP_WIN := 25
+const MARKS_PVP_LOSS := 3
+const MARKS_STANDOFF := 8
+const MARKS_JOB_T1 := 10
+const MARKS_JOB_T2 := 15
+const MARKS_JOB_T3 := 20
 const MARKS_JOB_FAIL := 0
-const MARKS_FORFEIT_WIN := 1
+const MARKS_FORFEIT_WIN := 12
 const MARKS_FORFEIT_LOSS := 0
+const FORFEIT_GRACE_SEC := 30
+
+
+static func job_tier_delta(tier: int) -> int:
+	match tier:
+		2:
+			return MARKS_JOB_T2
+		3:
+			return MARKS_JOB_T3
+		_:
+			return MARKS_JOB_T1
 
 static func on_board(q: int, r: int) -> bool:
 	return q >= 0 and q < BOARD_Q and r >= 0 and r < BOARD_R

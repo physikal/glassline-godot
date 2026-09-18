@@ -143,7 +143,7 @@ func _build_jobs_panel() -> void:
 	var blurb := Label.new()
 	blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	blurb.custom_minimum_size = Vector2(500, 80)
-	blurb.text = "Same Attack / Recon / UAV rules against a scripted seat. Marks come from the server ledger when the job ends — this client only displays them."
+	blurb.text = "Same Attack / Recon / UAV rules against a scripted seat. Stub is T1 (+10 Marks on complete). The server ledger grants; this client only displays the snapshot."
 	Chrome.apply_label(blurb, 8, Chrome.CREAM)
 	col.add_child(blurb)
 
@@ -238,6 +238,7 @@ func _start_match(mode: String) -> void:
 		"mode": mode,
 		"job": mode == Contract.MODE_SP_JOB,
 		"sp": mode == Contract.MODE_SP_JOB,
+		"jobTier": 1,
 	})
 	var match_id := str(created.get("matchId", ""))
 	var tokens: Dictionary = created.get("joinTokens", {})

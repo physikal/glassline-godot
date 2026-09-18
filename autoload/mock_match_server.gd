@@ -39,6 +39,7 @@ func create_match(opts: Dictionary = {}) -> Dictionary:
 		"lastAction": null,
 		"mode": mode,
 		"jobId": str(opts.get("jobId", match_id if mode == Contract.MODE_SP_JOB else "")),
+		"jobTier": int(opts.get("jobTier", opts.get("tier", 1))),
 		"endReason": null,
 		"payoutSettled": false,
 		"payouts": {Contract.SEAT_A: {}, Contract.SEAT_B: {}},
@@ -437,6 +438,7 @@ func _settle_payout(match_state: Dictionary, end_reason: String) -> void:
 		return
 	match_state["payoutSettled"] = true
 	var job := str(match_state.get("mode", Contract.MODE_PVP)) == Contract.MODE_SP_JOB
+	var job_tier := int(match_state.get("jobTier", 1))
 	var winner: Variant = match_state.get("winner", null)
 	if end_reason == Contract.END_KILL and job:
 		end_reason = Contract.END_JOB
@@ -454,7 +456,7 @@ func _settle_payout(match_state: Dictionary, end_reason: String) -> void:
 			delta = Contract.MARKS_STANDOFF
 			reason = Contract.END_STANDOFF
 		elif winner != null and str(winner) == seat:
-			delta = Contract.MARKS_JOB_WIN if job else Contract.MARKS_PVP_WIN
+			delta = Contract.job_tier_delta(job_tier) if job else Contract.MARKS_PVP_WIN
 			reason = Contract.END_JOB if job else Contract.END_KILL
 		else:
 			delta = Contract.MARKS_JOB_FAIL if job else Contract.MARKS_PVP_LOSS
@@ -528,6 +530,7 @@ func _snapshot_for_seat(match_state: Dictionary, seat: String) -> Dictionary:
 		"uavAvailable": int(you["uavRemaining"]) > 0,
 		"mode": str(match_state.get("mode", Contract.MODE_PVP)),
 		"jobId": str(match_state.get("jobId", "")),
+		"jobTier": int(match_state.get("jobTier", 1)),
 		"you": {
 			"seat": seat,
 			"hex": you_hex,
