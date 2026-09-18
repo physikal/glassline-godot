@@ -24,7 +24,6 @@ var _end_panel: PanelContainer
 var _exposure: HSlider
 var _exposure_lbl: Label
 var _exposure_doll: ExposureDoll
-var _snap_banner: Label
 var _btn_attack: Button
 var _btn_recon: Button
 var _btn_uav: Button
@@ -98,6 +97,7 @@ func _capture_sp_end() -> void:
 
 func _apply_server_reconnect() -> Dictionary:
 	## A2: GET /matches/:id (or mock) replaces last_snapshot. No local merge.
+	## Soft P2: do not show a player-facing SERVER SNAPSHOT (or similar) debug badge.
 	_aim = Aim.NONE
 	_relocate_hex = null
 	var fresh: Dictionary = MatchAPI.reconnect()
@@ -105,7 +105,6 @@ func _apply_server_reconnect() -> Dictionary:
 	_exposure.value = snap.you_exposure()
 	_bind_server_exposure(snap)
 	_refresh(snap)
-	_show_server_snapshot_banner()
 	return fresh
 
 
@@ -113,12 +112,6 @@ func _bind_server_exposure(snap: Snapshot) -> void:
 	## Doll is server you.exposurePct. Slider is the next end_turn intent only.
 	if _exposure_doll:
 		_exposure_doll.bind_server_pct(snap.you_exposure())
-
-
-func _show_server_snapshot_banner() -> void:
-	if _snap_banner:
-		_snap_banner.visible = true
-		_snap_banner.text = "SERVER SNAPSHOT"
 
 
 func _capture_a2_reconnect() -> void:
@@ -259,15 +252,6 @@ func _build() -> void:
 	_phase.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	Chrome.apply_label(_phase, 8, Chrome.TEAL, true)
 	add_child(_phase)
-
-	_snap_banner = Label.new()
-	_snap_banner.text = "SERVER SNAPSHOT"
-	_snap_banner.position = Vector2(980, 118)
-	_snap_banner.size = Vector2(280, 18)
-	_snap_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_snap_banner.visible = false
-	Chrome.apply_label(_snap_banner, 8, Chrome.TEAL, true)
-	add_child(_snap_banner)
 
 	var bottom := ColorRect.new()
 	bottom.color = Color(0.10, 0.06, 0.04, 0.90)
@@ -435,10 +419,9 @@ func _on_match_event(player_id: String, _event_name: String, snapshot: Dictionar
 	if player_id != ClientSession.player_id:
 		return
 	ClientSession.apply_snapshot(snapshot)
-	var snap := Snapshot.from_dict(snapshot)
+	var snap: Snapshot = Snapshot.from_dict(snapshot)
 	_bind_server_exposure(snap)
 	_refresh(snap)
-	_show_server_snapshot_banner()
 
 
 func _refresh(snap: Snapshot) -> void:
