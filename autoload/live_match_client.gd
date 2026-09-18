@@ -7,9 +7,11 @@ const ActionResult := preload("res://types/action_result.gd")
 
 signal match_event(player_id: String, event_name: String, snapshot: Dictionary)
 
-const TIMEOUT_MSEC := 8000
+const TIMEOUT_MSEC := 20000
+const POLL_SEC := 1.0
 
 var last_error: String = ""
+var realtime_mode: String = "" ## "sse" | "poll" | ""
 
 var _sse: HTTPClient
 var _sse_buf: String = ""
@@ -20,6 +22,9 @@ var _sse_host: String = ""
 var _sse_port: int = 80
 var _sse_tls: bool = false
 var _connecting_sse: bool = false
+var _poll: bool = false
+var _poll_accum: float = 0.0
+var _last_fp: String = ""
 
 
 func clear_all() -> void:
@@ -79,24 +84,30 @@ func start_events(match_id: String, token: String) -> void:
 	stop_events()
 	_sse_match_id = match_id
 	_sse_token = token
+	_last_fp = ""
 	var url := _split_base(ClientSession.api_base_url())
-	_sse_host = str(url.get("host", "127.0.0.1"))
-	_sse_port = int(url.get("port", 80))
+	_sse_host = str(url.get("host", "glassline-api.vercel.app"))
+	_sse_port = int(url.get("port", 443 if bool(url.get("tls", true)) else 80))
 	_sse_tls = bool(url.get("tls", false))
 	_sse = HTTPClient.new()
 	_sse_buf = ""
 	_sse_event = ""
 	_connecting_sse = true
+	realtime_mode = "sse"
 	var tls: TLSOptions = TLSOptions.client() if _sse_tls else null
 	var err := _sse.connect_to_host(_sse_host, _sse_port, tls)
 	if err != OK:
 		last_error = "sse_connect"
 		_connecting_sse = false
 		_sse = null
+		_start_poll("sse_connect")
 
 
 func stop_events() -> void:
 	_connecting_sse = false
+	_poll = false
+	_poll_accum = 0.0
+	realtime_mode = ""
 	if _sse != null:
 		_sse.close()
 	_sse = null
@@ -104,7 +115,13 @@ func stop_events() -> void:
 	_sse_event = ""
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	if _poll:
+		_poll_accum += delta
+		if _poll_accum >= POLL_SEC:
+			_poll_accum = 0.0
+			_poll_once()
+		return
 	if _sse == null:
 		return
 	_sse.poll()
@@ -113,8 +130,7 @@ func _process(_delta: float) -> void:
 		if st == HTTPClient.STATUS_RESOLVING or st == HTTPClient.STATUS_CONNECTING:
 			return
 		if st != HTTPClient.STATUS_CONNECTED:
-			last_error = "sse_status_%d" % st
-			stop_events()
+			_start_poll("sse_status_%d" % st)
 			return
 		var path := "/matches/%s/events" % _sse_match_id
 		var headers := PackedStringArray([
@@ -125,8 +141,7 @@ func _process(_delta: float) -> void:
 		var err := _sse.request(HTTPClient.METHOD_GET, path, headers)
 		_connecting_sse = false
 		if err != OK:
-			last_error = "sse_request"
-			stop_events()
+			_start_poll("sse_request")
 		return
 	if st == HTTPClient.STATUS_BODY:
 		var chunk := _sse.read_response_body_chunk()
@@ -134,11 +149,56 @@ func _process(_delta: float) -> void:
 			_sse_buf += chunk.get_string_from_utf8()
 			_drain_sse()
 	elif st == HTTPClient.STATUS_CONNECTION_ERROR or st == HTTPClient.STATUS_DISCONNECTED:
-		var mid := _sse_match_id
-		var tok := _sse_token
-		stop_events()
-		if mid != "" and tok != "":
-			start_events(mid, tok)
+		# Vercel/serverless often closes the stream after a tick — poll instead of reconnect storm.
+		_start_poll("sse_closed")
+
+
+func _start_poll(reason: String) -> void:
+	last_error = reason
+	_connecting_sse = false
+	if _sse != null:
+		_sse.close()
+	_sse = null
+	_sse_buf = ""
+	_sse_event = ""
+	if _sse_match_id == "" or _sse_token == "":
+		_poll = false
+		realtime_mode = ""
+		return
+	_poll = true
+	_poll_accum = 0.0
+	realtime_mode = "poll"
+	_poll_once()
+
+
+func _poll_once() -> void:
+	if _sse_match_id == "" or _sse_token == "":
+		return
+	var raw: Dictionary = _raw("GET", "/matches/%s" % _sse_match_id, null, _sse_token)
+	var js: Variant = raw.get("json", {})
+	if not (js is Dictionary) or not js.has("matchId"):
+		return
+	var snap: Dictionary = js
+	var fp := "%s|%s|%s|%s" % [
+		str(snap.get("status", "")),
+		str(snap.get("phase", "")),
+		str(snap.get("whoseTurn", "")),
+		str(snap.get("turnIndex", "")),
+	]
+	var last: Variant = snap.get("lastAction", {})
+	if last is Dictionary:
+		fp += "|%s" % str(last.get("type", ""))
+	if fp == _last_fp:
+		return
+	_last_fp = fp
+	var ev := Contract.EVENT_SNAPSHOT
+	if str(snap.get("status", "")) == Contract.STATUS_ACTIVE \
+			and str(snap.get("phase", "")) == Contract.PHASE_ACTION \
+			and str(snap.get("whoseTurn", "")) == ClientSession.seat:
+		ev = Contract.EVENT_YOUR_TURN
+	var pid := ClientSession.player_id
+	if pid != "":
+		match_event.emit(pid, ev, snap)
 
 
 func _drain_sse() -> void:
@@ -172,6 +232,12 @@ func _emit_sse_data(payload: String) -> void:
 	var pid := ClientSession.player_id
 	if pid == "":
 		return
+	_last_fp = "%s|%s|%s|%s" % [
+		str(snap.get("status", "")),
+		str(snap.get("phase", "")),
+		str(snap.get("whoseTurn", "")),
+		str(snap.get("turnIndex", "")),
+	]
 	match_event.emit(pid, ev, snap)
 
 

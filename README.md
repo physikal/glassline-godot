@@ -29,7 +29,7 @@ Expect `HEADLESS_LOOP_OK`.
 
 Priority: lobby override → env → export feature → project setting.
 
-Default base URL: **`http://127.0.0.1:8787`** (`glassline/api_base_url`, or `GLASSLINE_API_BASE`).
+Default live base: **`https://glassline-api.vercel.app`** (`glassline/api_base_url`, or `GLASSLINE_API_BASE`). Mock stays the editor default (`use_live_api=false`). Local clone still works at `http://127.0.0.1:8787`.
 
 Scenes call **`MatchAPI`** only. That facade forwards to `MockMatchServer` or `LiveMatchClient`. The client never treats a local crosshair as hit/terrain truth.
 
@@ -44,13 +44,15 @@ cp .env.example .env   # DATABASE_URL=postgresql://glassline:glassline@127.0.0.1
 pnpm install && pnpm migrate && pnpm start   # http://127.0.0.1:8787
 ```
 
-Then either click **LIVE** on the hideout, or:
+Public LIVE (Neon): **`https://glassline-api.vercel.app`**. Click **LIVE** on the hideout, or:
 
 ```bash
-GLASSLINE_USE_LIVE_API=1 GLASSLINE_API_BASE=http://127.0.0.1:8787 godot --path .
-python3 tools/live_http_smoke.py
+GLASSLINE_USE_LIVE_API=1 godot --path .
+GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_http_smoke.py
 GLASSLINE_USE_LIVE_API=1 godot --headless --path . res://tools/live_loop_test.tscn
 ```
+
+Realtime: prefer `GET /matches/:id/events` (SSE, Bearer). If that stream dies (common on Vercel after the first tick), `LiveMatchClient` falls back to polling `GET /matches/:id`. Local `8787` override: `GLASSLINE_API_BASE=http://127.0.0.1:8787`.
 
 Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` auto-activates), `end_turn.move` not `hex`, attack miss does **not** reveal terrain, `you.placed` is omitted (infer from `you.hex`). `LiveMatchClient` no-ops `start` when already `active` and sends both `hex` and `move` on end_turn.
 
@@ -63,7 +65,7 @@ Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` 
 | POST | `/matches/:id/join` | `{ token }` → `{ playerId, seat, snapshot }` |
 | POST | `/matches/:id/actions` | intent → `{ ok, snapshot, result }` |
 | GET | `/matches/:id` | caller-scoped snapshot (reconnect / dummy seat) |
-| GET | `/matches/:id/events` | SSE `{ event: snapshot\|your_turn, snapshot }` |
+| GET | `/matches/:id/events` | SSE `{ event: snapshot\|your_turn, snapshot }` — on drop, poll `GET /matches/:id` |
 | Auth | | `Authorization: Bearer <join token>` |
 
 `PLAY` still joins **both** seats (you = `a`, local dummy = `b`) against the same server so the offline dummy loop works on live HTTPS. Dummy actions use token `b`; the UI SSE stream uses token `a`.

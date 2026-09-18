@@ -1,4 +1,29 @@
-# LIVE smoke vs glassline-api (8787)
+# LIVE smoke
+
+## Public Vercel + Neon — PASS
+
+**Base:** `https://glassline-api.vercel.app`  
+HTTP: `LIVE_HTTP_SMOKE_OK m_c34b73538b6e4f1c913189089fb74a7d`  
+`GET /health` → 200 `{ ok: true }`
+
+REST create/join/select_hex/attack miss/end_turn/UAV/kill all passed.  
+**Realtime: SSE worked** (`GET /matches/:id/events` 200 `text/event-stream` + `snapshot.matchId`). Poll `GET /matches/:id` also works; `LiveMatchClient` falls back to that poll if the Vercel stream closes.
+
+A1/A3 mock stills (already on `main`):
+
+| Gate | Path |
+| --- | --- |
+| A1 lobby | `artifacts/a1-lobby.png` |
+| A1 after Play | `artifacts/a1-after-play.png` |
+| A3 miss | `artifacts/a3-attack-miss.png` |
+| A3 kill | `artifacts/a3-attack-kill.png` |
+| Notes | `artifacts/A1_A3_NOTES.md` |
+
+Default live base is now the Vercel URL. Mock remains the editor Play default.
+
+---
+
+# Earlier: local 8787 (kept)
 
 **Result: PASS** (HTTP + Godot `LiveMatchClient`)
 
