@@ -15,6 +15,9 @@ func _ready() -> void:
 	_refresh_bg()
 	if _marks:
 		_marks.text = "MARKS  %d" % ClientSession.marks
+	if "--capture-a1" in OS.get_cmdline_user_args():
+		await get_tree().process_frame
+		_on_play()
 
 
 func _build() -> void:
