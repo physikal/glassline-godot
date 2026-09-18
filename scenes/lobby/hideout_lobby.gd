@@ -19,12 +19,26 @@ func _ready() -> void:
 	_refresh_bg()
 	_bind_wallet()
 	_refresh_marks()
-	if "--capture-a1" in OS.get_cmdline_user_args():
+	var args := OS.get_cmdline_user_args()
+	if "--capture-lobby" in args:
+		await _capture_lobby()
+	elif "--capture-a1" in args:
 		await get_tree().process_frame
 		_on_play()
-	elif "--capture-sp-end" in OS.get_cmdline_user_args():
+	elif "--capture-sp-end" in args:
 		await get_tree().process_frame
 		_on_start_job()
+
+
+func _capture_lobby() -> void:
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	var path := ProjectSettings.globalize_path("res://artifacts/a1-lobby.png")
+	img.save_png(path)
+	print("A1_LOBBY_CAPTURE ", path)
+	get_tree().quit()
 
 
 func _build() -> void:
@@ -35,87 +49,121 @@ func _build() -> void:
 	_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_bg)
 
-	var top := ColorRect.new()
-	top.color = Color(0.08, 0.06, 0.05, 0.82)
-	top.set_anchors_and_offsets_preset(PRESET_TOP_WIDE)
-	top.offset_bottom = 86
-	add_child(top)
+	## Operative hit — ghillie stays off the dock so PLAY can read as the CTA.
+	var operative := Button.new()
+	operative.flat = true
+	operative.tooltip_text = "Swap suit"
+	operative.set_anchors_preset(PRESET_CENTER)
+	operative.offset_left = -130
+	operative.offset_right = 130
+	operative.offset_top = -150
+	operative.offset_bottom = 170
+	var clear := StyleBoxEmpty.new()
+	operative.add_theme_stylebox_override("normal", clear)
+	operative.add_theme_stylebox_override("hover", clear)
+	operative.add_theme_stylebox_override("pressed", clear)
+	operative.add_theme_stylebox_override("focus", clear)
+	operative.pressed.connect(_toggle_suit)
+	add_child(operative)
 
-	var chip := Label.new()
-	chip.text = ClientSession.HANDLE
-	chip.position = Vector2(24, 18)
-	Chrome.apply_label(chip, 12, Chrome.CREAM, true)
+	var chip := PanelContainer.new()
+	chip.position = Vector2(16, 14)
+	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var chip_box := Chrome.flat(Chrome.INK, 24, Color("3d2a1c"), 2)
+	chip_box.content_margin_left = 10
+	chip_box.content_margin_right = 16
+	chip_box.content_margin_top = 6
+	chip_box.content_margin_bottom = 6
+	chip.add_theme_stylebox_override("panel", chip_box)
 	add_child(chip)
 
+	var chip_row := HBoxContainer.new()
+	chip_row.add_theme_constant_override("separation", 10)
+	chip.add_child(chip_row)
+
+	var face := TextureRect.new()
+	face.texture = Chrome.make_face("p1", 36)
+	face.custom_minimum_size = Vector2(36, 36)
+	face.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	face.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	chip_row.add_child(face)
+
+	var handle := Label.new()
+	handle.text = ClientSession.HANDLE
+	handle.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	Chrome.apply_label(handle, 10, Chrome.CREAM, true)
+	chip_row.add_child(handle)
+
 	_marks = Label.new()
-	_marks.position = Vector2(24, 44)
-	_marks.size = Vector2(420, 22)
+	_marks.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	Chrome.apply_label(_marks, 10, Chrome.HIGH_GOLD, true)
-	add_child(_marks)
+	chip_row.add_child(_marks)
 
 	_last_pay = Label.new()
-	_last_pay.position = Vector2(24, 66)
-	_last_pay.size = Vector2(520, 16)
-	Chrome.apply_label(_last_pay, 8, Color("d8c48a"), true)
+	_last_pay.visible = false
 	add_child(_last_pay)
+
+	_mode_lbl = Label.new()
+	_mode_lbl.visible = false
+	add_child(_mode_lbl)
+
+	var scope := _ScopeMark.new()
+	scope.set_anchors_preset(PRESET_CENTER_TOP)
+	scope.offset_left = -40
+	scope.offset_right = 40
+	scope.offset_top = 6
+	scope.offset_bottom = 70
+	scope.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(scope)
 
 	var title := Label.new()
 	title.text = "GLASSLINE"
-	title.position = Vector2(0, 16)
-	title.size = Vector2(1280, 48)
+	title.set_anchors_preset(PRESET_TOP_WIDE)
+	title.offset_top = 28
+	title.offset_bottom = 88
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	Chrome.apply_label(title, 28, Color.WHITE, true)
+	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	Chrome.apply_label(title, 32, Color.WHITE, true)
 	add_child(title)
 
-	_mode_lbl = Label.new()
-	_mode_lbl.position = Vector2(900, 18)
-	_mode_lbl.size = Vector2(360, 20)
-	_mode_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	Chrome.apply_label(_mode_lbl, 8, Chrome.TEAL, true)
-	add_child(_mode_lbl)
-
-	_mode_btn = Chrome.chunk_button("MOCK", Chrome.INK, Chrome.CREAM, Vector2(140, 36))
-	_mode_btn.position = Vector2(1120, 42)
+	_mode_btn = Chrome.dock_button("MOCK", Chrome.INK, Chrome.CREAM, Vector2(108, 36))
+	_mode_btn.set_anchors_preset(PRESET_TOP_RIGHT)
+	_mode_btn.offset_left = -124
+	_mode_btn.offset_right = -16
+	_mode_btn.offset_top = 14
+	_mode_btn.offset_bottom = 50
 	_mode_btn.pressed.connect(_toggle_live)
 	add_child(_mode_btn)
 	_refresh_mode()
 
-	var bottom := ColorRect.new()
-	bottom.color = Color(0.08, 0.06, 0.05, 0.88)
-	bottom.set_anchors_and_offsets_preset(PRESET_BOTTOM_WIDE)
-	bottom.offset_top = -110
-	add_child(bottom)
-
 	var row := HBoxContainer.new()
 	row.set_anchors_preset(PRESET_BOTTOM_WIDE)
-	row.offset_top = -96
-	row.offset_bottom = -20
-	row.offset_left = 80
-	row.offset_right = -80
+	row.offset_top = -108
+	row.offset_bottom = -22
+	row.offset_left = 72
+	row.offset_right = -72
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 28)
+	row.add_theme_constant_override("separation", 22)
 	add_child(row)
 
-	var loadout := Chrome.chunk_button("  LOADOUT", Chrome.LOADOUT_BLUE, Color.WHITE, Vector2(260, 68))
+	var loadout := Chrome.dock_button("LOADOUT", Chrome.LOADOUT_BLUE, Color.WHITE, Vector2(268, 68), "loadout")
 	loadout.pressed.connect(_toast_msg.bind("Slice 1: loadout stays in the hideout."))
 	row.add_child(loadout)
 
-	var play := Chrome.chunk_button("  PLAY", Chrome.PLAY_GREEN, Color.WHITE, Vector2(300, 72))
+	var play := Chrome.dock_button("PLAY", Chrome.PLAY_GREEN, Color.WHITE, Vector2(380, 78), "play")
 	play.pressed.connect(_on_play)
 	row.add_child(play)
 
-	var jobs := Chrome.chunk_button("  JOBS", Chrome.JOBS_WHITE, Chrome.INK, Vector2(260, 68))
+	var jobs := Chrome.dock_button("JOBS", Chrome.JOBS_WHITE, Chrome.INK, Vector2(268, 68), "jobs")
 	jobs.pressed.connect(_toggle_jobs)
 	row.add_child(jobs)
 
-	var ghillie := Chrome.chunk_button("SUIT", Chrome.TEAL, Color.WHITE, Vector2(120, 44))
-	ghillie.position = Vector2(24, 600)
-	ghillie.pressed.connect(_toggle_suit)
-	add_child(ghillie)
-
 	_toast = Label.new()
-	_toast.position = Vector2(200, 540)
-	_toast.size = Vector2(880, 36)
+	_toast.set_anchors_preset(PRESET_BOTTOM_WIDE)
+	_toast.offset_top = -148
+	_toast.offset_bottom = -112
+	_toast.offset_left = 80
+	_toast.offset_right = -80
 	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	Chrome.apply_label(_toast, 10, Color("f0e3b0"), true)
 	add_child(_toast)
@@ -170,7 +218,7 @@ func _bind_wallet() -> void:
 
 func _refresh_marks() -> void:
 	if _marks:
-		_marks.text = Chrome.marks_chip_text(ClientSession.marks)
+		_marks.text = Chrome.marks_star_text(ClientSession.marks)
 	if _last_pay:
 		if ClientSession.last_payout.is_empty():
 			_last_pay.text = ""
@@ -184,11 +232,44 @@ func _refresh_marks() -> void:
 				_last_pay.text = "Last hunt  %s" % line
 			else:
 				_last_pay.text = "Last hunt  %s" % why
+			if _toast and _toast.text == "":
+				_toast_msg(_last_pay.text)
 
 
 func _refresh_bg() -> void:
 	var path := "res://assets/canon/lobby-ghillie.jpg" if ClientSession.ghillie else "res://assets/canon/lobby-canon.jpg"
-	_bg.texture = load(path)
+	var src: Texture2D = load(path)
+	_bg.texture = _plate_without_baked_chrome(src)
+
+
+func _plate_without_baked_chrome(src: Texture2D) -> Texture2D:
+	## Clone nearby wall/floor over the plate's baked HUD + dock so live chrome can sit on wood.
+	if src == null:
+		return src
+	var img := src.get_image()
+	if img == null:
+		return src
+	if img.is_compressed():
+		img.decompress()
+	var w := img.get_width()
+	var h := img.get_height()
+	## Top-left player HUD / XP
+	_clone_band(img, 0, 0, mini(400, w), mini(72, h), 0, mini(82, h - 1))
+	## Top-right currency / settings
+	_clone_band(img, maxi(0, w - 440), 0, w, mini(72, h), maxi(0, w - 440), mini(82, h - 1))
+	## Baked title / tiny scope
+	_clone_band(img, 260, 8, mini(1020, w), mini(112, h), 260, mini(128, h - 1))
+	## Bottom dock pills
+	_clone_band(img, 0, maxi(0, h - 118), w, h, 0, maxi(0, h - 126))
+	return ImageTexture.create_from_image(img)
+
+
+func _clone_band(img: Image, x0: int, y0: int, x1: int, y1: int, src_x: int, src_y: int) -> void:
+	for y in range(y0, y1):
+		for x in range(x0, x1):
+			var sx := clampi(src_x + (x - x0), 0, img.get_width() - 1)
+			var sy := clampi(src_y, 0, img.get_height() - 1)
+			img.set_pixel(x, y, img.get_pixel(sx, sy))
 
 
 func _toggle_suit() -> void:
@@ -217,9 +298,11 @@ func _refresh_mode() -> void:
 	if ClientSession.use_live_api():
 		_mode_lbl.text = "LIVE  %s" % ClientSession.api_base_url()
 		_mode_btn.text = "LIVE"
+		_mode_btn.tooltip_text = ClientSession.api_base_url()
 	else:
 		_mode_lbl.text = "OFFLINE MOCK"
 		_mode_btn.text = "MOCK"
+		_mode_btn.tooltip_text = "Offline mock"
 
 
 func _on_play() -> void:
@@ -305,3 +388,16 @@ func _start_job(tier: int) -> void:
 	ClientSession.apply_snapshot(ready_snap)
 	MatchAPI.start_events()
 	get_tree().change_scene_to_file("res://scenes/match/match_screen.tscn")
+
+
+class _ScopeMark extends Control:
+	func _draw() -> void:
+		var center := size * 0.5
+		var radius := minf(size.x, size.y) * 0.42
+		var color := Color(1, 1, 1, 0.92)
+		draw_arc(center, radius, 0.0, TAU, 56, color, 3.2, true)
+		draw_arc(center, radius * 0.22, 0.0, TAU, 28, color, 2.4, true)
+		draw_line(center + Vector2(0, -radius), center + Vector2(0, -radius * 0.34), color, 3.0, true)
+		draw_line(center + Vector2(0, radius * 0.34), center + Vector2(0, radius), color, 3.0, true)
+		draw_line(center + Vector2(-radius, 0), center + Vector2(-radius * 0.34, 0), color, 3.0, true)
+		draw_line(center + Vector2(radius * 0.34, 0), center + Vector2(radius, 0), color, 3.0, true)

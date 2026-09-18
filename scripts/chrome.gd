@@ -59,20 +59,38 @@ static func marks_chip_text(balance: int) -> String:
 	return "MARKS  ★%d" % balance
 
 
+static func marks_star_text(balance: int) -> String:
+	return "★%d" % balance
+
+
 static func chunk_button(text: String, bg: Color, fg: Color, min_size: Vector2 = Vector2(220, 64)) -> Button:
+	return _styled_button(text, bg, fg, min_size, 18, 12)
+
+
+static func dock_button(text: String, bg: Color, fg: Color, min_size: Vector2, icon_kind: String = "") -> Button:
+	var radius := int(min_size.y * 0.5)
+	var button := _styled_button(text, bg, fg, min_size, radius, 12 if min_size.x < 340 else 14)
+	if icon_kind != "":
+		button.icon = make_icon(icon_kind, fg, 26)
+		button.add_theme_constant_override("h_separation", 12)
+		button.add_theme_constant_override("icon_max_width", 26)
+	return button
+
+
+static func _styled_button(text: String, bg: Color, fg: Color, min_size: Vector2, radius: int, font_px: int) -> Button:
 	var button := Button.new()
 	button.text = text
 	button.custom_minimum_size = min_size
 	button.add_theme_font_override("font", pixel_font())
-	button.add_theme_font_size_override("font_size", 12)
+	button.add_theme_font_size_override("font_size", font_px)
 	button.add_theme_color_override("font_color", fg)
 	button.add_theme_color_override("font_hover_color", fg)
 	button.add_theme_color_override("font_pressed_color", fg)
 	button.add_theme_color_override("font_disabled_color", Color(fg, 0.45))
-	button.add_theme_stylebox_override("normal", flat(bg, 18, bg.lightened(0.25), 3))
-	button.add_theme_stylebox_override("hover", flat(bg.lightened(0.08), 18, Color.WHITE, 3))
-	button.add_theme_stylebox_override("pressed", flat(bg.darkened(0.12), 18, bg.darkened(0.3), 3))
-	button.add_theme_stylebox_override("disabled", flat(bg.darkened(0.35), 18, bg.darkened(0.5), 3))
+	button.add_theme_stylebox_override("normal", flat(bg, radius, bg.lightened(0.22), 3))
+	button.add_theme_stylebox_override("hover", flat(bg.lightened(0.08), radius, Color.WHITE, 3))
+	button.add_theme_stylebox_override("pressed", flat(bg.darkened(0.12), radius, bg.darkened(0.3), 3))
+	button.add_theme_stylebox_override("disabled", flat(bg.darkened(0.35), radius, bg.darkened(0.5), 3))
 	return button
 
 
@@ -124,14 +142,18 @@ static func make_icon(kind: String, color: Color, px: int = 28) -> Texture2D:
 	var img := Image.create(px, px, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
 	match kind:
-		"attack":
+		"attack", "loadout":
 			_icon_crosshair(img, color)
 		"recon":
 			_icon_binoculars(img, color)
-		"ability":
+		"ability", "star":
 			_icon_star(img, color)
 		"clock":
 			_icon_clock(img, color)
+		"play":
+			_icon_play(img, color)
+		"jobs":
+			_icon_clipboard(img, color)
 		_:
 			_icon_star(img, color)
 	return ImageTexture.create_from_image(img)
@@ -221,6 +243,23 @@ static func _icon_clock(img: Image, color: Color) -> void:
 	_stroke_circle(img, 14, 14, 10, color)
 	_fill_rect(img, 13, 8, 2, 7, color)
 	_fill_rect(img, 13, 13, 7, 2, color)
+
+
+static func _icon_play(img: Image, color: Color) -> void:
+	for y in range(5, 24):
+		var dy := absi(y - 14)
+		var width := 13 - dy
+		if width > 0:
+			_fill_rect(img, 8, y, width, 1, color)
+
+
+static func _icon_clipboard(img: Image, color: Color) -> void:
+	_fill_rect(img, 7, 6, 15, 18, color)
+	_fill_rect(img, 9, 8, 11, 14, Color(0, 0, 0, 0.28))
+	_fill_rect(img, 10, 3, 9, 5, color)
+	_fill_rect(img, 10, 11, 9, 2, color)
+	_fill_rect(img, 10, 15, 9, 2, color)
+	_fill_rect(img, 10, 19, 7, 2, color)
 
 
 static func _px(img: Image, x: int, y: int, color: Color) -> void:

@@ -9,7 +9,22 @@ Godot 4.3, `DISPLAY=:1`, `project.godot` with **MOCK** (no `GLASSLINE_USE_LIVE_A
 3. Click green **PLAY** (bottom center). Do not click LIVE.
 4. Drop board is the toy war-table (not a black fog stub): walnut desk chrome, **P1 Specter7 / P2 RivalSniper**, printed Open / Brush / Hard stamps with unknown rim, Attack / Recon / **Ability** icons. Board is **9×7 axial** (9 cols × 7 rows, 63 hexes). v0 actions are Attack / Recon / UAV only — no HIGHGROUND buff chrome. Ability still posts MatchAPI `uav`. Placeholder table terrain is visual only.
 
-Stills: `a1-lobby.png`, `a1-after-play.png`.
+Stills: `a1-lobby.png`, `a1-after-play.png`. Canon-pass still: `artifacts/ux/a1-lobby-canon-pass.png`.
+
+### Lobby canon pass (2026-09-18)
+
+Hideout chrome was fighting `lobby-canon.jpg` (dark bars, second title, SUIT on the dock, MOCK over the wallet). Pass keeps Marks / SP / UAV behavior and only changes lobby read:
+
+| Was (A1 capture) | Canon-pass |
+| --- | --- |
+| Dark top/bottom bars over the room | Full-bleed hideout; baked HUD/dock cloned out so wood reads through |
+| Duplicate `GLASSLINE` + plate title | One wordmark + scope reticle, center-top |
+| `MARKS ★24` text stacked on the plate chip | Compact operative chip: face + Specter7 + live `★` Marks |
+| SUIT + LOADOUT + PLAY + JOBS (SUIT shoved the CTA) | LOADOUT / **PLAY** (hero pill + triangle) / JOBS. Suit is a click on the operative |
+| MOCK covering currency | Quiet MOCK/LIVE pill, top-right |
+| No HIGHGROUND | Still none |
+
+JOBS → START JOB and wallet bind are unchanged. Capture: `godot --resolution 1280x720 -- --capture-lobby`.
 
 ### After-Play HOLD (2026-09-18)
 
