@@ -4,6 +4,7 @@
 
 **Base:** `https://glassline-api.vercel.app`  
 HTTP: `LIVE_HTTP_SMOKE_OK m_c34b73538b6e4f1c913189089fb74a7d`  
+Godot `LiveMatchClient`: `LIVE_LOOP_OK m_b667671f3caf4da9b8d8664806709931`  
 `GET /health` → 200 `{ ok: true }`
 
 REST create/join/select_hex/attack miss/end_turn/UAV/kill all passed.  
