@@ -60,6 +60,11 @@ func get_snapshot(match_id: String, player_id: String) -> Dictionary:
 
 func apply_action(match_id: String, player_id: String, action: Dictionary) -> ActionResult:
 	var token := ClientSession.token_for(player_id)
+	# Live contract: no `start` — both select_hex auto-activates. Treat as reconnect no-op.
+	if str(action.get("type", "")) == Contract.ACT_START:
+		var snap: Dictionary = get_snapshot(match_id, player_id)
+		if str(snap.get("status", "")) == Contract.STATUS_ACTIVE:
+			return ActionResult.ok_result(snap)
 	var raw: Dictionary = _raw("POST", "/matches/%s/actions" % match_id, action, token)
 	var parsed: ActionResult = ActionResult.from_http(int(raw.get("status", 0)), raw.get("json", {}))
 	if parsed.ok and player_id == ClientSession.player_id:

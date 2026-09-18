@@ -33,17 +33,26 @@ Default base URL: **`http://127.0.0.1:8787`** (`glassline/api_base_url`, or `GLA
 
 Scenes call **`MatchAPI`** only. That facade forwards to `MockMatchServer` or `LiveMatchClient`. The client never treats a local crosshair as hit/terrain truth.
 
-## Point at the live API Origin clone
+## Point at the live API (GitHub)
 
-Do **not** rename or push that repo. Clone it beside this client and run whatever its README says (Hono). If it does not specify a port, use **8787**.
+Do **not** rename or push the API repo. Clone it **outside** this client, local Postgres required.
 
 ```bash
-git clone https://origin.cursor.com/git/boody/tmp-a60cbdcb8629ce8f.git glassline-api
-# follow that repo's README to start Hono / Neon
-# then either:
-#   - click LIVE on the hideout, or
-#   - GLASSLINE_USE_LIVE_API=1 GLASSLINE_API_BASE=http://127.0.0.1:8787 godot --path .
+git clone https://github.com/physikal/glassline-api.git /tmp/glassline-api
+cd /tmp/glassline-api
+cp .env.example .env   # DATABASE_URL=postgresql://glassline:glassline@127.0.0.1:5432/glassline
+pnpm install && pnpm migrate && pnpm start   # http://127.0.0.1:8787
 ```
+
+Then either click **LIVE** on the hideout, or:
+
+```bash
+GLASSLINE_USE_LIVE_API=1 GLASSLINE_API_BASE=http://127.0.0.1:8787 godot --path .
+python3 tools/live_http_smoke.py
+GLASSLINE_USE_LIVE_API=1 godot --headless --path . -s res://tools/live_loop_test.gd
+```
+
+Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` auto-activates), `end_turn.move` not `hex`, attack miss does **not** reveal terrain, `you.placed` is omitted (infer from `you.hex`). `LiveMatchClient` no-ops `start` when already `active` and sends both `hex` and `move` on end_turn.
 
 `LiveMatchClient` expects:
 

@@ -386,6 +386,10 @@ func _maybe_dummy_drop(_q: int, _r: int) -> void:
 		var dummy_result := _submit_as(ClientSession.dummy_player_id, ActionIntent.select_hex(dest.x, dest.y))
 		if dummy_result.ok:
 			_dummy_placed = true
+			# Live auto-activates on the second drop; refetch the caller-scoped snapshot.
+			var fresh: Dictionary = MatchAPI.get_snapshot(ClientSession.match_id, ClientSession.player_id)
+			if not fresh.is_empty():
+				ClientSession.apply_snapshot(fresh)
 			_refresh(ClientSession.typed_snapshot())
 	)
 

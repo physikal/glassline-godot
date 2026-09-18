@@ -72,7 +72,10 @@ func you_hex() -> Variant:
 
 
 func you_placed() -> bool:
-	return bool(you().get("placed", false))
+	var you_state := you()
+	if you_state.has("placed"):
+		return bool(you_state.get("placed", false))
+	return you_state.get("hex", null) != null
 
 
 func you_seat() -> String:

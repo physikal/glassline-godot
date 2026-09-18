@@ -2,6 +2,8 @@
 
 Source: Notion “Glassline API contract draft v0” (Godot stamp). Client types and both backends follow this shape.
 
+**Live API (physikal/glassline-api) deltas vs this mock-era draft:** no `start` (second `select_hex` auto-`active`); `end_turn.move` not `hex`; attack miss does not write terrain; snapshot omits `you.placed` (infer from `you.hex`) and adds `uavAvailable` / `softMarks`. Client LIVE path adapts; mock still uses `start` + `hex`. See `artifacts/LIVE_SMOKE.md`.
+
 **Stack:** Hono + Neon Postgres · HTTPS + **SSE** (WS later, same payload) · no UDP/NGO
 
 ## Principles
