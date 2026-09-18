@@ -229,13 +229,22 @@ def main() -> int:
         with urllib.request.urlopen(request, timeout=4.0) as resp:
             expect(resp.status == 200, "SSE GET /matches/:id/events 200")
             expect("text/event-stream" in (resp.headers.get("Content-Type") or ""), "SSE content-type")
+            try:
+                resp.fp.raw._sock.settimeout(1.5)
+            except Exception:
+                pass
             buf = b""
-            while len(buf) < 4096:
-                chunk = resp.read(256)
+            while len(buf) < 8192:
+                try:
+                    chunk = resp.fp.read1(1024) if hasattr(resp.fp, "read1") else resp.read(64)
+                except TimeoutError:
+                    break
+                except Exception:
+                    break
                 if not chunk:
                     break
                 buf += chunk
-                if b"\n\n" in buf or b"\r\n\r\n" in buf:
+                if b"\n\n" in buf or b"data:" in buf:
                     break
             text = buf.decode("utf-8", errors="replace")
             for line in text.splitlines():

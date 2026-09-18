@@ -49,7 +49,7 @@ Then either click **LIVE** on the hideout, or:
 ```bash
 GLASSLINE_USE_LIVE_API=1 GLASSLINE_API_BASE=http://127.0.0.1:8787 godot --path .
 python3 tools/live_http_smoke.py
-GLASSLINE_USE_LIVE_API=1 godot --headless --path . -s res://tools/live_loop_test.gd
+GLASSLINE_USE_LIVE_API=1 godot --headless --path . res://tools/live_loop_test.tscn
 ```
 
 Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` auto-activates), `end_turn.move` not `hex`, attack miss does **not** reveal terrain, `you.placed` is omitted (infer from `you.hex`). `LiveMatchClient` no-ops `start` when already `active` and sends both `hex` and `move` on end_turn.

@@ -1,6 +1,6 @@
-extends SceneTree
+extends Node
 ## LIVE contract loop through LiveMatchClient (needs API on 127.0.0.1:8787).
-##   GLASSLINE_USE_LIVE_API=1 godot --headless --path . -s res://tools/live_loop_test.gd
+##   GLASSLINE_USE_LIVE_API=1 godot --headless --path . res://tools/live_loop_test.tscn
 
 const Contract := preload("res://types/contract.gd")
 const ActionIntent := preload("res://types/action_intent.gd")
@@ -8,10 +8,10 @@ const ActionResult := preload("res://types/action_result.gd")
 const Snapshot := preload("res://types/snapshot.gd")
 
 
-func _init() -> void:
+func _ready() -> void:
 	ClientSession.live_override = 1
 	var code := _run()
-	quit(code)
+	get_tree().quit(code)
 
 
 func _run() -> int:
