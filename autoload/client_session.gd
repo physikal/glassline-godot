@@ -45,6 +45,7 @@ func bind_marks(balance: int) -> void:
 
 
 func apply_snapshot(snap: Dictionary) -> void:
+	## A2: full replace. Never merge invented terrain tags or lastAction.hit.
 	last_snapshot = snap.duplicate(true)
 	var kind := str(snap.get("kind", snap.get("mode", "")))
 	if kind != "":
@@ -59,9 +60,10 @@ func apply_snapshot(snap: Dictionary) -> void:
 	if you is Dictionary:
 		if str(you.get("seat", "")) != "":
 			seat = str(you.get("seat", seat))
-		## Coder lock: wallet is you.marks only. Never grant locally.
-		if you.has("marks"):
-			bind_marks(int(you.get("marks")))
+		## A2: wallet is snapshot you.marks only. Replace — never invent / keep a local grant.
+		bind_marks(int(you.get("marks", 0)))
+	else:
+		bind_marks(0)
 	var payout = MarksPayout.from_any(snap)
 	var why: String = MarksPayout.display_reason(snap, is_job())
 	if payout.has_delta() or why != "":
@@ -78,6 +80,19 @@ func is_job() -> bool:
 
 func typed_snapshot() -> Snapshot:
 	return Snapshot.from_dict(last_snapshot) as Snapshot
+
+
+func last_server_hit() -> Variant:
+	## Null unless the snapshot lastAction carried hit. Never invent true.
+	return typed_snapshot().last_hit()
+
+
+func terrain_keys() -> PackedStringArray:
+	var keys := PackedStringArray()
+	for key in typed_snapshot().terrain_map().keys():
+		keys.append(str(key))
+	keys.sort()
+	return keys
 
 
 func use_live_api() -> bool:

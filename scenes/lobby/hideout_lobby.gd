@@ -28,6 +28,9 @@ func _ready() -> void:
 	elif "--capture-a1" in args:
 		await get_tree().process_frame
 		_on_play()
+	elif "--capture-a2" in args:
+		await get_tree().process_frame
+		_on_play()
 	elif "--capture-sp-end" in args:
 		await get_tree().process_frame
 		_on_start_job()

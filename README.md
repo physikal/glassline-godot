@@ -50,8 +50,11 @@ Public LIVE (Neon): **`https://glassline-api.vercel.app`**. Click **LIVE** on th
 GLASSLINE_USE_LIVE_API=1 godot --path .
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_http_smoke.py
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_jobs_smoke.py   # POST /jobs T1 + you.marks +10 once
+GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_a2_smoke.py     # A2 reconnect: server snapshot wins
 GLASSLINE_USE_LIVE_API=1 godot --headless --path . res://tools/live_loop_test.tscn
 ```
+
+Spike checklist: `artifacts/SPIKE_ACCEPTANCE.md`. Reconnect = `GET /matches/:id` then `ClientSession.apply_snapshot` (replace, no merge). Client never invents terrain tags or `hit`.
 
 Realtime: prefer `GET /matches/:id/events` (SSE, Bearer). If that stream dies (common on Vercel after the first tick), `LiveMatchClient` falls back to polling `GET /matches/:id`. Local `8787` override: `GLASSLINE_API_BASE=http://127.0.0.1:8787`.
 
