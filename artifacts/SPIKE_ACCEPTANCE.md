@@ -15,14 +15,22 @@ Client **never invents** terrain tags, `lastAction.hit`, or wallet. `GET /matche
 | Exposure | `you.exposurePct` — end-turn doll binds this **server pct** |
 | Marks | `you.marks` display bind only. Never `marks +=` |
 
-**Exposure doll:** soft gap OK (art stub). Live path must still show the end-turn doll driven by **server `you.exposurePct`**. Slider is the next `end_turn` intent only — not truth. Art polish remains owner Godot.
+**Exposure doll:** soft gap OK (art stub). Live path must still show the end-turn doll driven by **server `you.exposurePct`**. Slider is the next `end_turn` intent only — not truth. Art polish remains owner Godot. **Do not redo doll art this pass.**
+
+## A2 notes — P2 UX (2026-09-18)
+
+Soft P2 from UX: strip player-facing **`SERVER SNAPSHOT`** (and similar) debug badge from release / match UI.
+
+Reconnect is unchanged: `GET /matches/:id` → `ClientSession.apply_snapshot` **replace** (no merge). Hex / turn / `you.exposurePct` / `you.marks` stay server sole truth. The badge was chrome only — it is not shown.
+
+Doll stays the art stub. Binding remains `you.exposurePct` from the server. No mil-sim. No Marks client grant.
 
 ## Checklist
 
 | Gate | Status | Evidence |
 | --- | --- | --- |
 | **A1** lobby | **CLEAR** | [`a1-lobby.png`](a1-lobby.png) · [`a1-after-play.png`](a1-after-play.png) · canon-pass [`ux/a1-lobby-canon-pass.png`](ux/a1-lobby-canon-pass.png) · [`A1_A3_NOTES.md`](A1_A3_NOTES.md) |
-| **A2** reconnect | **PASS LIVE** (locked bar) | `LIVE_A2_SMOKE_OK m_668f470053894080abe921f8077d33d7` (hex/turn/exposure/Marks replace) · prior `m_fd248542cc05483888ea23335fb627a6` · Mock `HEADLESS_LOOP_OK` `_a2_reconnect_case` · still [`ux/a2_reconnect_server_snapshot.png`](ux/a2_reconnect_server_snapshot.png) |
+| **A2** reconnect | **PASS LIVE** (locked bar) | `LIVE_A2_SMOKE_OK m_668f470053894080abe921f8077d33d7` (hex/turn/exposure/Marks replace) · prior `m_fd248542cc05483888ea23335fb627a6` · Mock `HEADLESS_LOOP_OK` `_a2_reconnect_case` · still [`ux/a2_reconnect_server_snapshot.png`](ux/a2_reconnect_server_snapshot.png) (no `SERVER SNAPSHOT` badge) |
 | **A3** attack miss / kill | **PASS** prior LIVE + mock stills | [`LIVE_SMOKE.md`](LIVE_SMOKE.md) `LIVE_HTTP_SMOKE_OK m_0e8ee5d22cd84be4b398c2d659a63e1d` · [`a3-attack-miss.png`](a3-attack-miss.png) · [`a3-attack-kill.png`](a3-attack-kill.png) |
 | **A4** soft forfeit | **PASS** prior LIVE | [`LIVE_MARKS_SMOKE.md`](LIVE_MARKS_SMOKE.md) `LIVE_A4_SMOKE_OK j_26e30905934c4e52bbde019a39f0664c endReason=forfeit marks 0->0` |
 | **A5** SP job | **PASS** prior LIVE | [`LIVE_MARKS_SMOKE.md`](LIVE_MARKS_SMOKE.md) `LIVE_JOBS_SMOKE_OK j_b168c483a11a427a96031e38124a9f97 marks 0->10` · [`MARKS_SP_NOTES.md`](MARKS_SP_NOTES.md) |
@@ -48,7 +56,7 @@ What the smoke proves:
 
 Godot: match `_ready` → `MatchAPI.reconnect()`. Doll → `snap.you_exposure()`. Marks chip → `snap.you_marks()`. Printed table paint is not reconnect truth.
 
-Reconnect still (`--capture-a2`): [`ux/a2_reconnect_server_snapshot.png`](ux/a2_reconnect_server_snapshot.png) — `SERVER SNAPSHOT` + doll at server pct.
+Reconnect still (`--capture-a2`): [`ux/a2_reconnect_server_snapshot.png`](ux/a2_reconnect_server_snapshot.png) — end-turn doll at **server `you.exposurePct`**. No `SERVER SNAPSHOT` (or similar) debug badge.
 
 ## GD ping — A2 ready
 
@@ -58,7 +66,9 @@ Copy for GD:
 >
 > LIVE: `python3 tools/live_a2_smoke.py` → `LIVE_A2_SMOKE_OK m_668f470053894080abe921f8077d33d7`  
 > Mock: `godot --headless --path . -s res://tools/headless_loop_test.gd` → `HEADLESS_LOOP_OK`  
-> Doll: soft gap. Live end-turn doll binds **`you.exposurePct`** (server). Slider is next `end_turn` intent only. Art polish owner Godot.
+> Doll: soft gap / art stub. Live end-turn doll binds **`you.exposurePct`** (server). Slider is next `end_turn` intent only. Art polish owner Godot — not this pass.
+>
+> Match UI: no player-facing `SERVER SNAPSHOT` badge. Reconnect still applies the server snapshot as sole truth.
 >
 > Still: `artifacts/ux/a2_reconnect_server_snapshot.png`  
 > Bar: `artifacts/SPIKE_ACCEPTANCE.md`  
