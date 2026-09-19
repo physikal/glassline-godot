@@ -532,7 +532,13 @@ func _a4_gaps_case(failed: PackedStringArray) -> void:
 	_expect(failed, grace_snap.in_grace(), "A4.3 snapshot in_grace")
 	_expect(failed, grace_snap.grace_remaining_sec() >= 22.0 and grace_snap.grace_remaining_sec() <= 23.0, "A4.3 remaining ~23s")
 	_expect(failed, Contract.format_grace_clock(23) == "0:23", "A4.3 clock 0:23")
-	_expect(failed, (Contract.GRACE_RIVAL_COPY % "0:23").find("RIVAL") >= 0, "A4.3 rival copy")
+	var rival_line := Contract.GRACE_RIVAL_COPY % "0:23"
+	_expect(failed, rival_line.find("Waiting on rival") >= 0, "A4.3 waiting-on-rival copy")
+	_expect(failed, rival_line.find("0:23") >= 0, "A4.3 countdown in rival copy")
+	_expect(failed, rival_line.find("RIVAL  ") < 0, "A4.3 not turn-clock RIVAL")
+	var hold_line := Contract.GRACE_HOLD_COPY % "0:23"
+	_expect(failed, hold_line.find("Reconnect") >= 0, "A4.3 local HOLD is reconnect")
+	_expect(failed, hold_line.find("HOLD  ") < 0, "A4.3 not turn-clock HOLD")
 	server.test_now_ms = 100000 + Contract.FORFEIT_GRACE_SEC * 1000 + 50
 	var after: Snapshot = Snapshot.from_dict(server.get_snapshot(mid, pid_a))
 	_expect(failed, after.status() == Contract.STATUS_ENDED, "A4.2 grace silence ended")

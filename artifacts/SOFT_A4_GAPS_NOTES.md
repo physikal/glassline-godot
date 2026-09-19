@@ -11,7 +11,7 @@ Slice: [Soft A4 gap punch-list](https://app.notion.com/p/3e04dabdb339813da9e2d6b
 | # | Gap | Client |
 | --- | --- | --- |
 | 1 | Abandon CTA | Mid-match **ABANDON** (Decline weight: wood / cream). `MatchAPI.abandon` → `LiveMatchClient.abandon` `POST /matches/:id/abandon` + join Bearer. Mock uses the same `_end_forfeit` settle as a 30s silence (`+12` remaining / `+0` leaver). Idempotent if already `ended`. |
-| 2 | Grace countdown | Readable `RIVAL  0:23` (clock + gold). Keys off snapshot `disconnected_at` / `graceEndsAt` / `graceRemainingSec`. Local poll GET failure uses `LiveMatchClient.poll_failed_since_msec` (`HOLD  0:23`). Does **not** start grace on Vercel SSE→poll (that close is normal). Duration stays **30s**. |
+| 2 | Grace countdown | Readable disconnect grace — **not** a turn clock. Rival drop: `Waiting on rival…  0:23`. Local poll GET failure: `Reconnect  0:23` (`LiveMatchClient.poll_failed_since_msec`). Keys off snapshot `disconnected_at` / `graceEndsAt` / `graceRemainingSec`. Does **not** start grace on Vercel SSE→poll (that close is normal). Duration stays **30s**. |
 | 3 | Forfeit overlay | Reuses rematch chrome: `RIVAL FORFEIT` / `FORFEIT`, Marks settled **+12 / 0**, **Play again** / **Decline**. No mil-sim disconnect screen. Rematch buttons only after `ended`. |
 
 No new Marks table. No grace-duration change.
@@ -22,7 +22,7 @@ No new Marks table. No grace-duration change.
 | --- | --- | --- |
 | **A4.1** Abandon → forfeit +12/0 | **PASS mock** · LIVE pending 404 | Headless `_a4_gaps_case`. Stills `artifacts/ux/abandon_cta.png`, `forfeit_overlay.png`. |
 | **A4.2** Disconnect 30s silence → same | **PASS LIVE (prior)** | `LIVE_A4_SMOKE_OK j_26e30905934c4e52bbde019a39f0664c endReason=forfeit marks 0->0`. Mock grace expire uses the same `_end_forfeit`. |
-| **A4.3** Countdown UX readable + still | **PASS mock** | `artifacts/ux/grace_countdown.png` — `RIVAL  0:23`. |
+| **A4.3** Countdown UX readable + still | **PASS mock** | `artifacts/ux/grace_countdown.png` — `Waiting on rival…  0:23` (disconnect grace, not turn time). |
 | **A4.4** Overlay Marks settled; rematch only after ended | **PASS mock** | Overlay settle line `Marks settled  ·  +12 / 0` + Play again / Decline. Rematch while `active` is 409 `match_not_ended`. |
 
 ## Smoke
@@ -47,6 +47,10 @@ Stills (mock, `DISPLAY=:1`, 1280×720):
 | `artifacts/ux/abandon_cta.png` | `--capture-abandon-cta` |
 | `artifacts/ux/grace_countdown.png` | `--capture-grace-countdown` |
 | `artifacts/ux/forfeit_overlay.png` | `--capture-forfeit-overlay` |
+
+## UX HOLD (countdown copy)
+
+`RIVAL  0:23` read as a turn clock. Copy is now disconnect/reconnect language: `Waiting on rival…  0:23` (their drop) / `Reconnect  0:23` (local poll HOLD). Abandon CTA + forfeit overlay unchanged. Duration still 30s. No mil-sim.
 
 ## Out
 

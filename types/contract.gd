@@ -124,8 +124,9 @@ const REMATCH_TIMER_COPY := "Answer in %ds"
 ## Soft A4 gaps — abandon CTA + grace countdown. Duration stays 30s.
 const ABANDON_COPY := "ABANDON"
 const ABANDON_ERR_UNAVAILABLE := "abandon_unavailable"
-const GRACE_RIVAL_COPY := "RIVAL  %s"
-const GRACE_HOLD_COPY := "HOLD  %s"
+## Disconnect grace — not a turn clock. Rival drop vs local poll HOLD.
+const GRACE_RIVAL_COPY := "Waiting on rival…  %s"
+const GRACE_HOLD_COPY := "Reconnect  %s"
 
 
 static func format_grace_clock(sec: float) -> String:
