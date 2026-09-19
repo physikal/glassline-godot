@@ -1,26 +1,35 @@
-LIVE DECOY smoke — 2026-09-19
+LIVE DECOY smoke — 2026-09-19 (prefer LIVE once 200)
 BASE https://glassline-api.vercel.app
+Coder commit bec68abe  Ability #2 DECOY
+Deploy dpl_GTHkzxuPGNeV5fbzG2FQSDXNMEmA
 
-GET /health                         PASS  { ok: true }
+Earlier this turn:
+  POST { type: "decoy" } → 400 invalid action body (Zod pre-ship)
+  Then join → 500 PostgresError: cached plan must not change result type
+    (match_players gained decoy_remaining / decoy_q / decoy_r)
+  After serverless recycle, join 200 and decoy 200.
+
+GET /health                         PASS
 POST /players                       PASS
-POST /matches                       PASS
-join a + b + both drops             PASS  status=active phase=await_action
+both drops → active                 PASS
 
 POST /matches/:id/actions { type: "decoy" }
-  HTTP 400
-  { "error": "invalid action body" }
+  HTTP 200  { ok: true, result: { type: "decoy", hex: { q: 3, r: 2 } } }
+  snapshot.you.decoyAvailable false
+  snapshot.you.decoyRemaining 0
+  snapshot.you.decoyHex { q: 3, r: 2 }   // A at (2,2), LIVE neighbor table
+  snapshot.phase await_end_turn
+  snapshot.uavAvailable still true
+  no marks / marksDelta on result
 
-LIVE Zod ActionSchema is still
-  attack | recon | uav | select_hex | end_turn
-No decoy variant. Same reject family as unknown `start`.
+D1 once + full turn                 PASS  (second decoy refused)
+D2 adjacent empty + enemy soft      PASS  enemy.decoySoftHex while live
+D3 Attack miss+clear                PASS  hit:false kill:false decoyCleared:true
+D4 expires next own end_turn        PASS  live into next window, then cleared
+D5 no economy / buff                PASS  Marks unchanged; UAV charge untouched
 
-Coder blocker: ship `{ type: "decoy" }` (no hex), snapshot
-  you.decoyAvailable / you.decoyHex?
-  enemy.decoySoftHex?
-and attack result decoyCleared.
+Result: LIVE_DECOY_OK  (last observed after recycle)
+python3 tools/live_decoy_smoke.py
 
-Client (this PR):
-  LiveMatchClient already POSTs the intent as-is.
-  Mock implements D1–D5. HUD + dashed toy doll ready.
-
-Result: LIVE_DECOY_PENDING
+HOLD — Coder reports LIVE join/actions 500 (schema cache).
+Do not re-run D1–D5 until Coder clears. Prefer LIVE once decoy returns 200.

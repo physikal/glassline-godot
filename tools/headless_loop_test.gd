@@ -212,6 +212,19 @@ func _a2_reconnect_case(failed: PackedStringArray) -> void:
 	session.free()
 
 
+func _decoy_pick(aq: int, ar: int, bq: int, br: int) -> Vector2i:
+	## Mirror LIVE pickDecoyHex / HexMath.DECOY_DIRS.
+	var occupied := [Vector2i(aq, ar), Vector2i(bq, br)]
+	for dir in HexMath.DECOY_DIRS:
+		var cand := Vector2i(aq + dir.x, ar + dir.y)
+		if not Contract.on_board(cand.x, cand.y):
+			continue
+		if cand in occupied:
+			continue
+		return cand
+	return Vector2i(-1, -1)
+
+
 func _decoy_case(failed: PackedStringArray) -> void:
 	## D1–D5: once + full turn, adjacent empty, attack miss+clear, expiry, no economy/buff.
 	server.clear_all()
@@ -245,6 +258,8 @@ func _decoy_case(failed: PackedStringArray) -> void:
 	_expect(failed, not Contract.same_hex(planted, Contract.hex_dict(2, 2)), "D2 not caster secret")
 	_expect(failed, not Contract.same_hex(planted, Contract.hex_dict(7, 5)), "D2 not rival secret")
 	_expect(failed, Contract.same_hex(planted, Contract.hex_dict(3, 2)), "D2 first empty neighbor (3,2)")
+	_expect(failed, _decoy_pick(0, 0, 8, 6) == Vector2i(1, 0), "D2 LIVE example A(0,0) B(8,6) → (1,0)")
+	_expect(failed, _decoy_pick(0, 0, 1, 0) == Vector2i(0, 1), "D2 LIVE example A(0,0) B(1,0) → (0,1)")
 	_expect(failed, str(snap.last_action().get("type", "")) == Contract.ACT_DECOY, "D1 lastAction decoy")
 	_expect(failed, not snap.last_action().has("marksDelta"), "D5 decoy result has no marksDelta")
 	_expect(failed, snap.you_marks() == before_marks, "D5 decoy does not grant/spend Marks")

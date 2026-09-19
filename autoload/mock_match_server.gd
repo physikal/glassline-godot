@@ -487,6 +487,7 @@ func _act_attack(match_state: Dictionary, seat: String, action: Dictionary) -> A
 			"hex": hex,
 			"hit": true,
 			"kill": true,
+			"decoyCleared": false,
 			"marks": pay.get("marks", account_marks),
 			"marksDelta": pay.get("marksDelta", 0),
 			"reason": pay.get("reason", Contract.END_KILL),
@@ -551,13 +552,13 @@ func _act_recon(match_state: Dictionary, seat: String, action: Dictionary) -> Ac
 		"seat": seat,
 		"spotted": found,
 		"found": found,
+		"decoySpotted": decoy_in_sector,
 	}
 	if found:
 		recon_last["hex"] = enemy["hex"].duplicate()
-	elif decoy_in_sector and decoy_hex is Dictionary:
+	if decoy_in_sector and decoy_hex is Dictionary:
 		## Soft-mark the toy doll only — never promote it to real Hot / visibleHex.
-		recon_last["decoySpotted"] = true
-		recon_last["hex"] = (decoy_hex as Dictionary).duplicate()
+		recon_last["decoyHex"] = (decoy_hex as Dictionary).duplicate()
 	_set_last(match_state, recon_last)
 	return _ok(match_state, seat)
 
@@ -600,15 +601,13 @@ func _act_decoy(match_state: Dictionary, seat: String) -> ActionResult:
 	match_state["phase"] = Contract.PHASE_END_TURN
 	_set_last(match_state, {
 		"type": Contract.ACT_DECOY,
-		"seat": seat,
 		"hex": dest,
-		"planted": true,
 	})
 	return _ok(match_state, seat)
 
 
 func _pick_decoy_hex(match_state: Dictionary, seat: String) -> Variant:
-	## First in-bounds axial neighbor that is not either secret position.
+	## LIVE pickDecoyHex: DECOY_DIRS order, on-board, not either secret. Dolls are not occupants.
 	var seat_state: Dictionary = match_state["seats"][seat]
 	var here: Variant = seat_state.get("hex", null)
 	if here == null or not (here is Dictionary):
@@ -618,11 +617,12 @@ func _pick_decoy_hex(match_state: Dictionary, seat: String) -> Variant:
 		var other_hex: Variant = match_state["seats"][key].get("hex", null)
 		if other_hex is Dictionary:
 			occupied.append(other_hex)
-		var other_decoy: Variant = match_state["seats"][key].get("decoyHex", null)
-		if other_decoy is Dictionary:
-			occupied.append(other_decoy)
-	for cell in HexMath.neighbors(int(here["q"]), int(here["r"])):
-		var cand := Contract.hex_dict(cell.x, cell.y)
+	var oq := int(here["q"])
+	var orow := int(here["r"])
+	for dir in HexMath.DECOY_DIRS:
+		var cand := Contract.hex_dict(oq + dir.x, orow + dir.y)
+		if not Contract.on_board(int(cand["q"]), int(cand["r"])):
+			continue
 		var blocked := false
 		for hex in occupied:
 			if Contract.same_hex(cand, hex):
@@ -825,6 +825,7 @@ func _snapshot_for_seat(match_state: Dictionary, seat: String) -> Dictionary:
 			"equippedSkinId": equipped_cosmetic if equipped_cosmetic != "" else null,
 			"equipped": equipped_cosmetic if equipped_cosmetic != "" else null,
 			"decoyAvailable": bool(you.get("decoyAvailable", false)),
+			"decoyRemaining": 1 if bool(you.get("decoyAvailable", false)) else 0,
 			"decoyHex": _decoy_hex_for_snap(you, match_state),
 		},
 		"enemy": {

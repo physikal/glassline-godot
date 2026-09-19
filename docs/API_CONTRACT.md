@@ -35,7 +35,7 @@ Source: Notion “Glassline API contract draft v0” (Godot stamp). Client types
   turnIndex, turnCap: 16, whoseTurn: a|b|null,
   phase: await_action|await_end_turn|null,
   uavRemaining: 0|1,
-  you: { seat, hex, placed, marks, exposurePct, movedLastTurn, decoyAvailable, decoyHex? },
+  you: { seat, hex, placed, marks, exposurePct, movedLastTurn, decoyAvailable, decoyRemaining: 0|1, decoyHex? },
   enemy: { seat, visibleHex, softHotTurnsLeft, decoySoftHex? },
   terrain: [{ q, r, type }],
   lastAction: ActionResult | null,
@@ -50,7 +50,7 @@ Source: Notion “Glassline API contract draft v0” (Godot stamp). Client types
 { type: "attack", hex: {q,r} }
 { type: "recon", hex: {q,r} }   // sector = center + 6 neighbors
 { type: "uav" }
-{ type: "decoy" }            // no hex; server picks adjacent empty. LIVE Zod pending Coder.
+{ type: "decoy" }            // no hex; server picks adjacent empty (LIVE 200)
 { type: "end_turn", exposurePct: number, hex?: {q,r} }
 
 → { ok, snapshot, result: ActionResult }

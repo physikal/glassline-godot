@@ -21,26 +21,34 @@ Arch stamp 2026-09-19. Client half on `main` after #16.
 
 ## LIVE curl (2026-09-19)
 
-Public `https://glassline-api.vercel.app` after both drops (`status=active`, `phase=await_action`):
+Coder shipped `bec68abe` (`{ type: "decoy" }`, once/seat). Public `https://glassline-api.vercel.app` after both drops:
 
 ```
 POST /matches/:id/actions  { "type": "decoy" }
-HTTP 400  { "error": "invalid action body" }
+HTTP 200  { ok: true, result: { type: "decoy", hex: { q: 3, r: 2 } } }
 ```
 
-Zod `ActionSchema` is still `attack | recon | uav | select_hex | end_turn`. Snapshot `you` has no `decoyAvailable` / `decoyHex`; `enemy` has no `decoySoftHex`. **Coder blocker** — same reject family as unknown `start`. `LiveMatchClient.apply_action` already posts the intent as-is and fingerprints decoy fields on poll.
+A at (2,2) → server pick `(3,2)` (locked neighbor table). Snapshot:
 
-`python3 tools/live_decoy_smoke.py` → `LIVE_DECOY_PENDING` (log: `artifacts/live_decoy_smoke.txt`).
+- `you.decoyAvailable: false`, `you.decoyRemaining: 0`, `you.decoyHex: {q:3,r:2}`
+- `enemy.decoySoftHex` on the other seat while live
+- `phase: await_end_turn` · UAV charge untouched · no Marks on the result
+
+Mid-deploy join briefly 500 (`PostgresError: cached plan must not change result type` after `match_players` gained decoy columns). Recycle → 200.
+
+`python3 tools/live_decoy_smoke.py` → **`LIVE_DECOY_OK`** after recycle (`artifacts/live_decoy_smoke.txt`).
+
+**Hold:** Coder later flagged LIVE join/actions 500 (`PostgresError: cached plan must not change result type`). Do not re-hit D1–D5 until Coder clears. Prefer LIVE again once `{ type: "decoy" }` returns 200. Mock + HUD + dashed blip stay.
 
 ## Gates
 
 | Gate | Mock | LIVE | Notes |
 | --- | --- | --- | --- |
-| **D1** once + full turn | **PASS** | pending Coder | First decoy → `await_end_turn`. Second refused (`wrong_phase` then `decoy_spent`). Intent has no hex. |
-| **D2** adjacent empty | **PASS** | pending | A at (2,2) plants (3,2) — first AXIAL_DIRS neighbor. Enemy snapshot gets `decoySoftHex` while live. |
-| **D3** Attack miss+clear | **PASS** | pending | B attacks planted hex → `hit:false`, `decoyCleared:true`, both views clear. Match stays active. |
-| **D4** expires next own end_turn | **PASS** | pending | Planting `end_turn` keeps the doll. Next own action window still shows it. Next own `end_turn` clears owner + enemy soft blip. |
-| **D5** no economy / buff | **PASS** | pending | Decoy / decoy-miss / expiry do not change Marks. UAV charge and exposure 50 stay. `RECON_BASE` 0.35, PvP kill ★25. Real hex still kills. |
+| **D1** once + full turn | **PASS** | **PASS** | First decoy → `await_end_turn`. Second refused. Intent has no hex. |
+| **D2** adjacent empty | **PASS** | **PASS** | A at (2,2) plants (3,2) — LIVE `DECOY_DIRS` / contract neighbor table. Enemy gets `decoySoftHex` while live. Examples (0,0)/(8,6)→(1,0) and (0,0)/(1,0)→(0,1). |
+| **D3** Attack miss+clear | **PASS** | **PASS** | B attacks planted hex → `hit:false`, `kill:false`, `decoyCleared:true`. Both views clear. Match stays active. |
+| **D4** expires next own end_turn | **PASS** | **PASS** | Planting `end_turn` keeps the doll. Next own action window still shows it. Next own `end_turn` clears owner + enemy soft blip. |
+| **D5** no economy / buff | **PASS** | **PASS** | Decoy / decoy-miss / expiry do not change Marks. UAV charge and exposure 50 stay. `RECON_BASE` 0.35, PvP kill ★25. Real hex still kills. |
 | **D6** dashed toy doll UX | **PASS mock** | n/a | HUD **DECOY** (slot `TOY DOLL`) beside Attack / Recon / UAV. Enabled when `decoyAvailable`, **DECOY SPENT** when used. Cozy stuffed-doll blip + dashed ring. No mil-sim smoke. |
 
 Headless: `godot --headless --path . -s res://tools/headless_loop_test.gd` → `HEADLESS_LOOP_OK`.
