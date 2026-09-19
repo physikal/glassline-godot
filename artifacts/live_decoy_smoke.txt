@@ -1,35 +1,32 @@
-LIVE DECOY smoke — 2026-09-19 (prefer LIVE once 200)
+LIVE DECOY smoke — 2026-09-19 (LIVE CLEAR · prepare: false)
 BASE https://glassline-api.vercel.app
-Coder commit bec68abe  Ability #2 DECOY
-Deploy dpl_GTHkzxuPGNeV5fbzG2FQSDXNMEmA
 
-Earlier this turn:
-  POST { type: "decoy" } → 400 invalid action body (Zod pre-ship)
-  Then join → 500 PostgresError: cached plan must not change result type
-    (match_players gained decoy_remaining / decoy_q / decoy_r)
-  After serverless recycle, join 200 and decoy 200.
-
-GET /health                         PASS
+GET /health                         PASS  { ok: true }
 POST /players                       PASS
-both drops → active                 PASS
+join a+b + both drops → active      PASS  (no schema-cache 500)
 
-POST /matches/:id/actions { type: "decoy" }
-  HTTP 200  { ok: true, result: { type: "decoy", hex: { q: 3, r: 2 } } }
-  snapshot.you.decoyAvailable false
-  snapshot.you.decoyRemaining 0
-  snapshot.you.decoyHex { q: 3, r: 2 }   // A at (2,2), LIVE neighbor table
-  snapshot.phase await_end_turn
-  snapshot.uavAvailable still true
-  no marks / marksDelta on result
+POST /matches/:id/actions { type: "decoy" }   // no hex in body
+  HTTP 200
+  { ok: true, result: { type: "decoy", hex: { q: 3, r: 2 } } }
+  A at (2,2) → you.decoyHex { q: 3, r: 2 }
+  you.decoyAvailable false · you.decoyRemaining 0
+  phase await_end_turn · uavRemaining 1 · no marks/marksDelta
+
+D2 B GET /matches/:id
+  enemy.decoySoftHex { q: 3, r: 2 }
+  enemy.visibleHex null          // not mixed with the doll
+  B.you.decoyHex null
+
+D3 B attack { q: 3, r: 2 }
+  HTTP 200
+  { type: "attack", hit: false, kill: false, decoyCleared: true }
+  after: A.you.decoyHex null · B.enemy.decoySoftHex null · visibleHex still null
 
 D1 once + full turn                 PASS  (second decoy refused)
-D2 adjacent empty + enemy soft      PASS  enemy.decoySoftHex while live
+D2 adjacent empty + enemy soft      PASS  hex (3,2) · decoySoftHex ≠ visibleHex
 D3 Attack miss+clear                PASS  hit:false kill:false decoyCleared:true
-D4 expires next own end_turn        PASS  live into next window, then cleared
+D4 expires next own end_turn        PASS
 D5 no economy / buff                PASS  Marks unchanged; UAV charge untouched
 
-Result: LIVE_DECOY_OK  (last observed after recycle)
+Result: LIVE_DECOY_OK
 python3 tools/live_decoy_smoke.py
-
-HOLD — Coder reports LIVE join/actions 500 (schema cache).
-Do not re-run D1–D5 until Coder clears. Prefer LIVE once decoy returns 200.

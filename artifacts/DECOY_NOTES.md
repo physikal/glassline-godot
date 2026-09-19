@@ -36,9 +36,11 @@ A at (2,2) → server pick `(3,2)` (locked neighbor table). Snapshot:
 
 Mid-deploy join briefly 500 (`PostgresError: cached plan must not change result type` after `match_players` gained decoy columns). Recycle → 200.
 
-`python3 tools/live_decoy_smoke.py` → **`LIVE_DECOY_OK`** after recycle (`artifacts/live_decoy_smoke.txt`).
+Coder cleared join/actions (`prepare: false`). Re-smoke after LIVE CLEAR → **`LIVE_DECOY_OK`**.
 
-**Hold:** Coder later flagged LIVE join/actions 500 (`PostgresError: cached plan must not change result type`). Do not re-hit D1–D5 until Coder clears. Prefer LIVE again once `{ type: "decoy" }` returns 200. Mock + HUD + dashed blip stay.
+Evidence (`m_05991e267e994d688b6991977111b430`): A(2,2) → `result.hex` / `you.decoyHex` `{q:3,r:2}`; B `enemy.decoySoftHex` `{q:3,r:2}` with `visibleHex` null; B attack that hex → `hit:false` `kill:false` `decoyCleared:true`; both hexes then null.
+
+`python3 tools/live_decoy_smoke.py` (`artifacts/live_decoy_smoke.txt`).
 
 ## Gates
 
