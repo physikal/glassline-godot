@@ -28,6 +28,7 @@ var job_id: String = ""
 var job_tier: int = 1
 var client_job_id: String = ""
 var ghillie: bool = false
+var bandana: bool = false
 ## Cosmetic display cache from shop snapshot. Visual only — no combat.
 var owned_cosmetics: Array = []
 var equipped_cosmetic: String = ""
@@ -107,9 +108,15 @@ func apply_shop(bag: Dictionary) -> void:
 		bind_marks(shop.balance())
 	if shop.owned_present:
 		owned_cosmetics = shop.owned.duplicate()
+	else:
+		## LIVE buy 200 infers item.id only — merge so SKU 2 does not wipe SKU 1.
+		for item_id in shop.owned:
+			var sid := str(item_id)
+			if sid != "" and not owned_cosmetics.has(sid):
+				owned_cosmetics.append(sid)
 	if shop.equipped_present:
 		equipped_cosmetic = str(shop.equipped)
-	ghillie = owns_cosmetic(Contract.SHOP_STUB_ITEM_ID) and is_equipped(Contract.SHOP_STUB_ITEM_ID)
+	_sync_cosmetic_flags()
 
 
 func owns_cosmetic(item_id: String) -> bool:
@@ -125,7 +132,12 @@ func bind_equip_local(item_id: String) -> void:
 	if item_id != "" and not owns_cosmetic(item_id):
 		return
 	equipped_cosmetic = item_id
+	_sync_cosmetic_flags()
+
+
+func _sync_cosmetic_flags() -> void:
 	ghillie = is_equipped(Contract.SHOP_STUB_ITEM_ID)
+	bandana = is_equipped(Contract.SHOP_BANDANA_ITEM_ID)
 
 
 func apply_snapshot(snap: Dictionary) -> void:

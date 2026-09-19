@@ -14,11 +14,9 @@ var _mode_lbl: Label
 var _mode_btn: Button
 var _jobs_panel: PanelContainer
 var _shop_row: PanelContainer
-var _shop_name: Label
-var _shop_price: Label
-var _shop_btn: Button
-var _shop_status: Label
-var _buying: bool = false
+var _shop_lines: Dictionary = {}
+var _bandana_wash: ColorRect
+var _buying_id: String = ""
 
 
 func _ready() -> void:
@@ -44,6 +42,14 @@ func _ready() -> void:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 		DisplayServer.window_set_size(Vector2i(1280, 720))
 		await _capture_shop_buy()
+	elif "--capture-armory-two-row" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await _capture_named("res://artifacts/ux/armory_two_row.png", "S25_ARMORY_TWO_ROW")
+	elif "--capture-armory-bandana-buy" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await _capture_armory_bandana_buy()
 	elif "--capture-a1" in args:
 		await get_tree().process_frame
 		_on_play()
@@ -96,10 +102,25 @@ func _capture_shop_buy() -> void:
 	_refresh_marks()
 	_refresh_shop()
 	await get_tree().process_frame
-	_on_shop_primary()
+	_on_shop_primary(Contract.SHOP_STUB_ITEM_ID)
 	await get_tree().process_frame
 	await get_tree().process_frame
 	await _capture_named("res://artifacts/ux/shop_post_buy_marks.png", "S5_SHOP_POST_BUY")
+
+
+func _capture_armory_bandana_buy() -> void:
+	## Mock ledger only — seed enough Marks, bind bandana buy snapshot (never marks -=).
+	if not ClientSession.use_live_api():
+		MockMatchServer.reset_wallet(180)
+	_bind_wallet()
+	_bind_shop()
+	_refresh_marks()
+	_refresh_shop()
+	await get_tree().process_frame
+	_on_shop_primary(Contract.SHOP_BANDANA_ITEM_ID)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await _capture_named("res://artifacts/ux/armory_bandana_post_buy.png", "S25_ARMORY_BANDANA_BUY")
 
 
 func _capture_jobs_ladder() -> void:
@@ -144,10 +165,17 @@ func _build() -> void:
 	_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_bg)
 
+	_bandana_wash = ColorRect.new()
+	_bandana_wash.color = Chrome.BANDANA_WASH
+	_bandana_wash.set_anchors_preset(PRESET_FULL_RECT)
+	_bandana_wash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_bandana_wash.visible = false
+	add_child(_bandana_wash)
+
 	var dock_cover := ColorRect.new()
 	dock_cover.color = Color("7a4e2c")
 	dock_cover.set_anchors_and_offsets_preset(PRESET_BOTTOM_WIDE)
-	dock_cover.offset_top = -128
+	dock_cover.offset_top = -200
 	dock_cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(dock_cover)
 	_wood_covers.append(dock_cover)
@@ -212,8 +240,8 @@ func _build() -> void:
 
 	_toast = Label.new()
 	_toast.set_anchors_preset(PRESET_BOTTOM_WIDE)
-	_toast.offset_top = -248
-	_toast.offset_bottom = -212
+	_toast.offset_top = -330
+	_toast.offset_bottom = -294
 	_toast.offset_left = 80
 	_toast.offset_right = -80
 	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -311,12 +339,12 @@ func _currency_chip(icon_kind: String, color: Color, amount: String) -> PanelCon
 
 
 func _build_shop_row() -> void:
-	## Hideout ARMORY row — lobby-canon language. One cosmetic stub. No IAP / combat.
+	## Hideout ARMORY — two chrome-only rows (ghillie ★50 + bandana ★100). No IAP / combat.
 	_shop_row = PanelContainer.new()
 	_shop_row.set_anchors_preset(PRESET_BOTTOM_WIDE)
 	_shop_row.offset_left = 72
 	_shop_row.offset_right = -72
-	_shop_row.offset_top = -200
+	_shop_row.offset_top = -286
 	_shop_row.offset_bottom = -118
 	var box := Chrome.flat(Color(0.10, 0.08, 0.06, 0.94), 20, Chrome.HIGH_GOLD, 3)
 	box.content_margin_left = 18
@@ -330,37 +358,65 @@ func _build_shop_row() -> void:
 	col.add_theme_constant_override("separation", 6)
 	_shop_row.add_child(col)
 
-	var line := HBoxContainer.new()
-	line.alignment = BoxContainer.ALIGNMENT_CENTER
-	line.add_theme_constant_override("separation", 22)
-	col.add_child(line)
-
 	var kicker := Label.new()
 	kicker.text = "ARMORY"
-	kicker.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	kicker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	Chrome.apply_label(kicker, 10, Chrome.HIGH_GOLD, true)
-	line.add_child(kicker)
+	col.add_child(kicker)
 
-	_shop_name = Label.new()
-	_shop_name.text = Contract.SHOP_STUB_ITEM_NAME
-	_shop_name.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	Chrome.apply_label(_shop_name, 12, Chrome.CREAM, true)
-	line.add_child(_shop_name)
+	for item in Contract.shop_catalog_items():
+		if item is Dictionary:
+			col.add_child(_make_shop_line(item))
 
-	_shop_price = Label.new()
-	_shop_price.text = Chrome.marks_star_text(Contract.SHOP_STUB_PRICE)
-	_shop_price.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	Chrome.apply_label(_shop_price, 12, Chrome.HIGH_GOLD, true)
-	line.add_child(_shop_price)
 
-	_shop_btn = Chrome.chunk_button("BUY", Chrome.LOADOUT_BLUE, Color.WHITE, Vector2(168, 48))
-	_shop_btn.pressed.connect(_on_shop_primary)
-	line.add_child(_shop_btn)
+func _make_shop_line(item: Dictionary) -> PanelContainer:
+	var item_id := str(item.get("id", item.get("itemId", "")))
+	var row := PanelContainer.new()
+	var box := Chrome.flat(Color(0.12, 0.09, 0.07, 0.94), 16, Chrome.HIGH_GOLD, 2)
+	box.content_margin_left = 14
+	box.content_margin_right = 12
+	box.content_margin_top = 4
+	box.content_margin_bottom = 4
+	row.add_theme_stylebox_override("panel", box)
 
-	_shop_status = Label.new()
-	_shop_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	Chrome.apply_label(_shop_status, 8, Color("f0e3b0"), true)
-	col.add_child(_shop_status)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 2)
+	row.add_child(col)
+
+	var line := HBoxContainer.new()
+	line.alignment = BoxContainer.ALIGNMENT_CENTER
+	line.add_theme_constant_override("separation", 16)
+	col.add_child(line)
+
+	var name_lbl := Label.new()
+	name_lbl.text = str(item.get("name", ""))
+	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	Chrome.apply_label(name_lbl, 11, Chrome.CREAM, true)
+	line.add_child(name_lbl)
+
+	var price_lbl := Label.new()
+	price_lbl.text = Chrome.marks_star_text(int(item.get("price", 0)))
+	price_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	Chrome.apply_label(price_lbl, 12, Chrome.HIGH_GOLD, true)
+	line.add_child(price_lbl)
+
+	var btn := Chrome.chunk_button("BUY", Chrome.LOADOUT_BLUE, Color.WHITE, Vector2(148, 44))
+	btn.pressed.connect(func() -> void: _on_shop_primary(item_id))
+	line.add_child(btn)
+
+	var status := Label.new()
+	status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	Chrome.apply_label(status, 8, Color("f0e3b0"), true)
+	col.add_child(status)
+
+	_shop_lines[item_id] = {
+		"name": name_lbl,
+		"price": price_lbl,
+		"btn": btn,
+		"status": status,
+	}
+	return row
 
 
 func _build_jobs_panel() -> void:
@@ -482,6 +538,8 @@ func _refresh_bg() -> void:
 	var path := "res://assets/canon/lobby-ghillie.jpg" if ClientSession.ghillie else "res://assets/canon/lobby-canon.jpg"
 	var src: Texture2D = load(path)
 	_bg.texture = _plate_without_baked_chrome(src)
+	if _bandana_wash:
+		_bandana_wash.visible = ClientSession.bandana and not ClientSession.ghillie
 
 
 func _plate_without_baked_chrome(src: Texture2D) -> Texture2D:
@@ -505,7 +563,7 @@ func _plate_without_baked_chrome(src: Texture2D) -> Texture2D:
 	## Island stamps under live chips only — not a full-width brown bar.
 	_stamp_wood(img, 0, 0, mini(400, w), mini(122, h), px, py, pw, ph)
 	_stamp_wood(img, maxi(0, w - 500), 0, w, mini(62, h), px, py, pw, ph)
-	_stamp_wood(img, 0, maxi(0, h - 140), w, h, px, py, pw, ph)
+	_stamp_wood(img, 0, maxi(0, h - 220), w, h, px, py, pw, ph)
 	var wood := img.get_pixel(px, py)
 	for cover in _wood_covers:
 		cover.color = wood
@@ -523,69 +581,90 @@ func _stamp_wood(img: Image, x0: int, y0: int, x1: int, y1: int, px: int, py: in
 func _focus_shop() -> void:
 	if _shop_row:
 		_shop_row.visible = true
-	_toast_msg("ARMORY  ·  Ghillie Recolor  ★%d  ·  visual only" % Contract.SHOP_STUB_PRICE)
+	_toast_msg("ARMORY  ·  Ghillie ★%d  ·  Bandana ★%d  ·  visual only" % [
+		Contract.SHOP_STUB_PRICE,
+		Contract.SHOP_BANDANA_PRICE,
+	])
 
 
 func _refresh_shop() -> void:
-	if _shop_name == null:
+	if _shop_lines.is_empty():
 		return
 	## LIVE and mock both go through MatchAPI.get_shop / buy_shop.
 	var bag = Shop.from_any(MatchAPI.get_shop())
-	_shop_name.text = bag.item_name()
-	_shop_price.text = Chrome.marks_star_text(bag.price())
-	var owned: bool = ClientSession.owns_cosmetic(Contract.SHOP_STUB_ITEM_ID)
-	var can_buy: bool = int(ClientSession.marks) >= int(bag.price())
-	_shop_btn.text = Shop.row_action_text(owned)
-	_shop_btn.disabled = not Shop.row_buy_enabled(owned, can_buy, _buying)
-	_shop_status.text = Shop.row_status_text(owned, can_buy)
-	if owned:
-		Chrome.paint_chunk_button(_shop_btn, Color("2a241c"), Chrome.HIGH_GOLD)
-	elif can_buy:
-		Chrome.paint_chunk_button(_shop_btn, Chrome.LOADOUT_BLUE, Color.WHITE)
-	else:
-		## ★24 vs ★50 — muted / disabled BUY, not an active CTA.
-		Chrome.paint_chunk_button(_shop_btn, Color("3a322c"), Color(0.72, 0.68, 0.58, 0.70))
+	for item_id in _shop_lines.keys():
+		var widgets: Dictionary = _shop_lines[item_id]
+		var name_lbl: Label = widgets.get("name")
+		var price_lbl: Label = widgets.get("price")
+		var btn: Button = widgets.get("btn")
+		var status: Label = widgets.get("status")
+		if name_lbl:
+			name_lbl.text = bag.name_of(str(item_id))
+		var price: int = int(bag.price_of(str(item_id)))
+		if price_lbl:
+			price_lbl.text = Chrome.marks_star_text(price)
+		var owned: bool = ClientSession.owns_cosmetic(str(item_id))
+		var can_buy: bool = int(ClientSession.marks) >= price
+		var buying: bool = _buying_id == str(item_id)
+		if btn:
+			btn.text = Shop.row_action_text(owned)
+			btn.disabled = not Shop.row_buy_enabled(owned, can_buy, buying)
+			if owned:
+				Chrome.paint_chunk_button(btn, Color("2a241c"), Chrome.HIGH_GOLD)
+			elif can_buy:
+				Chrome.paint_chunk_button(btn, Chrome.LOADOUT_BLUE, Color.WHITE)
+			else:
+				Chrome.paint_chunk_button(btn, Color("3a322c"), Color(0.72, 0.68, 0.58, 0.70))
+		if status:
+			status.text = Shop.row_status_text(owned, can_buy)
 	_refresh_bg()
 
 
-func _on_shop_primary() -> void:
-	if _buying:
+func _on_shop_primary(item_id: String) -> void:
+	if _buying_id != "":
 		return
-	if ClientSession.owns_cosmetic(Contract.SHOP_STUB_ITEM_ID):
-		_on_equip_toggle()
+	if ClientSession.owns_cosmetic(item_id):
+		_on_equip_toggle(item_id)
 		return
 	if ClientSession.use_live_api():
 		MatchAPI.ensure_player()
-	_buying = true
-	_shop_btn.disabled = true
+	_buying_id = item_id
+	var widgets: Dictionary = _shop_lines.get(item_id, {})
+	var btn: Button = widgets.get("btn")
+	var status: Label = widgets.get("status")
+	if btn:
+		btn.disabled = true
 	var buy_id := Contract.new_client_buy_id()
-	var listed = Shop.from_any(MatchAPI.get_shop())
-	var body: Dictionary = MatchAPI.buy_shop(listed.item_id(), buy_id)
+	var body: Dictionary = MatchAPI.buy_shop(item_id, buy_id)
 	var shop = Shop.from_any(body)
 	## Snapshot / buy you.marks is sole Marks truth — never marks -= on this client.
 	ClientSession.apply_shop(body)
 	_refresh_marks()
-	_buying = false
+	_buying_id = ""
 	if shop.is_insufficient():
-		_shop_status.text = Contract.SHOP_INSUFFICIENT_COPY
+		if status:
+			status.text = Contract.SHOP_INSUFFICIENT_COPY
 		_toast_msg("ARMORY rejected  ·  insufficient_marks")
-	elif shop.is_unavailable():
-		_shop_status.text = "LIVE shop not ready"
-		_toast_msg("LIVE /shop 404  ·  mock ARMORY on F2")
+	elif shop.is_unavailable() or shop.error == Contract.SHOP_ERR_UNKNOWN_ITEM:
+		if status:
+			status.text = "LIVE shop not ready" if shop.is_unavailable() else str(shop.error)
+		_toast_msg("LIVE catalog missing  ·  mock ARMORY on F2")
 	elif not shop.ok:
-		_shop_status.text = str(shop.error)
+		if status:
+			status.text = str(shop.error)
 		_toast_msg("ARMORY rejected  ·  %s" % shop.error)
 	else:
-		_shop_status.text = Contract.SHOP_OWNED_COPY
+		if status:
+			status.text = Contract.SHOP_OWNED_COPY
 		_toast_msg(Contract.SHOP_OWNED_COPY)
 	_refresh_shop()
 
 
-func _on_equip_toggle() -> void:
-	if not ClientSession.owns_cosmetic(Contract.SHOP_STUB_ITEM_ID):
-		_toast_msg("Buy Ghillie Recolor in ARMORY.")
+func _on_equip_toggle(item_id: String) -> void:
+	if not ClientSession.owns_cosmetic(item_id):
+		_toast_msg("Buy %s in ARMORY." % Shop.from_any({}).name_of(item_id))
 		return
-	var next_id := "" if ClientSession.is_equipped(Contract.SHOP_STUB_ITEM_ID) else Contract.SHOP_STUB_ITEM_ID
+	var next_id := "" if ClientSession.is_equipped(item_id) else item_id
 	var body: Dictionary = MatchAPI.equip_cosmetic(next_id)
 	if ClientSession.use_live_api():
 		ClientSession.bind_equip_local(next_id)
@@ -596,10 +675,23 @@ func _on_equip_toggle() -> void:
 
 
 func _toggle_suit() -> void:
-	if ClientSession.owns_cosmetic(Contract.SHOP_STUB_ITEM_ID):
-		_on_equip_toggle()
+	var owned: Array = []
+	for item in Contract.shop_catalog_items():
+		if item is Dictionary:
+			var sid := str(item.get("id", ""))
+			if sid != "" and ClientSession.owns_cosmetic(sid):
+				owned.append(sid)
+	if owned.is_empty():
+		_toast_msg("Buy Ghillie or Bandana Recolor in ARMORY")
 		return
-	_toast_msg("Buy Ghillie Recolor in ARMORY  ·  ★%d" % Contract.SHOP_STUB_PRICE)
+	var cycle: Array = [""]
+	cycle.append_array(owned)
+	var idx := cycle.find(ClientSession.equipped_cosmetic)
+	var next_id := str(cycle[(idx + 1) % cycle.size()])
+	if next_id == "":
+		_on_equip_toggle(str(ClientSession.equipped_cosmetic))
+	else:
+		_on_equip_toggle(next_id)
 
 
 func _toast_msg(text: String) -> void:

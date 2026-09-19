@@ -61,12 +61,16 @@ const ABILITY_SLOT := "ABILITY"
 ## Mock hideout stub until Coder's ledger / GET wallet exists.
 const MOCK_WALLET_STUB := 24
 
-## Marks sink stub — one hideout cosmetic. LIVE catalog lock (Coder 2026-09-19).
-## GET /shop item.id + POST /shop/buy itemId. Price ★50 (2× PvP kill).
+## Marks sinks — hideout cosmetics. LIVE catalog lock (Coder 2026-09-19).
+## GET /shop item.id + POST /shop/buy itemId. Sink 1 ★50 · sink 2 ★100.
 const SHOP_STUB_ITEM_ID := "skin_hideout_stub"
 const SHOP_STUB_ITEM_NAME := "GHILLIE RECOLOR"
 const SHOP_STUB_KIND := "skin"
 const SHOP_STUB_PRICE := 50
+const SHOP_BANDANA_ITEM_ID := "skin_bandana_stub"
+const SHOP_BANDANA_ITEM_NAME := "BANDANA RECOLOR"
+const SHOP_BANDANA_KIND := "skin"
+const SHOP_BANDANA_PRICE := 100
 const SHOP_ERR_INSUFFICIENT := "insufficient_marks"
 const SHOP_ERR_INVALID_BODY := "invalid_buy_body"
 const SHOP_ERR_ALREADY_OWNED := "already_owned"
@@ -156,22 +160,58 @@ static func other_seat(seat: String) -> String:
 
 
 static func shop_stub_item() -> Dictionary:
+	return _shop_item(SHOP_STUB_ITEM_ID, SHOP_STUB_ITEM_NAME, SHOP_STUB_KIND, SHOP_STUB_PRICE)
+
+
+static func shop_bandana_item() -> Dictionary:
+	return _shop_item(SHOP_BANDANA_ITEM_ID, SHOP_BANDANA_ITEM_NAME, SHOP_BANDANA_KIND, SHOP_BANDANA_PRICE)
+
+
+static func _shop_item(item_id: String, item_name: String, kind: String, price: int) -> Dictionary:
 	return {
-		"id": SHOP_STUB_ITEM_ID,
-		"itemId": SHOP_STUB_ITEM_ID,
-		"name": SHOP_STUB_ITEM_NAME,
-		"kind": SHOP_STUB_KIND,
-		"price": SHOP_STUB_PRICE,
-		"priceMarks": SHOP_STUB_PRICE,
+		"id": item_id,
+		"itemId": item_id,
+		"name": item_name,
+		"kind": kind,
+		"price": price,
+		"priceMarks": price,
 		"cosmetic": true,
 		"combat": false,
 	}
 
 
+static func shop_catalog_items() -> Array:
+	## Mock + LIVE-lag fallback. Prefer LIVE items when Coder lists bandana.
+	return [shop_stub_item(), shop_bandana_item()]
+
+
+static func shop_item_by_id(item_id: String) -> Dictionary:
+	var resolved := _canonical_shop_id(item_id)
+	for entry in shop_catalog_items():
+		if str(entry.get("id", "")) == resolved:
+			return entry
+	return {}
+
+
+static func shop_item_price(item_id: String) -> int:
+	var item := shop_item_by_id(item_id)
+	if item.is_empty():
+		return 0
+	return int(item.get("price", 0))
+
+
+static func _canonical_shop_id(item_id: String) -> String:
+	if item_id in ["ghillie_recolor", ""]:
+		return SHOP_STUB_ITEM_ID
+	if item_id == "bandana_recolor":
+		return SHOP_BANDANA_ITEM_ID
+	return item_id
+
+
 static func shop_catalog_stub(marks: int = 0, owned: Array = [], equipped: String = "") -> Dictionary:
 	var owned_ids: Array = owned.duplicate()
 	return {
-		"items": [shop_stub_item()],
+		"items": shop_catalog_items(),
 		"you": {
 			"marks": marks,
 			"owned": owned_ids,
@@ -181,6 +221,32 @@ static func shop_catalog_stub(marks: int = 0, owned: Array = [], equipped: Strin
 		"equipped": equipped if equipped != "" else null,
 		"marks": marks,
 	}
+
+
+static func merge_live_shop_catalog(live: Dictionary) -> Dictionary:
+	## Prefer LIVE when it already lists bandana (+1 SKU). Else keep LIVE rows
+	## and append the missing mock SKU so ARMORY still shows two rows.
+	var out: Dictionary = live.duplicate(true)
+	var items: Variant = out.get("items", [])
+	if not (items is Array):
+		items = []
+	var ids: Array = []
+	var merged: Array = []
+	for entry in items:
+		if not (entry is Dictionary):
+			continue
+		merged.append(entry)
+		var iid := str(entry.get("id", entry.get("itemId", "")))
+		if iid != "" and not ids.has(iid):
+			ids.append(iid)
+	if ids.has(SHOP_BANDANA_ITEM_ID) and merged.size() >= 2:
+		return out
+	for stub in shop_catalog_items():
+		var sid := str(stub.get("id", ""))
+		if sid != "" and not ids.has(sid):
+			merged.append(stub)
+	out["items"] = merged
+	return out
 
 
 static func new_client_job_id() -> String:

@@ -17,6 +17,8 @@ const ATTACK_RED := Color("c23b3b")
 const RECON_BLUE := Color("1f6feb")
 const ABILITY_PURPLE := Color("6b4ac7")
 const HIGH_GOLD := Color("c9a24a")
+## Bandana recolor wash — toy chrome tint, not a new plate / mil-sim art.
+const BANDANA_WASH := Color(0.76, 0.32, 0.20, 0.24)
 const COIN_GOLD := Color("f0c44a")
 const GEM_PURPLE := Color("b45cff")
 const XP_GREEN := Color("3dcf6e")

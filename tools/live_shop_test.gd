@@ -96,6 +96,15 @@ func _run() -> int:
 		last_mid
 	)
 
+	var catalog_ids: Array = []
+	for entry in (catalog.get("items", []) as Array):
+		if entry is Dictionary:
+			catalog_ids.append(str(entry.get("id", "")))
+	if catalog_ids.has(Contract.SHOP_BANDANA_ITEM_ID):
+		print("LIVE_SHOP_SINK2_CATALOG_OK")
+	else:
+		print("LIVE_SHOP_SINK2_PENDING catalog missing ", Contract.SHOP_BANDANA_ITEM_ID)
+
 	if failed.is_empty():
 		print("LIVE_SHOP_LOOP_OK")
 		return 0

@@ -1,0 +1,85 @@
+BASE https://glassline-api.vercel.app
+ITEM skin_bandana_stub PRICE 100
+PASS  GET /health
+PASS  GET /shop 200
+EVID  GET /shop 200 {"items": [{"id": "skin_hideout_stub", "name": "Hideout Skin (stub)", "price": 50, "kind": "skin"}, {"id": "skin_bandana_stub", "name": "BANDANA RECOLOR", "price": 100, "kind": "skin"}]}
+PASS  catalog price 100
+PASS  catalog kind skin
+PASS  GET /shop is catalog-only (no you.marks)
+
+== S2.2 insufficient ==
+PASS  POST /players
+PASS  S2.2 POST /players marks == 0 (got 0)
+EVID  S2.2 player p_4a1183d48f784a9c979358a52ae54e17 marks=0
+PASS  S2.2 HTTP 402 (got 402)
+PASS  S2.2 code insufficient_marks
+PASS  S2.2 balance unchanged 0 → 0
+EVID  S2.2 POST /shop/buy 402 {"error": "insufficient_marks", "code": "insufficient_marks", "you": {"marks": 0}} start=0 clientBuyId=5823ca82-2111-4766-a06d-6fd0c3679eee
+PASS  S2.2 replay same clientBuyId still 402 (got 402)
+PASS  S2.2 replay does not debit
+EVID  S2.2 replay 402 {"error": "insufficient_marks", "code": "insufficient_marks", "you": {"marks": 0}}
+
+== earn four PvP kills on one player (ledger +25 ×4) ==
+PASS  POST /players
+PASS  S2.1 player minted at 0
+EVID  S2.1 player p_9b6b7aa024c749cebfd58ef199bb81ce
+PASS  POST /matches + player Bearer
+PASS  kill 1 join you.marks == 0 (got 0)
+PASS  kill 1 PvP ended
+PASS  kill 1 you.marks 0→25 (+25)
+PASS  kill 1 same playerId
+EVID  PvP m_ed956db3f78c47c193354183fd340202 you.marks 0→25 endReason=kill player=p_9b6b7aa024c749cebfd58ef199bb81ce
+PASS  POST /matches + player Bearer
+PASS  kill 2 join you.marks == 25 (got 25)
+PASS  kill 2 PvP ended
+PASS  kill 2 you.marks 25→50 (+25)
+PASS  kill 2 same playerId
+EVID  PvP m_eef599bc347645eda714f24406575c8a you.marks 25→50 endReason=kill player=p_9b6b7aa024c749cebfd58ef199bb81ce
+PASS  POST /matches + player Bearer
+PASS  kill 3 join you.marks == 50 (got 50)
+PASS  kill 3 PvP ended
+PASS  kill 3 you.marks 50→75 (+25)
+PASS  kill 3 same playerId
+EVID  PvP m_e1d76877cf984ba6add79c1b8ed6806a you.marks 50→75 endReason=kill player=p_9b6b7aa024c749cebfd58ef199bb81ce
+PASS  POST /matches + player Bearer
+PASS  kill 4 join you.marks == 75 (got 75)
+PASS  kill 4 PvP ended
+PASS  kill 4 you.marks 75→100 (+25)
+PASS  kill 4 same playerId
+EVID  PvP m_111c43d84e4f418bbebac46537c77836 you.marks 75→100 endReason=kill player=p_9b6b7aa024c749cebfd58ef199bb81ce
+PASS  same player earned ≥100 (got 100)
+
+== S2.1 buy ==
+EVID  S2.1 POST /shop/buy 200 {"ok": true, "you": {"marks": 0}, "purchaseId": "pur_1eaae3407d184e19b739288b24b93971", "item": {"id": "skin_bandana_stub", "name": "BANDANA RECOLOR", "price": 100, "kind": "skin"}} before=100 clientBuyId=f70ce51d-e932-411c-a1c4-cb916a0740a9
+PASS  S2.1 HTTP 200 ok (got 200)
+PASS  S2.1 you.marks debit 100→0 (−100)
+PASS  S2.1 purchaseId present
+PASS  S2.1 item skin_bandana_stub
+NOTE  S2.1 client bind = response you.marks only (no local marks -=)
+
+== S2.3 idempotent clientBuyId ==
+EVID  S2.3 replay 200 {"ok": true, "you": {"marks": 0}, "purchaseId": "pur_1eaae3407d184e19b739288b24b93971", "item": {"id": "skin_bandana_stub", "name": "BANDANA RECOLOR", "price": 100, "kind": "skin"}} clientBuyId=f70ce51d-e932-411c-a1c4-cb916a0740a9
+PASS  S2.3 replay 200 (got 200)
+PASS  S2.3 replay no second debit 0 → 0
+PASS  S2.3 same purchaseId
+
+PLAYER p_9b6b7aa024c749cebfd58ef199bb81ce
+MATCHES m_ed956db3f78c47c193354183fd340202 m_eef599bc347645eda714f24406575c8a m_e1d76877cf984ba6add79c1b8ed6806a m_111c43d84e4f418bbebac46537c77836
+
+BASE https://glassline-api.vercel.app
+NOTES
+  - S2.1 client bind = response you.marks only (no local marks -=)
+EVIDENCE
+  - GET /shop 200 {"items": [{"id": "skin_hideout_stub", "name": "Hideout Skin (stub)", "price": 50, "kind": "skin"}, {"id": "skin_bandana_stub", "name": "BANDANA RECOLOR", "price": 100, "kind": "skin"}]}
+  - S2.2 player p_4a1183d48f784a9c979358a52ae54e17 marks=0
+  - S2.2 POST /shop/buy 402 {"error": "insufficient_marks", "code": "insufficient_marks", "you": {"marks": 0}} start=0 clientBuyId=5823ca82-2111-4766-a06d-6fd0c3679eee
+  - S2.2 replay 402 {"error": "insufficient_marks", "code": "insufficient_marks", "you": {"marks": 0}}
+  - S2.1 player p_9b6b7aa024c749cebfd58ef199bb81ce
+  - PvP m_ed956db3f78c47c193354183fd340202 you.marks 0→25 endReason=kill player=p_9b6b7aa024c749cebfd58ef199bb81ce
+  - PvP m_eef599bc347645eda714f24406575c8a you.marks 25→50 endReason=kill player=p_9b6b7aa024c749cebfd58ef199bb81ce
+  - PvP m_e1d76877cf984ba6add79c1b8ed6806a you.marks 50→75 endReason=kill player=p_9b6b7aa024c749cebfd58ef199bb81ce
+  - PvP m_111c43d84e4f418bbebac46537c77836 you.marks 75→100 endReason=kill player=p_9b6b7aa024c749cebfd58ef199bb81ce
+  - S2.1 POST /shop/buy 200 {"ok": true, "you": {"marks": 0}, "purchaseId": "pur_1eaae3407d184e19b739288b24b93971", "item": {"id": "skin_bandana_stub", "name": "BANDANA RECOLOR", "price": 100, "kind": "skin"}} before=100 clientBuyId=f70ce51d-e932-411c-a1c4-cb916a0740a9
+  - S2.3 replay 200 {"ok": true, "you": {"marks": 0}, "purchaseId": "pur_1eaae3407d184e19b739288b24b93971", "item": {"id": "skin_bandana_stub", "name": "BANDANA RECOLOR", "price": 100, "kind": "skin"}} clientBuyId=f70ce51d-e932-411c-a1c4-cb916a0740a9
+
+LIVE_SHOP_SINK2_OK m_ed956db3f78c47c193354183fd340202 m_eef599bc347645eda714f24406575c8a m_e1d76877cf984ba6add79c1b8ed6806a m_111c43d84e4f418bbebac46537c77836 marks 100->0 purchaseId=pur_1eaae3407d184e19b739288b24b93971
