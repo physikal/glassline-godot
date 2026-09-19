@@ -158,8 +158,13 @@ func apply_snapshot(snap: Dictionary) -> void:
 			seat = str(you.get("seat", seat))
 		## A2: wallet is snapshot you.marks only. Replace — never invent / keep a local grant.
 		bind_marks(int(you.get("marks", 0)))
-		if you.has("owned") or you.has("equipped") or you.has("cosmetics"):
-			apply_shop({"you": you, "owned": you.get("owned", owned_cosmetics), "equipped": you.get("equipped", equipped_cosmetic)})
+		if you.has("owned") or you.has("equipped") or you.has("equippedSkinId") or you.has("cosmetics"):
+			apply_shop({
+				"you": you,
+				"owned": you.get("owned", owned_cosmetics),
+				"equipped": you.get("equippedSkinId", you.get("equipped", equipped_cosmetic)),
+				"equippedSkinId": you.get("equippedSkinId", you.get("equipped", equipped_cosmetic)),
+			})
 	else:
 		bind_marks(0)
 	var payout = MarksPayout.from_any(snap)

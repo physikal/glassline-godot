@@ -131,6 +131,7 @@ func _run() -> int:
 	_shop_case(failed)
 	_live_shop_shape_case(failed)
 	_shop_sink2_case(failed)
+	_equip_chrome_case(failed)
 	_player_persist_case(failed)
 
 	# Recon odds: in-sector + forced roll.
@@ -397,8 +398,10 @@ func _shop_case(failed: PackedStringArray) -> void:
 	_expect(failed, Shop.row_action_text(false) == "BUY", "P2 unaffordable action is BUY")
 	_expect(failed, Shop.row_status_text(false, false) == Contract.SHOP_INSUFFICIENT_COPY, "P2 BUY status insufficient")
 	_expect(failed, not Shop.row_buy_enabled(false, false), "P2 BUY disabled when Marks < price")
-	_expect(failed, Shop.row_action_text(true) == "OWNED", "P2 owned action is OWNED not EQUIPPED")
+	_expect(failed, Shop.row_action_text(true) == "EQUIP", "P2 owned action is EQUIP")
+	_expect(failed, Shop.row_action_text(true, true) == "EQUIPPED", "P2 wearing action is EQUIPPED")
 	_expect(failed, Shop.row_status_text(true, true) == Contract.SHOP_OWNED_COPY, "P2 owned copy visual only")
+	_expect(failed, Shop.row_status_text(true, true, true) == Contract.SHOP_EQUIPPED_COPY, "P2 wearing copy")
 	_expect(failed, Shop.row_buy_enabled(true, false), "P2 OWNED stays clickable to toggle plate")
 	_expect(failed, Contract.RECON_BASE == 0.35 and Contract.MARKS_PVP_WIN == 25, "S4 combat table unchanged")
 
@@ -593,6 +596,133 @@ func _shop_sink2_case(failed: PackedStringArray) -> void:
 	_expect(failed, session.owns_cosmetic(Contract.SHOP_STUB_ITEM_ID), "S2.1 LIVE buy does not wipe ghillie")
 	_expect(failed, session.bandana, "S2.4 LIVE last buy auto-equips bandana")
 	session.free()
+
+
+func _equip_chrome_case(failed: PackedStringArray) -> void:
+	## E1–E5: POST /shop/equip snapshot you.equippedSkinId. Zero combat delta.
+	server.clear_all()
+	server.reset_wallet(180)
+	var session = SessionScript.new()
+	session.apply_shop(server.get_shop())
+	_expect(failed, session.marks == 180, "E1 seeded marks from snapshot")
+	var bought_g: Dictionary = server.buy_shop(Contract.SHOP_STUB_ITEM_ID, "equip-e1-g")
+	session.apply_shop(bought_g)
+	var bought_b: Dictionary = server.buy_shop(Contract.SHOP_BANDANA_ITEM_ID, "equip-e1-b")
+	session.apply_shop(bought_b)
+	_expect(failed, session.marks == 30, "E1 180-50-100 from snapshot")
+	_expect(failed, session.owns_cosmetic(Contract.SHOP_STUB_ITEM_ID), "E1 owns ghillie")
+	_expect(failed, session.owns_cosmetic(Contract.SHOP_BANDANA_ITEM_ID), "E1 owns bandana")
+
+	var bare = Shop.from_any({
+		"ok": true,
+		"you": {"marks": 30, "owned": [Contract.SHOP_STUB_ITEM_ID], "equippedSkinId": Contract.SHOP_STUB_ITEM_ID},
+	})
+	_expect(failed, bare.equipped == Contract.SHOP_STUB_ITEM_ID, "E1 parser reads you.equippedSkinId")
+	_expect(failed, bare.equipped_present, "E1 equippedSkinId is present")
+
+	var same: Dictionary = server.equip_cosmetic(Contract.SHOP_BANDANA_ITEM_ID)
+	session.apply_shop(same)
+	_expect(failed, bool(same.get("ok", false)), "E1 equip ok")
+	_expect(failed, session.is_equipped(Contract.SHOP_BANDANA_ITEM_ID), "E1 equippedSkinId bandana")
+	_expect(failed, session.bandana and not session.ghillie, "E2 hideout bandana wash")
+	_expect(failed, session.marks == 30, "E1 equip does not touch marks")
+	var replay: Dictionary = server.equip_cosmetic(Contract.SHOP_BANDANA_ITEM_ID)
+	session.apply_shop(replay)
+	_expect(failed, bool(replay.get("ok", false)), "E1 same-id equip is no-op ok")
+	_expect(failed, session.marks == 30, "E1 idempotent equip marks unchanged")
+	_expect(failed, session.is_equipped(Contract.SHOP_BANDANA_ITEM_ID), "E1 still bandana")
+
+	var refused: Dictionary = server.equip_cosmetic("skin_does_not_exist")
+	_expect(failed, not bool(refused.get("ok", true)), "E1 unknown item rejected")
+	session.apply_shop(refused)
+	_expect(failed, session.is_equipped(Contract.SHOP_BANDANA_ITEM_ID), "E1 reject keeps snapshot skin")
+	_expect(failed, session.marks == 30, "E1 reject marks unchanged")
+
+	server.reset_wallet(24)
+	server.owned_cosmetics.clear()
+	server.equipped_cosmetic = ""
+	var not_owned: Dictionary = server.equip_cosmetic(Contract.SHOP_STUB_ITEM_ID)
+	_expect(failed, str(not_owned.get("error", "")) == Contract.SHOP_ERR_NOT_OWNED, "E1 unowned rejected")
+
+	server.reset_wallet(30)
+	server.owned_cosmetics = [Contract.SHOP_STUB_ITEM_ID, Contract.SHOP_BANDANA_ITEM_ID]
+	server.equipped_cosmetic = Contract.SHOP_BANDANA_ITEM_ID
+	session.apply_shop(server.get_shop())
+	var swapped: Dictionary = server.equip_cosmetic(Contract.SHOP_STUB_ITEM_ID)
+	session.apply_shop(swapped)
+	_expect(failed, session.ghillie and not session.bandana, "E4 swap to ghillie")
+	_expect(failed, session.marks == 30, "E4 swap marks unchanged")
+	var snap: Snapshot = Snapshot.from_dict({
+		"you": {
+			"seat": "a",
+			"marks": 30,
+			"exposurePct": 50,
+			"equippedSkinId": Contract.SHOP_STUB_ITEM_ID,
+		},
+	})
+	_expect(failed, snap.you_equipped_skin_id() == Contract.SHOP_STUB_ITEM_ID, "E2 snapshot equippedSkinId")
+	var unequip: Dictionary = server.equip_cosmetic("")
+	session.apply_shop(unequip)
+	_expect(failed, session.equipped_cosmetic == "", "E4 unequip clears id")
+	_expect(failed, not session.ghillie and not session.bandana, "E4 teal jacket")
+	_expect(failed, session.owns_cosmetic(Contract.SHOP_STUB_ITEM_ID), "E4 still owned")
+	_expect(failed, session.marks == 30, "E4 unequip marks unchanged")
+	var null_bag = Shop.from_any({"ok": true, "you": {"marks": 30, "equippedSkinId": null}})
+	_expect(failed, null_bag.equipped_present and null_bag.equipped == "", "E4 null equippedSkinId unequips")
+	_expect(failed, Shop.row_action_text(true, false) == "EQUIP", "E6 owned affordance EQUIP")
+	_expect(failed, Shop.row_action_text(true, true) == "EQUIPPED", "E6 wearing affordance EQUIPPED")
+	session.free()
+	_equip_combat_parity_case(failed)
+
+
+func _equip_combat_parity_case(failed: PackedStringArray) -> void:
+	## E5: Attack miss/kill path identical with/without equipped chrome.
+	var bare: Dictionary = _equip_combat_run(false)
+	var worn: Dictionary = _equip_combat_run(true)
+	_expect(failed, bare.get("ok", false) and worn.get("ok", false), "E5 both loops ok")
+	for key in ["miss_hit", "miss_kill", "miss_phase", "miss_hot", "miss_exposure", "kill_hit", "kill_kill", "kill_delta", "recon_base", "pvp_win"]:
+		_expect(failed, bare.get(key) == worn.get(key), "E5 %s identical" % key)
+	_expect(failed, Contract.RECON_BASE == 0.35, "E5 RECON_BASE 0.35")
+	_expect(failed, Contract.MARKS_PVP_WIN == 25, "E5 PvP kill ★25")
+	_expect(failed, int(bare.get("kill_delta", -1)) == Contract.MARKS_PVP_WIN, "E5 kill marksDelta +25")
+
+
+func _equip_combat_run(wear_ghillie: bool) -> Dictionary:
+	server.clear_all()
+	server.reset_wallet(80)
+	if wear_ghillie:
+		server.buy_shop(Contract.SHOP_STUB_ITEM_ID, "equip-e5-buy")
+		server.equip_cosmetic(Contract.SHOP_STUB_ITEM_ID)
+	var created: Dictionary = server.create_match()
+	var mid := str(created["matchId"])
+	var a: Dictionary = server.join(mid, created["joinTokens"]["a"])
+	var b: Dictionary = server.join(mid, created["joinTokens"]["b"])
+	server.apply_action(mid, a["playerId"], ActionIntent.select_hex(2, 2))
+	server.apply_action(mid, b["playerId"], ActionIntent.select_hex(7, 5))
+	server.apply_action(mid, a["playerId"], ActionIntent.start())
+	var miss: ActionResult = server.apply_action(mid, a["playerId"], ActionIntent.attack(0, 0))
+	var miss_snap: Snapshot = Snapshot.from_dict(miss.snapshot)
+	var miss_last: Variant = miss_snap.last_action()
+	server.apply_action(mid, a["playerId"], ActionIntent.end_turn(50))
+	server.apply_action(mid, b["playerId"], ActionIntent.recon(4, 3))
+	server.apply_action(mid, b["playerId"], ActionIntent.end_turn(40))
+	var kill: ActionResult = server.apply_action(mid, a["playerId"], ActionIntent.attack(7, 5))
+	var kill_snap: Snapshot = Snapshot.from_dict(kill.snapshot)
+	var kill_last: Variant = kill_snap.last_action()
+	return {
+		"ok": bool(miss.ok) and bool(kill.ok),
+		"miss_hit": miss_last is Dictionary and miss_last.get("hit") == false,
+		"miss_kill": miss_last is Dictionary and miss_last.get("kill") == false,
+		"miss_phase": str(miss_snap.phase()),
+		"miss_hot": miss_snap.enemy_visible_hex() == null,
+		"miss_exposure": int(miss_snap.you_exposure()),
+		"kill_hit": kill_last is Dictionary and kill_last.get("hit") == true,
+		"kill_kill": kill_last is Dictionary and kill_last.get("kill") == true,
+		"kill_delta": kill_snap.marks_delta(),
+		"recon_base": Contract.RECON_BASE,
+		"pvp_win": Contract.MARKS_PVP_WIN,
+		"equipped": server.equipped_cosmetic,
+	}
 
 
 func _player_persist_case(failed: PackedStringArray) -> void:

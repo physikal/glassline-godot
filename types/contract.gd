@@ -76,8 +76,11 @@ const SHOP_ERR_INVALID_BODY := "invalid_buy_body"
 const SHOP_ERR_ALREADY_OWNED := "already_owned"
 const SHOP_ERR_UNKNOWN_ITEM := "unknown_item"
 const SHOP_ERR_UNAVAILABLE := "shop_unavailable"
-## Hideout row copy — owned chrome is this line, not stowed / EQUIPPED.
+const SHOP_ERR_NOT_OWNED := "not_owned"
+## Hideout row copy — owned chrome is visual only. Equip is a separate suit toggle.
 const SHOP_OWNED_COPY := "OWNED  ·  visual only"
+const SHOP_EQUIP_COPY := "Tap to wear  ·  visual only"
+const SHOP_EQUIPPED_COPY := "Wearing this  ·  visual only"
 const SHOP_INSUFFICIENT_COPY := "Not enough Marks."
 
 ## Locked GD earn table (2026-09-18). Mock display grants only; LIVE ledger is Coder.
@@ -210,15 +213,18 @@ static func _canonical_shop_id(item_id: String) -> String:
 
 static func shop_catalog_stub(marks: int = 0, owned: Array = [], equipped: String = "") -> Dictionary:
 	var owned_ids: Array = owned.duplicate()
+	var skin: Variant = equipped if equipped != "" else null
 	return {
 		"items": shop_catalog_items(),
 		"you": {
 			"marks": marks,
 			"owned": owned_ids,
-			"equipped": equipped if equipped != "" else null,
+			"equipped": skin,
+			"equippedSkinId": skin,
 		},
 		"owned": owned_ids,
-		"equipped": equipped if equipped != "" else null,
+		"equipped": skin,
+		"equippedSkinId": skin,
 		"marks": marks,
 	}
 

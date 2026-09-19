@@ -109,14 +109,19 @@ func buy_shop(item_id: String, client_buy_id: String = "") -> Dictionary:
 
 
 func equip_cosmetic(item_id: String) -> Dictionary:
-	## Visual only. Empty item_id unequips. Unknown / unowned → reject.
+	## Visual only. Empty / null item_id unequips. Unknown / unowned → reject.
+	## Same id is a no-op (idempotent). Marks untouched.
 	if item_id == "":
 		equipped_cosmetic = ""
-		return _shop_ok({"type": "equip", "itemId": "", "equipped": null})
+		return _shop_ok({"type": "equip", "itemId": null, "equipped": null, "equippedSkinId": null})
+	item_id = Contract._canonical_shop_id(item_id)
+	var listed: Dictionary = Contract.shop_item_by_id(item_id)
+	if listed.is_empty():
+		return _shop_reject(Contract.SHOP_ERR_UNKNOWN_ITEM)
 	if not owned_cosmetics.has(item_id):
-		return _shop_reject("not_owned")
+		return _shop_reject(Contract.SHOP_ERR_NOT_OWNED)
 	equipped_cosmetic = item_id
-	return _shop_ok({"type": "equip", "itemId": item_id, "equipped": item_id})
+	return _shop_ok({"type": "equip", "itemId": item_id, "equipped": item_id, "equippedSkinId": item_id})
 
 
 func _shop_snapshot() -> Dictionary:
@@ -128,13 +133,15 @@ func _shop_snapshot() -> Dictionary:
 
 func _shop_ok(result: Dictionary = {}) -> Dictionary:
 	var snap := _shop_snapshot()
+	var skin: Variant = equipped_cosmetic if equipped_cosmetic != "" else null
 	return {
 		"ok": true,
 		"error": "",
 		"snapshot": snap,
 		"you": snap.get("you", {}),
 		"owned": owned_cosmetics.duplicate(),
-		"equipped": equipped_cosmetic if equipped_cosmetic != "" else null,
+		"equipped": skin,
+		"equippedSkinId": skin,
 		"marks": account_marks,
 		"result": result,
 	}
@@ -150,6 +157,7 @@ func _shop_reject(reason: String) -> Dictionary:
 		"you": snap.get("you", {}),
 		"owned": owned_cosmetics.duplicate(),
 		"equipped": equipped_cosmetic if equipped_cosmetic != "" else null,
+		"equippedSkinId": equipped_cosmetic if equipped_cosmetic != "" else null,
 		"marks": account_marks,
 		"result": {"type": Contract.ACT_REJECT, "reason": reason},
 	}
@@ -709,6 +717,8 @@ func _snapshot_for_seat(match_state: Dictionary, seat: String) -> Dictionary:
 			"marks": balance,
 			"exposurePct": you["exposurePct"],
 			"movedLastTurn": bool(you["movedLastTurn"]),
+			"equippedSkinId": equipped_cosmetic if equipped_cosmetic != "" else null,
+			"equipped": equipped_cosmetic if equipped_cosmetic != "" else null,
 		},
 		"enemy": {
 			"seat": other,

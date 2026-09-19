@@ -50,6 +50,14 @@ func _ready() -> void:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 		DisplayServer.window_set_size(Vector2i(1280, 720))
 		await _capture_armory_bandana_buy()
+	elif "--capture-equip-hideout" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await _capture_equip_hideout()
+	elif "--capture-equip-doll" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await _capture_equip_then_play()
 	elif "--capture-a1" in args:
 		await get_tree().process_frame
 		_on_play()
@@ -121,6 +129,35 @@ func _capture_armory_bandana_buy() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	await _capture_named("res://artifacts/ux/armory_bandana_post_buy.png", "S25_ARMORY_BANDANA_BUY")
+
+
+func _capture_equip_hideout() -> void:
+	## E6: OWNED ghillie shows EQUIPPED + hideout plate. Marks from snapshot only.
+	if not ClientSession.use_live_api():
+		MockMatchServer.reset_wallet(80)
+	_bind_wallet()
+	_bind_shop()
+	_refresh_marks()
+	_refresh_shop()
+	await get_tree().process_frame
+	_on_shop_primary(Contract.SHOP_STUB_ITEM_ID)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await _capture_named("res://artifacts/ux/equip_owned_hideout.png", "E6_EQUIP_HIDEOUT")
+
+
+func _capture_equip_then_play() -> void:
+	## Seed + equip ghillie, then PLAY so match stills can bind the same skin id.
+	if not ClientSession.use_live_api():
+		MockMatchServer.reset_wallet(80)
+	_bind_wallet()
+	_bind_shop()
+	_refresh_marks()
+	_refresh_shop()
+	await get_tree().process_frame
+	_on_shop_primary(Contract.SHOP_STUB_ITEM_ID)
+	await get_tree().process_frame
+	_start_match(Contract.MODE_PVP)
 
 
 func _capture_jobs_ladder() -> void:
@@ -401,7 +438,7 @@ func _make_shop_line(item: Dictionary) -> PanelContainer:
 	Chrome.apply_label(price_lbl, 12, Chrome.HIGH_GOLD, true)
 	line.add_child(price_lbl)
 
-	var btn := Chrome.chunk_button("BUY", Chrome.LOADOUT_BLUE, Color.WHITE, Vector2(148, 44))
+	var btn := Chrome.chunk_button("BUY", Chrome.LOADOUT_BLUE, Color.WHITE, Vector2(172, 44))
 	btn.pressed.connect(func() -> void: _on_shop_primary(item_id))
 	line.add_child(btn)
 
@@ -504,13 +541,17 @@ func _bind_wallet() -> void:
 	var wallet: Dictionary = MatchAPI.wallet()
 	if wallet.has("marks"):
 		ClientSession.bind_marks(int(wallet.get("marks")))
-	if wallet.has("owned") or wallet.has("equipped") or wallet.has("you"):
+	if wallet.has("owned") or wallet.has("equipped") or wallet.has("equippedSkinId") or wallet.has("you"):
 		ClientSession.apply_shop(wallet)
 
 
 func _bind_shop() -> void:
 	var bag: Dictionary = MatchAPI.get_shop()
 	ClientSession.apply_shop(bag)
+	if ClientSession.use_live_api():
+		var me: Dictionary = MatchAPI.get_shop_me()
+		if str(me.get("error", "")) == "":
+			ClientSession.apply_shop(me)
 	_refresh_shop()
 
 
@@ -604,19 +645,22 @@ func _refresh_shop() -> void:
 		if price_lbl:
 			price_lbl.text = Chrome.marks_star_text(price)
 		var owned: bool = ClientSession.owns_cosmetic(str(item_id))
+		var equipped: bool = ClientSession.is_equipped(str(item_id))
 		var can_buy: bool = int(ClientSession.marks) >= price
 		var buying: bool = _buying_id == str(item_id)
 		if btn:
-			btn.text = Shop.row_action_text(owned)
+			btn.text = Shop.row_action_text(owned, equipped)
 			btn.disabled = not Shop.row_buy_enabled(owned, can_buy, buying)
-			if owned:
+			if equipped:
 				Chrome.paint_chunk_button(btn, Color("2a241c"), Chrome.HIGH_GOLD)
+			elif owned:
+				Chrome.paint_chunk_button(btn, Chrome.TEAL, Color.WHITE)
 			elif can_buy:
 				Chrome.paint_chunk_button(btn, Chrome.LOADOUT_BLUE, Color.WHITE)
 			else:
 				Chrome.paint_chunk_button(btn, Color("3a322c"), Color(0.72, 0.68, 0.58, 0.70))
 		if status:
-			status.text = Shop.row_status_text(owned, can_buy)
+			status.text = Shop.row_status_text(owned, can_buy, equipped)
 	_refresh_bg()
 
 
@@ -655,8 +699,8 @@ func _on_shop_primary(item_id: String) -> void:
 		_toast_msg("ARMORY rejected  ·  %s" % shop.error)
 	else:
 		if status:
-			status.text = Contract.SHOP_OWNED_COPY
-		_toast_msg(Contract.SHOP_OWNED_COPY)
+			status.text = Contract.SHOP_EQUIPPED_COPY
+		_toast_msg("Bought  ·  wearing it  ·  visual only")
 	_refresh_shop()
 
 
@@ -664,14 +708,32 @@ func _on_equip_toggle(item_id: String) -> void:
 	if not ClientSession.owns_cosmetic(item_id):
 		_toast_msg("Buy %s in ARMORY." % Shop.from_any({}).name_of(item_id))
 		return
+	var marks_before := int(ClientSession.marks)
 	var next_id := "" if ClientSession.is_equipped(item_id) else item_id
 	var body: Dictionary = MatchAPI.equip_cosmetic(next_id)
-	if ClientSession.use_live_api():
-		ClientSession.bind_equip_local(next_id)
-	else:
+	var shop = Shop.from_any(body)
+	if shop.ok:
+		## Snapshot is the only equipped id. Never invent a skin.
 		ClientSession.apply_shop(body)
+	elif ClientSession.use_live_api() and shop.is_unavailable():
+		## Coder /shop/equip 404 — local chrome only, documented blocker.
+		ClientSession.bind_equip_local(next_id)
+		_toast_msg("LIVE /shop/equip pending Coder  ·  local chrome")
+		_refresh_shop()
+		return
+	elif shop.is_not_owned() or not shop.ok:
+		ClientSession.apply_shop(body)
+		_toast_msg("Need to own that chrome first.")
+		_refresh_shop()
+		return
+	_refresh_marks()
 	_refresh_shop()
-	_toast_msg(Contract.SHOP_OWNED_COPY)
+	if int(ClientSession.marks) != marks_before:
+		_toast_msg("Marks chip rebound from snapshot")
+	elif next_id == "":
+		_toast_msg("Suit off  ·  teal jacket")
+	else:
+		_toast_msg(Contract.SHOP_EQUIPPED_COPY)
 
 
 func _toggle_suit() -> void:

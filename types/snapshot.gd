@@ -164,6 +164,26 @@ func you_marks() -> int:
 	return int(you().get("marks", 0))
 
 
+func you_equipped_skin_id() -> String:
+	## Caller-scoped chrome id. Empty unless the snapshot named it. Never invent.
+	var you_state := you()
+	for key in ["equippedSkinId", "equipped"]:
+		if you_state.has(key):
+			var value: Variant = you_state.get(key)
+			if value == null:
+				return ""
+			if value is Dictionary:
+				return str(value.get("itemId", value.get("id", "")))
+			return str(value)
+	var cosmetics: Variant = you_state.get("cosmetics", {})
+	if cosmetics is Dictionary and cosmetics.has("equipped"):
+		var worn: Variant = cosmetics.get("equipped")
+		if worn == null:
+			return ""
+		return str(worn)
+	return ""
+
+
 func you_exposure() -> float:
 	return float(you().get("exposurePct", Contract.DEFAULT_EXPOSURE))
 
