@@ -446,7 +446,7 @@ func _build() -> void:
 	_grace_lbl = Label.new()
 	_grace_lbl.text = ""
 	_grace_lbl.position = Vector2(52, 114)
-	_grace_lbl.size = Vector2(280, 32)
+	_grace_lbl.size = Vector2(560, 32)
 	Chrome.apply_label(_grace_lbl, 14, Chrome.HIGH_GOLD, true)
 	_grace_lbl.visible = false
 	add_child(_grace_lbl)
