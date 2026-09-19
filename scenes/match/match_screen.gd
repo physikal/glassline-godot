@@ -531,53 +531,45 @@ func _build() -> void:
 	_over.set_anchors_preset(PRESET_FULL_RECT)
 	_over.visible = false
 	add_child(_over)
-	var over_col := VBoxContainer.new()
-	over_col.set_anchors_preset(PRESET_FULL_RECT)
-	over_col.offset_left = 240
-	over_col.offset_right = -240
-	over_col.offset_top = 140
-	over_col.offset_bottom = -80
-	over_col.alignment = BoxContainer.ALIGNMENT_CENTER
-	over_col.add_theme_constant_override("separation", 14)
 	var plate := PanelContainer.new()
 	plate.set_anchors_preset(PRESET_CENTER)
-	plate.offset_left = -340
-	plate.offset_right = 340
+	plate.offset_left = -360
+	plate.offset_right = 360
 	plate.offset_top = -210
 	plate.offset_bottom = 210
-	var plate_box := Chrome.flat(Color(0.12, 0.08, 0.05, 0.96), 18, Chrome.HIGH_GOLD, 2)
+	var plate_box := Chrome.flat(Color(0.12, 0.08, 0.05, 0.96), 20, Chrome.HIGH_GOLD, 3)
+	plate_box.content_margin_left = 28
+	plate_box.content_margin_right = 28
+	plate_box.content_margin_top = 20
+	plate_box.content_margin_bottom = 20
 	plate.add_theme_stylebox_override("panel", plate_box)
 	_over.add_child(plate)
-	over_col.set_anchors_preset(PRESET_FULL_RECT)
-	over_col.offset_left = 24
-	over_col.offset_right = -24
-	over_col.offset_top = 16
-	over_col.offset_bottom = -16
+	var over_col := VBoxContainer.new()
 	over_col.alignment = BoxContainer.ALIGNMENT_CENTER
 	over_col.add_theme_constant_override("separation", 12)
 	plate.add_child(over_col)
 	_over_lbl = Label.new()
 	_over_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_over_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	Chrome.apply_label(_over_lbl, 18, Color.WHITE, true)
+	Chrome.apply_label(_over_lbl, 16, Color.WHITE, true)
 	over_col.add_child(_over_lbl)
 	_over_settle = Label.new()
 	_over_settle.text = Contract.REMATCH_SETTLED_COPY
 	_over_settle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_over_settle.visible = false
-	Chrome.apply_label(_over_settle, 10, Chrome.HIGH_GOLD, true)
+	Chrome.apply_label(_over_settle, 11, Chrome.HIGH_GOLD, true)
 	over_col.add_child(_over_settle)
 	_over_hint = Label.new()
 	_over_hint.text = Contract.REMATCH_HINT_COPY
 	_over_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_over_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_over_hint.visible = false
-	Chrome.apply_label(_over_hint, 10, Chrome.CREAM, true)
+	Chrome.apply_label(_over_hint, 11, Chrome.CREAM, true)
 	over_col.add_child(_over_hint)
 	_over_timer = Label.new()
 	_over_timer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_over_timer.visible = false
-	Chrome.apply_label(_over_timer, 10, Chrome.CREAM, true)
+	Chrome.apply_label(_over_timer, 11, Chrome.CREAM, true)
 	over_col.add_child(_over_timer)
 	var over_btns := HBoxContainer.new()
 	over_btns.alignment = BoxContainer.ALIGNMENT_CENTER
