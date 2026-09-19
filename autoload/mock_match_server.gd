@@ -290,6 +290,66 @@ func join(match_id: String, token: String) -> Dictionary:
 	}
 
 
+func abandon(match_id: String, player_id: String) -> Dictionary:
+	## POST /matches/:id/abandon + join Bearer. Same forfeit path as A4 timeout.
+	var found := _find(match_id, player_id)
+	if found.is_empty():
+		return {"ok": false, "error": "unknown_player", "code": "unknown_player", "snapshot": {}}
+	var match_state: Dictionary = found["match"]
+	var seat: String = found["seat"]
+	if match_state["status"] == Contract.STATUS_ENDED:
+		var ended := _snapshot_for_seat(match_state, seat)
+		return {
+			"ok": true,
+			"alreadyEnded": true,
+			"snapshot": ended,
+			"result": ended.get("lastAction", {"type": Contract.ACT_FORFEIT}),
+		}
+	if match_state["status"] != Contract.STATUS_ACTIVE:
+		return {
+			"ok": false,
+			"error": "match is not active",
+			"code": "match_not_active",
+			"status": 409,
+			"snapshot": _snapshot_for_seat(match_state, seat),
+		}
+	_end_forfeit(match_state, seat)
+	_broadcast(match_state)
+	var snap := _snapshot_for_seat(match_state, seat)
+	return {
+		"ok": true,
+		"alreadyEnded": false,
+		"snapshot": snap,
+		"result": snap.get("lastAction", {"type": Contract.ACT_FORFEIT, "winner": match_state.get("winner")}),
+	}
+
+
+func mark_disconnected(match_id: String, player_id: String) -> Dictionary:
+	## Soft A4: stamp disconnected_at. Snapshot exposes grace for the remaining seat.
+	var found := _find(match_id, player_id)
+	if found.is_empty():
+		return {"ok": false, "error": "unknown_player"}
+	var match_state: Dictionary = found["match"]
+	var seat_state: Dictionary = match_state["seats"][found["seat"]]
+	if int(seat_state.get("disconnectedAtMs", 0)) <= 0:
+		seat_state["disconnectedAtMs"] = _now_ms()
+	_reconcile_grace(match_state)
+	_broadcast(match_state)
+	return {"ok": true, "snapshot": _snapshot_for_seat(match_state, found["seat"])}
+
+
+func start_grace(match_id: String, player_id: String, remaining_sec: float = 23.0) -> Dictionary:
+	## Capture / tests: rival already in grace with a readable leftover clock.
+	var found := _find(match_id, player_id)
+	if found.is_empty():
+		return {"ok": false, "error": "unknown_player"}
+	var match_state: Dictionary = found["match"]
+	var seat_state: Dictionary = match_state["seats"][found["seat"]]
+	var left_ms := maxi(0, int(remaining_sec * 1000.0))
+	seat_state["disconnectedAtMs"] = _now_ms() - (Contract.FORFEIT_GRACE_SEC * 1000 - left_ms)
+	return {"ok": true, "snapshot": _snapshot_for_seat(match_state, Contract.other_seat(found["seat"]))}
+
+
 func rematch(match_id: String, player_id: String, accept: bool) -> Dictionary:
 	## POST /matches/:id/rematch { accept }. LIVE shape: waiting | ready | declined | expired.
 	var found := _find(match_id, player_id)
@@ -356,6 +416,7 @@ func get_snapshot(match_id: String, player_id: String) -> Dictionary:
 	var found := _find(match_id, player_id)
 	if found.is_empty():
 		return {}
+	_reconcile_grace(found["match"])
 	_touch_rematch(found["match"])
 	return _snapshot_for_seat(found["match"], found["seat"])
 
@@ -418,6 +479,8 @@ func _empty_seat(token: String) -> Dictionary:
 		"decoyAvailable": true,
 		"decoyHex": null,
 		"decoyJustPlaced": false,
+		"disconnectedAtMs": 0,
+		"lastSeenMs": 0,
 	}
 
 
@@ -827,6 +890,39 @@ func _settle_payout(match_state: Dictionary, end_reason: String) -> void:
 	_open_rematch(match_state)
 
 
+func _end_forfeit(match_state: Dictionary, loser_seat: String) -> void:
+	## Same settle as a 30s silence timeout. Idempotent if already ended.
+	if match_state["status"] == Contract.STATUS_ENDED:
+		return
+	var winner := Contract.other_seat(loser_seat)
+	match_state["status"] = Contract.STATUS_ENDED
+	match_state["whoseTurn"] = null
+	match_state["phase"] = null
+	match_state["winner"] = winner
+	_set_last(match_state, {
+		"type": Contract.ACT_FORFEIT,
+		"winner": winner,
+		"seat": loser_seat,
+	})
+	_settle_payout(match_state, Contract.END_FORFEIT)
+
+
+func _reconcile_grace(match_state: Dictionary) -> void:
+	if match_state["status"] != Contract.STATUS_ACTIVE:
+		return
+	var cutoff := _now_ms() - Contract.FORFEIT_GRACE_SEC * 1000
+	var stale := ""
+	var stale_at := 0
+	for seat in [Contract.SEAT_A, Contract.SEAT_B]:
+		var at := int(match_state["seats"][seat].get("disconnectedAtMs", 0))
+		if at != 0 and at <= cutoff:
+			if stale == "" or at < stale_at:
+				stale = seat
+				stale_at = at
+	if stale != "":
+		_end_forfeit(match_state, stale)
+
+
 func _event_name(match_state: Dictionary, seat: String) -> String:
 	if (
 		match_state["status"] == Contract.STATUS_ACTIVE
@@ -901,6 +997,7 @@ func _snapshot_for_seat(match_state: Dictionary, seat: String) -> Dictionary:
 			"visibleHex": visible,
 			"softHotTurnsLeft": int(intel.get("softHotTurnsLeft", 0)),
 			"decoySoftHex": _decoy_hex_for_snap(match_state["seats"][other], match_state),
+			"disconnectedAt": _disconnected_iso(match_state["seats"][other]),
 		},
 		"terrain": terrain,
 		"lastAction": last,
@@ -937,7 +1034,35 @@ func _snapshot_for_seat(match_state: Dictionary, seat: String) -> Dictionary:
 		var rem_bag := _rematch_public(match_state, seat)
 		if not rem_bag.is_empty():
 			snap["rematch"] = rem_bag
+	elif match_state["status"] == Contract.STATUS_ACTIVE:
+		var grace := _grace_public(match_state, other)
+		if not grace.is_empty():
+			snap["graceEndsAt"] = grace.get("endsAt")
+			snap["graceRemainingSec"] = grace.get("remainingSec")
+			snap["grace"] = grace
 	return snap
+
+
+func _disconnected_iso(seat_state: Dictionary) -> Variant:
+	var at := int(seat_state.get("disconnectedAtMs", 0))
+	if at == 0:
+		return null
+	var unix := int(Time.get_unix_time_from_system()) - int((_now_ms() - at) / 1000)
+	return Time.get_datetime_string_from_unix_time(maxi(0, unix), true) + "Z"
+
+
+func _grace_public(match_state: Dictionary, disconnected_seat: String) -> Dictionary:
+	var at := int(match_state["seats"][disconnected_seat].get("disconnectedAtMs", 0))
+	if at == 0:
+		return {}
+	var ends := at + Contract.FORFEIT_GRACE_SEC * 1000
+	var left := maxf(0.0, float(ends - _now_ms()) / 1000.0)
+	return {
+		"remainingSec": left,
+		"endsAt": _disconnected_iso({
+			"disconnectedAtMs": ends,
+		}),
+	}
 
 
 func _now_ms() -> int:

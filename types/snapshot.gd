@@ -311,3 +311,91 @@ func rematch_ready() -> bool:
 
 func rematch_leave() -> bool:
 	return rematch_status() in [Contract.REMATCH_DECLINED, Contract.REMATCH_EXPIRED]
+
+
+func _parse_iso_unix(value: Variant) -> float:
+	if value == null:
+		return 0.0
+	if value is float or value is int:
+		var n := float(value)
+		if n > 1.0e12:
+			return n / 1000.0
+		return n
+	var text := str(value)
+	if text == "":
+		return 0.0
+	if text.is_valid_float():
+		var n2 := float(text)
+		if n2 > 1.0e12:
+			return n2 / 1000.0
+		return n2
+	var iso := text
+	if iso.ends_with("Z"):
+		iso = iso.substr(0, iso.length() - 1)
+	if "T" in iso:
+		var parsed := Time.get_unix_time_from_datetime_string(iso)
+		if parsed > 0:
+			return float(parsed)
+	return 0.0
+
+
+func enemy_disconnected_at() -> Variant:
+	var enemy_state := enemy()
+	for key in ["disconnectedAt", "disconnected_at"]:
+		if enemy_state.has(key) and enemy_state.get(key) != null and str(enemy_state.get(key, "")) != "":
+			return enemy_state.get(key)
+	for key in ["disconnectedAt", "disconnected_at"]:
+		if raw.has(key) and raw.get(key) != null and str(raw.get(key, "")) != "":
+			return raw.get(key)
+	var presence: Variant = raw.get("presence", {})
+	if presence is Dictionary:
+		var enemy_p: Variant = presence.get("enemy", presence)
+		if enemy_p is Dictionary:
+			for key in ["disconnectedAt", "disconnected_at"]:
+				if enemy_p.has(key) and enemy_p.get(key) != null:
+					return enemy_p.get(key)
+	return null
+
+
+func grace_ends_at() -> Variant:
+	for key in ["graceEndsAt", "grace_ends_at"]:
+		if raw.has(key) and raw.get(key) != null and str(raw.get(key, "")) != "":
+			return raw.get(key)
+	var grace: Variant = raw.get("grace", {})
+	if grace is Dictionary:
+		for key in ["endsAt", "expiresAt", "graceEndsAt"]:
+			if grace.has(key) and grace.get(key) != null:
+				return grace.get(key)
+	if enemy_disconnected_at() == null:
+		return null
+	var unix := _parse_iso_unix(enemy_disconnected_at())
+	if unix <= 0.0:
+		return null
+	return unix + float(Contract.FORFEIT_GRACE_SEC)
+
+
+func grace_remaining_sec() -> float:
+	if status() != Contract.STATUS_ACTIVE:
+		return 0.0
+	if raw.has("graceRemainingSec"):
+		return maxf(0.0, float(raw.get("graceRemainingSec", 0)))
+	var grace: Variant = raw.get("grace", {})
+	if grace is Dictionary and grace.has("remainingSec"):
+		return maxf(0.0, float(grace.get("remainingSec", 0)))
+	if grace_ends_at() == null:
+		return 0.0
+	var unix := _parse_iso_unix(grace_ends_at())
+	if unix <= 0.0:
+		return 0.0
+	return maxf(0.0, unix - Time.get_unix_time_from_system())
+
+
+func in_grace() -> bool:
+	if status() != Contract.STATUS_ACTIVE:
+		return false
+	if enemy_disconnected_at() != null:
+		return true
+	if raw.has("graceEndsAt") or raw.has("graceRemainingSec"):
+		return true
+	var grace: Variant = raw.get("grace", {})
+	return grace is Dictionary and not grace.is_empty()

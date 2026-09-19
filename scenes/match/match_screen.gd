@@ -31,7 +31,10 @@ var _btn_decoy: Button
 var _ability_cap: Label
 var _decoy_cap: Label
 var _btn_start: Button
+var _btn_abandon: Button
 var _btn_end: Button
+var _clock_icon: TextureRect
+var _grace_lbl: Label
 var _over: ColorRect
 var _over_lbl: Label
 var _over_settle: Label
@@ -50,7 +53,9 @@ var _dummy_busy: bool = false
 var _dummy_delay: float = 0.0
 var _relocate_hex: Variant = null
 var _rematch_left: float = -1.0
+var _grace_left: float = -1.0
 var _rematch_busy: bool = false
+var _abandon_busy: bool = false
 var _going_hideout: bool = false
 
 
@@ -79,6 +84,12 @@ func _ready() -> void:
 		_capture_rematch_ended()
 	elif "--capture-rematch-ready" in args:
 		_capture_rematch_ready()
+	elif "--capture-abandon-cta" in args:
+		_capture_abandon_cta()
+	elif "--capture-grace-countdown" in args:
+		_capture_grace_countdown()
+	elif "--capture-forfeit-overlay" in args:
+		_capture_forfeit_overlay()
 
 
 func _capture_after_play() -> void:
@@ -279,6 +290,81 @@ func _capture_rematch_ready() -> void:
 	get_tree().quit()
 
 
+func _force_pvp_active_for_capture() -> Snapshot:
+	var snap: Snapshot = ClientSession.typed_snapshot()
+	if snap.status() == Contract.STATUS_READY or snap.status() == Contract.STATUS_WAITING:
+		_submit(ActionIntent.select_hex(2, 2))
+		if ClientSession.dummy_player_id != "":
+			_submit_as(ClientSession.dummy_player_id, ActionIntent.select_hex(7, 5))
+			_dummy_placed = true
+		snap = ClientSession.typed_snapshot()
+	if snap.status() == Contract.STATUS_READY:
+		_submit(ActionIntent.start())
+		snap = ClientSession.typed_snapshot()
+	return snap
+
+
+func _capture_abandon_cta() -> void:
+	await get_tree().process_frame
+	var snap := _force_pvp_active_for_capture()
+	_refresh(snap)
+	_toast.text = ""
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	var path := ProjectSettings.globalize_path("res://artifacts/ux/abandon_cta.png")
+	img.save_png(path)
+	print("A41_ABANDON_CTA ", path)
+	get_tree().quit()
+
+
+func _capture_grace_countdown() -> void:
+	await get_tree().process_frame
+	var snap := _force_pvp_active_for_capture()
+	if ClientSession.dummy_player_id != "":
+		MockMatchServer.start_grace(ClientSession.match_id, ClientSession.dummy_player_id, 23.0)
+		var fresh: Dictionary = MatchAPI.get_snapshot(ClientSession.match_id, ClientSession.player_id)
+		if not fresh.is_empty():
+			ClientSession.apply_snapshot(fresh)
+			snap = Snapshot.from_dict(fresh)
+	_refresh(snap)
+	_toast.text = ""
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	var path := ProjectSettings.globalize_path("res://artifacts/ux/grace_countdown.png")
+	img.save_png(path)
+	print("A43_GRACE_COUNTDOWN ", path)
+	get_tree().quit()
+
+
+func _capture_forfeit_overlay() -> void:
+	await get_tree().process_frame
+	_force_pvp_active_for_capture()
+	## Remaining seat wins: dummy leaves → you +12, rematch chrome, no mil-sim.
+	if ClientSession.dummy_player_id != "":
+		var body: Dictionary = MatchAPI.abandon_as(ClientSession.dummy_player_id)
+		var snap_raw: Variant = body.get("snapshot", {})
+		if snap_raw is Dictionary and not snap_raw.is_empty():
+			## Caller-scoped: refetch your seat so rematch + payout are yours.
+			var yours: Dictionary = MatchAPI.get_snapshot(ClientSession.match_id, ClientSession.player_id)
+			if yours.is_empty():
+				yours = snap_raw
+			ClientSession.apply_snapshot(yours)
+	_refresh(ClientSession.typed_snapshot())
+	_toast.text = ""
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	var path := ProjectSettings.globalize_path("res://artifacts/ux/forfeit_overlay.png")
+	img.save_png(path)
+	print("A44_FORFEIT_OVERLAY ", path)
+	get_tree().quit()
+
+
 func _capture_a2_reconnect() -> void:
 	await get_tree().process_frame
 	if ClientSession.typed_snapshot().status() == Contract.STATUS_READY:
@@ -350,18 +436,27 @@ func _build() -> void:
 	Chrome.apply_label(title, 22, Color.WHITE, true)
 	add_child(title)
 
-	var clock := TextureRect.new()
-	clock.texture = Chrome.make_icon("clock", Chrome.CREAM, 28)
-	clock.position = Vector2(24, 118)
-	clock.size = Vector2(24, 24)
-	clock.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(clock)
-	var timer := Label.new()
-	timer.text = "01:30"
-	timer.position = Vector2(52, 118)
-	timer.size = Vector2(120, 24)
-	Chrome.apply_label(timer, 12, Chrome.CREAM, true)
-	add_child(timer)
+	_clock_icon = TextureRect.new()
+	_clock_icon.texture = Chrome.make_icon("clock", Chrome.HIGH_GOLD, 28)
+	_clock_icon.position = Vector2(24, 118)
+	_clock_icon.size = Vector2(24, 24)
+	_clock_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_clock_icon.visible = false
+	add_child(_clock_icon)
+	_grace_lbl = Label.new()
+	_grace_lbl.text = ""
+	_grace_lbl.position = Vector2(52, 114)
+	_grace_lbl.size = Vector2(280, 32)
+	Chrome.apply_label(_grace_lbl, 14, Chrome.HIGH_GOLD, true)
+	_grace_lbl.visible = false
+	add_child(_grace_lbl)
+
+	_btn_abandon = Chrome.chunk_button(Contract.ABANDON_COPY, Chrome.WOOD, Chrome.CREAM, Vector2(200, 40))
+	_btn_abandon.position = Vector2(1056, 88)
+	_btn_abandon.tooltip_text = "Leave the hunt. Rival keeps the Marks table (+12 / 0)."
+	_btn_abandon.pressed.connect(_on_abandon)
+	_btn_abandon.visible = false
+	add_child(_btn_abandon)
 
 	_turn = Label.new()
 	_turn.position = Vector2(0, 56)
@@ -665,8 +760,12 @@ func _refresh(snap: Snapshot) -> void:
 			_btn_start.visible = true
 			_set_actions(false)
 			_end_panel.visible = false
+			_set_abandon_visible(false)
+			_bind_grace(snap)
 		Contract.STATUS_ACTIVE:
 			_btn_start.visible = false
+			_set_abandon_visible(true)
+			_bind_grace(snap)
 			var yours := snap.is_your_turn()
 			if _dummy_delay > 0.0:
 				_status.text = "Rival is lining up…  %.1fs" % _dummy_delay
@@ -690,9 +789,13 @@ func _refresh(snap: Snapshot) -> void:
 			_btn_start.visible = false
 			_set_actions(false)
 			_end_panel.visible = false
+			_set_abandon_visible(false)
+			_bind_grace(snap)
 			_show_ended(snap)
 		_:
 			_status.text = snap.status()
+			_set_abandon_visible(false)
+			_bind_grace(snap)
 
 	var last: Variant = snap.last_action()
 	if last is Dictionary and snap.status() != Contract.STATUS_READY:
@@ -865,8 +968,71 @@ func _submit_as(player_id: String, action: Dictionary) -> ActionResult:
 	return result
 
 
+func _set_abandon_visible(on: bool) -> void:
+	if _btn_abandon:
+		_btn_abandon.visible = on
+		_btn_abandon.disabled = _abandon_busy or not on
+
+
+func _bind_grace(snap: Snapshot) -> void:
+	var left := 0.0
+	if snap.status() == Contract.STATUS_ACTIVE:
+		left = snap.grace_remaining_sec()
+		if left <= 0.0 and LiveMatchClient.poll_failed_since_msec >= 0:
+			var elapsed := float(Time.get_ticks_msec() - LiveMatchClient.poll_failed_since_msec) / 1000.0
+			left = maxf(0.0, float(Contract.FORFEIT_GRACE_SEC) - elapsed)
+	_grace_left = left if left > 0.0 else -1.0
+	_paint_grace(snap, left)
+
+
+func _paint_grace(snap: Snapshot, left: float) -> void:
+	var show := snap.status() == Contract.STATUS_ACTIVE and left > 0.0
+	if _clock_icon:
+		_clock_icon.visible = show
+	if _grace_lbl:
+		_grace_lbl.visible = show
+		if show:
+			var clock := Contract.format_grace_clock(left)
+			if snap.in_grace() or snap.enemy_disconnected_at() != null:
+				_grace_lbl.text = Contract.GRACE_RIVAL_COPY % clock
+			else:
+				_grace_lbl.text = Contract.GRACE_HOLD_COPY % clock
+
+
+func _tick_grace(delta: float) -> void:
+	if _grace_left < 0.0 or _over.visible:
+		return
+	_grace_left = maxf(0.0, _grace_left - delta)
+	_paint_grace(ClientSession.typed_snapshot(), _grace_left)
+	if _grace_left <= 0.0:
+		var fresh: Dictionary = MatchAPI.reconnect()
+		if not fresh.is_empty():
+			_refresh(ClientSession.typed_snapshot())
+
+
+func _on_abandon() -> void:
+	if _abandon_busy or _going_hideout:
+		return
+	_abandon_busy = true
+	_set_abandon_visible(true)
+	var body: Dictionary = MatchAPI.abandon()
+	_abandon_busy = false
+	if str(body.get("error", "")) == Contract.ABANDON_ERR_UNAVAILABLE:
+		_toast.text = "LIVE /abandon pending Coder"
+		return
+	var snap_raw: Variant = body.get("snapshot", {})
+	if snap_raw is Dictionary and not snap_raw.is_empty():
+		ClientSession.apply_snapshot(snap_raw)
+	elif bool(body.get("ok", false)):
+		MatchAPI.reconnect()
+	_refresh(ClientSession.typed_snapshot())
+	if str(body.get("error", "")) != "" and not bool(body.get("ok", false)):
+		_toast.text = "REFUSED  %s" % str(body.get("error"))
+
+
 func _process(delta: float) -> void:
 	_tick_rematch(delta)
+	_tick_grace(delta)
 	if _dummy_delay <= 0.0:
 		return
 	_dummy_delay = maxf(0.0, _dummy_delay - delta)
@@ -921,9 +1087,15 @@ func _show_ended(snap: Snapshot) -> void:
 	_over.visible = true
 	_over_lbl.text = MarksPayout.end_overlay(snap.raw, snap.you_seat(), ClientSession.is_job() or snap.is_job())
 	var offered := snap.rematch_offered()
+	var foil := snap.is_forfeit() and not snap.is_job()
+	if foil and not offered and snap.status() == Contract.STATUS_ENDED:
+		offered = true
 	var you_waiting := offered and snap.rematch_you_accepted() and not snap.rematch_opponent_accepted()
-	_over_settle.visible = offered
-	_over_settle.text = Contract.REMATCH_SETTLED_COPY
+	_over_settle.visible = offered or snap.is_forfeit()
+	if snap.is_forfeit():
+		_over_settle.text = "Marks settled  ·  +12 / 0"
+	else:
+		_over_settle.text = Contract.REMATCH_SETTLED_COPY
 	_over_hint.visible = offered
 	_over_hint.text = Contract.REMATCH_WAIT_COPY if you_waiting else Contract.REMATCH_HINT_COPY
 	_btn_play_again.visible = offered

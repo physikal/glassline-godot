@@ -140,6 +140,20 @@ func reconnect() -> Dictionary:
 	return fresh
 
 
+func abandon() -> Dictionary:
+	return abandon_as(ClientSession.player_id)
+
+
+func abandon_as(player_id: String) -> Dictionary:
+	## POST /matches/:id/abandon + join Bearer. Idempotent if already ended.
+	if using_live():
+		var token := ClientSession.token_for(player_id)
+		if token == "":
+			token = ClientSession.player_bearer()
+		return LiveMatchClient.abandon(ClientSession.match_id, token)
+	return MockMatchServer.abandon(ClientSession.match_id, player_id)
+
+
 func rematch(accept: bool) -> Dictionary:
 	return rematch_as(ClientSession.player_id, accept)
 

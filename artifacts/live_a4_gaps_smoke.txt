@@ -1,0 +1,8 @@
+BASE https://glassline-api.vercel.app
+PASS  GET /health
+PASS  PvP ready/active for abandon probe
+PASS  A4.4 rematch while active blocked (409)
+ABANDON_PROBE 404 404 Not Found
+NOTE  LIVE POST /matches/:id/abandon is 404. Coder pending. Mock + LiveMatchClient.abandon ready. Same path as timeout forfeit.
+NOTE  A4.2 disconnect 30s silence already LIVE — LIVE_A4_SMOKE_OK (endReason=forfeit, leaver +0).
+LIVE_A4_GAPS_SMOKE_PENDING abandon_404

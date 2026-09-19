@@ -81,6 +81,10 @@ func _ready() -> void:
 	elif "--capture-rematch-ended" in args or "--capture-rematch-ready" in args:
 		await get_tree().process_frame
 		_on_play()
+	elif "--capture-abandon-cta" in args or "--capture-grace-countdown" in args \
+			or "--capture-forfeit-overlay" in args:
+		await get_tree().process_frame
+		_on_play()
 
 
 func _capture_lobby() -> void:
