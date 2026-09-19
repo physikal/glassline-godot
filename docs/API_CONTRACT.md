@@ -40,7 +40,7 @@ Source: Notion “Glassline API contract draft v0” (Godot stamp). Client types
   terrain: [{ q, r, type }],
   lastAction: ActionResult | null,
   winner: a|b|draw|null,
-  rematch?: { status: none|pending|accepted_a|accepted_b|ready|declined|expired, newMatchId? }
+  rematch?: { status: none|waiting|ready|declined|expired, youAccepted?, opponentAccepted?, expiresAt?, newMatchId? }
 }
 ```
 
@@ -73,20 +73,33 @@ ActionResult =
 `GET /matches/:id/events` SSE → `{ event: "snapshot"|"your_turn", snapshot }`
 
 ## Rematch (ended PvP only)
-`POST /matches/:id/rematch` `{ accept: true|false }` + durable Bearer.
+`POST /matches/:id/rematch` `{ accept: true|false }`
 
-Ended snapshot:
+Bearer prefers the **seat join token**. Durable `POST /players` token of a seated `playerId` also works.
+
+Ended snapshot field:
 
 ```
-rematch: { status: "none"|"pending"|"accepted_a"|"accepted_b"|"ready"|"declined"|"expired",
-           newMatchId?: string }
+rematch: { status: "none"|"waiting"|"ready"|"declined"|"expired",
+           youAccepted?: boolean, opponentAccepted?: boolean,
+           expiresAt?: string, newMatchId?: string }
 ```
 
-- Both accept → `ready` + `newMatchId` (new `terrain_salt`; same two `playerId`s; status `ready` to drop again). Marks unchanged.
-- One decline or **30s** timeout → `declined` / `expired`; no new match; clients → hideout.
-- LIVE 404 → Coder pending. `LiveMatchClient.rematch` is ready; mock covers the editor.
+POST shapes (Coder PR #9 / LIVE):
+
+```
+{ status: "waiting", youAccepted, opponentAccepted, expiresAt }
+{ status: "ready", matchId, joinToken, snapshot }   // switch client; replay for the other seat
+{ status: "declined" } | { status: "expired" }
+```
+
+- Both accept → new `matchId` + terrain salt; same two `playerId`s / seats; status `ready` (drop again). Marks unchanged.
+- One decline or **30s** from match end → hideout. No new match.
+- Ready is **idempotent**: POST again to fetch that seat’s `joinToken`.
+- 409 `match_not_ended` / `rematch_not_available` (SP jobs). 400 `invalid_rematch_body`.
+- Client aliases `pending|accepted_a|accepted_b` → `waiting`. Mock matches LIVE. Curl LIVE first; prefer LIVE smoke once the route is 200.
 
 ## Other REST
 - `GET /health` → `{ ok: true }`
 - `GET /matches/:id` → caller-scoped snapshot (reconnect)
-- `POST /matches/:id/rematch` → `{ accept }` (durable Bearer). Mock + client ready; LIVE may 404.
+- `POST /matches/:id/rematch` → `{ accept }` + join-token Bearer (player token fallback)

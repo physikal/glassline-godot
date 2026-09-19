@@ -145,31 +145,33 @@ func rematch(accept: bool) -> Dictionary:
 
 
 func rematch_as(player_id: String, accept: bool) -> Dictionary:
-	## POST /matches/:id/rematch { accept } + durable Bearer (join token for dummy).
+	## POST /matches/:id/rematch { accept }. LIVE prefers the seat join token.
 	if using_live():
-		var token := ClientSession.player_bearer()
-		if player_id != "" and player_id == ClientSession.dummy_player_id:
-			token = ClientSession.token_for(player_id)
-		elif token == "":
-			token = ClientSession.token_for(player_id)
+		var token := ClientSession.token_for(player_id)
+		if token == "":
+			token = ClientSession.player_bearer()
 		return LiveMatchClient.rematch(ClientSession.match_id, accept, token)
 	return MockMatchServer.rematch(ClientSession.match_id, player_id, accept)
 
 
 func bind_new_match(body: Dictionary) -> Dictionary:
-	## Leave the ended match and bind rematch.newMatchId (same two seats).
+	## Leave the ended match. LIVE ready: { matchId, joinToken, snapshot }.
+	## Snapshot may be omitted — GET the new match with the posted joinToken.
 	var rem: Variant = body.get("rematch", {})
 	if not (rem is Dictionary):
 		rem = {}
 	var neu: Variant = body.get("newMatch", {})
 	if not (neu is Dictionary):
 		neu = {}
-	var new_id := str(rem.get("newMatchId", body.get("newMatchId", "")))
+	var new_id := str(rem.get("newMatchId", body.get("newMatchId", body.get("matchId", ""))))
 	if new_id == "":
 		new_id = str(neu.get("matchId", ""))
 	if new_id == "":
 		return {}
 	stop_events()
+	var caller_join := str(body.get("joinToken", ""))
+	if caller_join != "":
+		ClientSession.join_token = caller_join
 	var tokens: Variant = neu.get("joinTokens", body.get("joinTokens", {}))
 	if not (tokens is Dictionary):
 		tokens = {}
@@ -177,19 +179,26 @@ func bind_new_match(body: Dictionary) -> Dictionary:
 	if not tokens.is_empty():
 		var tok_a := str(tokens.get("a", tokens.get(Contract.SEAT_A, "")))
 		var tok_b := str(tokens.get("b", tokens.get(Contract.SEAT_B, "")))
-		if tok_a != "":
+		if tok_a != "" and caller_join == "":
 			ClientSession.join_token = tok_a
 		if tok_b != "":
 			ClientSession.dummy_token = tok_b
-		var human: Dictionary = join(new_id, ClientSession.join_token)
-		if human.has("playerId"):
-			ClientSession.player_id = str(human.get("playerId"))
-			ClientSession.seat = str(human.get("seat", ClientSession.seat))
+		if ClientSession.join_token != "":
+			var human: Dictionary = join(new_id, ClientSession.join_token)
+			if human.has("playerId"):
+				ClientSession.player_id = str(human.get("playerId"))
+				ClientSession.seat = str(human.get("seat", ClientSession.seat))
 		if ClientSession.dummy_token != "":
 			var dummy: Dictionary = join(new_id, ClientSession.dummy_token)
 			if dummy.has("playerId"):
 				ClientSession.dummy_player_id = str(dummy.get("playerId"))
-	var snap: Dictionary = get_snapshot(new_id, ClientSession.player_id)
+	var snap: Dictionary = {}
+	var posted: Variant = body.get("snapshot", {})
+	if posted is Dictionary and str(posted.get("matchId", "")) == new_id \
+			and str(posted.get("status", "")) != Contract.STATUS_ENDED:
+		snap = posted
+	if snap.is_empty():
+		snap = get_snapshot(new_id, ClientSession.player_id)
 	if snap.is_empty() and neu.has("snapshot") and neu.get("snapshot") is Dictionary:
 		snap = neu.get("snapshot")
 	if not snap.is_empty():

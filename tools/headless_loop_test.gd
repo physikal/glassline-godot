@@ -379,25 +379,34 @@ func _rematch_case(failed: PackedStringArray) -> void:
 	var pid_b := str(hunt["pidB"])
 	var ended: Snapshot = Snapshot.from_dict(server.get_snapshot(mid, pid_a))
 	_expect(failed, ended.status() == Contract.STATUS_ENDED, "R rematch starts ended")
-	_expect(failed, ended.rematch_status() == Contract.REMATCH_PENDING, "R pending on ended")
+	_expect(failed, ended.rematch_status() == Contract.REMATCH_WAITING, "R waiting on ended")
 	_expect(failed, ended.rematch_offered(), "R CTA offered")
+	_expect(failed, not ended.rematch_you_accepted(), "R neither accepted yet")
 	_expect(failed, ended.you_marks() == Contract.MARKS_PVP_WIN, "R kill already settled")
 	var wallet: int = server.account_marks
 	var old_fp := str(hunt["fp"])
 
 	var one: Dictionary = server.rematch(mid, pid_a, true)
 	_expect(failed, bool(one.get("ok", false)), "R accept A ok")
-	_expect(failed, str(one.get("rematch", {}).get("status", "")) == Contract.REMATCH_ACCEPTED_A, "R accepted_a")
+	_expect(failed, str(one.get("status", "")) == Contract.REMATCH_WAITING, "R LIVE waiting after A")
+	_expect(failed, bool(one.get("youAccepted", false)), "R youAccepted A")
+	_expect(failed, not bool(one.get("opponentAccepted", true)), "R opponent not yet")
 	_expect(failed, str(one.get("rematch", {}).get("newMatchId", "")) == "", "R no match yet")
 	_expect(failed, server.account_marks == wallet, "R4 accept A Marks frozen")
 
 	var both: Dictionary = server.rematch(mid, pid_b, true)
 	var rem: Variant = both.get("rematch", {})
 	_expect(failed, bool(both.get("ok", false)), "R1 both accept ok")
+	_expect(failed, str(both.get("status", "")) == Contract.REMATCH_READY, "R1 LIVE status ready")
 	_expect(failed, rem is Dictionary and str(rem.get("status", "")) == Contract.REMATCH_READY, "R1 rematch ready")
-	var new_id := str(rem.get("newMatchId", both.get("newMatchId", "")))
+	var new_id := str(both.get("matchId", rem.get("newMatchId", both.get("newMatchId", ""))))
 	_expect(failed, new_id != "" and new_id != mid, "R1 new matchId")
-	_expect(failed, both.has("newMatch") and both.has("joinTokens"), "R1 join tokens on ready")
+	_expect(failed, str(both.get("joinToken", "")) != "", "R1 caller joinToken")
+	_expect(failed, both.has("snapshot") and str(both.get("snapshot", {}).get("status", "")) == Contract.STATUS_READY, "R1 ready snapshot")
+	var replay_a: Dictionary = server.rematch(mid, pid_a, true)
+	_expect(failed, str(replay_a.get("status", "")) == Contract.REMATCH_READY, "R1 replay A ready")
+	_expect(failed, str(replay_a.get("joinToken", "")) != "", "R1 replay A joinToken")
+	_expect(failed, str(replay_a.get("matchId", "")) == new_id, "R1 replay same matchId")
 	_expect(failed, server.account_marks == wallet, "R4 rematch create Marks frozen")
 
 	var neu_a: Snapshot = Snapshot.from_dict(server.get_snapshot(new_id, pid_a))
@@ -462,7 +471,7 @@ func _rematch_case(failed: PackedStringArray) -> void:
 	_expect(failed, not job_snap.rematch_offered(), "R job no CTA")
 	var job_try: Dictionary = server.rematch(jid, jpid, true)
 	_expect(failed, not bool(job_try.get("ok", true)), "R job rematch refused")
-	_expect(failed, str(job_try.get("error", "")) == Contract.REMATCH_ERR_NOT_PVP, "R job rematch_not_pvp")
+	_expect(failed, str(job_try.get("code", job_try.get("error", ""))) in [Contract.REMATCH_ERR_NOT_PVP, "rematch_not_available"], "R job rematch_not_available")
 
 
 func _live_shape_case(failed: PackedStringArray) -> void:

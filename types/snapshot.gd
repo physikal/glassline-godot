@@ -247,7 +247,10 @@ func rematch() -> Dictionary:
 
 
 func rematch_status() -> String:
-	return str(rematch().get("status", Contract.REMATCH_NONE))
+	var st := str(rematch().get("status", Contract.REMATCH_NONE))
+	if st == Contract.REMATCH_PENDING or st in [Contract.REMATCH_ACCEPTED_A, Contract.REMATCH_ACCEPTED_B]:
+		return Contract.REMATCH_WAITING
+	return st
 
 
 func rematch_new_match_id() -> String:
@@ -255,13 +258,47 @@ func rematch_new_match_id() -> String:
 	var mid := str(bag.get("newMatchId", bag.get("matchId", "")))
 	if mid != "":
 		return mid
-	return str(raw.get("newMatchId", ""))
+	## LIVE POST ready body is the dict itself: { status: ready, matchId, joinToken }.
+	if str(raw.get("status", "")) == Contract.REMATCH_READY and raw.has("joinToken"):
+		return str(raw.get("matchId", ""))
+	return ""
+
+
+func rematch_you_accepted() -> bool:
+	var bag := rematch()
+	if bag.has("youAccepted"):
+		return bool(bag.get("youAccepted", false))
+	var st := str(bag.get("status", ""))
+	var seat := you_seat()
+	if st == Contract.REMATCH_ACCEPTED_A:
+		return seat == Contract.SEAT_A
+	if st == Contract.REMATCH_ACCEPTED_B:
+		return seat == Contract.SEAT_B
+	return rematch_status() == Contract.REMATCH_READY
+
+
+func rematch_opponent_accepted() -> bool:
+	var bag := rematch()
+	if bag.has("opponentAccepted"):
+		return bool(bag.get("opponentAccepted", false))
+	var st := str(bag.get("status", ""))
+	var seat := you_seat()
+	if st == Contract.REMATCH_ACCEPTED_A:
+		return seat == Contract.SEAT_B
+	if st == Contract.REMATCH_ACCEPTED_B:
+		return seat == Contract.SEAT_A
+	return rematch_status() == Contract.REMATCH_READY
+
+
+func rematch_expires_at() -> String:
+	return str(rematch().get("expiresAt", rematch().get("deadline", "")))
 
 
 func rematch_offered() -> bool:
 	if is_job() or status() != Contract.STATUS_ENDED:
 		return false
 	return rematch_status() in [
+		Contract.REMATCH_WAITING,
 		Contract.REMATCH_PENDING,
 		Contract.REMATCH_ACCEPTED_A,
 		Contract.REMATCH_ACCEPTED_B,
