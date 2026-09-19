@@ -73,10 +73,17 @@ func _shop_live_missing(body: Dictionary) -> bool:
 	return err in [Contract.SHOP_ERR_UNAVAILABLE, "http_404", "bad_json"] or int(body.get("status", 0)) == 404
 
 
-func create_job(tier: int = 1) -> Dictionary:
+func create_job(tier: int = 1, client_job_id: String = "") -> Dictionary:
 	if using_live():
-		return LiveMatchClient.create_job(tier)
-	return MockMatchServer.create_job(tier)
+		return LiveMatchClient.create_job(tier, client_job_id)
+	return MockMatchServer.create_job(tier, client_job_id)
+
+
+func complete_job(tier: int = 1, client_job_id: String = "") -> Dictionary:
+	## Editor / capture helper. LIVE smoke plays the board; this stays mock-only.
+	if using_live():
+		return LiveMatchClient.create_job(tier, client_job_id)
+	return MockMatchServer.complete_job(tier, client_job_id)
 
 
 func get_job(job_id: String) -> Dictionary:

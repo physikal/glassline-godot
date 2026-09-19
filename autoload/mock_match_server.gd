@@ -21,6 +21,8 @@ var account_marks: int = Contract.MOCK_WALLET_STUB
 var owned_cosmetics: Array = []
 var equipped_cosmetic: String = ""
 var _shop_receipts: Dictionary = {}
+## POST /jobs complete receipts keyed by clientJobId — replay does not grant again.
+var _job_receipts: Dictionary = {}
 
 var _matches: Dictionary = {}
 var _next_id: int = 1
@@ -76,6 +78,7 @@ func reset_wallet(value: int = Contract.MOCK_WALLET_STUB) -> void:
 	owned_cosmetics.clear()
 	equipped_cosmetic = ""
 	_shop_receipts.clear()
+	_job_receipts.clear()
 
 
 func get_shop() -> Dictionary:
@@ -151,24 +154,24 @@ func _shop_reject(reason: String) -> Dictionary:
 	}
 
 
-func create_job(tier: int = 1) -> Dictionary:
+func create_job(tier: int = 1, client_job_id: String = "") -> Dictionary:
 	var job_tier := clampi(tier, 1, 3)
 	var created: Dictionary = create_match({
 		"mode": Contract.MODE_SP_JOB,
 		"job": true,
 		"jobTier": job_tier,
+		"clientJobId": client_job_id,
 	})
 	var match_id := str(created.get("matchId", ""))
 	var tokens: Dictionary = created.get("joinTokens", {})
 	var human: Dictionary = join(match_id, str(tokens.get("a", "")))
 	var bot: Dictionary = join(match_id, str(tokens.get("b", "")))
-	var bot_hex := {1: Contract.hex_dict(8, 6), 2: Contract.hex_dict(7, 5), 3: Contract.hex_dict(8, 5)}
 	apply_action(match_id, str(bot.get("playerId", "")), {
 		"type": Contract.ACT_SELECT_HEX,
-		"hex": bot_hex[job_tier],
+		"hex": Contract.job_bot_hex(job_tier),
 	})
 	var snap: Dictionary = get_snapshot(match_id, str(human.get("playerId", "")))
-	return {
+	var bag := {
 		"jobId": str(created.get("jobId", match_id)),
 		"matchId": match_id,
 		"playerId": str(human.get("playerId", "")),
@@ -178,8 +181,46 @@ func create_job(tier: int = 1) -> Dictionary:
 		"dummyPlayerId": str(bot.get("playerId", "")),
 		"tier": job_tier,
 		"name": Contract.job_name(job_tier),
+		"clientJobId": client_job_id,
 		"snapshot": snap,
 	}
+	return bag
+
+
+func complete_job(tier: int = 1, client_job_id: String = "") -> Dictionary:
+	## Editor / J4 helper: play the stub kill, bind snapshot you.marks. Never marks +=.
+	if client_job_id != "" and _job_receipts.has(client_job_id):
+		return (_job_receipts[client_job_id] as Dictionary).duplicate(true)
+	var created: Dictionary = create_job(tier, client_job_id)
+	var match_id := str(created.get("matchId", ""))
+	var pid := str(created.get("playerId", ""))
+	if match_id == "" or pid == "":
+		return {"ok": false, "error": str(created.get("error", "job_create_failed")), "snapshot": {}}
+	apply_action(match_id, pid, {"type": Contract.ACT_SELECT_HEX, "hex": Contract.hex_dict(2, 2)})
+	apply_action(match_id, pid, {"type": Contract.ACT_START})
+	var bot: Dictionary = Contract.job_bot_hex(int(created.get("tier", tier)))
+	var killed: ActionResult = apply_action(match_id, pid, {
+		"type": Contract.ACT_ATTACK,
+		"hex": bot,
+	})
+	var snap: Dictionary = killed.snapshot if not killed.snapshot.is_empty() else get_snapshot(match_id, pid)
+	var you: Variant = snap.get("you", {})
+	var bag := {
+		"ok": bool(killed.ok),
+		"error": str(killed.error),
+		"jobId": str(created.get("jobId", "")),
+		"matchId": match_id,
+		"playerId": pid,
+		"tier": int(created.get("tier", tier)),
+		"name": str(created.get("name", Contract.job_name(tier))),
+		"clientJobId": client_job_id,
+		"snapshot": snap,
+		"you": you if you is Dictionary else {},
+		"marks": account_marks,
+	}
+	if client_job_id != "" and bool(killed.ok):
+		_job_receipts[client_job_id] = bag.duplicate(true)
+	return bag
 
 
 func get_job(job_id: String) -> Dictionary:

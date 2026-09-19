@@ -50,6 +50,7 @@ Public LIVE (Neon): **`https://glassline-api.vercel.app`**. Click **LIVE** on th
 GLASSLINE_USE_LIVE_API=1 godot --path .
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_http_smoke.py
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_jobs_smoke.py   # POST /jobs T1 + you.marks +10 once
+GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_jobs_ladder_smoke.py  # J1–J4 T1/T2/T3 + clientJobId replay
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_a2_smoke.py     # A2 reconnect: server snapshot wins
 GLASSLINE_USE_LIVE_API=1 godot --headless --path . res://tools/live_loop_test.tscn
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_shop_smoke.py   # S1–S3 Marks sink (POST /players + two kill wins)
@@ -73,7 +74,7 @@ Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` 
 | POST | `/matches/:id/actions` | intent → `{ ok, snapshot, result }` (Bearer = **join token**) |
 | GET | `/matches/:id` | caller-scoped snapshot (reconnect / dummy seat) |
 | GET | `/matches/:id/events` | SSE `{ event: snapshot\|your_turn, snapshot }` — on drop, poll `GET /matches/:id` |
-| POST | `/jobs` | `{ tier }` + Bearer player token reuses that `playerId` |
+| POST | `/jobs` | `{ tier: 1\|2\|3, clientJobId? }` + Bearer player token reuses that `playerId`. Credit is job **end**, not this POST. |
 | GET | `/shop` | `{ items: [{ id, name, price, kind }] }` — LIVE catalog `skin_hideout_stub` ★50 (no `you.marks`) |
 | POST | `/shop/buy` | `{ itemId, clientBuyId }` + Bearer **player** token → `{ ok, you.marks, purchaseId, item }`. **402** `insufficient_marks`. Idempotent on `clientBuyId` |
 | Auth | | Durable `POST /players` Bearer on create / join / jobs / shop. Match actions / snapshot / SSE use the join token. Dummy seat B stays anonymous. |
@@ -102,7 +103,7 @@ Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` 
 6. UAV once → `enemy.visibleHex`. END TURN.
 7. ATTACK that hex → `hit` / `kill`. End overlay reads server `payout` (`marks`, `marksDelta`, `reason`) — never local `marks +=`.
 
-Hideout **JOBS → START JOB** calls `POST /jobs` `{ tier: 1|2|3 }` on LIVE (mock uses the same shape). Ability chrome is labeled **UAV** and still posts `{ type: "uav" }`. Balance is `you.marks`. Earn table + field names: `artifacts/MARKS_SP_NOTES.md`. Hideout **ARMORY** is the Marks sink stub (`itemId` **`skin_hideout_stub`**, **★50**, `LiveMatchClient.get_shop` / `buy_shop`, no combat / no IAP): `artifacts/MARKS_SINK_NOTES.md`.
+Hideout **JOBS** opens three SP rows (T1 ★10 / T2 ★15 / T3 ★20). START posts `POST /jobs` `{ tier, clientJobId }` on LIVE (mock uses the same shape) then the board. Marks chip binds snapshot `you.marks` only. Ability chrome is labeled **UAV** and still posts `{ type: "uav" }`. Earn table: `artifacts/MARKS_SP_NOTES.md`. Ladder gates: `artifacts/SP_JOB_LADDER_NOTES.md`. Hideout **ARMORY** is the Marks sink stub (`itemId` **`skin_hideout_stub`**, **★50**, `LiveMatchClient.get_shop` / `buy_shop`, no combat / no IAP): `artifacts/MARKS_SINK_NOTES.md`.
 
 ## Layout
 
