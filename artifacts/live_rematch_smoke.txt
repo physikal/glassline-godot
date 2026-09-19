@@ -2,7 +2,116 @@ SMOKE_BASE https://glassline-api.vercel.app
 PASS  GET /health
 PASS  POST /players A
 PASS  POST /players B
+PLAYERS p_619f35e7552d44a1a0821de1db634d2f p_27d82f48805e48a096b301b29bde85e3
+NON_ENDED_REMATCH 409 {"error":"match is not ended","code":"match_not_ended"}
+PASS  route up: non-ended 409 match_not_ended
 PASS  PvP ended for rematch
-REMATCH_HTTP 404 404 Not Found
-NOTE  LIVE POST /matches/:id/rematch is 404. Coder pending. Mock + LiveMatchClient.rematch({ accept }) ready.
-LIVE_REMATCH_PENDING
+PASS  ended seats bind durable players
+ENDED m_8592812b3fa24439a8b7f75e77a13a74 marks A/B 25 3 shop 25 3
+ENDED_REMATCH_FIELD {"status": "waiting", "youAccepted": false, "opponentAccepted": false, "expiresAt": "2026-09-19T22:26:25.335Z"}
+REMATCH_A_HTTP 200 {"status":"waiting","youAccepted":true,"opponentAccepted":false,"expiresAt":"2026-09-19T22:26:25.335Z"}
+PASS  R rematch accept A HTTP 200
+PASS  R waiting after A
+PASS  R3 no Marks on first accept
+REMATCH_B_HTTP 200 {"status":"ready","matchId":"m_2e2a7e879a904b02a090447c13e97b1e","joinToken":"p4rPkk2MrYoAR6HuBo17KtirRSEdVBjL","snapshot":{"matchId":"m_2e2a7e879a904b02a090447c13e97b1e","status":"ready","turnIndex":0,"turnCap":16,"whoseTurn":null,"phase":null,"uavAvailable":true,"uavRemaining":1,"softMarks":0,"kind":"pvp","endReason":null,"job":null,"you":{"seat":"b","hex":null,"marks":3,"exposurePct":50,"movedLastTurn":false,"equippedSkinId":null,"decoyAvailable":true,"decoyRemaining":1,"decoyHex":null},"enemy":{"seat":"a","visibleHex":null,"softHotTurnsLeft":0,"decoySoftHex":null},"terrain":[],"lastAction"
+PASS  R1 rematch ready
+PASS  R1 new matchId
+PASS  R1 B joinToken
+PASS  R1 B fresh drop (no hex)
+REMATCH_A_REPLAY 200 {"status":"ready","matchId":"m_2e2a7e879a904b02a090447c13e97b1e","joinToken":"0gBBi13u05C5mhnK8hPiiJQMAbgfClxu","snapshot":{"matchId":"m_2e2a7e879a904b02a090447c13e97b1e","status":"ready","turnIndex":0,"turnCap":16,"whoseTurn":null,"phase":null,"uavAvailable":true,"uavRemaining":1,"softMarks":0,"kind":"pvp","endReason":null,"job":null,"you":{"seat":"a","hex":null,"marks":25,"exposurePct":50,"moved
+PASS  R1 replay A ready
+PASS  R1 A joinToken distinct
+PASS  R1 replay same matchId
+PASS  R2 same seats
+R2_JOIN_PIDS p_619f35e7552d44a1a0821de1db634d2f p_27d82f48805e48a096b301b29bde85e3
+PASS  R2 durable player A
+PASS  R2 durable player B
+PASS  R2 player-token rematch still this pair
+PASS  R1 new matchId (new salt)
+PASS  R1 sampled enough hexes
+PASS  R1 fresh terrain
+PASS  R3 Marks A shop unchanged
+PASS  R3 Marks B shop unchanged
+PASS  R3 end ledger already settled
+R3_MARKS {"A": {"end": 25, "shopBefore": 25, "shopAfter": 25, "delta": 0}, "B": {"end": 3, "shopBefore": 3, "shopAfter": 3, "delta": 0}}
+PASS  R4 second ended match
+R4_DECLINE 200 {"status":"declined"}
+PASS  R4 declined
+PASS  R4 no new match
+PASS  R4 accept after decline stays closed
+PASS  R3 Marks unchanged by decline
+PASS  R5 third ended match
+R5_EXPIRES_AT 2026-09-19T22:26:32.911Z
+NOTE  waiting 31s for rematch expiry (server clock is 30s from ended_at / expiresAt)
+R5_LATE 200 {"status":"expired"}
+PASS  R5 expired / hideout
+PASS  R5 no new match
+EVIDENCE {
+  "playerA": "p_619f35e7552d44a1a0821de1db634d2f",
+  "playerB": "p_27d82f48805e48a096b301b29bde85e3",
+  "routeUp": {
+    "matchId": "m_d465062d10224f728986d232e14adc05",
+    "http": 409,
+    "code": "match_not_ended"
+  },
+  "r1OldMatch": "m_8592812b3fa24439a8b7f75e77a13a74",
+  "r1NewMatch": "m_2e2a7e879a904b02a090447c13e97b1e",
+  "r2": {
+    "oldA": "p_619f35e7552d44a1a0821de1db634d2f",
+    "oldB": "p_27d82f48805e48a096b301b29bde85e3",
+    "newA": "p_619f35e7552d44a1a0821de1db634d2f",
+    "newB": "p_27d82f48805e48a096b301b29bde85e3"
+  },
+  "r1Terrain": {
+    "old": {
+      "0,0": "open",
+      "1,1": "hard",
+      "2,2": "brush",
+      "3,3": "brush",
+      "4,2": "open",
+      "5,4": "open",
+      "6,4": "open",
+      "7,5": "hard",
+      "8,6": "hard"
+    },
+    "new": {
+      "0,0": "open",
+      "1,1": "brush",
+      "2,2": "open",
+      "3,3": "open",
+      "4,2": "open",
+      "5,4": "brush",
+      "6,4": "brush",
+      "7,5": "brush",
+      "8,6": "brush"
+    },
+    "differ": true
+  },
+  "r3": {
+    "A": {
+      "end": 25,
+      "shopBefore": 25,
+      "shopAfter": 25,
+      "delta": 0
+    },
+    "B": {
+      "end": 3,
+      "shopBefore": 3,
+      "shopAfter": 3,
+      "delta": 0
+    }
+  },
+  "r4": {
+    "ended": "m_a6dab85e5bb048b18533f550a4855fd0",
+    "status": "declined",
+    "newMatchId": null
+  },
+  "r5": {
+    "ended": "m_286fb28d769c4e6d9d1e0780cea9ddef",
+    "expiresAt": "2026-09-19T22:26:32.911Z",
+    "getStatus": "expired",
+    "lateStatus": "expired",
+    "lateHttp": 200
+  }
+}
+LIVE_REMATCH_OK

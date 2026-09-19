@@ -111,7 +111,48 @@ def mint_player():
     return status, str(body.get("token") or ""), str(body.get("playerId") or ""), body
 
 
-def end_pvp(token_a: str, token_b: str | None = None):
+SAMPLE_HEXES = [
+    (0, 0),
+    (1, 1),
+    (2, 2),
+    (3, 3),
+    (4, 2),
+    (5, 4),
+    (6, 4),
+    (7, 5),
+    (8, 6),
+]
+
+
+def _terrain_from_select(body: dict, q: int, r: int) -> str:
+    result = body.get("result") or {}
+    if isinstance(result, dict):
+        kind = result.get("terrain") or result.get("type")
+        if kind in ("open", "brush", "hard"):
+            return str(kind)
+        nested = result.get("terrain")
+        if isinstance(nested, dict) and nested.get("type") in ("open", "brush", "hard"):
+            return str(nested.get("type"))
+    for row in snap_of(body).get("terrain") or []:
+        if isinstance(row, dict) and int(row.get("q", -1)) == q and int(row.get("r", -1)) == r:
+            return str(row.get("type") or "")
+    return ""
+
+
+def sample_board(match_id: str, ja: str, _jb: str = "") -> dict[str, str]:
+    """Re-drop as seat A only so the match stays ready; record each select result."""
+    found: dict[str, str] = {}
+    for q, r in SAMPLE_HEXES:
+        _, body, _ = req("POST", f"/matches/{match_id}/actions", {"type": "select_hex", "hex": {"q": q, "r": r}}, ja)
+        kind = _terrain_from_select(body, q, r)
+        if kind:
+            found[f"{q},{r}"] = kind
+        elif snap_of(body).get("status") not in ("ready", "waiting"):
+            break
+    return found
+
+
+def end_pvp(token_a: str, token_b: str | None = None, sample: bool = False):
     status, created, _ = req("POST", "/matches", {}, token_a)
     if status not in (200, 201) or "matchId" not in created:
         return {
@@ -124,6 +165,7 @@ def end_pvp(token_a: str, token_b: str | None = None):
             "pidA": "",
             "pidB": "",
             "created": created,
+            "sample": {},
         }
     match_id = str(created.get("matchId", ""))
     tokens = created.get("joinTokens") or {}
@@ -131,6 +173,7 @@ def end_pvp(token_a: str, token_b: str | None = None):
     jb = str(tokens.get("b") or "")
     _, join_a, _ = req("POST", f"/matches/{match_id}/join", {"token": ja}, token_a)
     _, join_b, _ = req("POST", f"/matches/{match_id}/join", {"token": jb}, token_b)
+    sampled = sample_board(match_id, ja, jb) if sample else {}
     req("POST", f"/matches/{match_id}/actions", {"type": "select_hex", "hex": {"q": 2, "r": 2}}, ja)
     req("POST", f"/matches/{match_id}/actions", {"type": "select_hex", "hex": {"q": 7, "r": 5}}, jb)
     kill_status, killed, _ = req(
@@ -151,6 +194,7 @@ def end_pvp(token_a: str, token_b: str | None = None):
         "created": created,
         "joinA": join_a,
         "joinB": join_b,
+        "sample": sampled,
     }
 
 
@@ -204,7 +248,7 @@ def main() -> int:
         )
         EVIDENCE["routeUp"] = {"matchId": live_mid, "http": st409, "code": body409.get("code")}
 
-    hunt = end_pvp(token_a, token_b)
+    hunt = end_pvp(token_a, token_b, sample=True)
     match_id = hunt["matchId"]
     ja, jb = hunt["ja"], hunt["jb"]
     if not match_id:
@@ -285,16 +329,16 @@ def main() -> int:
     )
     EVIDENCE["r2"] = {"oldA": pid_a, "oldB": pid_b, "newA": pid_a_new, "newB": pid_b_new}
 
-    # R1 terrain: drop both on the new board and compare fingerprints.
-    _, drop_old, _ = req("GET", f"/matches/{match_id}", None, ja)
-    old_terrain = terrain_fp(drop_old)
+    # R1 terrain: sample the same hexes on the new board (salt = hash(matchId,…)).
+    old_sample = hunt.get("sample") or {}
+    new_sample = sample_board(new_id, join_a_new, join_b_new)
     req("POST", f"/matches/{new_id}/actions", {"type": "select_hex", "hex": {"q": 2, "r": 2}}, join_a_new)
     req("POST", f"/matches/{new_id}/actions", {"type": "select_hex", "hex": {"q": 7, "r": 5}}, join_b_new)
     _, after_drop, _ = req("GET", f"/matches/{new_id}", None, join_a_new)
-    new_terrain = terrain_fp(after_drop)
     expect(new_id != match_id, "R1 new matchId (new salt)")
-    expect(new_terrain != old_terrain, "R1 fresh terrain", f"old={len(old_terrain)} new={len(new_terrain)}")
-    EVIDENCE["r1Terrain"] = {"oldBytes": len(old_terrain), "newBytes": len(new_terrain), "differ": new_terrain != old_terrain}
+    expect(len(old_sample) >= 6 and len(new_sample) >= 6, "R1 sampled enough hexes", f"{old_sample} / {new_sample}")
+    expect(old_sample != new_sample, "R1 fresh terrain", f"old={old_sample} new={new_sample}")
+    EVIDENCE["r1Terrain"] = {"old": old_sample, "new": new_sample, "differ": old_sample != new_sample}
 
     # R3 Marks unchanged by rematch (shop + snapshot).
     wallet_a_after = wallet_of(token_a)
