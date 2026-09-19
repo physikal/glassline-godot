@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://live_shop_test"]
+
+[ext_resource type="Script" path="res://tools/live_shop_test.gd" id="1_live_shop"]
+
+[node name="LiveShopTest" type="Node"]
+script = ExtResource("1_live_shop")

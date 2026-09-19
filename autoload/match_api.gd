@@ -21,6 +21,19 @@ func using_live() -> bool:
 	return ClientSession.use_live_api()
 
 
+func create_player() -> Dictionary:
+	if using_live():
+		return LiveMatchClient.create_player()
+	return {"playerId": "p_mock", "token": "tok_mock", "marks": MockMatchServer.account_marks}
+
+
+func ensure_player(force_new: bool = false) -> Dictionary:
+	## LIVE: POST /players once, reuse Bearer. Mock: no-op wallet.
+	if using_live():
+		return LiveMatchClient.ensure_player(force_new)
+	return MockMatchServer.wallet()
+
+
 func create_match(opts: Dictionary = {}) -> Dictionary:
 	if using_live():
 		return LiveMatchClient.create_match(opts)
@@ -37,7 +50,7 @@ func get_shop() -> Dictionary:
 	if using_live():
 		var body: Dictionary = LiveMatchClient.get_shop()
 		if _shop_live_missing(body):
-			## LIVE /shop 404 — keep the stub row visible; buy still posts LIVE.
+			## LIVE /shop missing — keep the stub row visible; buy still posts LIVE.
 			return Contract.shop_catalog_stub(ClientSession.marks)
 		return body
 	return MockMatchServer.get_shop()

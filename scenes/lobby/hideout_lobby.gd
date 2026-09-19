@@ -25,6 +25,8 @@ func _ready() -> void:
 	set_anchors_preset(PRESET_FULL_RECT)
 	_build()
 	_refresh_bg()
+	if ClientSession.use_live_api():
+		MatchAPI.ensure_player()
 	_bind_wallet()
 	_bind_shop()
 	_refresh_marks()
@@ -449,12 +451,8 @@ func _focus_shop() -> void:
 func _refresh_shop() -> void:
 	if _shop_name == null:
 		return
-	var bag = Shop.from_any(MatchAPI.get_shop() if not ClientSession.use_live_api() else {
-		"items": [Contract.shop_stub_item()],
-		"owned": ClientSession.owned_cosmetics,
-		"equipped": ClientSession.equipped_cosmetic,
-		"you": {"marks": ClientSession.marks},
-	})
+	## LIVE and mock both go through MatchAPI.get_shop / buy_shop.
+	var bag = Shop.from_any(MatchAPI.get_shop())
 	_shop_name.text = bag.item_name()
 	_shop_price.text = Chrome.marks_star_text(bag.price())
 	var owned: bool = ClientSession.owns_cosmetic(Contract.SHOP_STUB_ITEM_ID)
@@ -478,12 +476,15 @@ func _on_shop_primary() -> void:
 	if ClientSession.owns_cosmetic(Contract.SHOP_STUB_ITEM_ID):
 		_on_equip_toggle()
 		return
+	if ClientSession.use_live_api():
+		MatchAPI.ensure_player()
 	_buying = true
 	_shop_btn.disabled = true
 	var buy_id := Contract.new_client_buy_id()
-	var body: Dictionary = MatchAPI.buy_shop(Contract.SHOP_STUB_ITEM_ID, buy_id)
+	var listed = Shop.from_any(MatchAPI.get_shop())
+	var body: Dictionary = MatchAPI.buy_shop(listed.item_id(), buy_id)
 	var shop = Shop.from_any(body)
-	## Snapshot is sole Marks truth — never marks -= on this client.
+	## Snapshot / buy you.marks is sole Marks truth — never marks -= on this client.
 	ClientSession.apply_shop(body)
 	_refresh_marks()
 	_buying = false
@@ -540,6 +541,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _toggle_live() -> void:
 	ClientSession.live_override = 0 if ClientSession.use_live_api() else 1
+	if ClientSession.use_live_api():
+		MatchAPI.ensure_player()
 	_refresh_mode()
 	_bind_wallet()
 	_bind_shop()
@@ -576,6 +579,7 @@ func _start_match(mode: String) -> void:
 		if not bool(health.get("ok", false)):
 			_toast_msg("Live API down at %s  (GET /health)" % ClientSession.api_base_url())
 			return
+		MatchAPI.ensure_player()
 	var created: Dictionary = MatchAPI.create_match({
 		"mode": mode,
 		"job": mode == Contract.MODE_SP_JOB,
@@ -616,6 +620,7 @@ func _start_job(tier: int) -> void:
 		if not bool(health.get("ok", false)):
 			_toast_msg("Live API down at %s  (GET /health)" % ClientSession.api_base_url())
 			return
+		MatchAPI.ensure_player()
 	var created: Dictionary = MatchAPI.create_job(tier)
 	var match_id := str(created.get("matchId", ""))
 	if match_id == "" or created.has("error"):

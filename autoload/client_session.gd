@@ -8,6 +8,7 @@ const Shop := preload("res://types/shop.gd")
 
 const HANDLE := "Specter7"
 const RIVAL := "RivalSniper"
+const PLAYER_STORE := "user://glassline_player.json"
 
 var match_id: String = ""
 var player_id: String = ""
@@ -15,6 +16,9 @@ var seat: String = ""
 var dummy_player_id: String = ""
 var join_token: String = ""
 var dummy_token: String = ""
+## Durable LIVE identity from POST /players. Survives reset_match.
+var player_token: String = ""
+var durable_player_id: String = ""
 var last_snapshot: Dictionary = {}
 ## Display cache of server Marks. Never treat as a writable ledger.
 var marks: int = 0
@@ -41,6 +45,7 @@ func reset_match() -> void:
 	match_mode = Contract.MODE_PVP
 	job_id = ""
 	job_tier = 1
+	## player_token / durable_player_id / marks stay — LIVE wallet is per player.
 
 
 func bind_marks(balance: int) -> void:
@@ -48,13 +53,60 @@ func bind_marks(balance: int) -> void:
 	marks = balance
 
 
+func bind_player(bag: Dictionary) -> void:
+	## Keep the POST /players token. Marks bind only if the payload has them.
+	var token := str(bag.get("token", ""))
+	if token != "":
+		player_token = token
+	var pid := str(bag.get("playerId", ""))
+	if pid != "":
+		durable_player_id = pid
+	if bag.has("marks"):
+		bind_marks(int(bag.get("marks")))
+
+
+func persist_player() -> void:
+	if player_token == "":
+		return
+	var file := FileAccess.open(PLAYER_STORE, FileAccess.WRITE)
+	if file == null:
+		return
+	file.store_string(JSON.stringify({
+		"playerId": durable_player_id,
+		"token": player_token,
+	}))
+	file.close()
+
+
+func load_player() -> void:
+	if player_token != "":
+		return
+	if not FileAccess.file_exists(PLAYER_STORE):
+		return
+	var file := FileAccess.open(PLAYER_STORE, FileAccess.READ)
+	if file == null:
+		return
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	file.close()
+	if parsed is Dictionary:
+		player_token = str(parsed.get("token", ""))
+		durable_player_id = str(parsed.get("playerId", ""))
+
+
+func player_bearer() -> String:
+	return player_token
+
+
 func apply_shop(bag: Dictionary) -> void:
 	## Bind Marks + cosmetics from a shop / buy snapshot. Never marks -=.
+	## LIVE GET /shop is catalog-only — do not wipe wallet/owned when omitted.
 	var shop = Shop.from_any(bag)
 	if shop.has_marks():
 		bind_marks(shop.balance())
-	owned_cosmetics = shop.owned.duplicate()
-	equipped_cosmetic = str(shop.equipped)
+	if shop.owned_present:
+		owned_cosmetics = shop.owned.duplicate()
+	if shop.equipped_present:
+		equipped_cosmetic = str(shop.equipped)
 	ghillie = owns_cosmetic(Contract.SHOP_STUB_ITEM_ID) and is_equipped(Contract.SHOP_STUB_ITEM_ID)
 
 
