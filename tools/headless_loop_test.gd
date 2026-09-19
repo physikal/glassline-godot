@@ -345,6 +345,38 @@ func _job_case(failed: PackedStringArray) -> void:
 	r = server.apply_action(mid, a["playerId"], ActionIntent.attack(7, 5))
 	snap = Snapshot.from_dict(r.snapshot)
 	_expect(failed, snap.marks_delta() == Contract.MARKS_JOB_T3, "job T3 marksDelta +20")
+	_job_ladder_case(failed)
+
+
+func _job_ladder_case(failed: PackedStringArray) -> void:
+	## J1–J4 mock: T1/T2/T3 complete bind you.marks; same clientJobId does not grant again.
+	_expect(failed, Contract.job_row_label(1) == "T1  Rooftop Rookie", "J5 T1 row label")
+	_expect(failed, Contract.job_row_label(2) == "T2  Warehouse Watch", "J5 T2 row label")
+	_expect(failed, Contract.job_row_label(3) == "T3  Night Contract", "J5 T3 row label")
+	_expect(failed, Contract.job_tier_delta(1) == 10, "J1 table T1 ★10")
+	_expect(failed, Contract.job_tier_delta(2) == 15, "J2 table T2 ★15")
+	_expect(failed, Contract.job_tier_delta(3) == 20, "J3 table T3 ★20")
+	server.clear_all()
+	server.reset_wallet(0)
+	var session = SessionScript.new()
+	session.bind_marks(999)
+	var j1: Dictionary = server.complete_job(1, "job-j1")
+	session.apply_snapshot(j1.get("snapshot", {}))
+	_expect(failed, session.marks == 10, "J1 snapshot you.marks 0→10 (not 999+)")
+	_expect(failed, server.account_marks == 10, "J1 mock ledger +10")
+	var j2: Dictionary = server.complete_job(2, "job-j2")
+	session.apply_snapshot(j2.get("snapshot", {}))
+	_expect(failed, session.marks == 25, "J2 snapshot you.marks 10→25")
+	var j3: Dictionary = server.complete_job(3, "job-j3")
+	session.apply_snapshot(j3.get("snapshot", {}))
+	_expect(failed, session.marks == 45, "J3 snapshot you.marks 25→45")
+	var replay: Dictionary = server.complete_job(3, "job-j3")
+	session.bind_marks(999)
+	session.apply_snapshot(replay.get("snapshot", {}))
+	_expect(failed, server.account_marks == 45, "J4 same clientJobId no second grant")
+	_expect(failed, session.marks == 45, "J4 replay binds snapshot 45 (never marks +=)")
+	_expect(failed, str(replay.get("jobId", "")) == str(j3.get("jobId", "")), "J4 replay same jobId")
+	session.free()
 
 
 func _shop_case(failed: PackedStringArray) -> void:

@@ -26,6 +26,7 @@ var last_payout: Dictionary = {}
 var match_mode: String = Contract.MODE_PVP
 var job_id: String = ""
 var job_tier: int = 1
+var client_job_id: String = ""
 var ghillie: bool = false
 ## Cosmetic display cache from shop snapshot. Visual only — no combat.
 var owned_cosmetics: Array = []
@@ -45,6 +46,7 @@ func reset_match() -> void:
 	match_mode = Contract.MODE_PVP
 	job_id = ""
 	job_tier = 1
+	client_job_id = ""
 	## player_token / durable_player_id / marks stay — LIVE wallet is per player.
 
 

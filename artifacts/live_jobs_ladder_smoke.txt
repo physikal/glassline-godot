@@ -1,0 +1,52 @@
+BASE https://glassline-api.vercel.app
+PASS  GET /health
+PASS  POST /players durable Bearer
+PASS  fresh player marks 0
+EVID  playerId=p_1c1cf02c02ee4ada8914023b9dc61592
+PASS  POST /jobs T1
+PASS  create T1 tier field
+PASS  create T1 name Rooftop Rookie
+PASS  T1 snapshot.kind sp_job
+PASS  T1 snapshot.job.tier
+PASS  T1 select_hex
+PASS  T1 auto-active after drop
+PASS  T1 attack bot hex
+PASS  T1 job ended
+PASS  T1 endReason kill
+PASS  J1 T1 → ★10 (0→10)
+EVID  J1 jobId=j_ff584a9f5be34755a1a112d236731237 clientJobId=d8388b0f-494a-41ff-bef0-998ebe2dbe6d marks 0->10
+PASS  J1 auth/dev you.marks 10
+PASS  POST /jobs T2
+PASS  create T2 tier field
+PASS  create T2 name Warehouse Watch
+PASS  T2 snapshot.kind sp_job
+PASS  T2 snapshot.job.tier
+PASS  T2 select_hex
+PASS  T2 auto-active after drop
+PASS  T2 attack bot hex
+PASS  T2 job ended
+PASS  T2 endReason kill
+PASS  J2 T2 → ★15 (10→25)
+EVID  J2 jobId=j_e256f495269d4af59b6cb152a2f21bb3 clientJobId=7ceac1a2-3668-491c-8a29-c3cd0d9996ab marks 10->25
+PASS  J2 auth/dev you.marks 25
+PASS  POST /jobs T3
+PASS  create T3 tier field
+PASS  create T3 name Night Contract
+PASS  T3 snapshot.kind sp_job
+PASS  T3 snapshot.job.tier
+PASS  T3 select_hex
+PASS  T3 auto-active after drop
+PASS  T3 attack bot hex
+PASS  T3 job ended
+PASS  T3 endReason kill
+PASS  J3 T3 → ★20 (25→45)
+EVID  J3 jobId=j_658791a7f0194f158d851db01bf03801 clientJobId=65c8950a-c251-40bc-8ac2-1b0569a6b83d marks 25->45
+PASS  J3 auth/dev you.marks 45
+PASS  J4 GET /matches replay no double-credit
+PASS  J4 GET /jobs/:id replay same wallet
+PASS  J4 re-attack ended job stays ★45 (got 45)
+PASS  J4 POST /jobs same clientJobId accepted
+PASS  J4 replay POST does not grant
+PASS  J4 durable wallet still 45
+EVID  J4 replay clientJobId=65c8950a-c251-40bc-8ac2-1b0569a6b83d jobId=j_658791a7f0194f158d851db01bf03801 marks 45
+LIVE_JOBS_LADDER_OK p_1c1cf02c02ee4ada8914023b9dc61592 marks 0->45

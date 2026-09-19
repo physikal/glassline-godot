@@ -174,8 +174,13 @@ func _shop_from_raw(raw: Dictionary, is_buy: bool = false) -> Dictionary:
 	return body
 
 
-func create_job(tier: int = 1) -> Dictionary:
-	var body: Dictionary = _json("POST", "/jobs", {"tier": clampi(tier, 1, 3)}, ClientSession.player_bearer())
+func create_job(tier: int = 1, client_job_id: String = "") -> Dictionary:
+	## LIVE POST /jobs { tier: 1|2|3, clientJobId? }. Zod currently keeps `tier` only.
+	## Credit is match/job end — this call does not grant Marks.
+	var payload := {"tier": clampi(tier, 1, 3)}
+	if client_job_id != "":
+		payload["clientJobId"] = client_job_id
+	var body: Dictionary = _json("POST", "/jobs", payload, ClientSession.player_bearer())
 	if body.has("error") and not body.has("matchId"):
 		last_error = str(body.get("error", "job_create_failed"))
 	return body

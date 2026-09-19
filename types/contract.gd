@@ -91,6 +91,7 @@ const FORFEIT_GRACE_SEC := 30
 const JOB_NAME_T1 := "Rooftop Rookie"
 const JOB_NAME_T2 := "Warehouse Watch"
 const JOB_NAME_T3 := "Night Contract"
+const JOB_TIERS := [1, 2, 3]
 
 
 static func job_name(tier: int) -> String:
@@ -111,6 +112,22 @@ static func job_tier_delta(tier: int) -> int:
 			return MARKS_JOB_T3
 		_:
 			return MARKS_JOB_T1
+
+
+static func job_row_label(tier: int) -> String:
+	## Hideout ladder copy: tier + name. Payout is a separate ★ chip.
+	return "T%d  %s" % [clampi(tier, 1, 3), job_name(tier)]
+
+
+static func job_bot_hex(tier: int) -> Dictionary:
+	## LIVE src/bot.ts SP_BOT_HEX. Secret until UAV / kill.
+	match clampi(tier, 1, 3):
+		2:
+			return hex_dict(7, 5)
+		3:
+			return hex_dict(8, 5)
+		_:
+			return hex_dict(8, 6)
 
 static func on_board(q: int, r: int) -> bool:
 	return q >= 0 and q < BOARD_Q and r >= 0 and r < BOARD_R
@@ -164,6 +181,11 @@ static func shop_catalog_stub(marks: int = 0, owned: Array = [], equipped: Strin
 		"equipped": equipped if equipped != "" else null,
 		"marks": marks,
 	}
+
+
+static func new_client_job_id() -> String:
+	## UUID v4 for POST /jobs clientJobId. New id on every START click.
+	return new_client_buy_id()
 
 
 static func new_client_buy_id() -> String:

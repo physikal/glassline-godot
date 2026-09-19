@@ -53,6 +53,14 @@ func _ready() -> void:
 	elif "--capture-sp-end" in args:
 		await get_tree().process_frame
 		_on_start_job()
+	elif "--capture-sp-jobs-ladder" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await _capture_jobs_ladder()
+	elif "--capture-sp-job-t3" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await _capture_sp_job_t3()
 
 
 func _capture_lobby() -> void:
@@ -92,6 +100,34 @@ func _capture_shop_buy() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	await _capture_named("res://artifacts/ux/shop_post_buy_marks.png", "S5_SHOP_POST_BUY")
+
+
+func _capture_jobs_ladder() -> void:
+	if not _jobs_panel.visible:
+		_toggle_jobs()
+	await _capture_named("res://artifacts/ux/sp_jobs_ladder.png", "J5_SP_JOBS_LADDER")
+
+
+func _capture_sp_job_t3() -> void:
+	## Mock T3 complete on the hideout — snapshot you.marks only. Never marks +=.
+	if not ClientSession.use_live_api():
+		MockMatchServer.reset_wallet(0)
+	_bind_wallet()
+	_refresh_marks()
+	var cid := Contract.new_client_job_id()
+	var done: Dictionary = MatchAPI.complete_job(3, cid)
+	var snap: Variant = done.get("snapshot", {})
+	if snap is Dictionary and not snap.is_empty():
+		ClientSession.apply_snapshot(snap)
+	elif done.has("you") or done.has("marks"):
+		ClientSession.apply_shop(done)
+	_refresh_marks()
+	if _jobs_panel:
+		_jobs_panel.visible = false
+	if _shop_row:
+		_shop_row.visible = true
+	_toast_msg("Night Contract  ·  ★20")
+	await _capture_named("res://artifacts/ux/sp_job_t3_post_marks.png", "J5_SP_JOB_T3_MARKS")
 
 
 func _build() -> void:
@@ -328,16 +364,24 @@ func _build_shop_row() -> void:
 
 
 func _build_jobs_panel() -> void:
+	## Three ARMORY-language rows. T1 stub stays; T2 / T3 are the new ladder.
 	_jobs_panel = PanelContainer.new()
 	_jobs_panel.visible = false
-	_jobs_panel.position = Vector2(360, 150)
-	_jobs_panel.custom_minimum_size = Vector2(560, 320)
-	var box := Chrome.flat(Color(0.12, 0.09, 0.07, 0.96), 18, Chrome.HIGH_GOLD, 3)
+	_jobs_panel.set_anchors_preset(PRESET_CENTER)
+	_jobs_panel.offset_left = -360
+	_jobs_panel.offset_right = 360
+	_jobs_panel.offset_top = -210
+	_jobs_panel.offset_bottom = 210
+	var box := Chrome.flat(Color(0.10, 0.08, 0.06, 0.96), 20, Chrome.HIGH_GOLD, 3)
+	box.content_margin_left = 22
+	box.content_margin_right = 22
+	box.content_margin_top = 16
+	box.content_margin_bottom = 16
 	_jobs_panel.add_theme_stylebox_override("panel", box)
 	add_child(_jobs_panel)
 
 	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 12)
+	col.add_theme_constant_override("separation", 10)
 	_jobs_panel.add_child(col)
 
 	var kicker := Label.new()
@@ -352,18 +396,52 @@ func _build_jobs_panel() -> void:
 
 	var blurb := Label.new()
 	blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	blurb.custom_minimum_size = Vector2(500, 80)
-	blurb.text = "T1 Rooftop Rookie  +10   ·   T2 +15   ·   T3 +20\nSame Attack / Recon / UAV vs a scripted seat."
+	blurb.text = "Same Attack / Recon / UAV vs a scripted seat."
 	Chrome.apply_label(blurb, 8, Chrome.CREAM)
 	col.add_child(blurb)
 
-	var start := Chrome.chunk_button("START JOB", Chrome.ABILITY_PURPLE, Color.WHITE, Vector2(280, 56))
-	start.pressed.connect(_on_start_job)
-	col.add_child(start)
+	for tier in Contract.JOB_TIERS:
+		col.add_child(_make_job_row(int(tier)))
 
+	var back_row := HBoxContainer.new()
+	back_row.add_theme_constant_override("separation", 0)
+	col.add_child(back_row)
 	var cancel := Chrome.chunk_button("BACK", Chrome.INK, Chrome.CREAM, Vector2(160, 40))
 	cancel.pressed.connect(_toggle_jobs)
-	col.add_child(cancel)
+	back_row.add_child(cancel)
+
+
+func _make_job_row(tier: int) -> PanelContainer:
+	var row := PanelContainer.new()
+	var box := Chrome.flat(Color(0.12, 0.09, 0.07, 0.94), 16, Chrome.HIGH_GOLD, 2)
+	box.content_margin_left = 14
+	box.content_margin_right = 12
+	box.content_margin_top = 6
+	box.content_margin_bottom = 6
+	row.add_theme_stylebox_override("panel", box)
+
+	var line := HBoxContainer.new()
+	line.alignment = BoxContainer.ALIGNMENT_CENTER
+	line.add_theme_constant_override("separation", 16)
+	row.add_child(line)
+
+	var name_lbl := Label.new()
+	name_lbl.text = Contract.job_row_label(tier)
+	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	Chrome.apply_label(name_lbl, 11, Chrome.CREAM, true)
+	line.add_child(name_lbl)
+
+	var pay := Label.new()
+	pay.text = Chrome.marks_star_text(Contract.job_tier_delta(tier))
+	pay.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	Chrome.apply_label(pay, 12, Chrome.HIGH_GOLD, true)
+	line.add_child(pay)
+
+	var start := Chrome.chunk_button("START", Chrome.JOBS_ORANGE, Color.WHITE, Vector2(148, 44))
+	start.pressed.connect(func() -> void: _start_job(tier))
+	line.add_child(start)
+	return row
 
 
 func _bind_wallet() -> void:
@@ -530,8 +608,10 @@ func _toast_msg(text: String) -> void:
 
 func _toggle_jobs() -> void:
 	_jobs_panel.visible = not _jobs_panel.visible
+	if _shop_row:
+		_shop_row.visible = not _jobs_panel.visible
 	if _jobs_panel.visible:
-		_toast_msg("Hunt a bot — same Attack / Recon / UAV.")
+		_toast_msg("T1 ★10   ·   T2 ★15   ·   T3 ★20")
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -566,7 +646,6 @@ func _on_play() -> void:
 
 
 func _on_start_job() -> void:
-	_jobs_panel.visible = false
 	_start_job(1)
 
 
@@ -611,23 +690,31 @@ func _start_match(mode: String) -> void:
 
 
 func _start_job(tier: int) -> void:
+	if _jobs_panel:
+		_jobs_panel.visible = false
+	if _shop_row:
+		_shop_row.visible = true
 	MatchAPI.clear_all()
 	ClientSession.reset_match()
 	ClientSession.match_mode = Contract.MODE_SP_JOB
 	ClientSession.job_tier = tier
+	var client_job_id := Contract.new_client_job_id()
+	ClientSession.client_job_id = client_job_id
 	if ClientSession.use_live_api():
 		var health: Dictionary = MatchAPI.health()
 		if not bool(health.get("ok", false)):
 			_toast_msg("Live API down at %s  (GET /health)" % ClientSession.api_base_url())
 			return
 		MatchAPI.ensure_player()
-	var created: Dictionary = MatchAPI.create_job(tier)
+	var created: Dictionary = MatchAPI.create_job(tier, client_job_id)
 	var match_id := str(created.get("matchId", ""))
 	if match_id == "" or created.has("error"):
 		_toast_msg("Job failed: %s" % str(created.get("error", "no matchId")))
 		return
 	ClientSession.match_id = match_id
 	ClientSession.job_id = str(created.get("jobId", ""))
+	if str(created.get("clientJobId", "")) != "":
+		ClientSession.client_job_id = str(created.get("clientJobId"))
 	ClientSession.player_id = str(created.get("playerId", ""))
 	ClientSession.seat = str(created.get("seat", "a"))
 	ClientSession.join_token = str(created.get("joinToken", ""))

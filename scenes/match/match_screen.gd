@@ -83,8 +83,9 @@ func _capture_sp_end() -> void:
 		await get_tree().process_frame
 		snap = ClientSession.typed_snapshot()
 	if snap.status() == Contract.STATUS_ACTIVE:
-		## T1 mock bot sits at (8,6). Attack ends the job.
-		_submit(ActionIntent.attack(8, 6))
+		## Mock bot hex is tier-locked (T1 8,6 / T2 7,5 / T3 8,5).
+		var bot: Dictionary = Contract.job_bot_hex(ClientSession.job_tier)
+		_submit(ActionIntent.attack(int(bot.get("q", 8)), int(bot.get("r", 6))))
 		await get_tree().process_frame
 	await get_tree().process_frame
 	await RenderingServer.frame_post_draw
