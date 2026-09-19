@@ -38,7 +38,7 @@ Until then: mock persists equip; LIVE 404 falls back to local chrome with toast 
 
 | Gate | Result | Evidence |
 | --- | --- | --- |
-| **E1** server set | **PASS mock** · **LIVE pending** | Mock `equip_cosmetic` returns `you.equippedSkinId`. Same-id no-op. Unowned → `not_owned`. LIVE `POST /shop/equip` **404**. |
+| **E1** server set | **PASS mock** · **LIVE pending** | Mock `equip_cosmetic` returns `you.equippedSkinId`. Same-id no-op. Unowned → `not_owned`. LIVE `POST /shop/equip` **404** (`p_17d1be035e1745058ca76823fca92401`). |
 | **E2** hideout | **PASS mock** | Ghillie plate / bandana wash from snapshot id. Still [`ux/equip_owned_hideout.png`](ux/equip_owned_hideout.png). |
 | **E3** doll | **PASS mock** | Exposure doll shirt / bandana wash uses the same id. [`ux/equip_exposure_doll.png`](ux/equip_exposure_doll.png). |
 | **E4** swap / unequip | **PASS mock** | EQUIP other owned SKU; EQUIPPED click unequips (`itemId` empty / null). Marks chip unchanged. |

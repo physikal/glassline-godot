@@ -128,7 +128,7 @@ func _capture_equip_doll() -> void:
 	var snap: Snapshot = ClientSession.typed_snapshot()
 	if snap.status() == Contract.STATUS_READY or snap.status() == Contract.STATUS_WAITING:
 		_submit(ActionIntent.select_hex(2, 2))
-		await get_tree().process_frame
+		await get_tree().create_timer(0.7).timeout
 		snap = ClientSession.typed_snapshot()
 	if snap.status() == Contract.STATUS_READY:
 		_submit(ActionIntent.start())
@@ -138,8 +138,11 @@ func _capture_equip_doll() -> void:
 		_submit(ActionIntent.attack(0, 0))
 		await get_tree().process_frame
 		snap = ClientSession.typed_snapshot()
+	_toast.text = ""
 	_end_panel.visible = true
 	_bind_server_exposure(ClientSession.typed_snapshot())
+	if _exposure_doll:
+		_exposure_doll.bind_equipped(ClientSession.equipped_cosmetic)
 	await get_tree().process_frame
 	await get_tree().process_frame
 	await RenderingServer.frame_post_draw

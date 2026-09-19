@@ -46,16 +46,21 @@ func _draw() -> void:
 	var ghillie := equipped_skin_id == Contract.SHOP_STUB_ITEM_ID
 	var bandana := equipped_skin_id == Contract.SHOP_BANDANA_ITEM_ID
 	if ghillie:
-		shirt = Color("3d6a28")
+		shirt = Color("4a8f32")
 	elif bandana:
 		shirt = Color("8a3a28")
+	if ghillie:
+		draw_circle(Vector2(cx, h * 0.20), 10.0, Color("3d6a28"))
+		draw_circle(Vector2(cx - 6.0, h * 0.16), 5.0, Color("5a8f34"))
+		draw_circle(Vector2(cx + 6.0, h * 0.17), 4.5, Color("7cb34a"))
 	draw_circle(Vector2(cx, h * 0.22), 8.0, body)
 	if bandana:
 		draw_rect(Rect2(cx - 9.0, h * 0.16, 18.0, 5.0), Color("c45a4a"))
 	draw_rect(Rect2(cx - 8.0, h * 0.30, 16.0, 22.0), shirt)
 	if ghillie:
-		draw_circle(Vector2(cx - 7.0, h * 0.34), 4.0, Color("5a8f34"))
-		draw_circle(Vector2(cx + 7.0, h * 0.36), 3.5, Color("7cb34a"))
+		draw_circle(Vector2(cx - 8.0, h * 0.32), 4.5, Color("5a8f34"))
+		draw_circle(Vector2(cx + 8.0, h * 0.34), 4.0, Color("7cb34a"))
+		draw_circle(Vector2(cx, h * 0.38), 3.5, Color("3d6a28"))
 	draw_rect(Rect2(cx - 6.0, h * 0.52, 5.0, 16.0), Color("3a332c"))
 	draw_rect(Rect2(cx + 1.0, h * 0.52, 5.0, 16.0), Color("3a332c"))
 	var cover_h := h * ((100.0 - exposure_pct) / 100.0) * 0.72

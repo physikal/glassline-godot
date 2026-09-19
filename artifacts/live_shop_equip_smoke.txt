@@ -1,0 +1,17 @@
+BASE https://glassline-api.vercel.app
+PASS  GET /health
+PASS  POST /players
+EVID  player p_17d1be035e1745058ca76823fca92401 marks=0
+
+== probe POST /shop/equip ==
+EVID  POST /shop/equip 404 {"error": "404 Not Found"}
+NOTE  LIVE POST /shop/equip is 404. Coder shop_equipped table already stubs last-buy. Client LiveMatchClient.equip_cosmetic is ready ({ itemId } | { itemId: null }). Need 200 snapshot you.equippedSkinId + reject not_owned. Marks untouched.
+
+BASE https://glassline-api.vercel.app
+NOTES
+  - LIVE POST /shop/equip is 404. Coder shop_equipped table already stubs last-buy. Client LiveMatchClient.equip_cosmetic is ready ({ itemId } | { itemId: null }). Need 200 snapshot you.equippedSkinId + reject not_owned. Marks untouched.
+EVIDENCE
+  - player p_17d1be035e1745058ca76823fca92401 marks=0
+  - POST /shop/equip 404 {"error": "404 Not Found"}
+
+LIVE_SHOP_EQUIP_PENDING Coder /shop/equip 404
