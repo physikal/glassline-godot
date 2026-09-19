@@ -57,6 +57,7 @@ GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_shop_smok
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_shop_sink2_smoke.py  # S2.1–S2.3 bandana ★100 (pending if catalog lags)
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_shop_equip_smoke.py  # E1/E4 equip (pending if /shop/equip 404)
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_decoy_smoke.py      # D1–D5 decoy LIVE_DECOY_OK
+GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_rematch_smoke.py    # R1–R5 rematch; curl first (404 → PENDING)
 GLASSLINE_USE_LIVE_API=1 godot --headless --path . res://tools/live_shop_test.tscn
 ```
 
@@ -75,7 +76,7 @@ Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` 
 | POST | `/matches` | Bearer **player** token binds seat A (else anonymous mint at 0) |
 | POST | `/matches/:id/join` | `{ token }` + optional Bearer player token → `{ playerId, seat, snapshot }` |
 | POST | `/matches/:id/actions` | intent → `{ ok, snapshot, result }` (Bearer = **join token**) |
-| POST | `/matches/:id/rematch` | `{ accept: true\|false }` + durable Bearer. Ended snap `rematch: { status, newMatchId? }`. **404** until Coder lands it — mock + `LiveMatchClient.rematch` stay ready. |
+| POST | `/matches/:id/rematch` | `{ accept: true\|false }` + **join-token** Bearer (player token fallback). `waiting` / `ready { matchId, joinToken, snapshot }` / `declined` / `expired`. Ended snap `rematch: { status, youAccepted, opponentAccepted, expiresAt, newMatchId? }`. Curl first; 404 → mock. Prefer LIVE smoke once 200. |
 | GET | `/matches/:id` | caller-scoped snapshot (reconnect / dummy seat) |
 | GET | `/matches/:id/events` | SSE `{ event: snapshot\|your_turn, snapshot }` — on drop, poll `GET /matches/:id` |
 | POST | `/jobs` | `{ tier: 1\|2\|3, clientJobId? }` + Bearer player token reuses that `playerId`. Credit is job **end**, not this POST. |

@@ -531,37 +531,45 @@ func _build() -> void:
 	_over.set_anchors_preset(PRESET_FULL_RECT)
 	_over.visible = false
 	add_child(_over)
+	var plate := PanelContainer.new()
+	plate.set_anchors_preset(PRESET_CENTER)
+	plate.offset_left = -360
+	plate.offset_right = 360
+	plate.offset_top = -210
+	plate.offset_bottom = 210
+	var plate_box := Chrome.flat(Color(0.12, 0.08, 0.05, 0.96), 20, Chrome.HIGH_GOLD, 3)
+	plate_box.content_margin_left = 28
+	plate_box.content_margin_right = 28
+	plate_box.content_margin_top = 20
+	plate_box.content_margin_bottom = 20
+	plate.add_theme_stylebox_override("panel", plate_box)
+	_over.add_child(plate)
 	var over_col := VBoxContainer.new()
-	over_col.set_anchors_preset(PRESET_FULL_RECT)
-	over_col.offset_left = 240
-	over_col.offset_right = -240
-	over_col.offset_top = 140
-	over_col.offset_bottom = -80
 	over_col.alignment = BoxContainer.ALIGNMENT_CENTER
-	over_col.add_theme_constant_override("separation", 14)
-	_over.add_child(over_col)
+	over_col.add_theme_constant_override("separation", 12)
+	plate.add_child(over_col)
 	_over_lbl = Label.new()
 	_over_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_over_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	Chrome.apply_label(_over_lbl, 18, Color.WHITE, true)
+	Chrome.apply_label(_over_lbl, 16, Color.WHITE, true)
 	over_col.add_child(_over_lbl)
 	_over_settle = Label.new()
 	_over_settle.text = Contract.REMATCH_SETTLED_COPY
 	_over_settle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_over_settle.visible = false
-	Chrome.apply_label(_over_settle, 10, Chrome.HIGH_GOLD, true)
+	Chrome.apply_label(_over_settle, 11, Chrome.HIGH_GOLD, true)
 	over_col.add_child(_over_settle)
 	_over_hint = Label.new()
 	_over_hint.text = Contract.REMATCH_HINT_COPY
 	_over_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_over_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_over_hint.visible = false
-	Chrome.apply_label(_over_hint, 8, Chrome.CREAM, true)
+	Chrome.apply_label(_over_hint, 11, Chrome.CREAM, true)
 	over_col.add_child(_over_hint)
 	_over_timer = Label.new()
 	_over_timer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_over_timer.visible = false
-	Chrome.apply_label(_over_timer, 10, Chrome.CREAM, true)
+	Chrome.apply_label(_over_timer, 11, Chrome.CREAM, true)
 	over_col.add_child(_over_timer)
 	var over_btns := HBoxContainer.new()
 	over_btns.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -901,7 +909,7 @@ func _show_ended(snap: Snapshot) -> void:
 	if _going_hideout or _rematch_busy:
 		return
 	if snap.rematch_ready():
-		_enter_rematch({"rematch": snap.rematch(), "snapshot": snap.raw})
+		_enter_rematch(_ready_body_from_snap(snap))
 		return
 	if snap.rematch_leave():
 		_go_hideout()
@@ -909,8 +917,7 @@ func _show_ended(snap: Snapshot) -> void:
 	_over.visible = true
 	_over_lbl.text = MarksPayout.end_overlay(snap.raw, snap.you_seat(), ClientSession.is_job() or snap.is_job())
 	var offered := snap.rematch_offered()
-	var st := snap.rematch_status()
-	var you_waiting := st in [Contract.REMATCH_ACCEPTED_A, Contract.REMATCH_ACCEPTED_B]
+	var you_waiting := offered and snap.rematch_you_accepted() and not snap.rematch_opponent_accepted()
 	_over_settle.visible = offered
 	_over_settle.text = Contract.REMATCH_SETTLED_COPY
 	_over_hint.visible = offered
@@ -943,12 +950,18 @@ func _on_play_again() -> void:
 	if str(body.get("error", "")) == Contract.REMATCH_ERR_UNAVAILABLE:
 		_go_hideout()
 		return
-	## Editor / local dummy: the rival seat accepts too so Play again drops again.
+	## Editor dummy: rival accepts, then replay as you so LIVE returns your joinToken.
 	if ClientSession.dummy_player_id != "":
 		var rem: Variant = body.get("rematch", {})
-		var st := str(rem.get("status", "")) if rem is Dictionary else ""
+		var st := str(body.get("status", ""))
+		if st == "" and rem is Dictionary:
+			st = str(rem.get("status", ""))
 		if st != Contract.REMATCH_READY and st != Contract.REMATCH_DECLINED and st != Contract.REMATCH_EXPIRED:
-			body = MatchAPI.rematch_as(ClientSession.dummy_player_id, true)
+			var dummy_body: Dictionary = MatchAPI.rematch_as(ClientSession.dummy_player_id, true)
+			var dummy_join := str(dummy_body.get("joinToken", ""))
+			if dummy_join != "":
+				ClientSession.dummy_token = dummy_join
+			body = MatchAPI.rematch(true)
 	_apply_rematch_body(body)
 
 
@@ -964,10 +977,39 @@ func _on_rematch_timeout() -> void:
 		return
 	var snap: Snapshot = ClientSession.typed_snapshot()
 	if snap.rematch_ready():
-		_enter_rematch({"rematch": snap.rematch(), "snapshot": snap.raw})
+		_enter_rematch(_ready_body_from_snap(snap))
 		return
 	MatchAPI.rematch(false)
 	_go_hideout()
+
+
+func _ready_body_from_snap(snap: Snapshot) -> Dictionary:
+	## Poll/SSE only names newMatchId. `_enter_rematch` replays for joinToken.
+	return {
+		"status": Contract.REMATCH_READY,
+		"rematch": snap.rematch(),
+		"newMatchId": snap.rematch_new_match_id(),
+		"matchId": snap.rematch_new_match_id(),
+		"snapshot": snap.raw,
+	}
+
+
+func _ensure_ready_body(body: Dictionary) -> Dictionary:
+	if str(body.get("joinToken", "")) != "":
+		return body
+	var rem: Variant = body.get("rematch", {})
+	var st := str(body.get("status", ""))
+	if st == "" and rem is Dictionary:
+		st = str(rem.get("status", ""))
+	var new_id := str(body.get("matchId", body.get("newMatchId", "")))
+	if rem is Dictionary and new_id == "":
+		new_id = str(rem.get("newMatchId", rem.get("matchId", "")))
+	if st != Contract.REMATCH_READY or new_id == "":
+		return body
+	var replay: Dictionary = MatchAPI.rematch(true)
+	if str(replay.get("joinToken", "")) != "" or str(replay.get("status", "")) == Contract.REMATCH_READY:
+		return replay
+	return body
 
 
 func _apply_rematch_body(body: Dictionary) -> void:
@@ -976,16 +1018,20 @@ func _apply_rematch_body(body: Dictionary) -> void:
 	var rem: Variant = body.get("rematch", {})
 	if not (rem is Dictionary):
 		rem = {}
-	var snap_raw: Variant = body.get("snapshot", {})
-	if snap_raw is Dictionary and not snap_raw.is_empty():
-		ClientSession.apply_snapshot(snap_raw)
-	var st := str(rem.get("status", ""))
-	if st == Contract.REMATCH_READY and str(rem.get("newMatchId", body.get("newMatchId", ""))) != "":
+	var st := str(body.get("status", rem.get("status", "")))
+	if st == "200":
+		st = str(rem.get("status", ""))
+	var new_id := str(rem.get("newMatchId", body.get("newMatchId", body.get("matchId", ""))))
+	if st == Contract.REMATCH_READY and new_id != "":
 		_enter_rematch(body)
 		return
 	if st in [Contract.REMATCH_DECLINED, Contract.REMATCH_EXPIRED]:
 		_go_hideout()
 		return
+	var snap_raw: Variant = body.get("snapshot", {})
+	if snap_raw is Dictionary and not snap_raw.is_empty() \
+			and str(snap_raw.get("status", "")) == Contract.STATUS_ENDED:
+		ClientSession.apply_snapshot(snap_raw)
 	_refresh(ClientSession.typed_snapshot())
 
 
@@ -995,6 +1041,7 @@ func _enter_rematch(body: Dictionary) -> void:
 	_rematch_busy = true
 	_over.visible = false
 	_rematch_left = -1.0
+	body = _ensure_ready_body(body)
 	var snap_dict: Dictionary = MatchAPI.bind_new_match(body)
 	_dummy_placed = false
 	_dummy_busy = false

@@ -144,7 +144,7 @@ def main() -> int:
     _, shop_a, _ = req("GET", "/shop/me", None, token_a)
     wallet_before = int((shop_a.get("you") or {}).get("marks") or shop_a.get("marks") or marks_before)
 
-    st, probe, raw = probe_rematch(match_id, token_a, True)
+    st, probe, raw = probe_rematch(match_id, ja, True)
     print("REMATCH_HTTP", st, (raw or "")[:600])
     if is_missing(st, probe):
         note(
@@ -155,31 +155,38 @@ def main() -> int:
         return 0
 
     rem = rematch_of(probe)
-    expect(st == 200 and probe.get("ok", True) is not False, "R rematch accept A", str(probe)[:400])
-    expect(rem.get("status") in ("accepted_a", "pending", "ready"), "R status after A accept", str(rem))
+    expect(st == 200, "R rematch accept A HTTP 200", str(probe)[:400])
+    expect(probe.get("status") in ("waiting", "ready") or rem.get("status") in ("waiting", "ready", "accepted_a", "pending"), "R waiting after A", str(probe)[:400])
     expect(marks_of(probe) in (0, marks_before) or marks_of(probe) == wallet_before, "R4 no Marks on first accept")
 
-    st2, both, raw2 = probe_rematch(match_id, token_b, True)
+    st2, both, raw2 = probe_rematch(match_id, jb, True)
     print("REMATCH_B_HTTP", st2, (raw2 or "")[:600])
     rem2 = rematch_of(both)
-    new_id = str(rem2.get("newMatchId") or both.get("newMatchId") or (both.get("newMatch") or {}).get("matchId") or "")
-    expect(st2 == 200 and rem2.get("status") == "ready", "R1 rematch ready", str(rem2))
-    expect(new_id != "" and new_id != match_id, "R1 newMatchId", new_id)
-
+    new_id = str(
+        both.get("matchId")
+        or rem2.get("newMatchId")
+        or rem2.get("matchId")
+        or both.get("newMatchId")
+        or (both.get("newMatch") or {}).get("matchId")
+        or ""
+    )
+    expect(st2 == 200 and (both.get("status") == "ready" or rem2.get("status") == "ready"), "R1 rematch ready", str(both)[:400])
+    expect(new_id != "" and new_id != match_id, "R1 new matchId", new_id)
+    join_a_new = str(both.get("joinToken") or "")
+    st_a2, replay_a, _ = probe_rematch(match_id, ja, True)
+    if st_a2 == 200 and replay_a.get("status") == "ready":
+        join_a_new = str(replay_a.get("joinToken") or join_a_new)
+        both = replay_a
     neu_tokens = (both.get("newMatch") or {}).get("joinTokens") or both.get("joinTokens") or {}
-    na = str(neu_tokens.get("a") or "")
+    na = str(neu_tokens.get("a") or join_a_new)
     nb = str(neu_tokens.get("b") or "")
-    if na:
-        _, join_new_a, _ = req("POST", f"/matches/{new_id}/join", {"token": na}, token_a)
-    else:
-        _, join_new_a, _ = req("GET", f"/matches/{new_id}", None, token_a)
-    if nb:
-        req("POST", f"/matches/{new_id}/join", {"token": nb}, token_b)
-    neu = snap_of(join_new_a)
-    if not neu.get("matchId"):
-        _, neu, _ = req("GET", f"/matches/{new_id}", None, token_a if not na else na)
+    posted = both.get("snapshot")
+    neu = posted if isinstance(posted, dict) and posted.get("matchId") else {}
+    if na and (not neu.get("matchId") or neu.get("status") == "ended"):
+        _, join_new_a, _ = req("GET", f"/matches/{new_id}", None, na)
+        neu = snap_of(join_new_a)
     expect(neu.get("status") in ("ready", "waiting"), "R1 new match ready to drop", str(neu)[:300])
-    expect(you_of(neu).get("hex") in (None, {}), "R1 fresh drop (no hex)")
+    expect(you_of({"snapshot": neu}).get("hex") in (None, {}), "R1 fresh drop (no hex)")
 
     _, drop_old, _ = req("GET", f"/matches/{match_id}", None, ja)
     old_terrain = json.dumps((snap_of(drop_old).get("terrain") or []), sort_keys=True)
@@ -201,13 +208,16 @@ def main() -> int:
     # R3 decline
     st3, killed3, mid3, _ja3, _jb3, _ = end_pvp(token_a, token_b)
     expect(st3 == 200 and mid3 != "", "R3 second ended match")
-    st_d, declined, _ = probe_rematch(mid3, token_b, False)
+    st_d, declined, _ = probe_rematch(mid3, _jb3, False)
     rem_d = rematch_of(declined)
-    expect(st_d == 200 and rem_d.get("status") == "declined", "R3 declined", str(rem_d))
-    expect(not rem_d.get("newMatchId"), "R3 no newMatchId")
-    st_a, after_d, _ = probe_rematch(mid3, token_a, True)
+    expect(st_d == 200 and (declined.get("status") == "declined" or rem_d.get("status") == "declined"), "R3 declined", str(declined)[:300])
+    expect(
+        not rem_d.get("newMatchId") and declined.get("status") != "ready" and rem_d.get("status") != "ready",
+        "R3 no new match",
+    )
+    st_a, after_d, _ = probe_rematch(mid3, _ja3, True)
     rem_ad = rematch_of(after_d)
-    expect(rem_ad.get("status") == "declined" or st_a >= 400, "R3 accept after decline stays closed", str(rem_ad))
+    expect(after_d.get("status") == "declined" or rem_ad.get("status") == "declined" or st_a >= 400, "R3 accept after decline stays closed", str(after_d)[:300])
 
     # R5 timeout — 30s grace, same as decline.
     st5, killed5, mid5, ja5, _jb5, _ = end_pvp(token_a, token_b)
@@ -216,11 +226,11 @@ def main() -> int:
     time.sleep(31)
     _, aged, _ = req("GET", f"/matches/{mid5}", None, ja5)
     rem_x = rematch_of(aged)
-    st_x, late, _ = probe_rematch(mid5, token_a, True)
+    st_x, late, _ = probe_rematch(mid5, ja5, True)
     rem_late = rematch_of(late)
-    expired = rem_x.get("status") == "expired" or rem_late.get("status") == "expired"
-    expect(expired or st_x >= 400, "R5 expired / no new match", str(rem_late or rem_x))
-    expect(not rem_late.get("newMatchId"), "R5 no newMatchId")
+    expired = rem_x.get("status") == "expired" or rem_late.get("status") == "expired" or late.get("status") == "expired"
+    expect(expired or st_x >= 400, "R5 expired / no new match", str(late or rem_x)[:300])
+    expect(not rem_late.get("newMatchId") and late.get("status") != "ready", "R5 no new match")
 
     if FAILS:
         print("LIVE_REMATCH_FAIL")

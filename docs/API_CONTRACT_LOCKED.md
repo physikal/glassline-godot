@@ -32,7 +32,7 @@ Client spike types in `types/` and `MockMatchServer` follow this shape so a live
   enemy: { seat, visibleHex, softHotTurnsLeft },
   terrain: [{ q, r, type }],
   lastAction, winner: a|b|draw|null,
-  rematch?: { status: none|pending|accepted_a|accepted_b|ready|declined|expired, newMatchId? }
+  rematch?: { status: none|waiting|ready|declined|expired, youAccepted?, opponentAccepted?, expiresAt?, newMatchId? }
 }
 ```
 

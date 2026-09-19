@@ -103,6 +103,7 @@ const FORFEIT_GRACE_SEC := 30
 ## Rematch — same two seats, new matchId + terrain salt. Marks already final.
 const REMATCH_NONE := "none"
 const REMATCH_PENDING := "pending"
+const REMATCH_WAITING := "waiting"
 const REMATCH_ACCEPTED_A := "accepted_a"
 const REMATCH_ACCEPTED_B := "accepted_b"
 const REMATCH_READY := "ready"

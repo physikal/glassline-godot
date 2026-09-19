@@ -268,24 +268,24 @@ func get_snapshot(match_id: String, player_id: String) -> Dictionary:
 
 
 func rematch(match_id: String, accept: bool, token: String = "") -> Dictionary:
-	## LIVE POST /matches/:id/rematch { accept } + durable player Bearer.
-	## 404 → rematch_unavailable (Coder pending). Client method stays ready.
+	## LIVE POST /matches/:id/rematch { accept }.
+	## Bearer prefers the seat join token (Coder), then durable player token.
 	var bearer := token
 	if bearer == "":
-		bearer = ClientSession.player_bearer()
-	if bearer == "":
 		bearer = ClientSession.join_token
+	if bearer == "":
+		bearer = ClientSession.player_bearer()
 	var raw: Dictionary = _raw("POST", "/matches/%s/rematch" % match_id, {"accept": accept}, bearer)
 	return _rematch_from_raw(raw)
 
 
 func _rematch_from_raw(raw: Dictionary) -> Dictionary:
-	var status := int(raw.get("status", 0))
+	var http_status := int(raw.get("status", 0))
 	var js: Variant = raw.get("json", {})
 	if not (js is Dictionary):
 		js = {}
 	var body: Dictionary = js
-	if status == 404:
+	if http_status == 404:
 		return {
 			"ok": false,
 			"error": Contract.REMATCH_ERR_UNAVAILABLE,
@@ -293,23 +293,44 @@ func _rematch_from_raw(raw: Dictionary) -> Dictionary:
 			"rematch": {},
 			"snapshot": {},
 		}
-	if status >= 400:
+	if http_status >= 400:
 		if str(body.get("error", "")) == "":
 			var result: Variant = body.get("result", {})
 			if result is Dictionary and str(result.get("reason", "")) != "":
 				body["error"] = str(result.get("reason"))
 			else:
-				body["error"] = "http_%s" % str(status)
+				body["error"] = "http_%s" % str(http_status)
 		body["ok"] = false
-		body["status"] = status
+		body["httpStatus"] = http_status
 		return body
-	if not body.has("ok"):
-		body["ok"] = status >= 200 and status < 300
+	## LIVE: waiting | ready { matchId, joinToken, snapshot? } | declined | expired
+	## Snapshot on ready is optional — bind_new_match GETs the new match. Replay after ready for joinToken.
+	var rem_st := str(body.get("status", ""))
+	var snap: Variant = body.get("snapshot", {})
 	if not body.has("rematch"):
-		var snap: Variant = body.get("snapshot", {})
 		if snap is Dictionary and snap.has("rematch"):
 			body["rematch"] = snap.get("rematch")
-	body["status"] = status
+		else:
+			var rem := {
+				"status": rem_st if rem_st != "" else Contract.REMATCH_WAITING,
+				"youAccepted": bool(body.get("youAccepted", rem_st == Contract.REMATCH_READY)),
+				"opponentAccepted": bool(body.get("opponentAccepted", rem_st == Contract.REMATCH_READY)),
+			}
+			if str(body.get("expiresAt", "")) != "":
+				rem["expiresAt"] = body.get("expiresAt")
+			var new_id := str(body.get("matchId", body.get("newMatchId", "")))
+			if rem_st == Contract.REMATCH_READY and new_id != "":
+				rem["newMatchId"] = new_id
+				rem["matchId"] = new_id
+			body["rematch"] = rem
+	if rem_st == Contract.REMATCH_READY:
+		var mid := str(body.get("matchId", body.get("newMatchId", "")))
+		if mid != "":
+			body["newMatchId"] = mid
+			body["matchId"] = mid
+	if not body.has("ok"):
+		body["ok"] = http_status >= 200 and http_status < 300
+	body["httpStatus"] = http_status
 	return body
 
 
