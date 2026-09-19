@@ -105,13 +105,21 @@ func _run() -> int:
 	else:
 		print("LIVE_SHOP_SINK2_PENDING catalog missing ", Contract.SHOP_BANDANA_ITEM_ID)
 
+	var me: Dictionary = LiveMatchClient.get_shop_me()
+	print("LIVE_SHOP_ME ", JSON.stringify(me))
+	ClientSession.apply_shop(me)
+	var me_shop = Shop.from_any(me)
+	_expect(failed, me_shop.equipped_present, "E1 GET /shop/me has equippedSkinId")
+	_expect(failed, ClientSession.owns_cosmetic(Contract.SHOP_STUB_ITEM_ID), "E1 /shop/me owned ghillie")
+	var marks_before := ClientSession.marks
 	var equip_probe: Dictionary = LiveMatchClient.equip_cosmetic(Contract.SHOP_STUB_ITEM_ID)
 	print("LIVE_SHOP_EQUIP_PROBE ", JSON.stringify(equip_probe))
 	if int(equip_probe.get("status", 0)) == 404 or str(equip_probe.get("error", "")) == Contract.SHOP_ERR_UNAVAILABLE:
 		print("LIVE_SHOP_EQUIP_PENDING Coder /shop/equip 404")
 	elif bool(equip_probe.get("ok", false)):
 		ClientSession.apply_shop(equip_probe)
-		_expect(failed, ClientSession.marks == shop.balance(), "E1 LIVE equip marks untouched")
+		_expect(failed, ClientSession.marks == marks_before, "E1 LIVE equip marks untouched")
+		_expect(failed, ClientSession.is_equipped(Contract.SHOP_STUB_ITEM_ID), "E1 LIVE equippedSkinId ghillie")
 		print("LIVE_SHOP_EQUIP_OK equipped ", ClientSession.equipped_cosmetic)
 	else:
 		print("LIVE_SHOP_EQUIP_REJECT ", str(equip_probe.get("error", "")))

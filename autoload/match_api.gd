@@ -46,13 +46,33 @@ func wallet() -> Dictionary:
 	return MockMatchServer.wallet()
 
 
+func get_shop_me() -> Dictionary:
+	if using_live():
+		return LiveMatchClient.get_shop_me()
+	return MockMatchServer.get_shop()
+
+
 func get_shop() -> Dictionary:
 	if using_live():
 		var body: Dictionary = LiveMatchClient.get_shop()
 		if _shop_live_missing(body):
 			## LIVE /shop missing — keep both stub rows visible; buy still posts LIVE.
-			return Contract.shop_catalog_stub(ClientSession.marks)
-		return Contract.merge_live_shop_catalog(body)
+			body = Contract.shop_catalog_stub(ClientSession.marks)
+		else:
+			body = Contract.merge_live_shop_catalog(body)
+		var me: Dictionary = LiveMatchClient.get_shop_me()
+		if str(me.get("error", "")) == "" and (me.has("you") or me.has("owned")):
+			var you: Variant = me.get("you", {})
+			if you is Dictionary:
+				body["you"] = you
+				if you.has("marks"):
+					body["marks"] = you.get("marks")
+				if you.has("equippedSkinId"):
+					body["equippedSkinId"] = you.get("equippedSkinId")
+					body["equipped"] = you.get("equippedSkinId")
+			if me.has("owned"):
+				body["owned"] = me.get("owned")
+		return body
 	return MockMatchServer.get_shop()
 
 

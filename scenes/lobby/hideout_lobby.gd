@@ -541,13 +541,17 @@ func _bind_wallet() -> void:
 	var wallet: Dictionary = MatchAPI.wallet()
 	if wallet.has("marks"):
 		ClientSession.bind_marks(int(wallet.get("marks")))
-	if wallet.has("owned") or wallet.has("equipped") or wallet.has("you"):
+	if wallet.has("owned") or wallet.has("equipped") or wallet.has("equippedSkinId") or wallet.has("you"):
 		ClientSession.apply_shop(wallet)
 
 
 func _bind_shop() -> void:
 	var bag: Dictionary = MatchAPI.get_shop()
 	ClientSession.apply_shop(bag)
+	if ClientSession.use_live_api():
+		var me: Dictionary = MatchAPI.get_shop_me()
+		if str(me.get("error", "")) == "":
+			ClientSession.apply_shop(me)
 	_refresh_shop()
 
 

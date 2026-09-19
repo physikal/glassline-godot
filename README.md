@@ -77,9 +77,10 @@ Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` 
 | GET | `/matches/:id` | caller-scoped snapshot (reconnect / dummy seat) |
 | GET | `/matches/:id/events` | SSE `{ event: snapshot\|your_turn, snapshot }` — on drop, poll `GET /matches/:id` |
 | POST | `/jobs` | `{ tier: 1\|2\|3, clientJobId? }` + Bearer player token reuses that `playerId`. Credit is job **end**, not this POST. |
-| GET | `/shop` | `{ items: [{ id, name, price, kind }] }` — LIVE `skin_hideout_stub` ★50 + `skin_bandana_stub` ★100 when Coder lists it (no `you.marks`). Mock always has both. |
-| POST | `/shop/buy` | `{ itemId, clientBuyId }` + Bearer **player** token → `{ ok, you.marks, purchaseId, item }`. **402** `insufficient_marks`. Idempotent on `clientBuyId` |
-| POST | `/shop/equip` | `{ itemId }` or `{ itemId: null }` + Bearer **player** token → snapshot `you.equippedSkinId`. Reject if not owned. Marks untouched. **404** until Coder ships — mock + client method ready. |
+| GET | `/shop` | `{ items: [{ id, name, price, kind }] }` — LIVE `skin_hideout_stub` ★50 + `skin_bandana_stub` ★100 (catalog-only, no `you.marks`). Mock always has both. |
+| GET | `/shop/me` | Bearer **player** token → `{ you: { marks, equippedSkinId }, owned }`. Hideout binds this — never invents the skin id. |
+| POST | `/shop/buy` | `{ itemId, clientBuyId }` + Bearer **player** token → `{ ok, you: { marks, equippedSkinId }, purchaseId, item }`. **402** `insufficient_marks`. Last buy auto-equips. |
+| POST | `/shop/equip` | `{ itemId }` or `{ itemId: null }` + Bearer **player** token → `{ ok, you: { marks, equippedSkinId } }`. **403** `not_owned`. Marks untouched. |
 | Auth | | Durable `POST /players` Bearer on create / join / jobs / shop. Match actions / snapshot / SSE use the join token. Dummy seat B stays anonymous. |
 
 `PLAY` still joins **both** seats (you = `a`, local dummy = `b`) against the same server so the offline dummy loop works on live HTTPS. Dummy actions use token `b`; the UI SSE stream uses token `a`.
