@@ -37,7 +37,7 @@ func get_shop() -> Dictionary:
 	if using_live():
 		var body: Dictionary = LiveMatchClient.get_shop()
 		if _shop_live_missing(body):
-			## LIVE /shop 404 — keep the stub row visible; buy still posts LIVE.
+			## LIVE /shop missing — keep the stub row visible; buy still posts LIVE.
 			return Contract.shop_catalog_stub(ClientSession.marks)
 		return body
 	return MockMatchServer.get_shop()

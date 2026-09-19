@@ -61,12 +61,14 @@ const ABILITY_SLOT := "ABILITY"
 ## Mock hideout stub until Coder's ledger / GET wallet exists.
 const MOCK_WALLET_STUB := 24
 
-## Marks sink stub — one hideout cosmetic. GD stamped price 50 (2026-09-18).
-const SHOP_STUB_ITEM_ID := "ghillie_recolor"
+## Marks sink stub — one hideout cosmetic. LIVE catalog lock (Coder 2026-09-19).
+## GET /shop item.id + POST /shop/buy itemId. Price ★50 (2× PvP kill).
+const SHOP_STUB_ITEM_ID := "skin_hideout_stub"
 const SHOP_STUB_ITEM_NAME := "GHILLIE RECOLOR"
-const SHOP_STUB_KIND := "recolor"
+const SHOP_STUB_KIND := "skin"
 const SHOP_STUB_PRICE := 50
 const SHOP_ERR_INSUFFICIENT := "insufficient_marks"
+const SHOP_ERR_INVALID_BODY := "invalid_buy_body"
 const SHOP_ERR_ALREADY_OWNED := "already_owned"
 const SHOP_ERR_UNKNOWN_ITEM := "unknown_item"
 const SHOP_ERR_UNAVAILABLE := "shop_unavailable"
@@ -135,6 +137,7 @@ static func other_seat(seat: String) -> String:
 
 static func shop_stub_item() -> Dictionary:
 	return {
+		"id": SHOP_STUB_ITEM_ID,
 		"itemId": SHOP_STUB_ITEM_ID,
 		"name": SHOP_STUB_ITEM_NAME,
 		"kind": SHOP_STUB_KIND,

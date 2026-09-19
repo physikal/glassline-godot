@@ -46,7 +46,8 @@ func create_match(opts: Dictionary = {}) -> Dictionary:
 
 
 func wallet() -> Dictionary:
-	## Prefer GET /shop when Coder ships it (you.marks + cosmetics). Else {}.
+	## LIVE GET /shop is catalog-only (no you.marks). Hideout binds Marks from
+	## match snapshots / buy `you.marks` — never invent a local ledger.
 	var shop: Dictionary = get_shop()
 	if _shop_unavailable(shop):
 		return {}
@@ -54,16 +55,18 @@ func wallet() -> Dictionary:
 
 
 func get_shop() -> Dictionary:
-	## LIVE GET /shop — catalog + you.marks + owned/equipped. 404 until Coder ships.
+	## LIVE GET /shop → { items: [{ id, name, price, kind }] }. Public catalog.
 	var raw: Dictionary = _raw("GET", "/shop", null, ClientSession.join_token)
 	return _shop_from_raw(raw)
 
 
 func buy_shop(item_id: String, client_buy_id: String = "") -> Dictionary:
-	## LIVE POST /shop/buy { itemId, clientBuyId? }. Idempotent on clientBuyId.
-	var payload := {"itemId": item_id}
-	if client_buy_id != "":
-		payload["clientBuyId"] = client_buy_id
+	## LIVE POST /shop/buy { itemId, clientBuyId } + Bearer joinToken.
+	## 200 { ok, you.marks, purchaseId, item } — idempotent on clientBuyId.
+	## 402 { error, code: insufficient_marks, you.marks }. Never local marks -=.
+	if client_buy_id == "":
+		client_buy_id = Contract.new_client_buy_id()
+	var payload := {"itemId": item_id, "clientBuyId": client_buy_id}
 	var raw: Dictionary = _raw("POST", "/shop/buy", payload, ClientSession.join_token)
 	return _shop_from_raw(raw, true)
 
@@ -81,18 +84,35 @@ func _shop_unavailable(body: Dictionary) -> bool:
 func _shop_from_raw(raw: Dictionary, is_buy: bool = false) -> Dictionary:
 	var status := int(raw.get("status", 0))
 	var js: Variant = raw.get("json", {})
-	if status == 404:
+	if not (js is Dictionary):
+		if status == 404 and not is_buy:
+			return {
+				"ok": false,
+				"error": Contract.SHOP_ERR_UNAVAILABLE,
+				"status": 404,
+				"snapshot": {},
+			}
+		var fallback := str(raw.get("error", "bad_json"))
+		return {"ok": false, "error": fallback, "status": status, "snapshot": {}}
+	var body: Dictionary = js
+	var code := str(body.get("code", body.get("error", "")))
+	if status == 404 and not is_buy and code == "":
 		return {
 			"ok": false,
 			"error": Contract.SHOP_ERR_UNAVAILABLE,
 			"status": 404,
 			"snapshot": {},
 		}
-	if not (js is Dictionary):
-		var fallback := str(raw.get("error", "bad_json"))
-		return {"ok": false, "error": fallback, "status": status, "snapshot": {}}
-	var body: Dictionary = js
-	if status >= 400 and not body.has("error"):
+	if status == 402 or code == Contract.SHOP_ERR_INSUFFICIENT:
+		body["error"] = Contract.SHOP_ERR_INSUFFICIENT
+		body["ok"] = false
+	elif status == 404 and is_buy:
+		body["error"] = Contract.SHOP_ERR_UNKNOWN_ITEM if code == "" else code
+		body["ok"] = false
+	elif status == 400 and is_buy:
+		body["error"] = Contract.SHOP_ERR_INVALID_BODY if code == "" else code
+		body["ok"] = false
+	elif status >= 400 and not body.has("error"):
 		var result: Variant = body.get("result", {})
 		if result is Dictionary and str(result.get("reason", "")) != "":
 			body["error"] = str(result.get("reason"))
@@ -104,7 +124,7 @@ func _shop_from_raw(raw: Dictionary, is_buy: bool = false) -> Dictionary:
 		else:
 			body["ok"] = status >= 200 and status < 300 and str(body.get("error", "")) == ""
 		if not body.has("snapshot"):
-			if body.has("you") or body.has("marks") or body.has("owned"):
+			if body.has("you") or body.has("marks") or body.has("owned") or body.has("item"):
 				body["snapshot"] = body.duplicate(true)
 	body["status"] = status
 	return body

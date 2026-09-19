@@ -50,11 +50,14 @@ func bind_marks(balance: int) -> void:
 
 func apply_shop(bag: Dictionary) -> void:
 	## Bind Marks + cosmetics from a shop / buy snapshot. Never marks -=.
+	## LIVE GET /shop is catalog-only — do not wipe wallet/owned when omitted.
 	var shop = Shop.from_any(bag)
 	if shop.has_marks():
 		bind_marks(shop.balance())
-	owned_cosmetics = shop.owned.duplicate()
-	equipped_cosmetic = str(shop.equipped)
+	if shop.owned_present:
+		owned_cosmetics = shop.owned.duplicate()
+	if shop.equipped_present:
+		equipped_cosmetic = str(shop.equipped)
 	ghillie = owns_cosmetic(Contract.SHOP_STUB_ITEM_ID) and is_equipped(Contract.SHOP_STUB_ITEM_ID)
 
 
