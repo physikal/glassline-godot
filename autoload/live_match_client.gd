@@ -115,9 +115,20 @@ func buy_shop(item_id: String, client_buy_id: String = "") -> Dictionary:
 	return _shop_from_raw(raw, true)
 
 
-func equip_cosmetic(_item_id: String) -> Dictionary:
-	## No LIVE equip route yet. Hideout applies visual locally after a shop snapshot.
-	return {"ok": true, "error": "", "visualOnly": true, "source": "live_local"}
+func equip_cosmetic(item_id: String) -> Dictionary:
+	## LIVE POST /shop/equip { itemId } | { itemId: null } + Bearer **player** token.
+	## 200 snapshot with you.equippedSkinId. Reject if not owned. Marks untouched.
+	## 404 until Coder ships the route — hideout may fall back to local chrome.
+	var payload: Dictionary = {}
+	if item_id == "":
+		payload["itemId"] = null
+	else:
+		payload["itemId"] = item_id
+	var bearer := ClientSession.player_bearer()
+	if bearer == "":
+		bearer = ClientSession.join_token
+	var raw: Dictionary = _raw("POST", "/shop/equip", payload, bearer)
+	return _shop_from_raw(raw, false, true)
 
 
 func _shop_unavailable(body: Dictionary) -> bool:
@@ -125,22 +136,27 @@ func _shop_unavailable(body: Dictionary) -> bool:
 	return err in [Contract.SHOP_ERR_UNAVAILABLE, "http_404", "bad_json"] or int(body.get("status", 0)) == 404
 
 
-func _shop_from_raw(raw: Dictionary, is_buy: bool = false) -> Dictionary:
+func _shop_from_raw(raw: Dictionary, is_buy: bool = false, is_equip: bool = false) -> Dictionary:
 	var status := int(raw.get("status", 0))
 	var js: Variant = raw.get("json", {})
 	if not (js is Dictionary):
-		if status == 404 and not is_buy:
+		if status == 404 and (not is_buy or is_equip):
 			return {
 				"ok": false,
 				"error": Contract.SHOP_ERR_UNAVAILABLE,
 				"status": 404,
 				"snapshot": {},
+				"liveEquipMissing": is_equip,
 			}
 		var fallback := str(raw.get("error", "bad_json"))
 		return {"ok": false, "error": fallback, "status": status, "snapshot": {}}
 	var body: Dictionary = js
 	var code := str(body.get("code", body.get("error", "")))
-	if status == 404 and not is_buy and code == "":
+	if status == 404 and is_equip:
+		body["error"] = Contract.SHOP_ERR_UNAVAILABLE if code == "" else code
+		body["ok"] = false
+		body["liveEquipMissing"] = true
+	elif status == 404 and not is_buy and code == "":
 		return {
 			"ok": false,
 			"error": Contract.SHOP_ERR_UNAVAILABLE,
@@ -150,11 +166,17 @@ func _shop_from_raw(raw: Dictionary, is_buy: bool = false) -> Dictionary:
 	if status == 402 or code == Contract.SHOP_ERR_INSUFFICIENT:
 		body["error"] = Contract.SHOP_ERR_INSUFFICIENT
 		body["ok"] = false
-	elif status == 404 and is_buy:
+	elif status == 404 and is_buy and not is_equip:
 		body["error"] = Contract.SHOP_ERR_UNKNOWN_ITEM if code == "" else code
 		body["ok"] = false
 	elif status == 400 and is_buy:
 		body["error"] = Contract.SHOP_ERR_INVALID_BODY if code == "" else code
+		body["ok"] = false
+	elif status == 400 and is_equip:
+		body["error"] = Contract.SHOP_ERR_NOT_OWNED if code == "" else code
+		body["ok"] = false
+	elif status == 403 and is_equip:
+		body["error"] = Contract.SHOP_ERR_NOT_OWNED if code == "" else code
 		body["ok"] = false
 	elif status >= 400 and not body.has("error"):
 		var result: Variant = body.get("result", {})
@@ -162,13 +184,14 @@ func _shop_from_raw(raw: Dictionary, is_buy: bool = false) -> Dictionary:
 			body["error"] = str(result.get("reason"))
 		else:
 			body["error"] = "http_%s" % str(status)
-	if is_buy:
+	if is_buy or is_equip:
 		if body.has("ok"):
 			body["ok"] = bool(body.get("ok"))
 		else:
 			body["ok"] = status >= 200 and status < 300 and str(body.get("error", "")) == ""
 		if not body.has("snapshot"):
-			if body.has("you") or body.has("marks") or body.has("owned") or body.has("item"):
+			if body.has("you") or body.has("marks") or body.has("owned") or body.has("item") \
+					or body.has("equipped") or body.has("equippedSkinId"):
 				body["snapshot"] = body.duplicate(true)
 	body["status"] = status
 	return body

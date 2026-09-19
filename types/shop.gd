@@ -76,6 +76,7 @@ static func _read_error(bag: Dictionary) -> String:
 			Contract.SHOP_ERR_UNKNOWN_ITEM,
 			Contract.SHOP_ERR_UNAVAILABLE,
 			Contract.SHOP_ERR_INVALID_BODY,
+			Contract.SHOP_ERR_NOT_OWNED,
 		]:
 			return token
 	return ""
@@ -119,22 +120,31 @@ static func _read_owned(bag: Dictionary, root: Dictionary) -> Array:
 
 
 static func _read_equipped(bag: Dictionary, root: Dictionary) -> String:
+	## Prefer Coder `you.equippedSkinId`. Fall back to last-buy `equipped`.
 	for source in [bag, root]:
 		var you: Variant = source.get("you", {})
 		if you is Dictionary:
+			if you.has("equippedSkinId"):
+				return _as_id(you.get("equippedSkinId", null))
 			var eq := _as_id(you.get("equipped", null))
 			if eq != "":
 				return eq
 			var cosmetics: Variant = you.get("cosmetics", {})
 			if cosmetics is Dictionary:
+				if cosmetics.has("equippedSkinId"):
+					return _as_id(cosmetics.get("equippedSkinId", null))
 				eq = _as_id(cosmetics.get("equipped", null))
 				if eq != "":
 					return eq
+		if source.has("equippedSkinId"):
+			return _as_id(source.get("equippedSkinId", null))
 		var eq_top := _as_id(source.get("equipped", null))
 		if eq_top != "":
 			return eq_top
 		var shop: Variant = source.get("shop", {})
 		if shop is Dictionary:
+			if shop.has("equippedSkinId"):
+				return _as_id(shop.get("equippedSkinId", null))
 			var eq_shop := _as_id(shop.get("equipped", null))
 			if eq_shop != "":
 				return eq_shop
@@ -212,9 +222,9 @@ static func _has_owned(bag: Dictionary, root: Dictionary) -> bool:
 static func _has_equipped(bag: Dictionary, root: Dictionary) -> bool:
 	for source in [bag, root]:
 		var you: Variant = source.get("you", {})
-		if you is Dictionary and (you.has("equipped") or you.has("cosmetics")):
+		if you is Dictionary and (you.has("equippedSkinId") or you.has("equipped") or you.has("cosmetics")):
 			return true
-		if source.has("equipped"):
+		if source.has("equippedSkinId") or source.has("equipped"):
 			return true
 	return false
 
@@ -300,6 +310,10 @@ func is_insufficient() -> bool:
 	return error == Contract.SHOP_ERR_INSUFFICIENT
 
 
+func is_not_owned() -> bool:
+	return error == Contract.SHOP_ERR_NOT_OWNED
+
+
 func is_unavailable() -> bool:
 	return error == Contract.SHOP_ERR_UNAVAILABLE or error == "http_404" or error.begins_with("http_404")
 
@@ -308,14 +322,16 @@ func can_afford() -> bool:
 	return balance() >= price()
 
 
-static func row_action_text(owned: bool) -> String:
-	## Owned chrome is OWNED (visual toggle), never EQUIPPED / stowed.
-	return "OWNED" if owned else "BUY"
+static func row_action_text(owned: bool, equipped: bool = false) -> String:
+	## Unowned → BUY. Owned → EQUIP / EQUIPPED (clear vs OWNED · visual only).
+	if not owned:
+		return "BUY"
+	return "EQUIPPED" if equipped else "EQUIP"
 
 
-static func row_status_text(owned: bool, can_buy: bool) -> String:
+static func row_status_text(owned: bool, can_buy: bool, equipped: bool = false) -> String:
 	if owned:
-		return Contract.SHOP_OWNED_COPY
+		return Contract.SHOP_EQUIPPED_COPY if equipped else Contract.SHOP_OWNED_COPY
 	if not can_buy:
 		return Contract.SHOP_INSUFFICIENT_COPY
 	return ""

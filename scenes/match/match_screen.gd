@@ -58,6 +58,8 @@ func _ready() -> void:
 		_capture_a2_reconnect()
 	elif "--capture-sp-end" in args:
 		_capture_sp_end()
+	elif "--capture-equip-doll" in args:
+		_capture_equip_doll()
 
 
 func _capture_after_play() -> void:
@@ -111,8 +113,41 @@ func _apply_server_reconnect() -> Dictionary:
 
 func _bind_server_exposure(snap: Snapshot) -> void:
 	## Doll is server you.exposurePct. Slider is the next end_turn intent only.
+	## Chrome wash is you.equippedSkinId (shop snapshot cache if match omits it).
 	if _exposure_doll:
 		_exposure_doll.bind_server_pct(snap.you_exposure())
+		var skin := snap.you_equipped_skin_id()
+		if skin == "" and not snap.you().has("equippedSkinId") and not snap.you().has("equipped"):
+			skin = ClientSession.equipped_cosmetic
+		_exposure_doll.bind_equipped(skin)
+
+
+func _capture_equip_doll() -> void:
+	## E6: same equippedSkinId chrome on the exposure doll (end-turn panel).
+	await get_tree().process_frame
+	var snap: Snapshot = ClientSession.typed_snapshot()
+	if snap.status() == Contract.STATUS_READY or snap.status() == Contract.STATUS_WAITING:
+		_submit(ActionIntent.select_hex(2, 2))
+		await get_tree().process_frame
+		snap = ClientSession.typed_snapshot()
+	if snap.status() == Contract.STATUS_READY:
+		_submit(ActionIntent.start())
+		await get_tree().process_frame
+		snap = ClientSession.typed_snapshot()
+	if snap.status() == Contract.STATUS_ACTIVE and str(snap.phase()) == Contract.PHASE_ACTION:
+		_submit(ActionIntent.attack(0, 0))
+		await get_tree().process_frame
+		snap = ClientSession.typed_snapshot()
+	_end_panel.visible = true
+	_bind_server_exposure(ClientSession.typed_snapshot())
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	var path := ProjectSettings.globalize_path("res://artifacts/ux/equip_exposure_doll.png")
+	img.save_png(path)
+	print("E6_EQUIP_DOLL ", path)
+	get_tree().quit()
 
 
 func _capture_a2_reconnect() -> void:

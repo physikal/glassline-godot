@@ -1,10 +1,12 @@
 extends Control
 ## End-turn exposure doll. Display is snapshot you.exposurePct (server).
-## Art stub — soft gap, owner Godot for polish. Not mil-sim. Not a Marks grant.
+## Chrome wash follows you.equippedSkinId — visual only. No combat / exposure math.
 
 const Chrome := preload("res://scripts/chrome.gd")
+const Contract := preload("res://types/contract.gd")
 
 var exposure_pct: float = 50.0
+var equipped_skin_id: String = ""
 
 
 func _ready() -> void:
@@ -23,6 +25,14 @@ func bind_server_pct(value: float) -> void:
 	set_exposure(value)
 
 
+func bind_equipped(item_id: String) -> void:
+	## Same id as hideout operative. Empty = teal jacket. Never invent an id.
+	if equipped_skin_id == item_id:
+		return
+	equipped_skin_id = item_id
+	queue_redraw()
+
+
 func _draw() -> void:
 	var w := size.x
 	var h := size.y
@@ -33,8 +43,19 @@ func _draw() -> void:
 	var cx := w * 0.5
 	var body := Color("e6c39a")
 	var shirt := Color("1d6b54")
+	var ghillie := equipped_skin_id == Contract.SHOP_STUB_ITEM_ID
+	var bandana := equipped_skin_id == Contract.SHOP_BANDANA_ITEM_ID
+	if ghillie:
+		shirt = Color("3d6a28")
+	elif bandana:
+		shirt = Color("8a3a28")
 	draw_circle(Vector2(cx, h * 0.22), 8.0, body)
+	if bandana:
+		draw_rect(Rect2(cx - 9.0, h * 0.16, 18.0, 5.0), Color("c45a4a"))
 	draw_rect(Rect2(cx - 8.0, h * 0.30, 16.0, 22.0), shirt)
+	if ghillie:
+		draw_circle(Vector2(cx - 7.0, h * 0.34), 4.0, Color("5a8f34"))
+		draw_circle(Vector2(cx + 7.0, h * 0.36), 3.5, Color("7cb34a"))
 	draw_rect(Rect2(cx - 6.0, h * 0.52, 5.0, 16.0), Color("3a332c"))
 	draw_rect(Rect2(cx + 1.0, h * 0.52, 5.0, 16.0), Color("3a332c"))
 	var cover_h := h * ((100.0 - exposure_pct) / 100.0) * 0.72
