@@ -10,7 +10,7 @@ var ok: bool = false
 var error: String = ""
 var snapshot: Dictionary = {}
 var event: String = Contract.EVENT_SNAPSHOT
-## Locked union: select_hex|start|attack|recon|uav|end_turn|reject
+## Locked union: select_hex|start|attack|recon|uav|decoy|end_turn|reject
 var result: Dictionary = {}
 
 

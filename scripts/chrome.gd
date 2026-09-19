@@ -16,6 +16,7 @@ const JOBS_ORANGE := Color("e87a22")
 const ATTACK_RED := Color("c23b3b")
 const RECON_BLUE := Color("1f6feb")
 const ABILITY_PURPLE := Color("6b4ac7")
+const DECOY_CARAMEL := Color("c46b3a")
 const HIGH_GOLD := Color("c9a24a")
 ## Bandana recolor wash — toy chrome tint, not a new plate / mil-sim art.
 const BANDANA_WASH := Color(0.76, 0.32, 0.20, 0.24)
@@ -181,6 +182,8 @@ static func make_icon(kind: String, color: Color, px: int = 28) -> Texture2D:
 			_icon_binoculars(img, color)
 		"ability", "star":
 			_icon_star(img, color)
+		"decoy":
+			_icon_toy_doll(img, color)
 		"clock":
 			_icon_clock(img, color)
 		"play":
@@ -262,6 +265,17 @@ static func _icon_binoculars(img: Image, color: Color) -> void:
 	_fill_rect(img, 12, 12, 5, 3, color)
 	_fill_rect(img, 6, 6, 5, 4, color)
 	_fill_rect(img, 18, 6, 5, 4, color)
+
+
+static func _icon_toy_doll(img: Image, color: Color) -> void:
+	## Stuffed toy dummy — cozy, not mil-sim smoke.
+	_fill_circle(img, 14, 8, 5, color)
+	_fill_circle(img, 14, 18, 7, color)
+	_fill_rect(img, 6, 14, 4, 6, color)
+	_fill_rect(img, 18, 14, 4, 6, color)
+	_fill_circle(img, 12, 7, 1, INK)
+	_fill_circle(img, 16, 7, 1, INK)
+	_fill_rect(img, 13, 10, 3, 1, INK)
 
 
 static func _icon_star(img: Image, color: Color) -> void:

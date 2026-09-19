@@ -12,6 +12,16 @@ const AXIAL_DIRS: Array[Vector2i] = [
 	Vector2i(0, 1),
 ]
 
+## LIVE src/hex.ts pickDecoyHex walk order (docs/contract neighbor table).
+const DECOY_DIRS: Array[Vector2i] = [
+	Vector2i(1, 0),
+	Vector2i(-1, 0),
+	Vector2i(0, 1),
+	Vector2i(0, -1),
+	Vector2i(1, -1),
+	Vector2i(-1, 1),
+]
+
 
 static func axial_to_pixel(q: int, r: int, size: float) -> Vector2:
 	var x := size * (sqrt(3.0) * float(q) + sqrt(3.0) / 2.0 * float(r))

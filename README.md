@@ -56,6 +56,7 @@ GLASSLINE_USE_LIVE_API=1 godot --headless --path . res://tools/live_loop_test.ts
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_shop_smoke.py   # S1–S3 Marks sink (POST /players + two kill wins)
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_shop_sink2_smoke.py  # S2.1–S2.3 bandana ★100 (pending if catalog lags)
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_shop_equip_smoke.py  # E1/E4 equip (pending if /shop/equip 404)
+GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_decoy_smoke.py      # D1–D5 decoy LIVE_DECOY_OK
 GLASSLINE_USE_LIVE_API=1 godot --headless --path . res://tools/live_shop_test.tscn
 ```
 
@@ -90,7 +91,7 @@ Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` 
 | Scene | Path | Role |
 | --- | --- | --- |
 | Hideout | `scenes/lobby/hideout_lobby.tscn` | Canon room, ARMORY two rows (ghillie ★50 + bandana ★100), PLAY, JOBS, Marks chip |
-| Match | `scenes/match/match_screen.tscn` | 9×7 axial, dummy `select_hex`, START, Attack/Recon/UAV ability, END TURN |
+| Match | `scenes/match/match_screen.tscn` | 9×7 axial, dummy `select_hex`, START, Attack/Recon/UAV/DECOY, END TURN |
 | Optic | `scenes/optic/optic_overlay.gd` | Zoom / wobble stub + FIRE |
 | Types | `types/` | Snapshot, ActionIntent, ActionResult (`{ ok, snapshot, result }`) |
 | Mock | `autoload/mock_match_server.gd` | Local secret positions |
@@ -104,10 +105,10 @@ Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` 
 3. START → `active`, `whoseTurn: a`, exposure 50.
 4. ATTACK miss → optic FIRE → server `result.hit == false`. END TURN.
 5. Dummy recon + end_turn (or watch SSE `your_turn`).
-6. UAV once → `enemy.visibleHex`. END TURN.
+6. UAV once → `enemy.visibleHex`. END TURN. **DECOY** once → server plants a toy doll on an adjacent empty hex (`you.decoyHex`); rival sees `enemy.decoySoftHex`. Attack on that hex is `hit:false` + `decoyCleared`. Expires next own `end_turn`. No Marks / no hit% buff.
 7. ATTACK that hex → `hit` / `kill`. End overlay reads server `payout` (`marks`, `marksDelta`, `reason`) — never local `marks +=`.
 
-Hideout **JOBS** opens three SP rows (T1 ★10 / T2 ★15 / T3 ★20). START posts `POST /jobs` `{ tier, clientJobId }` on LIVE (mock uses the same shape) then the board. Marks chip binds snapshot `you.marks` only. Ability chrome is labeled **UAV** and still posts `{ type: "uav" }`. Earn table: `artifacts/MARKS_SP_NOTES.md`. Ladder gates: `artifacts/SP_JOB_LADDER_NOTES.md`. Hideout **ARMORY** is two chrome-only Marks sinks (`skin_hideout_stub` ★50 + `skin_bandana_stub` ★100, same `get_shop` / `buy_shop`, no combat / no IAP): `artifacts/MARKS_SINK_NOTES.md` · `artifacts/MARKS_SINK2_NOTES.md`. Owned rows **EQUIP / EQUIPPED** bind hideout + exposure doll to snapshot `you.equippedSkinId`: `artifacts/EQUIP_CHROME_NOTES.md`.
+Hideout **JOBS** opens three SP rows (T1 ★10 / T2 ★15 / T3 ★20). START posts `POST /jobs` `{ tier, clientJobId }` on LIVE (mock uses the same shape) then the board. Marks chip binds snapshot `you.marks` only. Ability chrome is labeled **UAV** and still posts `{ type: "uav" }`. **DECOY** sits beside it and posts `{ type: "decoy" }` (mock + LIVE D1–D5). Earn table: `artifacts/MARKS_SP_NOTES.md`. Decoy notes: `artifacts/DECOY_NOTES.md`. Ladder gates: `artifacts/SP_JOB_LADDER_NOTES.md`. Hideout **ARMORY** is two chrome-only Marks sinks (`skin_hideout_stub` ★50 + `skin_bandana_stub` ★100, same `get_shop` / `buy_shop`, no combat / no IAP): `artifacts/MARKS_SINK_NOTES.md` · `artifacts/MARKS_SINK2_NOTES.md`. Owned rows **EQUIP / EQUIPPED** bind hideout + exposure doll to snapshot `you.equippedSkinId`: `artifacts/EQUIP_CHROME_NOTES.md`.
 
 ## Layout
 
@@ -116,7 +117,7 @@ autoload/     ClientSession, MockMatchServer, LiveMatchClient, MatchAPI
 types/        contract-facing classes
 docs/         API_CONTRACT.md (locked Notion)
 assets/canon/ four plates
-tools/        headless_loop_test.gd
+tools/        headless_loop_test.gd · live_decoy_smoke.py
 ```
 
 No IAP, Steam, ranked, part tree, 3D, UDP, or NGO.

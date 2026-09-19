@@ -393,7 +393,17 @@ func _poll_once() -> void:
 	]
 	var last: Variant = snap.get("lastAction", {})
 	if last is Dictionary:
-		fp += "|%s" % str(last.get("type", ""))
+		fp += "|%s|%s" % [str(last.get("type", "")), str(last.get("decoyCleared", ""))]
+	var you_live: Variant = snap.get("you", {})
+	if you_live is Dictionary:
+		fp += "|d:%s|%s|%s" % [
+			str(you_live.get("decoyAvailable", "")),
+			str(you_live.get("decoyRemaining", "")),
+			Contract.hex_key(you_live.get("decoyHex", null)),
+		]
+	var enemy_live: Variant = snap.get("enemy", {})
+	if enemy_live is Dictionary:
+		fp += "|s:%s" % Contract.hex_key(enemy_live.get("decoySoftHex", null))
 	if fp == _last_fp:
 		return
 	_last_fp = fp

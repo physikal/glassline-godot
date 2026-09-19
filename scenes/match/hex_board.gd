@@ -29,6 +29,8 @@ const TABLE_INNER := [
 var _terrain: Dictionary = {}
 var _you_hex: Variant = null
 var _enemy_hex: Variant = null
+var _own_decoy: Variant = null
+var _enemy_decoy: Variant = null
 var _selected: Variant = null
 var _hover: Variant = null
 var _highlights: Dictionary = {} # "q,r" -> Color
@@ -49,6 +51,11 @@ func apply_snapshot(snap: Snapshot, selected: Variant = null, extra_highlights: 
 	_terrain = snap.terrain_map()
 	_you_hex = snap.you_hex()
 	_enemy_hex = snap.enemy_visible_hex()
+	_own_decoy = snap.you_decoy_hex()
+	_enemy_decoy = snap.enemy_decoy_soft_hex()
+	if snap.status() == Contract.STATUS_ENDED:
+		_own_decoy = null
+		_enemy_decoy = null
 	_selected = selected
 	_highlights = extra_highlights
 	_preview_tokens = snap.status() == Contract.STATUS_READY
@@ -159,10 +166,40 @@ func _draw_tokens() -> void:
 		_draw_token(_center_of(you), Chrome.P1, "P1")
 	if rival != null and not Contract.same_hex(rival, you):
 		_draw_token(_center_of(rival), Chrome.P2, "P2")
+	if _own_decoy != null and not Contract.same_hex(_own_decoy, you):
+		_draw_decoy_blip(_center_of(_own_decoy), true)
+	if _enemy_decoy != null and not Contract.same_hex(_enemy_decoy, _own_decoy):
+		_draw_decoy_blip(_center_of(_enemy_decoy), false)
 
 
 func _center_of(hex: Variant) -> Vector2:
 	return HexMath.axial_to_pixel(int(hex["q"]), int(hex["r"]), HEX_SIZE) - _origin
+
+
+func _draw_decoy_blip(center: Vector2, own: bool) -> void:
+	## Dashed toy doll — cozy stuffed dummy, not mil-sim smoke.
+	var ring := Color("f2e6c4") if own else Color(0.94, 0.62, 0.38, 0.82)
+	var doll := Chrome.P1.lightened(0.12) if own else Color(0.92, 0.58, 0.32, 0.88)
+	_draw_dashed_ring(center, HEX_SIZE * 0.70, ring, 12)
+	_draw_dashed_ring(center, HEX_SIZE * 0.58, ring.darkened(0.08), 10)
+	draw_circle(center + Vector2(0, 4), 9.0, Color(0, 0, 0, 0.22))
+	draw_circle(center + Vector2(0, 5), 8.4, doll)
+	draw_circle(center + Vector2(-7, 3), 3.2, doll)
+	draw_circle(center + Vector2(7, 3), 3.2, doll)
+	draw_circle(center + Vector2(0, -8), 6.4, Color.WHITE)
+	draw_circle(center + Vector2(0, -8), 5.4, doll.lightened(0.18))
+	draw_circle(center + Vector2(-2.0, -9.0), 1.15, Color("1a1410"))
+	draw_circle(center + Vector2(2.0, -9.0), 1.15, Color("1a1410"))
+	draw_line(center + Vector2(-2.2, -5.6), center + Vector2(2.2, -5.6), Color("1a1410"), 1.1, true)
+	var tag := "DOLL" if own else "BLIP"
+	_draw_mark(center + Vector2(0, -22), tag, Color.WHITE if own else Color("f7d7b0"))
+
+
+func _draw_dashed_ring(center: Vector2, radius: float, color: Color, dashes: int) -> void:
+	for i in dashes:
+		var a0 := float(i) * TAU / float(dashes)
+		var a1 := a0 + TAU / float(dashes) * 0.55
+		draw_arc(center, radius, a0, a1, 7, color, 2.6, true)
 
 
 func _draw_token(center: Vector2, color: Color, tag: String) -> void:

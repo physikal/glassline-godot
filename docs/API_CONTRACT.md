@@ -21,7 +21,7 @@ Source: Notion “Glassline API contract draft v0” (Godot stamp). Client types
 2. `POST /matches/:id/join` `{ token }` → `{ playerId, seat, snapshot }` — `waiting` until both seated → `ready`
 3. Drop: both `select_hex` while `ready`; re-drop OK until `start`
 4. `{ type: "start" }` once both placed → `active`, `whoseTurn: "a"`, `turnIndex: 0`, `exposurePct: 50`
-5. Turns: exactly one of `attack` | `recon` | `uav`, then required `end_turn`
+5. Turns: exactly one of `attack` | `recon` | `uav` | `decoy`, then required `end_turn`
 6. `turnCap` 16 total (8 each) → `winner: "draw"`
 7. Kill → Marks +1 winner
 
@@ -35,8 +35,8 @@ Source: Notion “Glassline API contract draft v0” (Godot stamp). Client types
   turnIndex, turnCap: 16, whoseTurn: a|b|null,
   phase: await_action|await_end_turn|null,
   uavRemaining: 0|1,
-  you: { seat, hex, placed, marks, exposurePct, movedLastTurn },
-  enemy: { seat, visibleHex, softHotTurnsLeft },
+  you: { seat, hex, placed, marks, exposurePct, movedLastTurn, decoyAvailable, decoyRemaining: 0|1, decoyHex? },
+  enemy: { seat, visibleHex, softHotTurnsLeft, decoySoftHex? },
   terrain: [{ q, r, type }],
   lastAction: ActionResult | null,
   winner: a|b|draw|null
@@ -50,6 +50,7 @@ Source: Notion “Glassline API contract draft v0” (Godot stamp). Client types
 { type: "attack", hex: {q,r} }
 { type: "recon", hex: {q,r} }   // sector = center + 6 neighbors
 { type: "uav" }
+{ type: "decoy" }            // no hex; server picks adjacent empty (LIVE 200)
 { type: "end_turn", exposurePct: number, hex?: {q,r} }
 
 → { ok, snapshot, result: ActionResult }
@@ -59,9 +60,10 @@ Source: Notion “Glassline API contract draft v0” (Godot stamp). Client types
 ActionResult =
   | { type: "select_hex", terrain: open|brush|hard }
   | { type: "start" }
-  | { type: "attack", hit: boolean, kill: boolean }
+  | { type: "attack", hit: boolean, kill: boolean, decoyCleared?: boolean }
   | { type: "recon", spotted: boolean, hex?: {q,r} }
   | { type: "uav", revealed: boolean, hex?: {q,r} }
+  | { type: "decoy", hex?: {q,r}, planted?: boolean }
   | { type: "end_turn" }
   | { type: "reject", reason: string }
 ```

@@ -1,0 +1,32 @@
+LIVE DECOY smoke — 2026-09-19 (LIVE CLEAR · prepare: false)
+BASE https://glassline-api.vercel.app
+
+GET /health                         PASS  { ok: true }
+POST /players                       PASS
+join a+b + both drops → active      PASS  (no schema-cache 500)
+
+POST /matches/:id/actions { type: "decoy" }   // no hex in body
+  HTTP 200
+  { ok: true, result: { type: "decoy", hex: { q: 3, r: 2 } } }
+  A at (2,2) → you.decoyHex { q: 3, r: 2 }
+  you.decoyAvailable false · you.decoyRemaining 0
+  phase await_end_turn · uavRemaining 1 · no marks/marksDelta
+
+D2 B GET /matches/:id
+  enemy.decoySoftHex { q: 3, r: 2 }
+  enemy.visibleHex null          // not mixed with the doll
+  B.you.decoyHex null
+
+D3 B attack { q: 3, r: 2 }
+  HTTP 200
+  { type: "attack", hit: false, kill: false, decoyCleared: true }
+  after: A.you.decoyHex null · B.enemy.decoySoftHex null · visibleHex still null
+
+D1 once + full turn                 PASS  (second decoy refused)
+D2 adjacent empty + enemy soft      PASS  hex (3,2) · decoySoftHex ≠ visibleHex
+D3 Attack miss+clear                PASS  hit:false kill:false decoyCleared:true
+D4 expires next own end_turn        PASS
+D5 no economy / buff                PASS  Marks unchanged; UAV charge untouched
+
+Result: LIVE_DECOY_OK
+python3 tools/live_decoy_smoke.py
