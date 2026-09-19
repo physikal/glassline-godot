@@ -330,6 +330,7 @@ static func row_action_text(owned: bool, equipped: bool = false) -> String:
 
 
 static func row_status_text(owned: bool, can_buy: bool, equipped: bool = false) -> String:
+	## Soft P2: this is the one hideout wear/buy status. Do not also toast Bought / wearing / visual.
 	if owned:
 		return Contract.SHOP_EQUIPPED_COPY if equipped else Contract.SHOP_OWNED_COPY
 	if not can_buy:
