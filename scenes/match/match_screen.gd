@@ -37,6 +37,8 @@ var _clock_icon: TextureRect
 var _grace_lbl: Label
 var _over: ColorRect
 var _over_lbl: Label
+var _over_marks: Label
+var _over_reason: Label
 var _over_settle: Label
 var _over_hint: Label
 var _over_timer: Label
@@ -90,6 +92,12 @@ func _ready() -> void:
 		_capture_grace_countdown()
 	elif "--capture-forfeit-overlay" in args:
 		_capture_forfeit_overlay()
+	elif "--capture-end-summary-kill" in args:
+		_capture_end_summary_kill()
+	elif "--capture-end-summary-forfeit" in args:
+		_capture_end_summary_forfeit()
+	elif "--capture-end-summary-standoff" in args:
+		_capture_end_summary_standoff()
 
 
 func _capture_after_play() -> void:
@@ -365,6 +373,48 @@ func _capture_forfeit_overlay() -> void:
 	get_tree().quit()
 
 
+func _capture_end_summary_png(path: String, tag: String) -> void:
+	_toast.text = ""
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	var out := ProjectSettings.globalize_path(path)
+	img.save_png(out)
+	print("%s %s" % [tag, out])
+	get_tree().quit()
+
+
+func _capture_end_summary_kill() -> void:
+	await get_tree().process_frame
+	var snap := _force_pvp_end_for_capture()
+	_refresh(snap)
+	await _capture_end_summary_png("res://artifacts/ux/end_summary_kill.png", "M1_END_SUMMARY_KILL")
+
+
+func _capture_end_summary_forfeit() -> void:
+	await get_tree().process_frame
+	_force_pvp_active_for_capture()
+	if ClientSession.dummy_player_id != "":
+		MatchAPI.abandon_as(ClientSession.dummy_player_id)
+		var yours: Dictionary = MatchAPI.get_snapshot(ClientSession.match_id, ClientSession.player_id)
+		if not yours.is_empty():
+			ClientSession.apply_snapshot(yours)
+	_refresh(ClientSession.typed_snapshot())
+	await _capture_end_summary_png("res://artifacts/ux/end_summary_forfeit.png", "M1_END_SUMMARY_FORFEIT")
+
+
+func _capture_end_summary_standoff() -> void:
+	await get_tree().process_frame
+	_force_pvp_active_for_capture()
+	var body: Dictionary = MockMatchServer.force_standoff(ClientSession.match_id, ClientSession.player_id)
+	var snap_raw: Variant = body.get("snapshot", {})
+	if snap_raw is Dictionary and not snap_raw.is_empty():
+		ClientSession.apply_snapshot(snap_raw)
+	_refresh(ClientSession.typed_snapshot())
+	await _capture_end_summary_png("res://artifacts/ux/end_summary_standoff.png", "M1_END_SUMMARY_STANDOFF")
+
+
 func _capture_a2_reconnect() -> void:
 	await get_tree().process_frame
 	if ClientSession.typed_snapshot().status() == Contract.STATUS_READY:
@@ -631,24 +681,32 @@ func _build() -> void:
 	plate.set_anchors_preset(PRESET_CENTER)
 	plate.offset_left = -360
 	plate.offset_right = 360
-	plate.offset_top = -210
-	plate.offset_bottom = 210
+	plate.offset_top = -230
+	plate.offset_bottom = 230
 	var plate_box := Chrome.flat(Color(0.12, 0.08, 0.05, 0.96), 20, Chrome.HIGH_GOLD, 3)
 	plate_box.content_margin_left = 28
 	plate_box.content_margin_right = 28
-	plate_box.content_margin_top = 20
-	plate_box.content_margin_bottom = 20
+	plate_box.content_margin_top = 22
+	plate_box.content_margin_bottom = 22
 	plate.add_theme_stylebox_override("panel", plate_box)
 	_over.add_child(plate)
 	var over_col := VBoxContainer.new()
 	over_col.alignment = BoxContainer.ALIGNMENT_CENTER
-	over_col.add_theme_constant_override("separation", 12)
+	over_col.add_theme_constant_override("separation", 10)
 	plate.add_child(over_col)
 	_over_lbl = Label.new()
 	_over_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_over_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	Chrome.apply_label(_over_lbl, 16, Color.WHITE, true)
+	Chrome.apply_label(_over_lbl, 18, Color.WHITE, true)
 	over_col.add_child(_over_lbl)
+	_over_marks = Label.new()
+	_over_marks.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	Chrome.apply_label(_over_marks, 14, Chrome.HIGH_GOLD, true)
+	over_col.add_child(_over_marks)
+	_over_reason = Label.new()
+	_over_reason.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	Chrome.apply_label(_over_reason, 10, Chrome.CREAM, true)
+	over_col.add_child(_over_reason)
 	_over_settle = Label.new()
 	_over_settle.text = Contract.REMATCH_SETTLED_COPY
 	_over_settle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1085,17 +1143,22 @@ func _show_ended(snap: Snapshot) -> void:
 		_go_hideout()
 		return
 	_over.visible = true
-	_over_lbl.text = MarksPayout.end_overlay(snap.raw, snap.you_seat(), ClientSession.is_job() or snap.is_job())
+	var job := ClientSession.is_job() or snap.is_job()
+	var parts: Dictionary = MarksPayout.overlay_parts(snap.raw, snap.you_seat(), job)
+	_over_lbl.text = str(parts.get("headline", ""))
+	if _over_marks:
+		_over_marks.text = str(parts.get("marks", ""))
+		_over_marks.visible = str(parts.get("marks", "")) != ""
+	if _over_reason:
+		_over_reason.text = str(parts.get("reason", ""))
+		_over_reason.visible = str(parts.get("reason", "")) != ""
 	var offered := snap.rematch_offered()
 	var foil := snap.is_forfeit() and not snap.is_job()
 	if foil and not offered and snap.status() == Contract.STATUS_ENDED:
 		offered = true
 	var you_waiting := offered and snap.rematch_you_accepted() and not snap.rematch_opponent_accepted()
 	_over_settle.visible = offered or snap.is_forfeit()
-	if snap.is_forfeit():
-		_over_settle.text = "Marks settled  ·  +12 / 0"
-	else:
-		_over_settle.text = Contract.REMATCH_SETTLED_COPY
+	_over_settle.text = Contract.REMATCH_SETTLED_COPY
 	_over_hint.visible = offered
 	_over_hint.text = Contract.REMATCH_WAIT_COPY if you_waiting else Contract.REMATCH_HINT_COPY
 	_btn_play_again.visible = offered

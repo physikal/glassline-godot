@@ -82,7 +82,14 @@ func _ready() -> void:
 		await get_tree().process_frame
 		_on_play()
 	elif "--capture-abandon-cta" in args or "--capture-grace-countdown" in args \
-			or "--capture-forfeit-overlay" in args:
+			or "--capture-forfeit-overlay" in args \
+			or "--capture-end-summary-kill" in args \
+			or "--capture-end-summary-forfeit" in args \
+			or "--capture-end-summary-standoff" in args:
+		if "--capture-end-summary-kill" in args or "--capture-end-summary-forfeit" in args \
+				or "--capture-end-summary-standoff" in args:
+			if not ClientSession.use_live_api():
+				MockMatchServer.reset_wallet(0)
 		await get_tree().process_frame
 		_on_play()
 
