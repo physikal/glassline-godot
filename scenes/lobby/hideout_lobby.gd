@@ -700,7 +700,8 @@ func _on_shop_primary(item_id: String) -> void:
 	else:
 		if status:
 			status.text = Contract.SHOP_EQUIPPED_COPY
-		_toast_msg("Bought  ·  wearing it  ·  visual only")
+		## Soft P2: no floating Bought / wearing / visual stack — ARMORY row is the one line.
+		_toast_msg("")
 	_refresh_shop()
 
 
@@ -730,10 +731,9 @@ func _on_equip_toggle(item_id: String) -> void:
 	_refresh_shop()
 	if int(ClientSession.marks) != marks_before:
 		_toast_msg("Marks chip rebound from snapshot")
-	elif next_id == "":
-		_toast_msg("Suit off  ·  teal jacket")
 	else:
-		_toast_msg(Contract.SHOP_EQUIPPED_COPY)
+		## Soft P2: EQUIP / EQUIPPED / OWNED row copy is the single wear status.
+		_toast_msg("")
 
 
 func _toggle_suit() -> void:

@@ -48,7 +48,7 @@ HTTP log: [`artifacts/live_shop_equip_smoke.txt`](live_shop_equip_smoke.txt)
 | **E3** doll | **PASS mock** | Exposure doll shirt / bandana wash uses the same id. [`ux/equip_exposure_doll.png`](ux/equip_exposure_doll.png). |
 | **E4** swap / unequip | **PASS LIVE** | Swap ghillie → unequip null → re-equip bandana. Marks chip 0 throughout. Owns both SKUs. |
 | **E5** combat parity | **PASS LIVE** | Bare `m_dd3010d155114a2392bd123276ce615c` vs worn `m_188d5e616d064554ae6da20ae8ea4b06` (`equippedSkinId=skin_hideout_stub`). Miss `hit=false` / no Hot. Kill `hit=true` `kill=true` `status=ended` `marks +25`. |
-| **E6** UX copy | **PASS mock** | BUY vs EQUIP vs EQUIPPED. Status `OWNED · visual only` / `Wearing this · visual only`. |
+| **E6** UX copy | **PASS mock** | BUY vs EQUIP vs EQUIPPED. One ARMORY status line: `OWNED · visual only` / `Wearing this · visual only`. No floating Bought / wearing / visual stack. |
 
 ```bash
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_shop_equip_smoke.py
@@ -78,6 +78,8 @@ Parsers also accept top-level `equippedSkinId` / `equipped` and `you.cosmetics`.
 | Wearing | **EQUIPPED** (gold) | `Wearing this · visual only` |
 
 EQUIPPED click unequips. Operative click still cycles owned chrome (including off). One skin at a time. Copy stays hideout language — no stowed / rack / mil-sim.
+
+Soft P2 (2026-09-19): hideout toast `Bought · wearing it · visual only` stacked on the row. Buy / equip / unequip success now clears the toast so the ARMORY row is the **one** status line. Buttons and bind unchanged. Reshot [`ux/equip_owned_hideout.png`](ux/equip_owned_hideout.png).
 
 ## Bind
 
