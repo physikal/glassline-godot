@@ -129,6 +129,11 @@ func marks_delta() -> Variant:
 	return pay.marks_delta
 
 
+func table_marks_delta() -> int:
+	## Earn-table Δ from endReason + winner vs seat. Display only.
+	return MarksPayout.table_delta(raw, you_seat(), is_job())
+
+
 func end_reason() -> String:
 	var why: String = MarksPayout.display_reason(raw, is_job())
 	if why != "":

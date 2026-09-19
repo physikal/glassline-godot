@@ -182,6 +182,53 @@ static func display_reason(payload: Dictionary, job_hint: bool = false) -> Strin
 	return why
 
 
+static func table_reason(payload: Dictionary, job: bool = false) -> String:
+	## Earn-table token from snapshot endReason + winner. Not payout.reason=loss.
+	if payload_is_job(payload, job):
+		return display_reason(payload, true)
+	if is_forfeit_payload(payload):
+		return Contract.END_FORFEIT
+	var win: Variant = payload.get("winner", null)
+	if win == Contract.WIN_DRAW or str(win) == Contract.WIN_DRAW:
+		return Contract.END_STANDOFF
+	var er := str(payload.get("endReason", payload.get("reason", ""))).to_lower()
+	if er in Contract.FORFEIT_REASONS:
+		return Contract.END_FORFEIT
+	if er == Contract.END_STANDOFF:
+		return Contract.END_STANDOFF
+	if er == Contract.END_KILL or er == Contract.END_LOSS:
+		return Contract.END_KILL
+	if win != null and str(win) != "":
+		return Contract.END_KILL
+	return display_reason(payload, job)
+
+
+static func table_delta(payload: Dictionary, you_seat: String, job: bool = false) -> int:
+	## Locked earn table. Display only — never `marks +=`.
+	var why := table_reason(payload, job)
+	var win: Variant = payload.get("winner", null)
+	var you_won := win != null and str(win) == you_seat
+	var job_obj: Variant = payload.get("job", {})
+	var tier := 1
+	if job_obj is Dictionary:
+		tier = int(job_obj.get("tier", 1))
+	elif payload.has("jobTier"):
+		tier = int(payload.get("jobTier", 1))
+	if why == Contract.END_KILL:
+		return Contract.MARKS_PVP_WIN if you_won else Contract.MARKS_PVP_LOSS
+	if why == Contract.END_STANDOFF:
+		return Contract.MARKS_STANDOFF
+	if why in Contract.FORFEIT_REASONS:
+		return Contract.MARKS_FORFEIT_WIN if you_won else Contract.MARKS_FORFEIT_LOSS
+	if why == Contract.END_JOB:
+		return Contract.job_tier_delta(tier)
+	if why == Contract.END_JOB_FAIL:
+		return Contract.MARKS_JOB_FAIL
+	if why == Contract.END_LOSS:
+		return Contract.MARKS_PVP_LOSS
+	return 0
+
+
 static func table_copy(end_reason: String, you_won: bool, job_tier: int = 1) -> String:
 	## Display chrome only — never apply these as a local grant.
 	var why := end_reason.to_lower()
@@ -200,27 +247,41 @@ static func table_copy(end_reason: String, you_won: bool, job_tier: int = 1) -> 
 	return ""
 
 
-static func end_overlay(payload: Dictionary, you_seat: String, job: bool = false) -> String:
+static func live_delta_drifts(payload: Dictionary, you_seat: String, job: bool = false) -> bool:
+	## True only when a payload marksDelta exists and disagrees with the table.
 	var payout = from_any(payload)
-	var why: String = display_reason(payload, job)
-	var lines: PackedStringArray = [end_headline(payload, you_seat, job)]
-	var pay: String = payout.payout_line()
-	if payout.has_delta() and pay != "":
-		lines.append(pay)
-	else:
-		var win: Variant = payload.get("winner", null)
-		var you_won := win != null and str(win) == you_seat
-		var job_obj: Variant = payload.get("job", {})
-		var tier := 1
-		if job_obj is Dictionary:
-			tier = int(job_obj.get("tier", 1))
-		elif payload.has("jobTier"):
-			tier = int(payload.get("jobTier", 1))
-		var table: String = table_copy(why, you_won, tier)
-		if table != "":
-			lines.append(table)
-		if payout.has_marks():
-			lines.append(payout.balance_line())
+	if not payout.has_delta():
+		return false
+	return payout.delta() != table_delta(payload, you_seat, job)
+
+
+static func marks_line(payload: Dictionary, you_seat: String, job: bool = false) -> String:
+	var n := table_delta(payload, you_seat, job)
+	var d := "+%d MARK" % n if n >= 0 else "%d MARK" % n
+	var payout = from_any(payload)
+	if payout.has_marks():
+		return "%s  ·  ★%d" % [d, payout.balance()]
+	return d
+
+
+static func overlay_parts(payload: Dictionary, you_seat: String, job: bool = false) -> Dictionary:
+	return {
+		"headline": end_headline(payload, you_seat, job),
+		"marks": marks_line(payload, you_seat, job),
+		"reason": table_reason(payload, job),
+		"delta": table_delta(payload, you_seat, job),
+		"drift": live_delta_drifts(payload, you_seat, job),
+	}
+
+
+static func end_overlay(payload: Dictionary, you_seat: String, job: bool = false) -> String:
+	## Headline · +N MARK · ★you.marks · table reason. Δ is the earn table.
+	var parts := overlay_parts(payload, you_seat, job)
+	var lines: PackedStringArray = [str(parts.get("headline", ""))]
+	var marks := str(parts.get("marks", ""))
+	if marks != "":
+		lines.append(marks)
+	var why := str(parts.get("reason", ""))
 	if why != "":
 		lines.append(why)
 	return "\n".join(lines)

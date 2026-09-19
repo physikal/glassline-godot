@@ -338,6 +338,26 @@ func mark_disconnected(match_id: String, player_id: String) -> Dictionary:
 	return {"ok": true, "snapshot": _snapshot_for_seat(match_state, found["seat"])}
 
 
+func force_standoff(match_id: String, player_id: String = "") -> Dictionary:
+	## Capture / tests: settle turn-cap standoff without playing 16 turns.
+	if not _matches.has(match_id):
+		return {"ok": false, "error": "unknown_match"}
+	var match_state: Dictionary = _matches[match_id]
+	if match_state["status"] != Contract.STATUS_ENDED:
+		match_state["status"] = Contract.STATUS_ENDED
+		match_state["whoseTurn"] = null
+		match_state["phase"] = null
+		match_state["winner"] = Contract.WIN_DRAW
+		_clear_all_decoys(match_state)
+		_settle_payout(match_state, Contract.END_STANDOFF)
+	var seat := Contract.SEAT_A
+	if player_id != "":
+		var found := _find(match_id, player_id)
+		if not found.is_empty():
+			seat = str(found.get("seat", Contract.SEAT_A))
+	return {"ok": true, "snapshot": _snapshot_for_seat(match_state, seat)}
+
+
 func start_grace(match_id: String, player_id: String, remaining_sec: float = 23.0) -> Dictionary:
 	## Capture / tests: rival already in grace with a readable leftover clock.
 	var found := _find(match_id, player_id)

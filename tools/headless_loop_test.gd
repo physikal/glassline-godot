@@ -128,6 +128,7 @@ func _run() -> int:
 	_decoy_case(failed)
 	_rematch_case(failed)
 	_a4_gaps_case(failed)
+	_end_summary_case(failed)
 	_live_shape_case(failed)
 	_payout_shape_case(failed)
 	_job_case(failed)
@@ -549,6 +550,122 @@ func _a4_gaps_case(failed: PackedStringArray) -> void:
 	_expect(failed, bool(grace.get("ok", false)), "A4.3 start_grace ok")
 
 
+func _end_summary_case(failed: PackedStringArray) -> void:
+	## M.1–M.3: kill / forfeit / standoff chrome + table Δ + rematch still offered.
+	var kill_win := {
+		"status": "ended",
+		"winner": "a",
+		"endReason": "kill",
+		"kind": "pvp",
+		"you": {"seat": "a", "marks": 25},
+		"rematch": {"status": "waiting", "youAccepted": false, "opponentAccepted": false},
+	}
+	var kill_lose := {
+		"status": "ended",
+		"winner": "a",
+		"endReason": "kill",
+		"kind": "pvp",
+		"you": {"seat": "b", "marks": 3},
+		"rematch": {"status": "waiting"},
+	}
+	var stand_a := {
+		"status": "ended",
+		"winner": "draw",
+		"endReason": "standoff",
+		"kind": "pvp",
+		"you": {"seat": "a", "marks": 8},
+		"rematch": {"status": "waiting"},
+	}
+	var stand_b := {
+		"status": "ended",
+		"winner": "draw",
+		"endReason": "standoff",
+		"kind": "pvp",
+		"you": {"seat": "b", "marks": 8},
+	}
+	var foil_win := {
+		"status": "ended",
+		"winner": "b",
+		"endReason": "forfeit",
+		"kind": "pvp",
+		"you": {"seat": "b", "marks": 12},
+		"rematch": {"status": "waiting"},
+	}
+	var foil_leave := {
+		"status": "ended",
+		"winner": "b",
+		"endReason": "forfeit",
+		"kind": "pvp",
+		"you": {"seat": "a", "marks": 0},
+	}
+	_expect(failed, MarksPayout.table_delta(kill_win, "a") == 25, "M.2 kill winner +25")
+	_expect(failed, MarksPayout.table_delta(kill_lose, "b") == 3, "M.2 kill loser +3")
+	_expect(failed, MarksPayout.table_delta(stand_a, "a") == 8, "M.2 standoff A +8")
+	_expect(failed, MarksPayout.table_delta(stand_b, "b") == 8, "M.2 standoff B +8")
+	_expect(failed, MarksPayout.table_delta(foil_win, "b") == 12, "M.2 forfeit remaining +12")
+	_expect(failed, MarksPayout.table_delta(foil_leave, "a") == 0, "M.2 forfeit leaver 0")
+	var ow := MarksPayout.end_overlay(kill_win, "a", false)
+	_expect(failed, ow.find("MARK CONFIRMED") >= 0, "M.1 kill winner headline")
+	_expect(failed, ow.find("+25 MARK") >= 0 and ow.find("★25") >= 0, "M.1 kill winner marks line")
+	_expect(failed, ow.find("\nkill") >= 0, "M.1 kill winner reason")
+	var ol := MarksPayout.end_overlay(kill_lose, "b", false)
+	_expect(failed, ol.find("ELIMINATED") >= 0, "M.1 kill loser headline")
+	_expect(failed, ol.find("+3 MARK") >= 0 and ol.find("★3") >= 0, "M.1 kill loser marks line")
+	_expect(failed, ol.find("\nkill") >= 0, "M.1 kill loser reason is kill not loss")
+	var os := MarksPayout.end_overlay(stand_a, "a", false)
+	_expect(failed, os.find("STANDOFF") >= 0, "M.1 standoff headline")
+	_expect(failed, os.find("+8 MARK") >= 0 and os.find("★8") >= 0, "M.1 standoff marks line")
+	_expect(failed, os.find("\nstandoff") >= 0, "M.1 standoff reason")
+	_expect(failed, MarksPayout.end_overlay(stand_b, "b", false).find("+8 MARK") >= 0, "M.1 standoff both seats")
+	var of := MarksPayout.end_overlay(foil_win, "b", false)
+	_expect(failed, of.find("RIVAL FORFEIT") >= 0, "M.1 remaining headline")
+	_expect(failed, of.find("+12 MARK") >= 0 and of.find("★12") >= 0, "M.1 remaining marks line")
+	_expect(failed, of.find("\nforfeit") >= 0, "M.1 remaining reason")
+	var ox := MarksPayout.end_overlay(foil_leave, "a", false)
+	_expect(failed, ox.find("FORFEIT") >= 0 and ox.find("RIVAL") < 0, "M.1 leaver headline")
+	_expect(failed, ox.find("+0 MARK") >= 0, "M.1 leaver +0 MARK")
+	_expect(failed, Snapshot.from_dict(kill_win).rematch_offered(), "M.3 kill rematch offered")
+	_expect(failed, Snapshot.from_dict(foil_win).rematch_offered(), "M.3 forfeit rematch offered")
+	_expect(failed, Snapshot.from_dict(stand_a).rematch_offered(), "M.3 standoff rematch offered")
+	_expect(failed, Contract.REMATCH_PLAY_COPY == "PLAY AGAIN", "M.3 Play again copy")
+	_expect(failed, Contract.REMATCH_DECLINE_COPY == "DECLINE", "M.3 Decline copy")
+	_expect(failed, Contract.REMATCH_SETTLED_COPY == "Marks already settled.", "M.3 settled copy")
+
+	## Mock settle: both seats + rematch still works after overlay Δ.
+	server.clear_all()
+	server.reset_wallet(0)
+	var hunt: Dictionary = _play_pvp_kill()
+	var mid := str(hunt["matchId"])
+	var winner_snap: Snapshot = Snapshot.from_dict(server.get_snapshot(mid, hunt["pidA"]))
+	var loser_snap: Snapshot = Snapshot.from_dict(server.get_snapshot(mid, hunt["pidB"]))
+	_expect(failed, winner_snap.table_marks_delta() == 25, "M.2 mock kill winner table")
+	_expect(failed, loser_snap.table_marks_delta() == 3, "M.2 mock kill loser table")
+	_expect(failed, winner_snap.rematch_offered() and loser_snap.rematch_offered(), "M.3 rematch after kill")
+	var accept: Dictionary = server.rematch(mid, str(hunt["pidA"]), true)
+	_expect(failed, bool(accept.get("ok", false)), "M.3 Play again still posts")
+	_expect(failed, str(accept.get("status", "")) == Contract.REMATCH_WAITING, "M.3 rematch waiting")
+	var no: Dictionary = server.rematch(mid, str(hunt["pidB"]), false)
+	_expect(failed, str(no.get("rematch", {}).get("status", "")) == Contract.REMATCH_DECLINED, "M.3 Decline still hideout")
+
+	server.clear_all()
+	server.reset_wallet(0)
+	var created: Dictionary = server.create_match()
+	mid = str(created["matchId"])
+	var a: Dictionary = server.join(mid, created["joinTokens"]["a"])
+	var b: Dictionary = server.join(mid, created["joinTokens"]["b"])
+	server.apply_action(mid, a["playerId"], ActionIntent.select_hex(2, 2))
+	server.apply_action(mid, b["playerId"], ActionIntent.select_hex(7, 5))
+	server.apply_action(mid, a["playerId"], ActionIntent.start())
+	var stand: Dictionary = server.force_standoff(mid, a["playerId"])
+	var stand_snap: Snapshot = Snapshot.from_dict(stand.get("snapshot", {}))
+	_expect(failed, stand_snap.status() == Contract.STATUS_ENDED, "M.1 force standoff ended")
+	_expect(failed, stand_snap.table_marks_delta() == 8, "M.2 force standoff +8")
+	_expect(failed, MarksPayout.end_overlay(stand_snap.raw, "a", false).find("STANDOFF") >= 0, "M.1 force standoff chrome")
+	_expect(failed, stand_snap.rematch_offered(), "M.3 standoff rematch")
+	var hide: Dictionary = server.rematch(mid, a["playerId"], false)
+	_expect(failed, str(hide.get("rematch", {}).get("status", "")) == Contract.REMATCH_DECLINED, "M.3 standoff Decline")
+
+
 func _live_shape_case(failed: PackedStringArray) -> void:
 	var hit_body := {
 		"ok": true,
@@ -582,8 +699,9 @@ func _payout_shape_case(failed: PackedStringArray) -> void:
 	_expect(failed, pay.reason == "kill", "result payout.reason")
 	var overlay := MarksPayout.end_overlay(live_body["snapshot"], "a", false)
 	_expect(failed, overlay.find("MARK CONFIRMED") >= 0, "end overlay win")
-	_expect(failed, overlay.find("+1 MARK") >= 0, "end overlay delta")
+	_expect(failed, overlay.find("+25 MARK") >= 0, "end overlay table Δ not payload 1")
 	_expect(failed, overlay.find("★12") >= 0, "end overlay balance")
+	_expect(failed, MarksPayout.live_delta_drifts(live_body["snapshot"], "a", false), "payload 1 drifts vs table +25")
 	var forfeit_snap := {
 		"status": "ended",
 		"winner": "a",
@@ -608,8 +726,10 @@ func _payout_shape_case(failed: PackedStringArray) -> void:
 	var live_copy := MarksPayout.end_overlay(live_ended, "a", false)
 	_expect(failed, live_copy.find("MARK CONFIRMED") >= 0, "live endReason kill")
 	_expect(failed, live_copy.find("★25") >= 0, "live you.marks balance")
-	_expect(failed, live_copy.find("table  +25") >= 0, "table copy when delta omitted")
+	_expect(failed, live_copy.find("+25 MARK") >= 0, "table Δ when marksDelta omitted")
+	_expect(failed, live_copy.find("table  +") < 0, "no table +N chrome")
 	_expect(failed, live_copy.find("kill") >= 0, "pvp keeps kill")
+	_expect(failed, not MarksPayout.live_delta_drifts(live_ended, "a", false), "LIVE omit marksDelta is not drift")
 	var sp_live_kill := {
 		"status": "ended",
 		"winner": "a",
@@ -623,7 +743,7 @@ func _payout_shape_case(failed: PackedStringArray) -> void:
 	_expect(failed, sp_copy.find("job") >= 0, "sp kill displays reason job")
 	_expect(failed, sp_copy.find("kill") < 0, "sp kill not shown as kill")
 	_expect(failed, sp_copy.find("★10") >= 0, "sp overlay uses you.marks")
-	_expect(failed, sp_copy.find("table  T1 +10") >= 0, "sp table copy uses job row")
+	_expect(failed, sp_copy.find("+10 MARK") >= 0, "sp table Δ uses job row")
 	_expect(failed, MarksPayout.display_reason(sp_live_kill, true) == Contract.END_JOB, "display_reason kill->job")
 	var sp_delta := {
 		"status": "ended",
