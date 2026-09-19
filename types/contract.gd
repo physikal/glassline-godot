@@ -121,6 +121,18 @@ const REMATCH_HINT_COPY := "Play again for a fresh drop. Wallet stays put."
 const REMATCH_WAIT_COPY := "Waiting on your rival…"
 const REMATCH_TIMER_COPY := "Answer in %ds"
 
+## Soft A4 gaps — abandon CTA + grace countdown. Duration stays 30s.
+const ABANDON_COPY := "ABANDON"
+const ABANDON_ERR_UNAVAILABLE := "abandon_unavailable"
+const GRACE_RIVAL_COPY := "RIVAL  %s"
+const GRACE_HOLD_COPY := "HOLD  %s"
+
+
+static func format_grace_clock(sec: float) -> String:
+	var n := maxi(0, ceili(sec))
+	return "%d:%02d" % [int(n / 60), n % 60]
+
+
 const JOB_NAME_T1 := "Rooftop Rookie"
 const JOB_NAME_T2 := "Warehouse Watch"
 const JOB_NAME_T3 := "Night Contract"

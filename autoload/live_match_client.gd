@@ -14,6 +14,8 @@ const POLL_SEC := 1.0
 
 var last_error: String = ""
 var realtime_mode: String = "" ## "sse" | "poll" | ""
+## Set when GET /matches/:id poll fails. Cleared on a good snapshot. Grace UI only.
+var poll_failed_since_msec: int = -1
 
 var _sse: HTTPClient
 var _sse_buf: String = ""
@@ -32,6 +34,7 @@ var _last_fp: String = ""
 func clear_all() -> void:
 	stop_events()
 	last_error = ""
+	poll_failed_since_msec = -1
 
 
 func health() -> Dictionary:
@@ -267,6 +270,59 @@ func get_snapshot(match_id: String, player_id: String) -> Dictionary:
 	return {}
 
 
+func abandon(match_id: String, token: String = "") -> Dictionary:
+	## LIVE POST /matches/:id/abandon + join Bearer. Same forfeit path as timeout.
+	if match_id == "":
+		match_id = ClientSession.match_id
+	var bearer := token
+	if bearer == "":
+		bearer = ClientSession.join_token
+	if bearer == "":
+		bearer = ClientSession.player_bearer()
+	var raw: Dictionary = _raw("POST", "/matches/%s/abandon" % match_id, {}, bearer)
+	return _abandon_from_raw(raw, match_id, bearer)
+
+
+func _abandon_from_raw(raw: Dictionary, match_id: String, token: String) -> Dictionary:
+	var http_status := int(raw.get("status", 0))
+	var js: Variant = raw.get("json", {})
+	if not (js is Dictionary):
+		js = {}
+	var body: Dictionary = js
+	if http_status == 404:
+		return {
+			"ok": false,
+			"error": Contract.ABANDON_ERR_UNAVAILABLE,
+			"status": 404,
+			"snapshot": {},
+		}
+	if http_status >= 400:
+		var snap: Variant = body.get("snapshot", {})
+		if snap is Dictionary and str(snap.get("status", "")) == Contract.STATUS_ENDED:
+			body["ok"] = true
+			body["alreadyEnded"] = true
+			body["status"] = http_status
+			return body
+		if str(body.get("error", "")) == "":
+			body["error"] = "http_%s" % str(http_status)
+		body["ok"] = false
+		body["status"] = http_status
+		return body
+	body["ok"] = true
+	body["status"] = http_status
+	if not body.has("snapshot") or not (body.get("snapshot") is Dictionary) \
+			or not body.get("snapshot").has("matchId"):
+		if body.has("matchId"):
+			body["snapshot"] = body.duplicate(true)
+		else:
+			var replay: Dictionary = _json("GET", "/matches/%s" % match_id, null, token)
+			if replay.has("matchId"):
+				body["snapshot"] = replay
+	if str(body.get("snapshot", {}).get("status", "")) == Contract.STATUS_ENDED:
+		body["alreadyEnded"] = bool(body.get("alreadyEnded", true))
+	return body
+
+
 func rematch(match_id: String, accept: bool, token: String = "") -> Dictionary:
 	## LIVE POST /matches/:id/rematch { accept }.
 	## Bearer prefers the seat join token (Coder), then durable player token.
@@ -448,7 +504,10 @@ func _poll_once() -> void:
 	var raw: Dictionary = _raw("GET", "/matches/%s" % _sse_match_id, null, _sse_token)
 	var js: Variant = raw.get("json", {})
 	if not (js is Dictionary) or not js.has("matchId"):
+		if poll_failed_since_msec < 0:
+			poll_failed_since_msec = Time.get_ticks_msec()
 		return
+	poll_failed_since_msec = -1
 	var snap: Dictionary = js
 	heartbeat()
 	var rem: Variant = snap.get("rematch", {})
