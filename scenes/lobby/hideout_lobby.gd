@@ -600,7 +600,7 @@ func _refresh_shop() -> void:
 		var status: Label = widgets.get("status")
 		if name_lbl:
 			name_lbl.text = bag.name_of(str(item_id))
-		var price := bag.price_of(str(item_id))
+		var price: int = int(bag.price_of(str(item_id)))
 		if price_lbl:
 			price_lbl.text = Chrome.marks_star_text(price)
 		var owned: bool = ClientSession.owns_cosmetic(str(item_id))

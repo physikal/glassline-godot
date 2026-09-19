@@ -19,33 +19,36 @@ Editor Play stays MOCK (`use_live_api=false`). Smoke path wires `LiveMatchClient
 
 Constants: `Contract.SHOP_BANDANA_ITEM_ID` / `SHOP_BANDANA_PRICE`. Swap here if GD restamps (Coder catalog locks the same number).
 
-## LIVE catalog (probed 2026-09-19)
+## LIVE S2.1–S2.3 (2026-09-19)
 
-**Base:** `https://glassline-api.vercel.app`
+**Base:** `https://glassline-api.vercel.app`  
+**Contract:** `/docs/contract` · `POST /players` durable token · GET `/shop` public catalog · POST `/shop/buy` `{ itemId, clientBuyId }` + `Authorization: Bearer <playerToken>`
+
+Probed catalog (Coder +1 SKU — client prefers LIVE):
 
 ```json
-{"items":[{"id":"skin_hideout_stub","name":"Hideout Skin (stub)","price":50,"kind":"skin"}]}
+{"items":[{"id":"skin_hideout_stub","name":"Hideout Skin (stub)","price":50,"kind":"skin"},{"id":"skin_bandana_stub","name":"BANDANA RECOLOR","price":100,"kind":"skin"}]}
 ```
 
-LIVE still has **one** SKU. Client **prefers LIVE when Coder lists +1** (`skin_bandana_stub`). Until then `MatchAPI.get_shop` merges the mock bandana row so ARMORY always shows two lines. BUY for bandana still posts LIVE (`unknown_item` until Coder lands the SKU). Hideout + smoke **never `marks -=`**.
+`GET /shop` is **catalog-only** (no `you.marks`). Buy 200 shape is `{ ok, you: { marks }, purchaseId, item }`. 402 is `{ error, code: "insufficient_marks", you: { marks } }`. Client binds that `you.marks`. Hideout + smoke **never `marks -=`**.
 
 | Gate | Result | Evidence |
 | --- | --- | --- |
-| **S2.1** buy OK · `you.marks` −100 | **PENDING LIVE** | Catalog missing `skin_bandana_stub`. Mock: seed ★180 → buy → snapshot ★80 `HEADLESS_LOOP_OK` `_shop_sink2_case`. |
-| **S2.2** insufficient | **PENDING LIVE** | Same. Mock ★24 vs ★100 → `insufficient_marks`, chip stays ★24. BUY disabled. |
-| **S2.3** same `clientBuyId` twice | **PENDING LIVE** | Mock receipt keyed by `clientBuyId` — one debit. |
+| **S2.1** buy OK · `you.marks` −100 | **PASS LIVE** | Player `p_9b6b7aa024c749cebfd58ef199bb81ce`. Four kills **0→25→50→75→100**. `POST /shop/buy` `{ itemId: skin_bandana_stub, clientBuyId: f70ce51d-… }` → **HTTP 200** `{ you.marks: 0, purchaseId: pur_1eaae3407d184e19b739288b24b93971 }`. |
+| **S2.2** insufficient | **PASS LIVE** | Fresh `POST /players` `p_4a1183d48f784a9c979358a52ae54e17` ★0. Buy → **HTTP 402** `{ code: insufficient_marks, you.marks: 0 }`. Replay `clientBuyId` `5823ca82-…` still **402 / 0**. |
+| **S2.3** same `clientBuyId` twice | **PASS LIVE** | Replay `f70ce51d-…` → **HTTP 200** same `purchaseId` `pur_1eaae3407d184e19b739288b24b93971`, `you.marks` still **0**. |
 | **S2.4** equip chrome-only | **PASS mock** | Bandana wash on canon plate. Attack / Recon / UAV table unchanged (`RECON_BASE` 0.35, PvP kill ★25). |
-| **S2.5** stills | **PASS mock** | [`ux/armory_two_row.png`](ux/armory_two_row.png) · [`ux/armory_bandana_post_buy.png`](ux/armory_bandana_post_buy.png) |
+| **S2.5** stills | **PASS mock** | [`ux/armory_two_row.png`](ux/armory_two_row.png) (both rows, ★24, disabled BUY). [`ux/armory_bandana_post_buy.png`](ux/armory_bandana_post_buy.png) (seed ★180 → snapshot ★80, bandana OWNED). |
+
+HTTP log: [`artifacts/live_shop_sink2_smoke.txt`](live_shop_sink2_smoke.txt) · `LIVE_SHOP_SINK2_OK`  
+Mock: `HEADLESS_LOOP_OK` (`_shop_sink2_case`).
 
 ```bash
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_shop_sink2_smoke.py
-# expect LIVE_SHOP_SINK2_PENDING until Coder adds skin_bandana_stub ★100
 godot --headless --path . -s res://tools/headless_loop_test.gd   # HEADLESS_LOOP_OK
 godot --resolution 1280x720 -- --capture-armory-two-row
 godot --resolution 1280x720 -- --capture-armory-bandana-buy
 ```
-
-**Coder unblock for S2.1–S2.3:** add `{ id: "skin_bandana_stub", name: "BANDANA RECOLOR", price: 100, kind: "skin" }` to `GET /shop`. Same `POST /shop/buy` + durable Bearer. Then the smoke earns ★100 (four PvP kills) and expects **200** `{ you.marks: N-100, purchaseId }` and a replay **200** with the same `purchaseId`.
 
 ## Hard rule
 
