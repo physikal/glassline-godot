@@ -21,12 +21,13 @@ Probed catalog:
 
 | Gate | Result | Evidence |
 | --- | --- | --- |
-| **S1** buy OK · `you.marks` −50 | **RE-SMOKE PENDING** | Same player, two kill wins ★25+★25, then buy with player Bearer. |
-| **S2** insufficient | **RE-SMOKE PENDING** | Fresh `POST /players` ★0 → 402. |
-| **S3** same `clientBuyId` twice | **RE-SMOKE PENDING** | Replay must return the same `purchaseId` and no second debit. |
+| **S1** buy OK · `you.marks` −50 | **PASS LIVE** | Player `p_1822026a24804347865613062afbf9bf`. Kill `m_ad2f55e99f454ef68955f6b940a97d87` **0→25**, kill `m_9888c28cf8bb45ac8f314491b5f6b858` **25→50**. `POST /shop/buy` `{ itemId: skin_hideout_stub, clientBuyId: 3d16a2e7-… }` → **HTTP 200** `{ you.marks: 0, purchaseId: pur_ea8bc0eba29f448c837ef5ea80a0a023 }`. Godot same path: `p_d768ef548e24455cb79124914d7acb67` / `m_09e4ee9b33d041a68f0f1d93a3f51780` ★50→0 `pur_24ca77532bed4497ba6765a29b1eb726`. Polluted cache 999 rebound to **0** (not 949). |
+| **S2** insufficient | **PASS LIVE** | Fresh `POST /players` `p_982ba30ce4fd41659f28b4a40ee7faa7` ★0. Buy → **HTTP 402** `{ code: insufficient_marks, you.marks: 0 }`. Replay `clientBuyId` `fc8fba57-…` still **402 / 0**. Godot `LIVE_SHOP_S2_OK marks 0→0`. |
+| **S3** same `clientBuyId` twice | **PASS LIVE** | Replay `3d16a2e7-…` → **HTTP 200** same `purchaseId` `pur_ea8bc0eba29f448c837ef5ea80a0a023`, `you.marks` still **0**. Godot replay same `pur_24ca77532bed4497ba6765a29b1eb726`. |
 
-HTTP log: [`artifacts/live_shop_smoke.txt`](live_shop_smoke.txt)  
-Godot bind: [`artifacts/live_shop_godot.txt`](live_shop_godot.txt)
+HTTP log: [`artifacts/live_shop_smoke.txt`](live_shop_smoke.txt) · `LIVE_SHOP_SMOKE_OK`  
+Godot bind: [`artifacts/live_shop_godot.txt`](live_shop_godot.txt) · `LIVE_SHOP_LOOP_OK`  
+Mock: `HEADLESS_LOOP_OK` (price ★50, persist token survives `reset_match`, no local `marks -=`).
 
 ```bash
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_shop_smoke.py
@@ -34,7 +35,7 @@ GLASSLINE_USE_LIVE_API=1 godot --headless --path . res://tools/live_shop_test.ts
 godot --headless --path . -s res://tools/headless_loop_test.gd   # HEADLESS_LOOP_OK
 ```
 
-Previous fail (pre-persist, join-token wallets): each `POST /matches` minted a new `playerId` at 0, so one kill left ★25 and buy returned **402**. That path is obsolete once the client reuses `POST /players`.
+Previous fail (pre-persist, join-token wallets): each `POST /matches` minted a new `playerId` at 0, so one kill left ★25 and buy returned **402**. Reusing `POST /players` stacks two kill wins on one ledger.
 
 ## LIVE S1–S3 (2026-09-19, pre-persist — superseded)
 
