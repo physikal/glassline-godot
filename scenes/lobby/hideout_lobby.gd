@@ -75,6 +75,9 @@ func _ready() -> void:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 		DisplayServer.window_set_size(Vector2i(1280, 720))
 		await _capture_sp_job_t3()
+	elif "--capture-decoy-hud" in args or "--capture-decoy-blip" in args:
+		await get_tree().process_frame
+		_on_play()
 
 
 func _capture_lobby() -> void:
@@ -489,7 +492,7 @@ func _build_jobs_panel() -> void:
 
 	var blurb := Label.new()
 	blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	blurb.text = "Same Attack / Recon / UAV vs a scripted seat."
+	blurb.text = "Same Attack / Recon / UAV / Decoy vs a scripted seat."
 	Chrome.apply_label(blurb, 8, Chrome.CREAM)
 	col.add_child(blurb)
 

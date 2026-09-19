@@ -49,6 +49,35 @@ func uav_remaining() -> int:
 	return 0
 
 
+func decoy_available() -> bool:
+	## Caller-scoped. Prefer you.decoyAvailable; never invent a charge.
+	var you_state := you()
+	if you_state.has("decoyAvailable"):
+		return bool(you_state.get("decoyAvailable", false))
+	if you_state.has("decoyRemaining"):
+		return int(you_state.get("decoyRemaining", 0)) > 0
+	if raw.has("decoyAvailable"):
+		return bool(raw.get("decoyAvailable", false))
+	return false
+
+
+func you_decoy_hex() -> Variant:
+	## Owner marker. Null unless the snapshot named you.decoyHex.
+	if status() == Contract.STATUS_ENDED:
+		return null
+	var you_state := you()
+	if you_state.has("decoyHex"):
+		return you_state.get("decoyHex", null)
+	return null
+
+
+func enemy_decoy_soft_hex() -> Variant:
+	## Soft blip only while live. Null on expiry / decoyCleared / match end.
+	if status() == Contract.STATUS_ENDED:
+		return null
+	return enemy().get("decoySoftHex", null)
+
+
 func kind() -> String:
 	var value := str(raw.get("kind", ""))
 	if value != "":

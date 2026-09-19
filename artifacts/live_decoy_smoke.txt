@@ -1,0 +1,26 @@
+LIVE DECOY smoke — 2026-09-19
+BASE https://glassline-api.vercel.app
+
+GET /health                         PASS  { ok: true }
+POST /players                       PASS
+POST /matches                       PASS
+join a + b + both drops             PASS  status=active phase=await_action
+
+POST /matches/:id/actions { type: "decoy" }
+  HTTP 400
+  { "error": "invalid action body" }
+
+LIVE Zod ActionSchema is still
+  attack | recon | uav | select_hex | end_turn
+No decoy variant. Same reject family as unknown `start`.
+
+Coder blocker: ship `{ type: "decoy" }` (no hex), snapshot
+  you.decoyAvailable / you.decoyHex?
+  enemy.decoySoftHex?
+and attack result decoyCleared.
+
+Client (this PR):
+  LiveMatchClient already POSTs the intent as-is.
+  Mock implements D1–D5. HUD + dashed toy doll ready.
+
+Result: LIVE_DECOY_PENDING

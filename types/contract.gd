@@ -29,6 +29,7 @@ const ACT_START := "start"
 const ACT_ATTACK := "attack"
 const ACT_RECON := "recon"
 const ACT_UAV := "uav"
+const ACT_DECOY := "decoy"
 const ACT_END_TURN := "end_turn"
 const ACT_FORFEIT := "forfeit"
 
@@ -57,6 +58,10 @@ const FORFEIT_REASONS := ["forfeit", "disconnect", "disconnected", "ragequit"]
 ## Ability slot chrome (M5). Intent type stays `uav`.
 const ABILITY_LABEL := "UAV"
 const ABILITY_SLOT := "ABILITY"
+## Ability #2 — toy doll decoy. Intent `{ type: "decoy" }`, no hex arg.
+const DECOY_LABEL := "DECOY"
+const DECOY_SLOT := "TOY DOLL"
+const DECOY_COPY := "Plant a toy doll on a neighbor hex. Rivals see a soft blip. Once a hunt."
 
 ## Mock hideout stub until Coder's ledger / GET wallet exists.
 const MOCK_WALLET_STUB := 24

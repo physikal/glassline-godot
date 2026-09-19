@@ -27,7 +27,9 @@ var _exposure_doll: ExposureDoll
 var _btn_attack: Button
 var _btn_recon: Button
 var _btn_uav: Button
+var _btn_decoy: Button
 var _ability_cap: Label
+var _decoy_cap: Label
 var _btn_start: Button
 var _btn_end: Button
 var _over: ColorRect
@@ -60,6 +62,10 @@ func _ready() -> void:
 		_capture_sp_end()
 	elif "--capture-equip-doll" in args:
 		_capture_equip_doll()
+	elif "--capture-decoy-hud" in args:
+		_capture_decoy_hud()
+	elif "--capture-decoy-blip" in args:
+		_capture_decoy_blip()
 
 
 func _capture_after_play() -> void:
@@ -153,6 +159,53 @@ func _capture_equip_doll() -> void:
 	var path := ProjectSettings.globalize_path("res://artifacts/ux/equip_exposure_doll.png")
 	img.save_png(path)
 	print("E6_EQUIP_DOLL ", path)
+	get_tree().quit()
+
+
+func _ensure_active_for_decoy() -> Snapshot:
+	var snap: Snapshot = ClientSession.typed_snapshot()
+	if snap.status() == Contract.STATUS_READY or snap.status() == Contract.STATUS_WAITING:
+		_submit(ActionIntent.select_hex(2, 2))
+		if ClientSession.dummy_player_id != "":
+			_submit_as(ClientSession.dummy_player_id, ActionIntent.select_hex(7, 5))
+		snap = ClientSession.typed_snapshot()
+	if snap.status() == Contract.STATUS_READY:
+		_submit(ActionIntent.start())
+		snap = ClientSession.typed_snapshot()
+	return snap
+
+
+func _capture_decoy_hud() -> void:
+	await get_tree().process_frame
+	var snap := _ensure_active_for_decoy()
+	_refresh(snap)
+	_toast.text = ""
+	_status.text = "Your action — Attack, Recon, UAV, or plant a Decoy."
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	var path := ProjectSettings.globalize_path("res://artifacts/ux/decoy_action_hud.png")
+	img.save_png(path)
+	print("D6_DECOY_HUD ", path)
+	get_tree().quit()
+
+
+func _capture_decoy_blip() -> void:
+	await get_tree().process_frame
+	var snap := _ensure_active_for_decoy()
+	if snap.status() == Contract.STATUS_ACTIVE and str(snap.phase()) == Contract.PHASE_ACTION:
+		_submit(ActionIntent.decoy())
+		snap = ClientSession.typed_snapshot()
+	_refresh(snap)
+	_end_panel.visible = false
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	var path := ProjectSettings.globalize_path("res://artifacts/ux/decoy_dashed_blip.png")
+	img.save_png(path)
+	print("D6_DECOY_BLIP ", path)
 	get_tree().quit()
 
 
@@ -308,10 +361,10 @@ func _build() -> void:
 	row.add_theme_constant_override("separation", 16)
 	add_child(row)
 
-	_btn_attack = Chrome.action_button("attack", "ATTACK", Chrome.ATTACK_RED, Color.WHITE, Vector2(260, 68))
+	_btn_attack = Chrome.action_button("attack", "ATTACK", Chrome.ATTACK_RED, Color.WHITE, Vector2(200, 68))
 	_btn_attack.pressed.connect(_on_attack)
 	row.add_child(_btn_attack)
-	_btn_recon = Chrome.action_button("recon", "RECON", Chrome.RECON_BLUE, Color.WHITE, Vector2(260, 68))
+	_btn_recon = Chrome.action_button("recon", "RECON", Chrome.RECON_BLUE, Color.WHITE, Vector2(200, 68))
 	_btn_recon.pressed.connect(_on_recon)
 	row.add_child(_btn_recon)
 	var uav_col := VBoxContainer.new()
@@ -322,11 +375,24 @@ func _build() -> void:
 	_ability_cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	Chrome.apply_label(_ability_cap, 8, Chrome.HIGH_GOLD, true)
 	uav_col.add_child(_ability_cap)
-	_btn_uav = Chrome.action_button("ability", Contract.ABILITY_LABEL, Chrome.ABILITY_PURPLE, Color.WHITE, Vector2(260, 56))
+	_btn_uav = Chrome.action_button("ability", Contract.ABILITY_LABEL, Chrome.ABILITY_PURPLE, Color.WHITE, Vector2(200, 56))
 	_btn_uav.tooltip_text = "Ability — UAV Sweep. Posts type: uav."
 	_btn_uav.pressed.connect(_on_uav)
 	uav_col.add_child(_btn_uav)
 	row.add_child(uav_col)
+	var decoy_col := VBoxContainer.new()
+	decoy_col.alignment = BoxContainer.ALIGNMENT_CENTER
+	decoy_col.add_theme_constant_override("separation", 2)
+	_decoy_cap = Label.new()
+	_decoy_cap.text = Contract.DECOY_SLOT
+	_decoy_cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	Chrome.apply_label(_decoy_cap, 8, Chrome.HIGH_GOLD, true)
+	decoy_col.add_child(_decoy_cap)
+	_btn_decoy = Chrome.action_button("decoy", Contract.DECOY_LABEL, Chrome.DECOY_CARAMEL, Color.WHITE, Vector2(200, 56))
+	_btn_decoy.tooltip_text = Contract.DECOY_COPY
+	_btn_decoy.pressed.connect(_on_decoy)
+	decoy_col.add_child(_btn_decoy)
+	row.add_child(decoy_col)
 
 	_btn_start = Chrome.chunk_button("START", Chrome.PLAY_GREEN, Color.WHITE, Vector2(160, 40))
 	_btn_start.position = Vector2(1096, 64)
@@ -492,7 +558,7 @@ func _refresh(snap: Snapshot) -> void:
 				_set_actions(false)
 				_end_panel.visible = false
 			elif yours and str(snap.phase()) == Contract.PHASE_ACTION:
-				_status.text = "Your action — Attack, Recon, or %s." % Contract.ABILITY_LABEL
+				_status.text = "Your action — Attack, Recon, %s, or plant a Decoy." % Contract.ABILITY_LABEL
 				_set_actions(true)
 				_end_panel.visible = false
 			elif yours and str(snap.phase()) == Contract.PHASE_END_TURN:
@@ -521,6 +587,11 @@ func _refresh(snap: Snapshot) -> void:
 		_btn_uav.text = "%s SPENT" % Contract.ABILITY_LABEL
 	else:
 		_btn_uav.text = Contract.ABILITY_LABEL
+	_btn_decoy.disabled = _btn_decoy.disabled or not snap.decoy_available()
+	if not snap.decoy_available():
+		_btn_decoy.text = "%s SPENT" % Contract.DECOY_LABEL
+	else:
+		_btn_decoy.text = Contract.DECOY_LABEL
 
 
 func _highlights(snap: Snapshot) -> Dictionary:
@@ -536,6 +607,7 @@ func _set_actions(on: bool) -> void:
 	_btn_attack.disabled = not on
 	_btn_recon.disabled = not on
 	_btn_uav.disabled = not on
+	_btn_decoy.disabled = not on
 
 
 func _on_board_input(event: InputEvent) -> void:
@@ -628,6 +700,10 @@ func _on_recon() -> void:
 
 func _on_uav() -> void:
 	_submit(ActionIntent.ability())
+
+
+func _on_decoy() -> void:
+	_submit(ActionIntent.decoy())
 
 
 func _on_optic_fire() -> void:
@@ -726,6 +802,8 @@ func _describe_last(last: Dictionary) -> String:
 	var kind := str(last.get("type", ""))
 	match kind:
 		Contract.ACT_ATTACK:
+			if bool(last.get("decoyCleared", false)):
+				return "lastAction attack  hit=false  decoyCleared=true  (toy doll gone)"
 			return "lastAction attack  hit=%s  (server)" % str(last.get("hit", false))
 		Contract.ACT_RECON:
 			var spotted: Variant = last.get("spotted", last.get("found", false))
@@ -734,6 +812,14 @@ func _describe_last(last: Dictionary) -> String:
 			return "lastAction reject  %s" % str(last.get("reason", ""))
 		Contract.ACT_UAV:
 			return "lastAction uav  revealed=%s  (server)" % str(last.get("revealed", false))
+		Contract.ACT_DECOY:
+			var planted: Variant = last.get("hex", null)
+			if planted is Dictionary:
+				return "lastAction decoy  planted Q%d R%d  (toy doll · server)" % [
+					int(planted.get("q", 0)),
+					int(planted.get("r", 0)),
+				]
+			return "lastAction decoy  planted  (toy doll · server)"
 		Contract.ACT_FORFEIT:
 			return "lastAction forfeit  winner=%s  (server)" % str(last.get("winner", ""))
 		Contract.ACT_END_TURN:

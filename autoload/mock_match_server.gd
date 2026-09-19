@@ -321,6 +321,8 @@ func apply_action(match_id: String, player_id: String, action: Dictionary) -> Ac
 			applied = _act_recon(match_state, seat, action)
 		Contract.ACT_UAV:
 			applied = _act_uav(match_state, seat)
+		Contract.ACT_DECOY:
+			applied = _act_decoy(match_state, seat)
 		Contract.ACT_END_TURN:
 			applied = _act_end_turn(match_state, seat, action)
 		_:
@@ -346,6 +348,9 @@ func _empty_seat(token: String) -> Dictionary:
 		"exposurePct": Contract.DEFAULT_EXPOSURE,
 		"movedLastTurn": false,
 		"uavRemaining": 1,
+		"decoyAvailable": true,
+		"decoyHex": null,
+		"decoyJustPlaced": false,
 	}
 
 
@@ -467,12 +472,13 @@ func _act_attack(match_state: Dictionary, seat: String, action: Dictionary) -> A
 	_reveal(match_state, seat, int(hex["q"]), int(hex["r"]))
 	var enemy: Dictionary = match_state["seats"][Contract.other_seat(seat)]
 	var hit := bool(enemy["placed"]) and Contract.same_hex(hex, enemy["hex"])
-	# Miss must not invent Hot / visibleHex.
+	# Real kill path unchanged. Decoy hex is never a secret position at place-time.
 	if hit:
 		match_state["status"] = Contract.STATUS_ENDED
 		match_state["whoseTurn"] = null
 		match_state["phase"] = null
 		match_state["winner"] = seat
+		_clear_all_decoys(match_state)
 		_settle_payout(match_state, Contract.END_KILL)
 		var pay: Dictionary = match_state["payouts"][seat]
 		_set_last(match_state, {
@@ -486,8 +492,18 @@ func _act_attack(match_state: Dictionary, seat: String, action: Dictionary) -> A
 			"reason": pay.get("reason", Contract.END_KILL),
 		})
 	else:
+		var decoy_cleared := Contract.same_hex(hex, enemy.get("decoyHex", null))
+		if decoy_cleared:
+			_clear_seat_decoy(enemy)
 		match_state["phase"] = Contract.PHASE_END_TURN
-		_set_last(match_state, {"type": Contract.ACT_ATTACK, "seat": seat, "hex": hex, "hit": false, "kill": false})
+		_set_last(match_state, {
+			"type": Contract.ACT_ATTACK,
+			"seat": seat,
+			"hex": hex,
+			"hit": false,
+			"kill": false,
+			"decoyCleared": decoy_cleared,
+		})
 	return _ok(match_state, seat)
 
 
@@ -503,12 +519,21 @@ func _act_recon(match_state: Dictionary, seat: String, action: Dictionary) -> Ac
 		_reveal(match_state, seat, cell.x, cell.y)
 	var enemy: Dictionary = match_state["seats"][Contract.other_seat(seat)]
 	var in_sector := false
+	var decoy_in_sector := false
 	if bool(enemy["placed"]) and enemy["hex"] != null:
 		var eq := int(enemy["hex"]["q"])
 		var er := int(enemy["hex"]["r"])
 		for cell in cells:
 			if cell.x == eq and cell.y == er:
 				in_sector = true
+				break
+	var decoy_hex: Variant = enemy.get("decoyHex", null)
+	if decoy_hex is Dictionary:
+		var dq := int(decoy_hex.get("q", -1))
+		var dr := int(decoy_hex.get("r", -1))
+		for cell in cells:
+			if cell.x == dq and cell.y == dr:
+				decoy_in_sector = true
 				break
 	var chance := Contract.RECON_BASE
 	if bool(enemy["movedLastTurn"]):
@@ -529,6 +554,10 @@ func _act_recon(match_state: Dictionary, seat: String, action: Dictionary) -> Ac
 	}
 	if found:
 		recon_last["hex"] = enemy["hex"].duplicate()
+	elif decoy_in_sector and decoy_hex is Dictionary:
+		## Soft-mark the toy doll only — never promote it to real Hot / visibleHex.
+		recon_last["decoySpotted"] = true
+		recon_last["hex"] = (decoy_hex as Dictionary).duplicate()
 	_set_last(match_state, recon_last)
 	return _ok(match_state, seat)
 
@@ -553,6 +582,74 @@ func _act_uav(match_state: Dictionary, seat: String) -> ActionResult:
 	match_state["phase"] = Contract.PHASE_END_TURN
 	_set_last(match_state, {"type": Contract.ACT_UAV, "seat": seat, "revealed": revealed})
 	return _ok(match_state, seat)
+
+
+func _act_decoy(match_state: Dictionary, seat: String) -> ActionResult:
+	var gate := _need_own_action(match_state, seat)
+	if gate != "":
+		return _fail(match_state, seat, gate)
+	var seat_state: Dictionary = match_state["seats"][seat]
+	if not bool(seat_state.get("decoyAvailable", false)):
+		return _fail(match_state, seat, "decoy_spent")
+	var dest: Variant = _pick_decoy_hex(match_state, seat)
+	if dest == null:
+		return _fail(match_state, seat, "decoy_no_hex")
+	seat_state["decoyAvailable"] = false
+	seat_state["decoyHex"] = dest
+	seat_state["decoyJustPlaced"] = true
+	match_state["phase"] = Contract.PHASE_END_TURN
+	_set_last(match_state, {
+		"type": Contract.ACT_DECOY,
+		"seat": seat,
+		"hex": dest,
+		"planted": true,
+	})
+	return _ok(match_state, seat)
+
+
+func _pick_decoy_hex(match_state: Dictionary, seat: String) -> Variant:
+	## First in-bounds axial neighbor that is not either secret position.
+	var seat_state: Dictionary = match_state["seats"][seat]
+	var here: Variant = seat_state.get("hex", null)
+	if here == null or not (here is Dictionary):
+		return null
+	var occupied: Array = []
+	for key in [Contract.SEAT_A, Contract.SEAT_B]:
+		var other_hex: Variant = match_state["seats"][key].get("hex", null)
+		if other_hex is Dictionary:
+			occupied.append(other_hex)
+		var other_decoy: Variant = match_state["seats"][key].get("decoyHex", null)
+		if other_decoy is Dictionary:
+			occupied.append(other_decoy)
+	for cell in HexMath.neighbors(int(here["q"]), int(here["r"])):
+		var cand := Contract.hex_dict(cell.x, cell.y)
+		var blocked := false
+		for hex in occupied:
+			if Contract.same_hex(cand, hex):
+				blocked = true
+				break
+		if not blocked:
+			return cand
+	return null
+
+
+func _clear_seat_decoy(seat_state: Dictionary) -> void:
+	seat_state["decoyHex"] = null
+	seat_state["decoyJustPlaced"] = false
+
+
+func _clear_all_decoys(match_state: Dictionary) -> void:
+	for key in [Contract.SEAT_A, Contract.SEAT_B]:
+		_clear_seat_decoy(match_state["seats"][key])
+
+
+func _decoy_hex_for_snap(seat_state: Dictionary, match_state: Dictionary) -> Variant:
+	if str(match_state.get("status", "")) == Contract.STATUS_ENDED:
+		return null
+	var hex: Variant = seat_state.get("decoyHex", null)
+	if hex is Dictionary:
+		return hex.duplicate()
+	return null
 
 
 func _act_end_turn(match_state: Dictionary, seat: String, action: Dictionary) -> ActionResult:
@@ -583,6 +680,13 @@ func _act_end_turn(match_state: Dictionary, seat: String, action: Dictionary) ->
 			moved = true
 			_reveal(match_state, seat, int(dest["q"]), int(dest["r"]))
 	seat_state["movedLastTurn"] = moved
+	## Expiry: the end_turn that completes the decoy turn keeps it live;
+	## the caster's next own end_turn clears the toy doll.
+	if seat_state.get("decoyHex", null) != null:
+		if bool(seat_state.get("decoyJustPlaced", false)):
+			seat_state["decoyJustPlaced"] = false
+		else:
+			_clear_seat_decoy(seat_state)
 	for viewer in [Contract.SEAT_A, Contract.SEAT_B]:
 		var intel: Dictionary = match_state["intel"][viewer]
 		var left := int(intel.get("softHotTurnsLeft", 0))
@@ -597,6 +701,7 @@ func _act_end_turn(match_state: Dictionary, seat: String, action: Dictionary) ->
 		match_state["whoseTurn"] = null
 		match_state["phase"] = null
 		match_state["winner"] = Contract.WIN_DRAW
+		_clear_all_decoys(match_state)
 		_settle_payout(match_state, Contract.END_STANDOFF)
 	else:
 		match_state["whoseTurn"] = Contract.other_seat(seat)
@@ -719,11 +824,14 @@ func _snapshot_for_seat(match_state: Dictionary, seat: String) -> Dictionary:
 			"movedLastTurn": bool(you["movedLastTurn"]),
 			"equippedSkinId": equipped_cosmetic if equipped_cosmetic != "" else null,
 			"equipped": equipped_cosmetic if equipped_cosmetic != "" else null,
+			"decoyAvailable": bool(you.get("decoyAvailable", false)),
+			"decoyHex": _decoy_hex_for_snap(you, match_state),
 		},
 		"enemy": {
 			"seat": other,
 			"visibleHex": visible,
 			"softHotTurnsLeft": int(intel.get("softHotTurnsLeft", 0)),
+			"decoySoftHex": _decoy_hex_for_snap(match_state["seats"][other], match_state),
 		},
 		"terrain": terrain,
 		"lastAction": last,

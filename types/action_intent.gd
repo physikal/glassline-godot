@@ -23,6 +23,11 @@ static func uav() -> Dictionary:
 	return {"type": Contract.ACT_UAV}
 
 
+static func decoy() -> Dictionary:
+	## Server picks an adjacent empty hex. Client never sends a target.
+	return {"type": Contract.ACT_DECOY}
+
+
 static func ability() -> Dictionary:
 	## Ability slot still posts the locked `uav` action.
 	return uav()

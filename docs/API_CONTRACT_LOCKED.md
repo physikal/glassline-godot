@@ -17,7 +17,7 @@ Client spike types in `types/` and `MockMatchServer` follow this shape so a live
 2. POST /matches/:id/join { token } → { playerId, seat, snapshot }
 3. Drop: both select_hex while ready; re-drop OK until start
 4. start once both placed → active, whoseTurn a, turnIndex 0, exposurePct 50
-5. Turns: exactly one of attack|recon|uav, then required end_turn
+5. Turns: exactly one of attack|recon|uav|decoy, then required end_turn
 6. turnCap 16 total (8 each) → draw if no kill
 7. Kill → Marks +1 winner
 
@@ -41,6 +41,7 @@ Client spike types in `types/` and `MockMatchServer` follow this shape so a live
 - { type: "attack", hex: {q,r} }
 - { type: "recon", hex: {q,r} }  // sector = center + 6 neighbors
 - { type: "uav" }
+- { type: "decoy" }  // no hex; server picks adjacent empty. LIVE pending Coder.
 - { type: "end_turn", exposurePct: number, hex?: {q,r} }
 
 ## ActionResult (spike + live-shaped)
