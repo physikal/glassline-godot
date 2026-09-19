@@ -70,6 +70,9 @@ const SHOP_ERR_INSUFFICIENT := "insufficient_marks"
 const SHOP_ERR_ALREADY_OWNED := "already_owned"
 const SHOP_ERR_UNKNOWN_ITEM := "unknown_item"
 const SHOP_ERR_UNAVAILABLE := "shop_unavailable"
+## Hideout row copy — owned chrome is this line, not stowed / EQUIPPED.
+const SHOP_OWNED_COPY := "OWNED  ·  visual only"
+const SHOP_INSUFFICIENT_COPY := "Not enough Marks."
 
 ## Locked GD earn table (2026-09-18). Mock display grants only; LIVE ledger is Coder.
 const MARKS_PVP_WIN := 25

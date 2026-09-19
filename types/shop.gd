@@ -204,3 +204,28 @@ func is_insufficient() -> bool:
 
 func is_unavailable() -> bool:
 	return error == Contract.SHOP_ERR_UNAVAILABLE or error == "http_404" or error.begins_with("http_404")
+
+
+func can_afford() -> bool:
+	return balance() >= price()
+
+
+static func row_action_text(owned: bool) -> String:
+	## Owned chrome is OWNED (visual toggle), never EQUIPPED / stowed.
+	return "OWNED" if owned else "BUY"
+
+
+static func row_status_text(owned: bool, can_buy: bool) -> String:
+	if owned:
+		return Contract.SHOP_OWNED_COPY
+	if not can_buy:
+		return Contract.SHOP_INSUFFICIENT_COPY
+	return ""
+
+
+static func row_buy_enabled(owned: bool, can_buy: bool, buying: bool = false) -> bool:
+	if buying:
+		return false
+	if owned:
+		return true
+	return can_buy

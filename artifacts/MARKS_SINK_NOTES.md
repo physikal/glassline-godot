@@ -42,9 +42,9 @@ Auth: client sends `Authorization: Bearer <join token>` when a match token exist
 | --- | --- | --- |
 | **S1** Catalog + shop row | Hideout **ARMORY** row (lobby-canon language) | One stub: GHILLIE RECOLOR · ★50 · BUY. `GET /shop` when live; mock catalog + `Contract.SHOP_STUB_PRICE` when editor / LIVE 404. |
 | **S2** Buy + Marks bind | BUY → `POST /shop/buy` | New UUID `clientBuyId` every click. Chip refreshes from snapshot `you.marks` only. Replay same id does not debit twice (mock receipts). |
-| **S3** Insufficient | BUY at ★24 vs ★50 | Reject `insufficient_marks`. Toast + row copy. Chip stays ★24. |
-| **S4** Equip | EQUIP / click operative | Visual only: `lobby-ghillie.jpg` vs `lobby-canon.jpg`. No match action, no exposure/hit/UAV change. Unequip returns teal jacket. |
-| **S5** Stills | `artifacts/ux/` | `shop_row.png` (row + ★50 + MARKS chip). `shop_post_buy_marks.png` (mock seed ★80 → snapshot ★30 after buy, ghillie on). |
+| **S3** Insufficient | ★24 vs ★50 | Row BUY is **disabled / insufficient** (`Not enough Marks.`). If posted, reject `insufficient_marks`. Chip stays ★24. |
+| **S4** Equip | OWNED / click operative | Visual only: `lobby-ghillie.jpg` vs `lobby-canon.jpg`. Copy is `OWNED · visual only` (no stowed / EQUIPPED split). No match action, no exposure/hit/UAV change. |
+| **S5** Stills | `artifacts/ux/` | `shop_row.png` (disabled BUY at MARKS ★24 + ★50 stamp). `shop_post_buy_marks.png` (mock seed ★80 → snapshot ★30 after buy, ghillie on, OWNED). |
 
 ## Client surfaces
 
@@ -52,10 +52,10 @@ Auth: client sends `Authorization: Bearer <join token>` when a match token exist
 | --- | --- |
 | ARMORY row | Always on the hideout, above LOADOUT / PLAY / JOBS. LOADOUT focuses it. |
 | Marks chip | `MARKS ★N` from `you.marks` / shop snapshot / mock wallet. Never local debit. |
-| BUY | New `clientBuyId` UUID. Apply shop snapshot. |
-| Insufficient | `Not enough Marks.` / `insufficient_marks`. Balance unchanged. |
-| EQUIP / EQUIPPED | Owned only. Mock persists equipped; LIVE is local visual until Coder adds equip. |
-| Operative click | Equip toggle if owned; else “Buy Ghillie Recolor in ARMORY”. |
+| BUY | Enabled only when `you.marks` ≥ ★50. New `clientBuyId` UUID. Apply shop snapshot. |
+| Insufficient | Disabled BUY + `Not enough Marks.` Server still rejects `insufficient_marks`. Balance unchanged. |
+| OWNED | Owned chrome. Click toggles the plate. Mock persists equipped; LIVE is local visual until Coder adds equip. Copy is always `OWNED · visual only`. |
+| Operative click | Plate toggle if owned; else “Buy Ghillie Recolor in ARMORY”. |
 
 ## Mock vs LIVE
 
@@ -67,15 +67,19 @@ Auth: client sends `Authorization: Bearer <join token>` when a match token exist
 
 ## Demo (mock)
 
-1. Hideout MOCK. Chip **MARKS ★24**. ARMORY row **GHILLIE RECOLOR ★50 BUY**.
-2. BUY → reject `insufficient_marks`, chip still ★24.
-3. Earn (or test seed). BUY with a new UUID → snapshot `you.marks` (e.g. 80→30). Chip **★30**. Ghillie plate on.
+1. Hideout MOCK. Chip **MARKS ★24**. ARMORY row **GHILLIE RECOLOR ★50** with **disabled / insufficient BUY**.
+2. BUY is not an active CTA at ★24. If posted, reject `insufficient_marks`, chip still ★24.
+3. Earn (or test seed). BUY with a new UUID → snapshot `you.marks` (e.g. 80→30). Chip **★30**. Ghillie plate on. Copy **OWNED · visual only**.
 4. Replay same `clientBuyId` → same snapshot, still ★30.
-5. EQUIPPED / click operative toggles the plate. Start a match: Attack / Recon / UAV math unchanged.
+5. OWNED / click operative toggles the plate. Start a match: Attack / Recon / UAV math unchanged.
 
 Headless: `godot --headless --path . -s res://tools/headless_loop_test.gd` → `HEADLESS_LOOP_OK` (`_shop_case`).
 
 Captures: `godot --resolution 1280x720 -- --capture-shop` and `--capture-shop-buy`.
+
+## P2 UX (2026-09-19)
+
+After S5 PASS: default mock ★24 vs stamped ★50 no longer shows an active blue BUY. `shop_row.png` is the insufficient state. Post-buy / toggle copy is the same `OWNED · visual only` line — no “stowed” vs EQUIPPED split. Price, snapshot Marks bind, and `LiveMatchClient.get_shop` / `buy_shop` unchanged. No combat delta.
 
 ## Out of this slice
 
