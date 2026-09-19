@@ -5,48 +5,50 @@ Completes the Marks sink fantasy: owned SKUs can **EQUIP** so hideout operative 
 
 Hard: **zero** Attack / Recon / UAV / hit / spot / exposure delta · **no** new SKUs · **no** IAP · **no** mil-sim.
 
-Editor Play stays MOCK (`use_live_api=false`). `LiveMatchClient.equip_cosmetic` posts `POST /shop/equip` when LIVE.
+Editor Play stays MOCK (`use_live_api=false`). LIVE hideout binds `GET /shop/me`. `LiveMatchClient.equip_cosmetic` posts `POST /shop/equip`.
 
 ## Spine
 
 | Piece | Choice |
 | --- | --- |
-| State | Server `you.equippedSkinId` (Coder `shop_equipped.item_id` last-buy stub already exists) |
-| API | `POST /shop/equip` `{ itemId }` + durable player Bearer → snapshot. `itemId: null` unequips. Reject if not owned. |
+| State | Server `you.equippedSkinId` |
+| API | `POST /shop/equip` `{ itemId }` \| `{ itemId: null }` + durable player Bearer. `GET /shop/me` wallet bind. |
 | Snapshot | `you.equippedSkinId` — client never invents the id |
 | Client | ARMORY OWNED → EQUIP / EQUIPPED; hideout + doll bind the same id |
 | Combat | Unchanged |
 
 Idempotent same-id equip = no-op OK. Marks untouched.
 
-## LIVE probe (2026-09-19)
+## LIVE smoke (2026-09-19) — **PASS** `LIVE_SHOP_EQUIP_OK`
 
-**Base:** `https://glassline-api.vercel.app`
+**Base:** `https://glassline-api.vercel.app`  
+**Player:** `p_de36446288d04e7fae37da98072e51c4`
 
-```
-POST /shop/equip  { "itemId": "skin_hideout_stub" }  Authorization: Bearer <playerToken>
-→ HTTP 404 text/plain
-```
+| Call | Result |
+| --- | --- |
+| `GET /shop/me` empty | `{ you: { marks: 0, equippedSkinId: null }, owned: [] }` |
+| `POST /shop/equip` unowned | **403** `{ error/code: not_owned, you.equippedSkinId: null }` |
+| Buy ghillie | `{ ok, you: { marks: 0, equippedSkinId: "skin_hideout_stub" } }` |
+| Equip ghillie | **200** `{ ok, you: { marks: 0, equippedSkinId: "skin_hideout_stub" } }` |
+| `GET /shop/me` after equip | `{ you: { marks: 0, equippedSkinId: "skin_hideout_stub" }, owned: ["skin_hideout_stub"] }` |
+| Same-id re-equip | **200** no-op, marks still 0 |
+| Buy bandana | last-buy auto-equip `skin_bandana_stub` |
+| Swap → ghillie | `equippedSkinId: "skin_hideout_stub"`, marks 0 |
+| Unequip `null` | `equippedSkinId: null`, marks 0 |
+| Re-equip bandana | `equippedSkinId: "skin_bandana_stub"`, owns both |
 
-Coder already writes `shop_equipped` on buy (last-buy). There is **no** public equip route and match snapshots do **not** yet include `you.equippedSkinId`.
-
-**Coder unblock:** `POST /shop/equip` `{ itemId }` \| `{ itemId: null }` + player Bearer → `{ ok, you: { marks, owned, equippedSkinId } }`. Reject `not_owned`. Same id = 200 no-op. Marks unchanged.
-
-Until then: mock persists equip; LIVE 404 falls back to local chrome with toast `LIVE /shop/equip pending Coder`. Client method is ready.
+HTTP log: [`artifacts/live_shop_equip_smoke.txt`](live_shop_equip_smoke.txt)
 
 ## E1–E6
 
 | Gate | Result | Evidence |
 | --- | --- | --- |
-| **E1** server set | **PASS mock** · **LIVE pending** | Mock `equip_cosmetic` returns `you.equippedSkinId`. Same-id no-op. Unowned → `not_owned`. LIVE `POST /shop/equip` **404** (`p_17d1be035e1745058ca76823fca92401`). |
+| **E1** server set | **PASS LIVE** | Unowned 403 `not_owned`. Equip sets `you.equippedSkinId=skin_hideout_stub`. `/shop/me` agrees. Marks untouched. |
 | **E2** hideout | **PASS mock** | Ghillie plate / bandana wash from snapshot id. Still [`ux/equip_owned_hideout.png`](ux/equip_owned_hideout.png). |
 | **E3** doll | **PASS mock** | Exposure doll shirt / bandana wash uses the same id. [`ux/equip_exposure_doll.png`](ux/equip_exposure_doll.png). |
-| **E4** swap / unequip | **PASS mock** | EQUIP other owned SKU; EQUIPPED click unequips (`itemId` empty / null). Marks chip unchanged. |
-| **E5** combat parity | **PASS mock** | Miss `hit=false` + kill `marksDelta +25` identical with/without equip. `RECON_BASE` 0.35. |
+| **E4** swap / unequip | **PASS LIVE** | Swap ghillie → unequip null → re-equip bandana. Marks chip 0 throughout. Owns both SKUs. |
+| **E5** combat parity | **PASS LIVE** | Bare `m_dd3010d155114a2392bd123276ce615c` vs worn `m_188d5e616d064554ae6da20ae8ea4b06` (`equippedSkinId=skin_hideout_stub`). Miss `hit=false` / no Hot. Kill `hit=true` `kill=true` `status=ended` `marks +25`. |
 | **E6** UX copy | **PASS mock** | BUY vs EQUIP vs EQUIPPED. Status `OWNED · visual only` / `Wearing this · visual only`. |
-
-HTTP log: [`artifacts/live_shop_equip_smoke.txt`](live_shop_equip_smoke.txt) · `LIVE_SHOP_EQUIP_PENDING`  
-Mock: `HEADLESS_LOOP_OK` (`_equip_chrome_case`).
 
 ```bash
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_shop_equip_smoke.py
@@ -62,7 +64,7 @@ godot --resolution 1280x720 -- --capture-equip-doll
 | `you.equippedSkinId` | Canonical. `Shop._read_equipped` / `Snapshot.you_equipped_skin_id` |
 | `you.equipped` | Fallback (mock last-buy + older bags) |
 | `itemId` on POST | `skin_hideout_stub` / `skin_bandana_stub` / `null` |
-| `not_owned` | Unowned equip reject |
+| `not_owned` | Unowned equip reject **403** |
 
 Parsers also accept top-level `equippedSkinId` / `equipped` and `you.cosmetics`.
 
@@ -89,23 +91,23 @@ EQUIPPED click unequips. Operative click still cycles owned chrome (including of
 
 | Mode | Equip |
 | --- | --- |
-| Editor MOCK | `MockMatchServer.equip_cosmetic`. Snapshot includes `you.equippedSkinId`. Match snapshots carry the same field for the doll. |
-| LIVE + `/shop/equip` 200 | Apply snapshot only. Never invent the id. |
-| LIVE + `/shop/equip` 404 | Method ready. Local chrome fallback + Coder blocker toast. |
+| Editor MOCK | `MockMatchServer.equip_cosmetic`. Snapshot includes `you.equippedSkinId`. |
+| LIVE | `GET /shop/me` + `POST /shop/equip`. Apply snapshot only. Never invent the id. |
 
-Buy still auto-equips last SKU (Coder `shop_equipped` last-buy stub). Equip is the explicit swap / unequip.
+Buy still auto-equips last SKU (Coder `shop_equipped` last-buy). Equip is the explicit swap / unequip.
 
-## E5 combat table (unchanged)
+## E5 combat table (LIVE, unchanged)
 
-| Field | Bare | Ghillie equipped |
+| Field | Bare `m_dd3010d155114a2392bd123276ce615c` | Ghillie `m_188d5e616d064554ae6da20ae8ea4b06` |
 | --- | --- | --- |
 | Attack miss `hit` | false | false |
 | Attack miss invents Hot | no | no |
-| Attack kill `marksDelta` | +25 | +25 |
-| `you.exposurePct` after start | 50 | 50 |
+| Attack kill `hit` / `kill` | true / true | true / true |
+| Match `status` | ended | ended |
+| Wallet after kill | +25 | +25 |
 | `RECON_BASE` | 0.35 | 0.35 |
 | UAV / spot math | unchanged | unchanged |
 
 ## Out of this slice
 
-New SKUs · IAP · combat gear floor · ranked · Coder `/shop/equip` implementation (blocked, method ready).
+New SKUs · IAP · combat gear floor · ranked.

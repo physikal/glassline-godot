@@ -1,17 +1,160 @@
 BASE https://glassline-api.vercel.app
 PASS  GET /health
+PASS  GET /shop 200
+EVID  GET /shop {"items": [{"id": "skin_hideout_stub", "name": "Hideout Skin (stub)", "price": 50, "kind": "skin"}, {"id": "skin_bandana_stub", "name": "BANDANA RECOLOR", "price": 100, "kind": "skin"}]}
 PASS  POST /players
-EVID  player p_17d1be035e1745058ca76823fca92401 marks=0
+PASS  minted marks 0
+EVID  player p_de36446288d04e7fae37da98072e51c4 marks=0
 
-== probe POST /shop/equip ==
-EVID  POST /shop/equip 404 {"error": "404 Not Found"}
-NOTE  LIVE POST /shop/equip is 404. Coder shop_equipped table already stubs last-buy. Client LiveMatchClient.equip_cosmetic is ready ({ itemId } | { itemId: null }). Need 200 snapshot you.equippedSkinId + reject not_owned. Marks untouched.
+== GET /shop/me empty ==
+PASS  GET /shop/me 200 (got 200)
+PASS  me equippedSkinId null (got None)
+PASS  me owned [] (got [])
+PASS  me marks 0
+EVID  GET /shop/me {"you": {"marks": 0, "equippedSkinId": null}, "owned": []}
+
+== E1 unowned reject ==
+EVID  E1 unowned POST /shop/equip 403 {"error": "not_owned", "code": "not_owned", "you": {"marks": 0, "equippedSkinId": null}}
+PASS  E1 unowned HTTP 403 (got 403)
+PASS  E1 code not_owned
+PASS  E1 unowned marks untouched
+PASS  E1 unowned equippedSkinId null
+
+== E5 bare miss/kill (also earn ★25) ==
+PASS  POST /matches + player Bearer
+EVID  E5 bare m_dd3010d155114a2392bd123276ce615c miss={'hit': False, 'kill': False, 'type': 'attack'} kill={'hit': True, 'kill': True, 'type': 'attack'} marks=25
+PASS  E5 bare miss HTTP 200
+PASS  E5 bare miss hit=false
+PASS  E5 bare miss kill=false
+PASS  E5 bare miss does not invent Hot
+PASS  E5 bare kill ended
+PASS  E5 bare kill hit=true
+PASS  E5 bare kill kill=true
+PASS  E5 bare wallet 0→25 (got 25)
+
+== earn to ★50 then buy ghillie ==
+PASS  POST /matches + player Bearer
+EVID  E5 earn 1 toward 50 m_dfcfd107c2fb426daeeb9a9ff2728560 miss={'hit': False, 'kill': False, 'type': 'attack'} kill={'hit': True, 'kill': True, 'type': 'attack'} marks=50
+PASS  E5 earn 1 toward 50 miss HTTP 200
+PASS  E5 earn 1 toward 50 miss hit=false
+PASS  E5 earn 1 toward 50 miss kill=false
+PASS  E5 earn 1 toward 50 miss does not invent Hot
+PASS  E5 earn 1 toward 50 kill ended
+PASS  E5 earn 1 toward 50 kill hit=true
+PASS  E5 earn 1 toward 50 kill kill=true
+PASS  earn 1 same playerId
+PASS  earn 1 you.marks 25→50 (+25)
+EVID  E1 buy ghillie 200 {"ok": true, "you": {"marks": 0, "equippedSkinId": "skin_hideout_stub"}, "purchaseId": "pur_a995ce2e705f45a687a1ef4ddfedec63", "item": {"id": "skin_hideout_stub", "name": "Hideout Skin (stub)", "price": 50, "kind": "skin"}}
+PASS  E1 buy ghillie 200
+PASS  E1 buy 50→0 (got 0)
+PASS  E1 last-buy auto-equip skin_hideout_stub
+
+== E1 POST /shop/equip sets equippedSkinId ==
+EVID  E1 equip ghillie 200 {"ok": true, "you": {"marks": 0, "equippedSkinId": "skin_hideout_stub"}, "item": {"id": "skin_hideout_stub", "name": "Hideout Skin (stub)", "price": 50, "kind": "skin"}}
+PASS  E1 equip 200
+PASS  E1 you.equippedSkinId=skin_hideout_stub
+PASS  E1 same-id equip marks untouched
+PASS  E1 GET /shop/me after equip
+PASS  E1 /shop/me equippedSkinId=skin_hideout_stub
+PASS  E1 /shop/me owned ghillie
+EVID  E1 GET /shop/me {"you": {"marks": 0, "equippedSkinId": "skin_hideout_stub"}, "owned": ["skin_hideout_stub"]}
+PASS  E1 idempotent same-id 200
+PASS  E1 idempotent marks unchanged
+
+== E5 worn miss/kill (ghillie equipped) ==
+PASS  POST /matches + player Bearer
+EVID  E5 ghillie m_188d5e616d064554ae6da20ae8ea4b06 miss={'hit': False, 'kill': False, 'type': 'attack'} kill={'hit': True, 'kill': True, 'type': 'attack'} marks=25
+PASS  E5 ghillie miss HTTP 200
+PASS  E5 ghillie miss hit=false
+PASS  E5 ghillie miss kill=false
+PASS  E5 ghillie miss does not invent Hot
+PASS  E5 ghillie kill ended
+PASS  E5 ghillie kill hit=true
+PASS  E5 ghillie kill kill=true
+PASS  E5 parity miss_hit bare=False worn=False
+PASS  E5 parity miss_kill bare=False worn=False
+PASS  E5 parity miss_hot bare=None worn=None
+PASS  E5 parity kill_hit bare=True worn=True
+PASS  E5 parity kill_kill bare=True worn=True
+PASS  E5 parity kill_status bare=ended worn=ended
+NOTE  E5 combat math unchanged: miss hit=false / no Hot, kill hit=true marksDelta +25. bare m_dd3010d155114a2392bd123276ce615c vs worn m_188d5e616d064554ae6da20ae8ea4b06 equippedSkinId=skin_hideout_stub.
+
+== E4 earn ★100 + buy bandana + swap / unequip ==
+PASS  POST /matches + player Bearer
+EVID  E5 earn 1 toward 100 m_25901bada245465cbdbb719ddad4178b miss={'hit': False, 'kill': False, 'type': 'attack'} kill={'hit': True, 'kill': True, 'type': 'attack'} marks=50
+PASS  E5 earn 1 toward 100 miss HTTP 200
+PASS  E5 earn 1 toward 100 miss hit=false
+PASS  E5 earn 1 toward 100 miss kill=false
+PASS  E5 earn 1 toward 100 miss does not invent Hot
+PASS  E5 earn 1 toward 100 kill ended
+PASS  E5 earn 1 toward 100 kill hit=true
+PASS  E5 earn 1 toward 100 kill kill=true
+PASS  earn 1 same playerId
+PASS  earn 1 you.marks 25→50 (+25)
+PASS  POST /matches + player Bearer
+EVID  E5 earn 2 toward 100 m_bc9ec42a6ba140b6a330f7a296bc45f7 miss={'hit': False, 'kill': False, 'type': 'attack'} kill={'hit': True, 'kill': True, 'type': 'attack'} marks=75
+PASS  E5 earn 2 toward 100 miss HTTP 200
+PASS  E5 earn 2 toward 100 miss hit=false
+PASS  E5 earn 2 toward 100 miss kill=false
+PASS  E5 earn 2 toward 100 miss does not invent Hot
+PASS  E5 earn 2 toward 100 kill ended
+PASS  E5 earn 2 toward 100 kill hit=true
+PASS  E5 earn 2 toward 100 kill kill=true
+PASS  earn 2 same playerId
+PASS  earn 2 you.marks 50→75 (+25)
+PASS  POST /matches + player Bearer
+EVID  E5 earn 3 toward 100 m_806b005245cb4fa7bb0bf606d31725b8 miss={'hit': False, 'kill': False, 'type': 'attack'} kill={'hit': True, 'kill': True, 'type': 'attack'} marks=100
+PASS  E5 earn 3 toward 100 miss HTTP 200
+PASS  E5 earn 3 toward 100 miss hit=false
+PASS  E5 earn 3 toward 100 miss kill=false
+PASS  E5 earn 3 toward 100 miss does not invent Hot
+PASS  E5 earn 3 toward 100 kill ended
+PASS  E5 earn 3 toward 100 kill hit=true
+PASS  E5 earn 3 toward 100 kill kill=true
+PASS  earn 3 same playerId
+PASS  earn 3 you.marks 75→100 (+25)
+EVID  E4 buy bandana 200 {"ok": true, "you": {"marks": 0, "equippedSkinId": "skin_bandana_stub"}, "purchaseId": "pur_b8c87ccfed374399b406e2ca043a2b07", "item": {"id": "skin_bandana_stub", "name": "BANDANA RECOLOR", "price": 100, "kind": "skin"}}
+PASS  E4 buy bandana 200
+PASS  E4 buy debit 100→0
+PASS  E4 last-buy auto-equip bandana
+EVID  E4 swap ghillie 200 {"ok": true, "you": {"marks": 0, "equippedSkinId": "skin_hideout_stub"}, "item": {"id": "skin_hideout_stub", "name": "Hideout Skin (stub)", "price": 50, "kind": "skin"}}
+PASS  E4 swap 200
+PASS  E4 equippedSkinId ghillie (got skin_hideout_stub)
+PASS  E4 swap marks untouched
+EVID  E4 unequip null 200 {"ok": true, "you": {"marks": 0, "equippedSkinId": null}}
+PASS  E4 unequip 200
+PASS  E4 equippedSkinId null (got None)
+PASS  E4 unequip marks untouched
+EVID  E4 re-equip bandana 200 {"ok": true, "you": {"marks": 0, "equippedSkinId": "skin_bandana_stub"}, "item": {"id": "skin_bandana_stub", "name": "BANDANA RECOLOR", "price": 100, "kind": "skin"}}
+PASS  E4 re-equip bandana
+PASS  E4 re-equip marks untouched
+PASS  E4 /shop/me bandana
+PASS  E4 owns both ['skin_bandana_stub', 'skin_hideout_stub']
+EVID  E4 GET /shop/me {"you": {"marks": 0, "equippedSkinId": "skin_bandana_stub"}, "owned": ["skin_bandana_stub", "skin_hideout_stub"]}
+
+PLAYER p_de36446288d04e7fae37da98072e51c4
 
 BASE https://glassline-api.vercel.app
 NOTES
-  - LIVE POST /shop/equip is 404. Coder shop_equipped table already stubs last-buy. Client LiveMatchClient.equip_cosmetic is ready ({ itemId } | { itemId: null }). Need 200 snapshot you.equippedSkinId + reject not_owned. Marks untouched.
+  - E5 combat math unchanged: miss hit=false / no Hot, kill hit=true marksDelta +25. bare m_dd3010d155114a2392bd123276ce615c vs worn m_188d5e616d064554ae6da20ae8ea4b06 equippedSkinId=skin_hideout_stub.
 EVIDENCE
-  - player p_17d1be035e1745058ca76823fca92401 marks=0
-  - POST /shop/equip 404 {"error": "404 Not Found"}
+  - GET /shop {"items": [{"id": "skin_hideout_stub", "name": "Hideout Skin (stub)", "price": 50, "kind": "skin"}, {"id": "skin_bandana_stub", "name": "BANDANA RECOLOR", "price": 100, "kind": "skin"}]}
+  - player p_de36446288d04e7fae37da98072e51c4 marks=0
+  - GET /shop/me {"you": {"marks": 0, "equippedSkinId": null}, "owned": []}
+  - E1 unowned POST /shop/equip 403 {"error": "not_owned", "code": "not_owned", "you": {"marks": 0, "equippedSkinId": null}}
+  - E5 bare m_dd3010d155114a2392bd123276ce615c miss={'hit': False, 'kill': False, 'type': 'attack'} kill={'hit': True, 'kill': True, 'type': 'attack'} marks=25
+  - E5 earn 1 toward 50 m_dfcfd107c2fb426daeeb9a9ff2728560 miss={'hit': False, 'kill': False, 'type': 'attack'} kill={'hit': True, 'kill': True, 'type': 'attack'} marks=50
+  - E1 buy ghillie 200 {"ok": true, "you": {"marks": 0, "equippedSkinId": "skin_hideout_stub"}, "purchaseId": "pur_a995ce2e705f45a687a1ef4ddfedec63", "item": {"id": "skin_hideout_stub", "name": "Hideout Skin (stub)", "price": 50, "kind": "skin"}}
+  - E1 equip ghillie 200 {"ok": true, "you": {"marks": 0, "equippedSkinId": "skin_hideout_stub"}, "item": {"id": "skin_hideout_stub", "name": "Hideout Skin (stub)", "price": 50, "kind": "skin"}}
+  - E1 GET /shop/me {"you": {"marks": 0, "equippedSkinId": "skin_hideout_stub"}, "owned": ["skin_hideout_stub"]}
+  - E5 ghillie m_188d5e616d064554ae6da20ae8ea4b06 miss={'hit': False, 'kill': False, 'type': 'attack'} kill={'hit': True, 'kill': True, 'type': 'attack'} marks=25
+  - E5 earn 1 toward 100 m_25901bada245465cbdbb719ddad4178b miss={'hit': False, 'kill': False, 'type': 'attack'} kill={'hit': True, 'kill': True, 'type': 'attack'} marks=50
+  - E5 earn 2 toward 100 m_bc9ec42a6ba140b6a330f7a296bc45f7 miss={'hit': False, 'kill': False, 'type': 'attack'} kill={'hit': True, 'kill': True, 'type': 'attack'} marks=75
+  - E5 earn 3 toward 100 m_806b005245cb4fa7bb0bf606d31725b8 miss={'hit': False, 'kill': False, 'type': 'attack'} kill={'hit': True, 'kill': True, 'type': 'attack'} marks=100
+  - E4 buy bandana 200 {"ok": true, "you": {"marks": 0, "equippedSkinId": "skin_bandana_stub"}, "purchaseId": "pur_b8c87ccfed374399b406e2ca043a2b07", "item": {"id": "skin_bandana_stub", "name": "BANDANA RECOLOR", "price": 100, "kind": "skin"}}
+  - E4 swap ghillie 200 {"ok": true, "you": {"marks": 0, "equippedSkinId": "skin_hideout_stub"}, "item": {"id": "skin_hideout_stub", "name": "Hideout Skin (stub)", "price": 50, "kind": "skin"}}
+  - E4 unequip null 200 {"ok": true, "you": {"marks": 0, "equippedSkinId": null}}
+  - E4 re-equip bandana 200 {"ok": true, "you": {"marks": 0, "equippedSkinId": "skin_bandana_stub"}, "item": {"id": "skin_bandana_stub", "name": "BANDANA RECOLOR", "price": 100, "kind": "skin"}}
+  - E4 GET /shop/me {"you": {"marks": 0, "equippedSkinId": "skin_bandana_stub"}, "owned": ["skin_bandana_stub", "skin_hideout_stub"]}
 
-LIVE_SHOP_EQUIP_PENDING Coder /shop/equip 404
+LIVE_SHOP_EQUIP_OK

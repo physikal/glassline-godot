@@ -10,7 +10,7 @@ var equipped_skin_id: String = ""
 
 
 func _ready() -> void:
-	custom_minimum_size = Vector2(72, 96)
+	custom_minimum_size = Vector2(88, 118)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	queue_redraw()
 
@@ -50,17 +50,22 @@ func _draw() -> void:
 	elif bandana:
 		shirt = Color("8a3a28")
 	if ghillie:
-		draw_circle(Vector2(cx, h * 0.20), 10.0, Color("3d6a28"))
-		draw_circle(Vector2(cx - 6.0, h * 0.16), 5.0, Color("5a8f34"))
-		draw_circle(Vector2(cx + 6.0, h * 0.17), 4.5, Color("7cb34a"))
-	draw_circle(Vector2(cx, h * 0.22), 8.0, body)
+		## Full leafy hood with a face peek — same chrome read as hideout plate.
+		draw_circle(Vector2(cx, h * 0.24), 7.0, body)
+		draw_circle(Vector2(cx, h * 0.16), 13.0, Color("3d6a28"))
+		draw_circle(Vector2(cx - 8.0, h * 0.12), 6.5, Color("5a8f34"))
+		draw_circle(Vector2(cx + 8.0, h * 0.13), 6.0, Color("7cb34a"))
+		draw_circle(Vector2(cx, h * 0.08), 5.5, Color("6aa03a"))
+		draw_circle(Vector2(cx + 1.0, h * 0.26), 4.5, body)
+	else:
+		draw_circle(Vector2(cx, h * 0.22), 8.0, body)
 	if bandana:
 		draw_rect(Rect2(cx - 9.0, h * 0.16, 18.0, 5.0), Color("c45a4a"))
 	draw_rect(Rect2(cx - 8.0, h * 0.30, 16.0, 22.0), shirt)
 	if ghillie:
-		draw_circle(Vector2(cx - 8.0, h * 0.32), 4.5, Color("5a8f34"))
-		draw_circle(Vector2(cx + 8.0, h * 0.34), 4.0, Color("7cb34a"))
-		draw_circle(Vector2(cx, h * 0.38), 3.5, Color("3d6a28"))
+		draw_circle(Vector2(cx - 9.0, h * 0.32), 5.5, Color("5a8f34"))
+		draw_circle(Vector2(cx + 9.0, h * 0.34), 5.0, Color("7cb34a"))
+		draw_circle(Vector2(cx, h * 0.36), 4.5, Color("3d6a28"))
 	draw_rect(Rect2(cx - 6.0, h * 0.52, 5.0, 16.0), Color("3a332c"))
 	draw_rect(Rect2(cx + 1.0, h * 0.52, 5.0, 16.0), Color("3a332c"))
 	var cover_h := h * ((100.0 - exposure_pct) / 100.0) * 0.72

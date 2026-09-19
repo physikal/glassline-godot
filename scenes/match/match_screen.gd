@@ -142,7 +142,10 @@ func _capture_equip_doll() -> void:
 	_end_panel.visible = true
 	_bind_server_exposure(ClientSession.typed_snapshot())
 	if _exposure_doll:
+		## High exposure so cover does not hide the leafy hood / shirt chrome.
+		_exposure_doll.bind_server_pct(85.0)
 		_exposure_doll.bind_equipped(ClientSession.equipped_cosmetic)
+		_exposure_doll.custom_minimum_size = Vector2(96, 128)
 	await get_tree().process_frame
 	await get_tree().process_frame
 	await RenderingServer.frame_post_draw
@@ -347,7 +350,7 @@ func _build() -> void:
 	expose_row.add_theme_constant_override("separation", 12)
 	end_col.add_child(expose_row)
 	_exposure_doll = ExposureDoll.new()
-	_exposure_doll.custom_minimum_size = Vector2(72, 96)
+	_exposure_doll.custom_minimum_size = Vector2(88, 118)
 	expose_row.add_child(_exposure_doll)
 	var expose_col := VBoxContainer.new()
 	expose_col.add_theme_constant_override("separation", 6)
