@@ -78,6 +78,9 @@ func _ready() -> void:
 	elif "--capture-decoy-hud" in args or "--capture-decoy-blip" in args:
 		await get_tree().process_frame
 		_on_play()
+	elif "--capture-rematch-ended" in args or "--capture-rematch-ready" in args:
+		await get_tree().process_frame
+		_on_play()
 
 
 func _capture_lobby() -> void:

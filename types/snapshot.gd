@@ -239,3 +239,38 @@ func terrain_map() -> Dictionary:
 		if entry is Dictionary:
 			mapped[Contract.hex_key(entry)] = str(entry.get("type", Contract.TYPE_OPEN))
 	return mapped
+
+
+func rematch() -> Dictionary:
+	var value: Variant = raw.get("rematch", {})
+	return value if value is Dictionary else {}
+
+
+func rematch_status() -> String:
+	return str(rematch().get("status", Contract.REMATCH_NONE))
+
+
+func rematch_new_match_id() -> String:
+	var bag := rematch()
+	var mid := str(bag.get("newMatchId", bag.get("matchId", "")))
+	if mid != "":
+		return mid
+	return str(raw.get("newMatchId", ""))
+
+
+func rematch_offered() -> bool:
+	if is_job() or status() != Contract.STATUS_ENDED:
+		return false
+	return rematch_status() in [
+		Contract.REMATCH_PENDING,
+		Contract.REMATCH_ACCEPTED_A,
+		Contract.REMATCH_ACCEPTED_B,
+	]
+
+
+func rematch_ready() -> bool:
+	return rematch_status() == Contract.REMATCH_READY and rematch_new_match_id() != ""
+
+
+func rematch_leave() -> bool:
+	return rematch_status() in [Contract.REMATCH_DECLINED, Contract.REMATCH_EXPIRED]

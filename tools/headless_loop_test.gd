@@ -126,6 +126,7 @@ func _run() -> int:
 	_expect(failed, server.account_marks == replay_wallet, "refused replay does not double grant")
 
 	_decoy_case(failed)
+	_rematch_case(failed)
 	_live_shape_case(failed)
 	_payout_shape_case(failed)
 	_job_case(failed)
@@ -346,6 +347,122 @@ func _decoy_case(failed: PackedStringArray) -> void:
 	_expect(failed, snap.you_decoy_hex() == null, "D5 match end clears decoy")
 	_expect(failed, snap.enemy_decoy_soft_hex() == null, "D5 match end clears soft blip")
 	_expect(failed, snap.marks_delta() == Contract.MARKS_PVP_WIN, "D5 kill Marks table unchanged")
+
+
+func _play_pvp_kill() -> Dictionary:
+	var created: Dictionary = server.create_match()
+	var mid := str(created["matchId"])
+	var a: Dictionary = server.join(mid, created["joinTokens"]["a"])
+	var b: Dictionary = server.join(mid, created["joinTokens"]["b"])
+	var pid_a := str(a["playerId"])
+	var pid_b := str(b["playerId"])
+	server.apply_action(mid, pid_a, ActionIntent.select_hex(2, 2))
+	server.apply_action(mid, pid_b, ActionIntent.select_hex(7, 5))
+	server.apply_action(mid, pid_a, ActionIntent.start())
+	server.apply_action(mid, pid_a, ActionIntent.attack(7, 5))
+	return {
+		"matchId": mid,
+		"pidA": pid_a,
+		"pidB": pid_b,
+		"tokens": created.get("joinTokens", {}),
+		"fp": server.terrain_fingerprint(mid),
+	}
+
+
+func _rematch_case(failed: PackedStringArray) -> void:
+	## R1–R5 mock: both accept new board; decline / timeout hideout; Marks frozen.
+	server.clear_all()
+	server.reset_wallet(0)
+	var hunt: Dictionary = _play_pvp_kill()
+	var mid := str(hunt["matchId"])
+	var pid_a := str(hunt["pidA"])
+	var pid_b := str(hunt["pidB"])
+	var ended: Snapshot = Snapshot.from_dict(server.get_snapshot(mid, pid_a))
+	_expect(failed, ended.status() == Contract.STATUS_ENDED, "R rematch starts ended")
+	_expect(failed, ended.rematch_status() == Contract.REMATCH_PENDING, "R pending on ended")
+	_expect(failed, ended.rematch_offered(), "R CTA offered")
+	_expect(failed, ended.you_marks() == Contract.MARKS_PVP_WIN, "R kill already settled")
+	var wallet: int = server.account_marks
+	var old_fp := str(hunt["fp"])
+
+	var one: Dictionary = server.rematch(mid, pid_a, true)
+	_expect(failed, bool(one.get("ok", false)), "R accept A ok")
+	_expect(failed, str(one.get("rematch", {}).get("status", "")) == Contract.REMATCH_ACCEPTED_A, "R accepted_a")
+	_expect(failed, str(one.get("rematch", {}).get("newMatchId", "")) == "", "R no match yet")
+	_expect(failed, server.account_marks == wallet, "R4 accept A Marks frozen")
+
+	var both: Dictionary = server.rematch(mid, pid_b, true)
+	var rem: Variant = both.get("rematch", {})
+	_expect(failed, bool(both.get("ok", false)), "R1 both accept ok")
+	_expect(failed, rem is Dictionary and str(rem.get("status", "")) == Contract.REMATCH_READY, "R1 rematch ready")
+	var new_id := str(rem.get("newMatchId", both.get("newMatchId", "")))
+	_expect(failed, new_id != "" and new_id != mid, "R1 new matchId")
+	_expect(failed, both.has("newMatch") and both.has("joinTokens"), "R1 join tokens on ready")
+	_expect(failed, server.account_marks == wallet, "R4 rematch create Marks frozen")
+
+	var neu_a: Snapshot = Snapshot.from_dict(server.get_snapshot(new_id, pid_a))
+	var neu_b: Snapshot = Snapshot.from_dict(server.get_snapshot(new_id, pid_b))
+	_expect(failed, neu_a.status() == Contract.STATUS_READY, "R1 A ready to drop")
+	_expect(failed, neu_b.status() == Contract.STATUS_READY, "R1 B ready to drop")
+	_expect(failed, neu_a.you_seat() == Contract.SEAT_A and neu_b.you_seat() == Contract.SEAT_B, "R1 same seats")
+	_expect(failed, not neu_a.you_placed() and not neu_b.you_placed(), "R1 fresh drop")
+	_expect(failed, neu_a.you_marks() == wallet, "R4 new snap wallet unchanged")
+	var new_fp: String = server.terrain_fingerprint(new_id)
+	_expect(failed, new_fp != "" and new_fp != old_fp, "R2 terrain salt differs")
+
+	## R3 — one decline, no new match.
+	server.clear_all()
+	server.reset_wallet(wallet)
+	hunt = _play_pvp_kill()
+	mid = str(hunt["matchId"])
+	pid_a = str(hunt["pidA"])
+	pid_b = str(hunt["pidB"])
+	wallet = server.account_marks
+	var before_ids: Array = server._matches.keys()
+	var no: Dictionary = server.rematch(mid, pid_b, false)
+	_expect(failed, bool(no.get("ok", false)), "R3 decline ok")
+	_expect(failed, str(no.get("rematch", {}).get("status", "")) == Contract.REMATCH_DECLINED, "R3 declined")
+	_expect(failed, str(no.get("rematch", {}).get("newMatchId", "")) == "", "R3 no newMatchId")
+	_expect(failed, server._matches.keys() == before_ids, "R3 no new match row")
+	_expect(failed, server.account_marks == wallet, "R4 decline Marks frozen")
+	var later: Dictionary = server.rematch(mid, pid_a, true)
+	_expect(failed, str(later.get("rematch", {}).get("status", "")) == Contract.REMATCH_DECLINED, "R3 accept after decline stays declined")
+	_expect(failed, server._matches.keys() == before_ids, "R3 still no new match")
+
+	## R5 — 30s timeout == decline.
+	server.clear_all()
+	server.reset_wallet(0)
+	server.test_now_ms = 1000
+	hunt = _play_pvp_kill()
+	mid = str(hunt["matchId"])
+	pid_a = str(hunt["pidA"])
+	wallet = server.account_marks
+	before_ids = server._matches.keys()
+	server.test_now_ms = 1000 + Contract.REMATCH_TIMEOUT_MS + 50
+	var aged: Snapshot = Snapshot.from_dict(server.get_snapshot(mid, pid_a))
+	_expect(failed, aged.rematch_status() == Contract.REMATCH_EXPIRED, "R5 snapshot expires")
+	_expect(failed, aged.rematch_leave(), "R5 leave hideout")
+	var late: Dictionary = server.rematch(mid, pid_a, true)
+	_expect(failed, str(late.get("rematch", {}).get("status", "")) == Contract.REMATCH_EXPIRED, "R5 accept after expiry refused")
+	_expect(failed, str(late.get("newMatchId", "")) == "", "R5 no new match")
+	_expect(failed, server._matches.keys() == before_ids, "R5 no match spawned")
+	_expect(failed, server.account_marks == wallet, "R4 timeout Marks frozen")
+
+	## Jobs do not offer rematch.
+	server.clear_all()
+	server.reset_wallet(0)
+	var job: Dictionary = server.create_job(1)
+	var jid := str(job.get("matchId", ""))
+	var jpid := str(job.get("playerId", ""))
+	server.apply_action(jid, jpid, ActionIntent.select_hex(2, 2))
+	server.apply_action(jid, jpid, ActionIntent.start())
+	server.apply_action(jid, jpid, ActionIntent.attack(int(Contract.job_bot_hex(1).get("q", 8)), int(Contract.job_bot_hex(1).get("r", 6))))
+	var job_snap: Snapshot = Snapshot.from_dict(server.get_snapshot(jid, jpid))
+	_expect(failed, job_snap.rematch_status() == Contract.REMATCH_NONE, "R job rematch none")
+	_expect(failed, not job_snap.rematch_offered(), "R job no CTA")
+	var job_try: Dictionary = server.rematch(jid, jpid, true)
+	_expect(failed, not bool(job_try.get("ok", true)), "R job rematch refused")
+	_expect(failed, str(job_try.get("error", "")) == Contract.REMATCH_ERR_NOT_PVP, "R job rematch_not_pvp")
 
 
 func _live_shape_case(failed: PackedStringArray) -> void:

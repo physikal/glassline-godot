@@ -75,6 +75,7 @@ Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` 
 | POST | `/matches` | Bearer **player** token binds seat A (else anonymous mint at 0) |
 | POST | `/matches/:id/join` | `{ token }` + optional Bearer player token → `{ playerId, seat, snapshot }` |
 | POST | `/matches/:id/actions` | intent → `{ ok, snapshot, result }` (Bearer = **join token**) |
+| POST | `/matches/:id/rematch` | `{ accept: true\|false }` + durable Bearer. Ended snap `rematch: { status, newMatchId? }`. **404** until Coder lands it — mock + `LiveMatchClient.rematch` stay ready. |
 | GET | `/matches/:id` | caller-scoped snapshot (reconnect / dummy seat) |
 | GET | `/matches/:id/events` | SSE `{ event: snapshot\|your_turn, snapshot }` — on drop, poll `GET /matches/:id` |
 | POST | `/jobs` | `{ tier: 1\|2\|3, clientJobId? }` + Bearer player token reuses that `playerId`. Credit is job **end**, not this POST. |
@@ -107,8 +108,9 @@ Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` 
 5. Dummy recon + end_turn (or watch SSE `your_turn`).
 6. UAV once → `enemy.visibleHex`. END TURN. **DECOY** once → server plants a toy doll on an adjacent empty hex (`you.decoyHex`); rival sees `enemy.decoySoftHex`. Attack on that hex is `hit:false` + `decoyCleared`. Expires next own `end_turn`. No Marks / no hit% buff.
 7. ATTACK that hex → `hit` / `kill`. End overlay reads server `payout` (`marks`, `marksDelta`, `reason`) — never local `marks +=`.
+8. Ended PvP: **PLAY AGAIN** / **DECLINE**. Marks already settled. Both accept → new `matchId` + salt, drop again. Decline or 30s → hideout. Notes: `artifacts/REMATCH_NOTES.md`.
 
-Hideout **JOBS** opens three SP rows (T1 ★10 / T2 ★15 / T3 ★20). START posts `POST /jobs` `{ tier, clientJobId }` on LIVE (mock uses the same shape) then the board. Marks chip binds snapshot `you.marks` only. Ability chrome is labeled **UAV** and still posts `{ type: "uav" }`. **DECOY** sits beside it and posts `{ type: "decoy" }` (mock + LIVE D1–D5). Earn table: `artifacts/MARKS_SP_NOTES.md`. Decoy notes: `artifacts/DECOY_NOTES.md`. Ladder gates: `artifacts/SP_JOB_LADDER_NOTES.md`. Hideout **ARMORY** is two chrome-only Marks sinks (`skin_hideout_stub` ★50 + `skin_bandana_stub` ★100, same `get_shop` / `buy_shop`, no combat / no IAP): `artifacts/MARKS_SINK_NOTES.md` · `artifacts/MARKS_SINK2_NOTES.md`. Owned rows **EQUIP / EQUIPPED** bind hideout + exposure doll to snapshot `you.equippedSkinId`: `artifacts/EQUIP_CHROME_NOTES.md`.
+Hideout **JOBS** opens three SP rows (T1 ★10 / T2 ★15 / T3 ★20). START posts `POST /jobs` `{ tier, clientJobId }` on LIVE (mock uses the same shape) then the board. Marks chip binds snapshot `you.marks` only. Ability chrome is labeled **UAV** and still posts `{ type: "uav" }`. **DECOY** sits beside it and posts `{ type: "decoy" }` (mock + LIVE D1–D5). Ended PvP offers **PLAY AGAIN** / **DECLINE** — Marks already settled; both accept joins a new `matchId`. Earn table: `artifacts/MARKS_SP_NOTES.md`. Decoy notes: `artifacts/DECOY_NOTES.md`. Rematch: `artifacts/REMATCH_NOTES.md`. Ladder gates: `artifacts/SP_JOB_LADDER_NOTES.md`. Hideout **ARMORY** is two chrome-only Marks sinks (`skin_hideout_stub` ★50 + `skin_bandana_stub` ★100, same `get_shop` / `buy_shop`, no combat / no IAP): `artifacts/MARKS_SINK_NOTES.md` · `artifacts/MARKS_SINK2_NOTES.md`. Owned rows **EQUIP / EQUIPPED** bind hideout + exposure doll to snapshot `you.equippedSkinId`: `artifacts/EQUIP_CHROME_NOTES.md`.
 
 ## Layout
 
