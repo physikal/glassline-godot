@@ -370,7 +370,7 @@ func _play_pvp_kill() -> Dictionary:
 
 
 func _rematch_case(failed: PackedStringArray) -> void:
-	## R1–R5 mock: both accept new board; decline / timeout hideout; Marks frozen.
+	## R1–R5 mock: both accept + fresh terrain; same durable seats; Marks frozen; decline / timeout hideout.
 	server.clear_all()
 	server.reset_wallet(0)
 	var hunt: Dictionary = _play_pvp_kill()
@@ -392,7 +392,7 @@ func _rematch_case(failed: PackedStringArray) -> void:
 	_expect(failed, bool(one.get("youAccepted", false)), "R youAccepted A")
 	_expect(failed, not bool(one.get("opponentAccepted", true)), "R opponent not yet")
 	_expect(failed, str(one.get("rematch", {}).get("newMatchId", "")) == "", "R no match yet")
-	_expect(failed, server.account_marks == wallet, "R4 accept A Marks frozen")
+	_expect(failed, server.account_marks == wallet, "R3 accept A Marks frozen")
 
 	var both: Dictionary = server.rematch(mid, pid_b, true)
 	var rem: Variant = both.get("rematch", {})
@@ -407,19 +407,22 @@ func _rematch_case(failed: PackedStringArray) -> void:
 	_expect(failed, str(replay_a.get("status", "")) == Contract.REMATCH_READY, "R1 replay A ready")
 	_expect(failed, str(replay_a.get("joinToken", "")) != "", "R1 replay A joinToken")
 	_expect(failed, str(replay_a.get("matchId", "")) == new_id, "R1 replay same matchId")
-	_expect(failed, server.account_marks == wallet, "R4 rematch create Marks frozen")
+	_expect(failed, server.account_marks == wallet, "R3 rematch create Marks frozen")
 
 	var neu_a: Snapshot = Snapshot.from_dict(server.get_snapshot(new_id, pid_a))
 	var neu_b: Snapshot = Snapshot.from_dict(server.get_snapshot(new_id, pid_b))
 	_expect(failed, neu_a.status() == Contract.STATUS_READY, "R1 A ready to drop")
 	_expect(failed, neu_b.status() == Contract.STATUS_READY, "R1 B ready to drop")
-	_expect(failed, neu_a.you_seat() == Contract.SEAT_A and neu_b.you_seat() == Contract.SEAT_B, "R1 same seats")
+	_expect(failed, neu_a.you_seat() == Contract.SEAT_A and neu_b.you_seat() == Contract.SEAT_B, "R2 same seats")
 	_expect(failed, not neu_a.you_placed() and not neu_b.you_placed(), "R1 fresh drop")
-	_expect(failed, neu_a.you_marks() == wallet, "R4 new snap wallet unchanged")
+	_expect(failed, neu_a.you_marks() == wallet, "R3 new snap wallet unchanged")
 	var new_fp: String = server.terrain_fingerprint(new_id)
-	_expect(failed, new_fp != "" and new_fp != old_fp, "R2 terrain salt differs")
+	_expect(failed, new_fp != "" and new_fp != old_fp, "R1 terrain salt differs")
+	var neu_row: Dictionary = server._matches[new_id]
+	_expect(failed, str(neu_row["seats"][Contract.SEAT_A]["playerId"]) == pid_a, "R2 durable player A")
+	_expect(failed, str(neu_row["seats"][Contract.SEAT_B]["playerId"]) == pid_b, "R2 durable player B")
 
-	## R3 — one decline, no new match.
+	## R4 — one decline, no new match.
 	server.clear_all()
 	server.reset_wallet(wallet)
 	hunt = _play_pvp_kill()
@@ -429,14 +432,14 @@ func _rematch_case(failed: PackedStringArray) -> void:
 	wallet = server.account_marks
 	var before_ids: Array = server._matches.keys()
 	var no: Dictionary = server.rematch(mid, pid_b, false)
-	_expect(failed, bool(no.get("ok", false)), "R3 decline ok")
-	_expect(failed, str(no.get("rematch", {}).get("status", "")) == Contract.REMATCH_DECLINED, "R3 declined")
-	_expect(failed, str(no.get("rematch", {}).get("newMatchId", "")) == "", "R3 no newMatchId")
-	_expect(failed, server._matches.keys() == before_ids, "R3 no new match row")
-	_expect(failed, server.account_marks == wallet, "R4 decline Marks frozen")
+	_expect(failed, bool(no.get("ok", false)), "R4 decline ok")
+	_expect(failed, str(no.get("rematch", {}).get("status", "")) == Contract.REMATCH_DECLINED, "R4 declined")
+	_expect(failed, str(no.get("rematch", {}).get("newMatchId", "")) == "", "R4 no newMatchId")
+	_expect(failed, server._matches.keys() == before_ids, "R4 no new match row")
+	_expect(failed, server.account_marks == wallet, "R3 decline Marks frozen")
 	var later: Dictionary = server.rematch(mid, pid_a, true)
-	_expect(failed, str(later.get("rematch", {}).get("status", "")) == Contract.REMATCH_DECLINED, "R3 accept after decline stays declined")
-	_expect(failed, server._matches.keys() == before_ids, "R3 still no new match")
+	_expect(failed, str(later.get("rematch", {}).get("status", "")) == Contract.REMATCH_DECLINED, "R4 accept after decline stays declined")
+	_expect(failed, server._matches.keys() == before_ids, "R4 still no new match")
 
 	## R5 — 30s timeout == decline.
 	server.clear_all()
@@ -455,7 +458,7 @@ func _rematch_case(failed: PackedStringArray) -> void:
 	_expect(failed, str(late.get("rematch", {}).get("status", "")) == Contract.REMATCH_EXPIRED, "R5 accept after expiry refused")
 	_expect(failed, str(late.get("newMatchId", "")) == "", "R5 no new match")
 	_expect(failed, server._matches.keys() == before_ids, "R5 no match spawned")
-	_expect(failed, server.account_marks == wallet, "R4 timeout Marks frozen")
+	_expect(failed, server.account_marks == wallet, "R3 timeout Marks frozen")
 
 	## Jobs do not offer rematch.
 	server.clear_all()
