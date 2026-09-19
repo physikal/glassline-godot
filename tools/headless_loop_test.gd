@@ -382,7 +382,7 @@ func _rematch_case(failed: PackedStringArray) -> void:
 	_expect(failed, ended.rematch_status() == Contract.REMATCH_PENDING, "R pending on ended")
 	_expect(failed, ended.rematch_offered(), "R CTA offered")
 	_expect(failed, ended.you_marks() == Contract.MARKS_PVP_WIN, "R kill already settled")
-	var wallet := server.account_marks
+	var wallet: int = server.account_marks
 	var old_fp := str(hunt["fp"])
 
 	var one: Dictionary = server.rematch(mid, pid_a, true)
@@ -407,7 +407,7 @@ func _rematch_case(failed: PackedStringArray) -> void:
 	_expect(failed, neu_a.you_seat() == Contract.SEAT_A and neu_b.you_seat() == Contract.SEAT_B, "R1 same seats")
 	_expect(failed, not neu_a.you_placed() and not neu_b.you_placed(), "R1 fresh drop")
 	_expect(failed, neu_a.you_marks() == wallet, "R4 new snap wallet unchanged")
-	var new_fp := server.terrain_fingerprint(new_id)
+	var new_fp: String = server.terrain_fingerprint(new_id)
 	_expect(failed, new_fp != "" and new_fp != old_fp, "R2 terrain salt differs")
 
 	## R3 — one decline, no new match.
@@ -432,12 +432,13 @@ func _rematch_case(failed: PackedStringArray) -> void:
 	## R5 — 30s timeout == decline.
 	server.clear_all()
 	server.reset_wallet(0)
+	server.test_now_ms = 1000
 	hunt = _play_pvp_kill()
 	mid = str(hunt["matchId"])
 	pid_a = str(hunt["pidA"])
 	wallet = server.account_marks
 	before_ids = server._matches.keys()
-	server.test_now_ms = Contract.REMATCH_TIMEOUT_MS + 50
+	server.test_now_ms = 1000 + Contract.REMATCH_TIMEOUT_MS + 50
 	var aged: Snapshot = Snapshot.from_dict(server.get_snapshot(mid, pid_a))
 	_expect(failed, aged.rematch_status() == Contract.REMATCH_EXPIRED, "R5 snapshot expires")
 	_expect(failed, aged.rematch_leave(), "R5 leave hideout")

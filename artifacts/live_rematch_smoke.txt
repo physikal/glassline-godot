@@ -1,0 +1,8 @@
+SMOKE_BASE https://glassline-api.vercel.app
+PASS  GET /health
+PASS  POST /players A
+PASS  POST /players B
+PASS  PvP ended for rematch
+REMATCH_HTTP 404 404 Not Found
+NOTE  LIVE POST /matches/:id/rematch is 404. Coder pending. Mock + LiveMatchClient.rematch({ accept }) ready.
+LIVE_REMATCH_PENDING

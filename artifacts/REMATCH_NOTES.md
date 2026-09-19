@@ -30,7 +30,9 @@ HTTP 404  Not Found
 
 No rematch field on ended snapshots yet. Client method is ready; mock covers R1–R5.
 
-`python3 tools/live_rematch_smoke.py` → `LIVE_REMATCH_PENDING` (`artifacts/live_rematch_smoke.txt`).
+`python3 tools/live_rematch_smoke.py` → **`LIVE_REMATCH_PENDING`** (`artifacts/live_rematch_smoke.txt`).
+
+Ended kill on LIVE still works (`status: ended`); rematch route is the missing piece.
 
 ## Gates
 
@@ -39,11 +41,11 @@ No rematch field on ended snapshots yet. Client method is ready; mock covers R1�
 | **R1** both accept → new match, both ready to drop | **PASS** | pending 404 | Same `playerId`s / seats. Status `ready`, hexes empty. |
 | **R2** terrain differs | **PASS** | pending 404 | New `matchId` + salt suffix `:r`. 9×7 fingerprint differs. |
 | **R3** one decline → hideout; no new match | **PASS** | pending 404 | `declined`. Later accept stays closed. |
-| **R4** Marks unchanged | **PASS** | pending 404 | Wallet after kill stays put across accept / decline / expiry. |
+| **R4** Marks unchanged | **PASS** | pending 404 | Wallet after kill stays put across accept / decline / expiry. Capture still ★49 after rematch. |
 | **R5** timeout → same as decline | **PASS** | pending 404 | Mock clock +30s → `expired`. No new row. |
 | **R6** Play again / Decline on ended | **PASS mock** | n/a | Primary PLAY AGAIN, secondary DECLINE, “Marks already settled.” No ranked chrome. |
 
-Headless: `godot --headless --path . -s res://tools/headless_loop_test.gd` → `HEADLESS_LOOP_OK`.
+Headless: `godot --headless --path . -s res://tools/headless_loop_test.gd` → **`HEADLESS_LOOP_OK`**.
 
 ## Client map
 
