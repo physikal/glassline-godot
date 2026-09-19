@@ -1,8 +1,46 @@
 BASE https://glassline-api.vercel.app
 PASS  GET /health
-PASS  PvP ready/active for abandon probe
-PASS  A4.4 rematch while active blocked (409)
-ABANDON_PROBE 404 404 Not Found
-NOTE  LIVE POST /matches/:id/abandon is 404. Coder pending. Mock + LiveMatchClient.abandon ready. Same path as timeout forfeit.
-NOTE  A4.2 disconnect 30s silence already LIVE — LIVE_A4_SMOKE_OK (endReason=forfeit, leaver +0).
-LIVE_A4_GAPS_SMOKE_PENDING abandon_404
+PASS  POST /players A
+PASS  POST /players B
+PLAYERS p_021afefcc0484e46b695da4c3e217a4c p_c6f07cd3018a491a92d079eabe018fa6
+PASS  waiting match create
+PASS  waiting status (waiting)
+ABANDON_WAITING m_c0a9b4c1feab400fa5d5a89e591069af 409 {"error":"match is not active","code":"match_not_active"}
+PASS  A4.1 waiting abandon 409 match_not_active
+PASS  ready match create
+PASS  ready status (ready)
+ABANDON_READY m_4d2f72372330405db8fa441667d5f3c3 409 {"error":"match is not active","code":"match_not_active"}
+PASS  A4.1 ready abandon 409 match_not_active
+PASS  active match create
+PASS  seat A binds durable player
+PASS  seat B binds durable player
+PASS  active after drop (active)
+PASS  GET active before abandon
+ACTIVE m_38a667eafe8441f8902dfeab569812f6 snap A/B 0/0 shop 0/0
+REMATCH_ACTIVE 409 {"error":"match is not ended","code":"match_not_ended"}
+PASS  A4.4 rematch while active 409 match_not_ended
+ABANDON_ACTIVE m_38a667eafe8441f8902dfeab569812f6 200 {"ok":true,"snapshot":{"matchId":"m_38a667eafe8441f8902dfeab569812f6","status":"ended","turnIndex":0,"turnCap":16,"whoseTurn":null,"phase":null,"uavAvailable":true,"uavRemaining":1,"softMarks":0,"kind":"pvp","endReason":"forfeit","job":null,"you":{"seat":"a","hex":{"q":2,"r":2},"marks":0,"exposurePct":50,"movedLastTurn":false,"equippedSkinId":null,"decoyAvailable":true,"decoyRemaining":1,"decoyHex":null},"enemy":{"seat":"b","visibleHex":{"q":7,"r":5},"softHotTurnsLeft":0,"decoySoftHex":null},"te
+PASS  A4.1 abandon HTTP 200
+PASS  A4.1 status ended (ended)
+PASS  A4.1 endReason forfeit (forfeit)
+PASS  A4.1 remaining seat wins (b)
+PASS  A4.1 lastAction forfeit winner b
+PASS  A4.1 leaver you.marks 0 (0)
+PASS  A4.1 remaining GET
+PASS  A4.1 remaining forfeit (forfeit)
+PASS  A4.1 remaining winner b
+PASS  A4.1 remaining you.marks 12 (12)
+PASS  A4.4 rematch waiting after ended (waiting)
+MARKS m_38a667eafe8441f8902dfeab569812f6 leaver 0->0 (Δ0) remaining 0->12 (Δ12)
+PASS  A4.1 leaver shop Δ0 (0->0)
+PASS  A4.1 remaining shop Δ+12 (0->12)
+ABANDON_REPLAY 409 {"error":"match already ended","code":"match_already_ended"}
+PASS  A4.1 second abandon 409 match_already_ended
+PASS  A4.1 replay abandon no second grant (0/12)
+REMATCH_ENDED_A 200 {"status":"waiting","youAccepted":true,"opponentAccepted":false,"expiresAt":"2026-09-19T22:49:34.604Z"}
+PASS  A4.4 rematch after ended (200 waiting)
+REMATCH_ENDED_B 200 {"status":"ready","matchId":"m_bf9394677290496caefb8d34425e26d4","joinToken":"A4ua1ZrnRboWPkYmwZwklTxfNzeNr5WE","snapshot":{"matchId":"m_bf9394677290496caefb8d34425e26d4","status":"ready","turnIndex":0,"turnCap":16,"whoseTurn":null,"phase":null,"uavAvailable":true,"uavRemaining":1,"softMarks":0,"kin
+PASS  A4.4 rematch ready after ended (200)
+PASS  A4.4 rematch new matchId (m_bf9394677290496caefb8d34425e26d4)
+EVIDENCE {"a41": {"endReason": "forfeit", "leaver": {"delta": 0, "playerId": "p_021afefcc0484e46b695da4c3e217a4c", "shop": 0, "you.marks": 0}, "matchId": "m_38a667eafe8441f8902dfeab569812f6", "remaining": {"delta": 12, "playerId": "p_c6f07cd3018a491a92d079eabe018fa6", "shop": 12, "you.marks": 12}, "winner": "b"}, "health": {"ok": true}, "idempotent": {"code": "match_already_ended", "http": 409, "shop": [0, 12]}, "playerA": "p_021afefcc0484e46b695da4c3e217a4c", "playerB": "p_c6f07cd3018a491a92d079eabe018fa6", "ready": {"code": "match_not_active", "http": 409, "matchId": "m_4d2f72372330405db8fa441667d5f3c3"}, "rematchAfter": {"http": 200, "new": "m_bf9394677290496caefb8d34425e26d4", "old": "m_38a667eafe8441f8902dfeab569812f6"}, "waiting": {"code": "match_not_active", "http": 409, "matchId": "m_c0a9b4c1feab400fa5d5a89e591069af"}}
+LIVE_A4_GAPS_SMOKE_OK m_38a667eafe8441f8902dfeab569812f6 forfeit remaining Δ+12 leaver Δ0 rematch m_bf9394677290496caefb8d34425e26d4
