@@ -356,6 +356,13 @@ func _shop_case(failed: PackedStringArray) -> void:
 	_expect(failed, listed.price() == 50, "S1 catalog price is 50 not 40")
 	_expect(failed, listed.balance() == Contract.MOCK_WALLET_STUB, "S1 you.marks stub 24")
 	_expect(failed, not listed.owns_stub(), "S1 not owned yet")
+	_expect(failed, not listed.can_afford(), "S3 ★24 cannot afford ★50")
+	_expect(failed, Shop.row_action_text(false) == "BUY", "P2 unaffordable action is BUY")
+	_expect(failed, Shop.row_status_text(false, false) == Contract.SHOP_INSUFFICIENT_COPY, "P2 BUY status insufficient")
+	_expect(failed, not Shop.row_buy_enabled(false, false), "P2 BUY disabled when Marks < price")
+	_expect(failed, Shop.row_action_text(true) == "OWNED", "P2 owned action is OWNED not EQUIPPED")
+	_expect(failed, Shop.row_status_text(true, true) == Contract.SHOP_OWNED_COPY, "P2 owned copy visual only")
+	_expect(failed, Shop.row_buy_enabled(true, false), "P2 OWNED stays clickable to toggle plate")
 	_expect(failed, Contract.RECON_BASE == 0.35 and Contract.MARKS_PVP_WIN == 25, "S4 combat table unchanged")
 
 	var session = SessionScript.new()

@@ -457,16 +457,18 @@ func _refresh_shop() -> void:
 	})
 	_shop_name.text = bag.item_name()
 	_shop_price.text = Chrome.marks_star_text(bag.price())
-	_shop_btn.disabled = _buying
-	if ClientSession.owns_cosmetic(Contract.SHOP_STUB_ITEM_ID):
-		if ClientSession.is_equipped(Contract.SHOP_STUB_ITEM_ID):
-			_shop_btn.text = "EQUIPPED"
-		else:
-			_shop_btn.text = "EQUIP"
-		if _shop_status.text == "" or _shop_status.text == "Not enough Marks.":
-			_shop_status.text = "OWNED  ·  visual only"
+	var owned := ClientSession.owns_cosmetic(Contract.SHOP_STUB_ITEM_ID)
+	var can_buy := ClientSession.marks >= bag.price()
+	_shop_btn.text = Shop.row_action_text(owned)
+	_shop_btn.disabled = not Shop.row_buy_enabled(owned, can_buy, _buying)
+	_shop_status.text = Shop.row_status_text(owned, can_buy)
+	if owned:
+		Chrome.paint_chunk_button(_shop_btn, Color("2a241c"), Chrome.HIGH_GOLD)
+	elif can_buy:
+		Chrome.paint_chunk_button(_shop_btn, Chrome.LOADOUT_BLUE, Color.WHITE)
 	else:
-		_shop_btn.text = "BUY"
+		## ★24 vs ★50 — muted / disabled BUY, not an active CTA.
+		Chrome.paint_chunk_button(_shop_btn, Color("3a322c"), Color(0.72, 0.68, 0.58, 0.70))
 	_refresh_bg()
 
 
@@ -486,7 +488,7 @@ func _on_shop_primary() -> void:
 	_refresh_marks()
 	_buying = false
 	if shop.is_insufficient():
-		_shop_status.text = "Not enough Marks."
+		_shop_status.text = Contract.SHOP_INSUFFICIENT_COPY
 		_toast_msg("ARMORY rejected  ·  insufficient_marks")
 	elif shop.is_unavailable():
 		_shop_status.text = "LIVE shop not ready"
@@ -495,8 +497,8 @@ func _on_shop_primary() -> void:
 		_shop_status.text = str(shop.error)
 		_toast_msg("ARMORY rejected  ·  %s" % shop.error)
 	else:
-		_shop_status.text = "OWNED  ·  visual only"
-		_toast_msg("Ghillie Recolor stowed.")
+		_shop_status.text = Contract.SHOP_OWNED_COPY
+		_toast_msg(Contract.SHOP_OWNED_COPY)
 	_refresh_shop()
 
 
@@ -511,7 +513,7 @@ func _on_equip_toggle() -> void:
 	else:
 		ClientSession.apply_shop(body)
 	_refresh_shop()
-	_toast_msg("Ghillie Recolor equipped." if ClientSession.ghillie else "Teal jacket back on.")
+	_toast_msg(Contract.SHOP_OWNED_COPY)
 
 
 func _toggle_suit() -> void:

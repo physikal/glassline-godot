@@ -71,6 +71,21 @@ static func chunk_button(text: String, bg: Color, fg: Color, min_size: Vector2 =
 	return _styled_button(text, bg, fg, min_size, 18, 12)
 
 
+static func paint_chunk_button(button: Button, bg: Color, fg: Color) -> void:
+	## Restyle an existing chunk button (active BUY vs disabled / OWNED).
+	if button == null:
+		return
+	var radius := 18
+	button.add_theme_color_override("font_color", fg)
+	button.add_theme_color_override("font_hover_color", fg)
+	button.add_theme_color_override("font_pressed_color", fg)
+	button.add_theme_color_override("font_disabled_color", Color(fg, 0.50))
+	button.add_theme_stylebox_override("normal", flat(bg, radius, bg.lightened(0.22), 3))
+	button.add_theme_stylebox_override("hover", flat(bg.lightened(0.08), radius, Color.WHITE, 3))
+	button.add_theme_stylebox_override("pressed", flat(bg.darkened(0.12), radius, bg.darkened(0.3), 3))
+	button.add_theme_stylebox_override("disabled", flat(bg.darkened(0.12), radius, bg.darkened(0.28), 3))
+
+
 static func pill_chip(bg: Color = INK, border: Color = Color("3d2a1c")) -> PanelContainer:
 	var panel := PanelContainer.new()
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
