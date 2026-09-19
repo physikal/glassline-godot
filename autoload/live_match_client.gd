@@ -279,7 +279,8 @@ func abandon(match_id: String, token: String = "") -> Dictionary:
 		bearer = ClientSession.join_token
 	if bearer == "":
 		bearer = ClientSession.player_bearer()
-	var raw: Dictionary = _raw("POST", "/matches/%s/abandon" % match_id, {}, bearer)
+	## LIVE contract: no body. Same forfeit path as timeout.
+	var raw: Dictionary = _raw("POST", "/matches/%s/abandon" % match_id, null, bearer)
 	return _abandon_from_raw(raw, match_id, bearer)
 
 
@@ -296,6 +297,17 @@ func _abandon_from_raw(raw: Dictionary, match_id: String, token: String) -> Dict
 			"status": 404,
 			"snapshot": {},
 		}
+	## Coder: already ended is 409 match_already_ended. Treat as idempotent OK.
+	if http_status == 409 and str(body.get("code", "")) == "match_already_ended":
+		var replay_ended: Dictionary = _json("GET", "/matches/%s" % match_id, null, token)
+		if replay_ended.has("matchId"):
+			return {
+				"ok": true,
+				"alreadyEnded": true,
+				"status": http_status,
+				"code": body.get("code", ""),
+				"snapshot": replay_ended,
+			}
 	if http_status >= 400:
 		var snap: Variant = body.get("snapshot", {})
 		if snap is Dictionary and str(snap.get("status", "")) == Contract.STATUS_ENDED:

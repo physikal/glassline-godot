@@ -99,7 +99,20 @@ POST shapes (Coder PR #9 / LIVE):
 - 409 `match_not_ended` / `rematch_not_available` (SP jobs). 400 `invalid_rematch_body`.
 - Client aliases `pending|accepted_a|accepted_b` → `waiting`. Mock matches LIVE. Curl LIVE first; prefer LIVE smoke once the route is 200.
 
+## Abandon (active PvP / job)
+`POST /matches/:id/abandon` — join Bearer, **no body**. Same forfeit path as 30s silence.
+
+```
+{ ok: true, snapshot }   // status ended, endReason forfeit, winner = remaining
+```
+
+- Marks: remaining **+12** / leaver **+0**. Snapshot `you.marks` is the settled wallet.
+- `ready` / `waiting` → 409 `match_not_active`.
+- Already `ended` → 409 `match_already_ended` (idempotent: no second grant). Client GET-replays.
+- Rematch still ended-only (409 `match_not_ended` while `active`).
+
 ## Other REST
 - `GET /health` → `{ ok: true }`
 - `GET /matches/:id` → caller-scoped snapshot (reconnect)
+- `POST /matches/:id/abandon` → join Bearer, no body
 - `POST /matches/:id/rematch` → `{ accept }` + join-token Bearer (player token fallback)
