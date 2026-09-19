@@ -129,6 +129,8 @@ func _run() -> int:
 	_job_case(failed)
 	_a2_reconnect_case(failed)
 	_shop_case(failed)
+	_live_shop_shape_case(failed)
+	_player_persist_case(failed)
 
 	# Recon odds: in-sector + forced roll.
 	_recon_case(failed)
@@ -409,6 +411,68 @@ func _shop_case(failed: PackedStringArray) -> void:
 	session.apply_shop(equip)
 	_expect(failed, session.ghillie, "S4 re-equip ghillie recolor")
 	_expect(failed, session.marks == 30, "S4 equip does not touch marks")
+	session.free()
+
+
+func _live_shop_shape_case(failed: PackedStringArray) -> void:
+	## LIVE Coder shape (2026-09-19): catalog `id`, buy `{ ok, you.marks, purchaseId, item }`.
+	## Client binds snapshot you.marks only — never local marks -=.
+	var catalog = Shop.from_any({
+		"items": [{"id": "skin_hideout_stub", "name": "Hideout Skin (stub)", "price": 50, "kind": "skin"}],
+	})
+	_expect(failed, catalog.item_id() == Contract.SHOP_STUB_ITEM_ID, "LIVE catalog id → itemId")
+	_expect(failed, catalog.item_id() == "skin_hideout_stub", "LIVE itemId skin_hideout_stub")
+	_expect(failed, catalog.price() == Contract.SHOP_STUB_PRICE, "LIVE catalog price 50")
+	_expect(failed, not catalog.has_marks(), "LIVE GET /shop has no you.marks")
+
+	var session = SessionScript.new()
+	session.bind_marks(999)
+	session.apply_shop({
+		"error": Contract.SHOP_ERR_INSUFFICIENT,
+		"code": Contract.SHOP_ERR_INSUFFICIENT,
+		"you": {"marks": 24},
+		"status": 402,
+	})
+	_expect(failed, session.marks == 24, "S2 LIVE 402 binds you.marks (replaces 999)")
+	_expect(failed, session.marks != 949, "S2 never local marks -= on 402")
+	_expect(failed, not session.owns_cosmetic(Contract.SHOP_STUB_ITEM_ID), "S2 402 does not grant owned")
+
+	session.bind_marks(80)
+	session.apply_shop({
+		"ok": true,
+		"you": {"marks": 30},
+		"purchaseId": "pur_shape",
+		"item": {"id": "skin_hideout_stub", "name": "Hideout Skin (stub)", "price": 50, "kind": "skin"},
+		"status": 200,
+	})
+	_expect(failed, session.marks == 30, "S1 LIVE buy binds you.marks 80→30 from snapshot")
+	_expect(failed, session.owns_cosmetic("skin_hideout_stub"), "S1 owned from item.id")
+	_expect(failed, session.ghillie, "S1 last buy auto-equips visual")
+	session.bind_marks(999)
+	session.apply_shop({
+		"ok": true,
+		"you": {"marks": 30},
+		"purchaseId": "pur_shape",
+		"item": {"id": "skin_hideout_stub", "price": 50, "kind": "skin"},
+		"status": 200,
+	})
+	_expect(failed, session.marks == 30, "S3 replay snapshot still 30 (no second debit locally)")
+	session.free()
+
+
+func _player_persist_case(failed: PackedStringArray) -> void:
+	## Durable POST /players token survives reset_match. Marks bind is snapshot-only.
+	var session = SessionScript.new()
+	session.bind_player({"playerId": "p_persist", "token": "tok_persist", "marks": 50})
+	_expect(failed, session.player_token == "tok_persist", "player token stored")
+	_expect(failed, session.durable_player_id == "p_persist", "durable playerId stored")
+	_expect(failed, session.marks == 50, "bind_player marks from payload")
+	session.join_token = "join_a"
+	session.reset_match()
+	_expect(failed, session.player_token == "tok_persist", "reset_match keeps player token")
+	_expect(failed, session.durable_player_id == "p_persist", "reset_match keeps durable playerId")
+	_expect(failed, session.marks == 50, "reset_match keeps display marks")
+	_expect(failed, session.join_token == "", "reset_match clears join token")
 	session.free()
 
 

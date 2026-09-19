@@ -82,4 +82,5 @@ GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_a2_smoke.
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_http_smoke.py
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_jobs_smoke.py
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_a4_smoke.py
+GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_shop_smoke.py
 ```

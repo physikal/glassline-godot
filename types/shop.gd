@@ -11,6 +11,9 @@ var owned: Array = []
 var equipped: String = ""
 var error: String = ""
 var ok: bool = true
+var owned_present: bool = false
+var equipped_present: bool = false
+var purchase_id: String = ""
 
 
 static func from_any(payload: Variant):
@@ -31,11 +34,30 @@ static func from_any(payload: Variant):
 	parsed.owned = _read_owned(bag, root)
 	parsed.equipped = _read_equipped(bag, root)
 	parsed.marks = _read_marks(bag, root)
+	parsed.owned_present = _has_owned(bag, root)
+	parsed.equipped_present = _has_equipped(bag, root)
+	parsed.purchase_id = str(bag.get("purchaseId", root.get("purchaseId", "")))
+	## LIVE buy 200: { ok, you.marks, purchaseId, item } — infer owned/equip.
+	var bought: Variant = bag.get("item", root.get("item", null))
+	if bought is Dictionary:
+		var bought_item: Dictionary = _normalize_item(bought)
+		if parsed.items.is_empty():
+			parsed.items = [bought_item]
+		var bought_id := _as_id(bought_item)
+		if parsed.ok and bought_id != "":
+			if not parsed.owned_present:
+				parsed.owned = [bought_id]
+				parsed.owned_present = true
+			if not parsed.equipped_present:
+				parsed.equipped = bought_id
+				parsed.equipped_present = true
 	return parsed
 
 
 static func _has_error(bag: Dictionary) -> bool:
-	return str(bag.get("error", "")) != "" or str(bag.get("reason", "")) == Contract.SHOP_ERR_INSUFFICIENT
+	return str(bag.get("error", "")) != "" \
+		or str(bag.get("reason", "")) == Contract.SHOP_ERR_INSUFFICIENT \
+		or str(bag.get("code", "")) == Contract.SHOP_ERR_INSUFFICIENT
 
 
 static func _read_error(bag: Dictionary) -> String:
@@ -46,13 +68,16 @@ static func _read_error(bag: Dictionary) -> String:
 	if err != "":
 		return err
 	var reason := str(bag.get("reason", ""))
-	if reason in [
-		Contract.SHOP_ERR_INSUFFICIENT,
-		Contract.SHOP_ERR_ALREADY_OWNED,
-		Contract.SHOP_ERR_UNKNOWN_ITEM,
-		Contract.SHOP_ERR_UNAVAILABLE,
-	]:
-		return reason
+	var code := str(bag.get("code", ""))
+	for token in [err, reason, code]:
+		if token in [
+			Contract.SHOP_ERR_INSUFFICIENT,
+			Contract.SHOP_ERR_ALREADY_OWNED,
+			Contract.SHOP_ERR_UNKNOWN_ITEM,
+			Contract.SHOP_ERR_UNAVAILABLE,
+			Contract.SHOP_ERR_INVALID_BODY,
+		]:
+			return token
 	return ""
 
 
@@ -60,12 +85,12 @@ static func _read_items(bag: Dictionary, root: Dictionary) -> Array:
 	for source in [bag, root]:
 		var list: Variant = source.get("items", source.get("catalog", []))
 		if list is Array and not list.is_empty():
-			return list.duplicate()
+			return _normalize_items(list)
 		var shop: Variant = source.get("shop", {})
 		if shop is Dictionary:
 			var nested: Variant = shop.get("items", [])
 			if nested is Array and not nested.is_empty():
-				return nested.duplicate()
+				return _normalize_items(nested)
 	return [Contract.shop_stub_item()]
 
 
@@ -155,6 +180,45 @@ static func _as_id(value: Variant) -> String:
 	return str(value)
 
 
+static func _normalize_item(entry: Dictionary) -> Dictionary:
+	var out: Dictionary = entry.duplicate(true)
+	var item_id := _as_id(entry)
+	if item_id != "":
+		out["id"] = item_id
+		out["itemId"] = item_id
+	if out.has("price") and not out.has("priceMarks"):
+		out["priceMarks"] = int(out.get("price"))
+	return out
+
+
+static func _normalize_items(list: Array) -> Array:
+	var out: Array = []
+	for entry in list:
+		if entry is Dictionary:
+			out.append(_normalize_item(entry))
+	return out
+
+
+static func _has_owned(bag: Dictionary, root: Dictionary) -> bool:
+	for source in [bag, root]:
+		var you: Variant = source.get("you", {})
+		if you is Dictionary and (you.has("owned") or you.has("cosmetics")):
+			return true
+		if source.has("owned"):
+			return true
+	return false
+
+
+static func _has_equipped(bag: Dictionary, root: Dictionary) -> bool:
+	for source in [bag, root]:
+		var you: Variant = source.get("you", {})
+		if you is Dictionary and (you.has("equipped") or you.has("cosmetics")):
+			return true
+		if source.has("equipped"):
+			return true
+	return false
+
+
 func has_marks() -> bool:
 	return marks != null
 
@@ -165,10 +229,10 @@ func balance() -> int:
 
 func stub_item() -> Dictionary:
 	for entry in items:
-		if entry is Dictionary and str(entry.get("itemId", "")) == Contract.SHOP_STUB_ITEM_ID:
+		if entry is Dictionary and _as_id(entry) == Contract.SHOP_STUB_ITEM_ID:
 			return entry
 	if not items.is_empty() and items[0] is Dictionary:
-		return items[0]
+		return items[0] if items[0] is Dictionary else Contract.shop_stub_item()
 	return Contract.shop_stub_item()
 
 
@@ -182,7 +246,8 @@ func price() -> int:
 
 
 func item_id() -> String:
-	return str(stub_item().get("itemId", Contract.SHOP_STUB_ITEM_ID))
+	var found := _as_id(stub_item())
+	return found if found != "" else Contract.SHOP_STUB_ITEM_ID
 
 
 func item_name() -> String:

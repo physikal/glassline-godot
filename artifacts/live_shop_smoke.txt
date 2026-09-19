@@ -1,0 +1,54 @@
+BASE https://glassline-api.vercel.app
+ITEM skin_hideout_stub PRICE 50
+PASS  GET /health
+PASS  GET /shop 200
+PASS  catalog includes skin_hideout_stub
+PASS  catalog price 50
+PASS  catalog kind skin
+EVID  GET /shop 200 {"items": [{"id": "skin_hideout_stub", "name": "Hideout Skin (stub)", "price": 50, "kind": "skin"}]}
+PASS  GET /shop is catalog-only (no you.marks)
+
+== S2 insufficient ==
+PASS  POST /matches
+PASS  S2 starting you.marks == 0 (got 0)
+PASS  S2 HTTP 402 (got 402)
+PASS  S2 code insufficient_marks
+PASS  S2 balance unchanged 0 → 0
+EVID  S2 POST /shop/buy 402 {"error": "insufficient_marks", "code": "insufficient_marks", "you": {"marks": 0}} start=0
+PASS  S2 replay same clientBuyId still 402 (got 402)
+PASS  S2 replay does not debit
+EVID  S2 replay 402 {"error": "insufficient_marks", "code": "insufficient_marks", "you": {"marks": 0}} clientBuyId=f1ff09f7-44e5-4566-a786-c7f05d2f9f32
+
+== earn PvP kill (ledger +25) ==
+PASS  POST /matches
+PASS  PvP ended
+PASS  PvP you.marks 0→25 (+25)
+EVID  PvP m_5593d016bd5c48d6ab208ceb3b9b5f8d you.marks 0→25 endReason=kill
+
+== S1 buy ==
+EVID  S1 POST /shop/buy 402 {"error": "insufficient_marks", "code": "insufficient_marks", "you": {"marks": 25}} before=25 clientBuyId=2a23c978-f963-4895-ad9d-96f9afc5d439
+PASS  S1 expected 200 debit or 402 (got 402)
+PASS  S1 rejected; balance unchanged 25 → 25
+NOTE  S1 cannot 200 on LIVE: player wallet 25 < ★50. Wallets are per playerId; POST /matches and POST /jobs mint a new player at 0. Max single-match earn is PvP kill +25 (2× kill was Coder's price rationale).
+
+== S3 idempotent clientBuyId ==
+EVID  S3 replay 402 {"error": "insufficient_marks", "code": "insufficient_marks", "you": {"marks": 25}} clientBuyId=2a23c978-f963-4895-ad9d-96f9afc5d439
+PASS  S3 replay same status 402 (got 402)
+PASS  S3 replay balance still 25 (got 25)
+NOTE  S3 one-debit not observed: S1 never charged. Replay stayed non-debit.
+
+BASE https://glassline-api.vercel.app
+NOTES
+  - S1 cannot 200 on LIVE: player wallet 25 < ★50. Wallets are per playerId; POST /matches and POST /jobs mint a new player at 0. Max single-match earn is PvP kill +25 (2× kill was Coder's price rationale).
+  - S3 one-debit not observed: S1 never charged. Replay stayed non-debit.
+EVIDENCE
+  - GET /shop 200 {"items": [{"id": "skin_hideout_stub", "name": "Hideout Skin (stub)", "price": 50, "kind": "skin"}]}
+  - S2 POST /shop/buy 402 {"error": "insufficient_marks", "code": "insufficient_marks", "you": {"marks": 0}} start=0
+  - S2 replay 402 {"error": "insufficient_marks", "code": "insufficient_marks", "you": {"marks": 0}} clientBuyId=f1ff09f7-44e5-4566-a786-c7f05d2f9f32
+  - PvP m_5593d016bd5c48d6ab208ceb3b9b5f8d you.marks 0→25 endReason=kill
+  - S1 POST /shop/buy 402 {"error": "insufficient_marks", "code": "insufficient_marks", "you": {"marks": 25}} before=25 clientBuyId=2a23c978-f963-4895-ad9d-96f9afc5d439
+  - S3 replay 402 {"error": "insufficient_marks", "code": "insufficient_marks", "you": {"marks": 25}} clientBuyId=2a23c978-f963-4895-ad9d-96f9afc5d439
+
+LIVE_SHOP_SMOKE_FAIL 2
+  - S1 buy OK (you.marks −50)
+  - S3 one debit on replay

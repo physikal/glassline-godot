@@ -52,6 +52,8 @@ GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_http_smok
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_jobs_smoke.py   # POST /jobs T1 + you.marks +10 once
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_a2_smoke.py     # A2 reconnect: server snapshot wins
 GLASSLINE_USE_LIVE_API=1 godot --headless --path . res://tools/live_loop_test.tscn
+GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_shop_smoke.py   # S1–S3 Marks sink (POST /players + two kill wins)
+GLASSLINE_USE_LIVE_API=1 godot --headless --path . res://tools/live_shop_test.tscn
 ```
 
 Spike checklist: `artifacts/SPIKE_ACCEPTANCE.md`. Reconnect = `GET /matches/:id` then `ClientSession.apply_snapshot` (replace, no merge). Client never invents terrain tags or `hit`.
@@ -65,14 +67,16 @@ Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` 
 | Method | Path | Body / notes |
 | --- | --- | --- |
 | GET | `/health` | `{ ok: true }` — lobby Play pings this first |
-| POST | `/matches` | → `{ matchId, joinTokens: { a, b } }` |
-| POST | `/matches/:id/join` | `{ token }` → `{ playerId, seat, snapshot }` |
-| POST | `/matches/:id/actions` | intent → `{ ok, snapshot, result }` |
+| POST | `/players` | → `{ playerId, token, marks }` — durable identity. **Keep `token`.** |
+| POST | `/matches` | Bearer **player** token binds seat A (else anonymous mint at 0) |
+| POST | `/matches/:id/join` | `{ token }` + optional Bearer player token → `{ playerId, seat, snapshot }` |
+| POST | `/matches/:id/actions` | intent → `{ ok, snapshot, result }` (Bearer = **join token**) |
 | GET | `/matches/:id` | caller-scoped snapshot (reconnect / dummy seat) |
 | GET | `/matches/:id/events` | SSE `{ event: snapshot\|your_turn, snapshot }` — on drop, poll `GET /matches/:id` |
-| GET | `/shop` | Catalog + `you.marks` + owned/equipped — **404 on LIVE 2026-09-18**; mock + client methods ready |
-| POST | `/shop/buy` | `{ itemId, clientBuyId? }` → snapshot `you.marks` + cosmetic. Reject `insufficient_marks`. Idempotent on `clientBuyId` |
-| Auth | | `Authorization: Bearer <join token>` |
+| POST | `/jobs` | `{ tier }` + Bearer player token reuses that `playerId` |
+| GET | `/shop` | `{ items: [{ id, name, price, kind }] }` — LIVE catalog `skin_hideout_stub` ★50 (no `you.marks`) |
+| POST | `/shop/buy` | `{ itemId, clientBuyId }` + Bearer **player** token → `{ ok, you.marks, purchaseId, item }`. **402** `insufficient_marks`. Idempotent on `clientBuyId` |
+| Auth | | Durable `POST /players` Bearer on create / join / jobs / shop. Match actions / snapshot / SSE use the join token. Dummy seat B stays anonymous. |
 
 `PLAY` still joins **both** seats (you = `a`, local dummy = `b`) against the same server so the offline dummy loop works on live HTTPS. Dummy actions use token `b`; the UI SSE stream uses token `a`.
 
@@ -98,7 +102,7 @@ Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` 
 6. UAV once → `enemy.visibleHex`. END TURN.
 7. ATTACK that hex → `hit` / `kill`. End overlay reads server `payout` (`marks`, `marksDelta`, `reason`) — never local `marks +=`.
 
-Hideout **JOBS → START JOB** calls `POST /jobs` `{ tier: 1|2|3 }` on LIVE (mock uses the same shape). Ability chrome is labeled **UAV** and still posts `{ type: "uav" }`. Balance is `you.marks`. Earn table + field names: `artifacts/MARKS_SP_NOTES.md`. Hideout **ARMORY** is the Marks sink stub (ghillie recolor **★50**, `POST /shop/buy`, no combat / no IAP): `artifacts/MARKS_SINK_NOTES.md`.
+Hideout **JOBS → START JOB** calls `POST /jobs` `{ tier: 1|2|3 }` on LIVE (mock uses the same shape). Ability chrome is labeled **UAV** and still posts `{ type: "uav" }`. Balance is `you.marks`. Earn table + field names: `artifacts/MARKS_SP_NOTES.md`. Hideout **ARMORY** is the Marks sink stub (`itemId` **`skin_hideout_stub`**, **★50**, `LiveMatchClient.get_shop` / `buy_shop`, no combat / no IAP): `artifacts/MARKS_SINK_NOTES.md`.
 
 ## Layout
 

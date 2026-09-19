@@ -1,6 +1,8 @@
 extends Node
 ## HTTPS + SSE client for the locked Glassline Hono API.
-## Same method names as MockMatchServer. Bearer = join token.
+## Same method names as MockMatchServer.
+## Bearer = durable POST /players token on create / join / jobs / shop.
+## Match actions / snapshot / heartbeat / SSE still use the per-match join token.
 
 const Contract := preload("res://types/contract.gd")
 const ActionResult := preload("res://types/action_result.gd")
@@ -36,35 +38,80 @@ func health() -> Dictionary:
 	return _json("GET", "/health", null, "")
 
 
+func create_player() -> Dictionary:
+	## POST /players → { playerId, token, marks }. Caller must keep `token`.
+	var body: Dictionary = _json("POST", "/players", {}, "")
+	if body.has("error") and not body.has("token"):
+		last_error = str(body.get("error", "player_create_failed"))
+	return body
+
+
+func auth_dev(token: String = "") -> Dictionary:
+	var bearer := token if token != "" else ClientSession.player_bearer()
+	if bearer == "":
+		return {}
+	return _json("POST", "/auth/dev", {"token": bearer}, "")
+
+
+func ensure_player(force_new: bool = false) -> Dictionary:
+	## Mint once, reuse the same Bearer on matches / jobs / shop.
+	if not force_new:
+		ClientSession.load_player()
+	if not force_new and ClientSession.player_bearer() != "":
+		var auth: Dictionary = auth_dev(ClientSession.player_bearer())
+		if auth.has("playerId") and str(auth.get("error", "")) == "":
+			ClientSession.bind_player({
+				"playerId": auth.get("playerId", ""),
+				"token": ClientSession.player_bearer(),
+				"marks": auth.get("marks", ClientSession.marks),
+			})
+			return auth
+	var created: Dictionary = create_player()
+	if created.has("token"):
+		ClientSession.bind_player(created)
+		if not force_new:
+			ClientSession.persist_player()
+	return created
+
+
 func create_match(opts: Dictionary = {}) -> Dictionary:
-	## Live POST /matches currently ignores body. Forward mode/job flags for Coder.
+	## Bearer player token binds seat A to that playerId (no fresh mint at 0).
 	var payload: Dictionary = opts.duplicate(true)
-	var body: Dictionary = _json("POST", "/matches", payload, "")
+	var body: Dictionary = _json("POST", "/matches", payload, ClientSession.player_bearer())
 	if body.has("error") and not body.has("matchId"):
 		last_error = str(body.get("error", "create_failed"))
 	return body
 
 
 func wallet() -> Dictionary:
-	## Prefer GET /shop when Coder ships it (you.marks + cosmetics). Else {}.
-	var shop: Dictionary = get_shop()
-	if _shop_unavailable(shop):
-		return {}
-	return shop
+	## LIVE Marks come from the durable player, not GET /shop (catalog-only).
+	if ClientSession.player_bearer() != "":
+		var auth: Dictionary = auth_dev()
+		if auth.has("marks"):
+			return {
+				"marks": int(auth.get("marks")),
+				"playerId": str(auth.get("playerId", "")),
+			}
+	return {}
 
 
 func get_shop() -> Dictionary:
-	## LIVE GET /shop — catalog + you.marks + owned/equipped. 404 until Coder ships.
-	var raw: Dictionary = _raw("GET", "/shop", null, ClientSession.join_token)
+	## LIVE GET /shop → { items: [{ id, name, price, kind }] }. Public catalog.
+	var raw: Dictionary = _raw("GET", "/shop", null, ClientSession.player_bearer())
 	return _shop_from_raw(raw)
 
 
 func buy_shop(item_id: String, client_buy_id: String = "") -> Dictionary:
-	## LIVE POST /shop/buy { itemId, clientBuyId? }. Idempotent on clientBuyId.
-	var payload := {"itemId": item_id}
-	if client_buy_id != "":
-		payload["clientBuyId"] = client_buy_id
-	var raw: Dictionary = _raw("POST", "/shop/buy", payload, ClientSession.join_token)
+	## LIVE POST /shop/buy { itemId, clientBuyId } + Bearer **player** token.
+	## 200 { ok, you.marks, purchaseId, item } — idempotent on clientBuyId.
+	## 402 { error, code: insufficient_marks, you.marks }. Never local marks -=.
+	if client_buy_id == "":
+		client_buy_id = Contract.new_client_buy_id()
+	var payload := {"itemId": item_id, "clientBuyId": client_buy_id}
+	var bearer := ClientSession.player_bearer()
+	if bearer == "":
+		bearer = ClientSession.join_token
+	var raw: Dictionary = _raw("POST", "/shop/buy", payload, bearer)
 	return _shop_from_raw(raw, true)
 
 
@@ -81,18 +128,35 @@ func _shop_unavailable(body: Dictionary) -> bool:
 func _shop_from_raw(raw: Dictionary, is_buy: bool = false) -> Dictionary:
 	var status := int(raw.get("status", 0))
 	var js: Variant = raw.get("json", {})
-	if status == 404:
+	if not (js is Dictionary):
+		if status == 404 and not is_buy:
+			return {
+				"ok": false,
+				"error": Contract.SHOP_ERR_UNAVAILABLE,
+				"status": 404,
+				"snapshot": {},
+			}
+		var fallback := str(raw.get("error", "bad_json"))
+		return {"ok": false, "error": fallback, "status": status, "snapshot": {}}
+	var body: Dictionary = js
+	var code := str(body.get("code", body.get("error", "")))
+	if status == 404 and not is_buy and code == "":
 		return {
 			"ok": false,
 			"error": Contract.SHOP_ERR_UNAVAILABLE,
 			"status": 404,
 			"snapshot": {},
 		}
-	if not (js is Dictionary):
-		var fallback := str(raw.get("error", "bad_json"))
-		return {"ok": false, "error": fallback, "status": status, "snapshot": {}}
-	var body: Dictionary = js
-	if status >= 400 and not body.has("error"):
+	if status == 402 or code == Contract.SHOP_ERR_INSUFFICIENT:
+		body["error"] = Contract.SHOP_ERR_INSUFFICIENT
+		body["ok"] = false
+	elif status == 404 and is_buy:
+		body["error"] = Contract.SHOP_ERR_UNKNOWN_ITEM if code == "" else code
+		body["ok"] = false
+	elif status == 400 and is_buy:
+		body["error"] = Contract.SHOP_ERR_INVALID_BODY if code == "" else code
+		body["ok"] = false
+	elif status >= 400 and not body.has("error"):
 		var result: Variant = body.get("result", {})
 		if result is Dictionary and str(result.get("reason", "")) != "":
 			body["error"] = str(result.get("reason"))
@@ -104,14 +168,14 @@ func _shop_from_raw(raw: Dictionary, is_buy: bool = false) -> Dictionary:
 		else:
 			body["ok"] = status >= 200 and status < 300 and str(body.get("error", "")) == ""
 		if not body.has("snapshot"):
-			if body.has("you") or body.has("marks") or body.has("owned"):
+			if body.has("you") or body.has("marks") or body.has("owned") or body.has("item"):
 				body["snapshot"] = body.duplicate(true)
 	body["status"] = status
 	return body
 
 
 func create_job(tier: int = 1) -> Dictionary:
-	var body: Dictionary = _json("POST", "/jobs", {"tier": clampi(tier, 1, 3)}, "")
+	var body: Dictionary = _json("POST", "/jobs", {"tier": clampi(tier, 1, 3)}, ClientSession.player_bearer())
 	if body.has("error") and not body.has("matchId"):
 		last_error = str(body.get("error", "job_create_failed"))
 	return body
@@ -132,12 +196,23 @@ func heartbeat() -> Dictionary:
 
 
 func join(match_id: String, token: String) -> Dictionary:
-	var body: Dictionary = _json("POST", "/matches/%s/join" % match_id, {"token": token}, token)
+	## Body token is the join token. Bearer player token binds an empty seat.
+	## Dummy seat B must not reuse player A's token (409 same player both seats).
+	var bearer := _join_bearer(token)
+	var body: Dictionary = _json("POST", "/matches/%s/join" % match_id, {"token": token}, bearer)
 	if body.has("playerId") and body.has("snapshot"):
 		return body
 	if body.has("error"):
 		return body
 	return {"error": str(body.get("error", "join_failed"))}
+
+
+func _join_bearer(join_token: String) -> String:
+	if join_token != "" and join_token == ClientSession.dummy_token:
+		return join_token
+	if ClientSession.player_bearer() != "":
+		return ClientSession.player_bearer()
+	return join_token
 
 
 func get_snapshot(match_id: String, player_id: String) -> Dictionary:
