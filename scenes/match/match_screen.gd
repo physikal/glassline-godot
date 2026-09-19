@@ -464,8 +464,9 @@ func _build() -> void:
 	decoy_col.add_child(_btn_decoy)
 	row.add_child(decoy_col)
 
-	_btn_start = Chrome.chunk_button("START", Chrome.PLAY_GREEN, Color.WHITE, Vector2(160, 40))
-	_btn_start.position = Vector2(1096, 64)
+	## Soft P2: rematch-ready START is a centered drop cue, not tucked under P2.
+	_btn_start = Chrome.chunk_button("START", Chrome.PLAY_GREEN, Color.WHITE, Vector2(320, 56))
+	_btn_start.position = Vector2(480, 508)
 	_btn_start.pressed.connect(_on_start)
 	add_child(_btn_start)
 
@@ -658,7 +659,10 @@ func _refresh(snap: Snapshot) -> void:
 			_status.text = ""
 			_phase.text = ""
 			_toast.text = ""
-			_btn_start.visible = snap.you_placed() and _dummy_placed
+			var both_dropped := snap.you_placed() and _dummy_placed
+			_btn_start.text = "START" if both_dropped else "DROP"
+			_btn_start.disabled = not both_dropped
+			_btn_start.visible = true
 			_set_actions(false)
 			_end_panel.visible = false
 		Contract.STATUS_ACTIVE:
