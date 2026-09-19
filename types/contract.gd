@@ -100,6 +100,26 @@ const MARKS_FORFEIT_WIN := 12
 const MARKS_FORFEIT_LOSS := 0
 const FORFEIT_GRACE_SEC := 30
 
+## Rematch — same two seats, new matchId + terrain salt. Marks already final.
+const REMATCH_NONE := "none"
+const REMATCH_PENDING := "pending"
+const REMATCH_ACCEPTED_A := "accepted_a"
+const REMATCH_ACCEPTED_B := "accepted_b"
+const REMATCH_READY := "ready"
+const REMATCH_DECLINED := "declined"
+const REMATCH_EXPIRED := "expired"
+const REMATCH_TIMEOUT_SEC := 30
+const REMATCH_TIMEOUT_MS := 30000
+const REMATCH_ERR_UNAVAILABLE := "rematch_unavailable"
+const REMATCH_ERR_NOT_ENDED := "match_not_ended"
+const REMATCH_ERR_NOT_PVP := "rematch_not_pvp"
+const REMATCH_PLAY_COPY := "PLAY AGAIN"
+const REMATCH_DECLINE_COPY := "DECLINE"
+const REMATCH_SETTLED_COPY := "Marks already settled."
+const REMATCH_HINT_COPY := "Play again for a fresh drop. Wallet stays put."
+const REMATCH_WAIT_COPY := "Waiting on your rival…"
+const REMATCH_TIMER_COPY := "Answer in %ds"
+
 const JOB_NAME_T1 := "Rooftop Rookie"
 const JOB_NAME_T2 := "Warehouse Watch"
 const JOB_NAME_T3 := "Night Contract"

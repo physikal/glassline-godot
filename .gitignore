@@ -18,3 +18,5 @@ export_presets.cfg
 *.swp
 uploads/
 agent-tools/
+__pycache__/
+*.pyc

@@ -34,6 +34,12 @@ var _btn_start: Button
 var _btn_end: Button
 var _over: ColorRect
 var _over_lbl: Label
+var _over_settle: Label
+var _over_hint: Label
+var _over_timer: Label
+var _btn_play_again: Button
+var _btn_decline: Button
+var _btn_hideout: Button
 var _you_chip: Label
 var _rival_chip: Label
 
@@ -43,6 +49,9 @@ var _dummy_placed: bool = false
 var _dummy_busy: bool = false
 var _dummy_delay: float = 0.0
 var _relocate_hex: Variant = null
+var _rematch_left: float = -1.0
+var _rematch_busy: bool = false
+var _going_hideout: bool = false
 
 
 func _ready() -> void:
@@ -66,6 +75,10 @@ func _ready() -> void:
 		_capture_decoy_hud()
 	elif "--capture-decoy-blip" in args:
 		_capture_decoy_blip()
+	elif "--capture-rematch-ended" in args:
+		_capture_rematch_ended()
+	elif "--capture-rematch-ready" in args:
+		_capture_rematch_ready()
 
 
 func _capture_after_play() -> void:
@@ -206,6 +219,63 @@ func _capture_decoy_blip() -> void:
 	var path := ProjectSettings.globalize_path("res://artifacts/ux/decoy_dashed_blip.png")
 	img.save_png(path)
 	print("D6_DECOY_BLIP ", path)
+	get_tree().quit()
+
+
+func _force_pvp_end_for_capture() -> Snapshot:
+	var snap: Snapshot = ClientSession.typed_snapshot()
+	if snap.status() == Contract.STATUS_READY or snap.status() == Contract.STATUS_WAITING:
+		_submit(ActionIntent.select_hex(2, 2))
+		if ClientSession.dummy_player_id != "":
+			_submit_as(ClientSession.dummy_player_id, ActionIntent.select_hex(7, 5))
+			_dummy_placed = true
+		snap = ClientSession.typed_snapshot()
+	if snap.status() == Contract.STATUS_READY:
+		_submit(ActionIntent.start())
+		snap = ClientSession.typed_snapshot()
+	if snap.status() == Contract.STATUS_ACTIVE and str(snap.phase()) == Contract.PHASE_ACTION:
+		_submit(ActionIntent.attack(7, 5))
+		snap = ClientSession.typed_snapshot()
+	return snap
+
+
+func _capture_rematch_ended() -> void:
+	await get_tree().process_frame
+	var snap := _force_pvp_end_for_capture()
+	_refresh(snap)
+	_toast.text = ""
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	var path := ProjectSettings.globalize_path("res://artifacts/ux/rematch_ended_cta.png")
+	img.save_png(path)
+	print("R6_REMATCH_ENDED ", path)
+	get_tree().quit()
+
+
+func _capture_rematch_ready() -> void:
+	await get_tree().process_frame
+	_force_pvp_end_for_capture()
+	_on_play_again()
+	await get_tree().process_frame
+	var snap: Snapshot = ClientSession.typed_snapshot()
+	if snap.status() == Contract.STATUS_READY:
+		_submit(ActionIntent.select_hex(2, 2))
+		if ClientSession.dummy_player_id != "":
+			_submit_as(ClientSession.dummy_player_id, ActionIntent.select_hex(7, 5))
+			_dummy_placed = true
+		snap = ClientSession.typed_snapshot()
+	_refresh(snap)
+	_toast.text = "Fresh drop — same rival, new board."
+	_over.visible = false
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	var path := ProjectSettings.globalize_path("res://artifacts/ux/rematch_ready_new_board.png")
+	img.save_png(path)
+	print("R6_REMATCH_READY ", path)
 	get_tree().quit()
 
 
@@ -461,18 +531,51 @@ func _build() -> void:
 	_over.set_anchors_preset(PRESET_FULL_RECT)
 	_over.visible = false
 	add_child(_over)
+	var over_col := VBoxContainer.new()
+	over_col.set_anchors_preset(PRESET_FULL_RECT)
+	over_col.offset_left = 240
+	over_col.offset_right = -240
+	over_col.offset_top = 140
+	over_col.offset_bottom = -80
+	over_col.alignment = BoxContainer.ALIGNMENT_CENTER
+	over_col.add_theme_constant_override("separation", 14)
+	_over.add_child(over_col)
 	_over_lbl = Label.new()
-	_over_lbl.set_anchors_preset(PRESET_FULL_RECT)
 	_over_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_over_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_over_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	Chrome.apply_label(_over_lbl, 18, Color.WHITE, true)
-	_over.add_child(_over_lbl)
-	var back := Chrome.chunk_button("HIDEOUT", Chrome.PLAY_GREEN, Color.WHITE, Vector2(240, 56))
-	back.position = Vector2(520, 460)
-	back.pressed.connect(func() -> void:
-		get_tree().change_scene_to_file("res://scenes/lobby/hideout_lobby.tscn")
-	)
-	_over.add_child(back)
+	over_col.add_child(_over_lbl)
+	_over_settle = Label.new()
+	_over_settle.text = Contract.REMATCH_SETTLED_COPY
+	_over_settle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_over_settle.visible = false
+	Chrome.apply_label(_over_settle, 10, Chrome.HIGH_GOLD, true)
+	over_col.add_child(_over_settle)
+	_over_hint = Label.new()
+	_over_hint.text = Contract.REMATCH_HINT_COPY
+	_over_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_over_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_over_hint.visible = false
+	Chrome.apply_label(_over_hint, 8, Chrome.CREAM, true)
+	over_col.add_child(_over_hint)
+	_over_timer = Label.new()
+	_over_timer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_over_timer.visible = false
+	Chrome.apply_label(_over_timer, 10, Chrome.CREAM, true)
+	over_col.add_child(_over_timer)
+	var over_btns := HBoxContainer.new()
+	over_btns.alignment = BoxContainer.ALIGNMENT_CENTER
+	over_btns.add_theme_constant_override("separation", 16)
+	over_col.add_child(over_btns)
+	_btn_play_again = Chrome.chunk_button(Contract.REMATCH_PLAY_COPY, Chrome.PLAY_GREEN, Color.WHITE, Vector2(280, 56))
+	_btn_play_again.pressed.connect(_on_play_again)
+	over_btns.add_child(_btn_play_again)
+	_btn_decline = Chrome.chunk_button(Contract.REMATCH_DECLINE_COPY, Chrome.WOOD, Chrome.CREAM, Vector2(220, 56))
+	_btn_decline.pressed.connect(_on_rematch_decline)
+	over_btns.add_child(_btn_decline)
+	_btn_hideout = Chrome.chunk_button("HIDEOUT", Chrome.PLAY_GREEN, Color.WHITE, Vector2(240, 56))
+	_btn_hideout.pressed.connect(_go_hideout)
+	over_col.add_child(_btn_hideout)
 
 
 func _add_player_card(is_you: bool) -> void:
@@ -751,6 +854,7 @@ func _submit_as(player_id: String, action: Dictionary) -> ActionResult:
 
 
 func _process(delta: float) -> void:
+	_tick_rematch(delta)
 	if _dummy_delay <= 0.0:
 		return
 	_dummy_delay = maxf(0.0, _dummy_delay - delta)
@@ -794,8 +898,125 @@ func _dummy_step() -> void:
 
 
 func _show_ended(snap: Snapshot) -> void:
+	if _going_hideout or _rematch_busy:
+		return
+	if snap.rematch_ready():
+		_enter_rematch({"rematch": snap.rematch(), "snapshot": snap.raw})
+		return
+	if snap.rematch_leave():
+		_go_hideout()
+		return
 	_over.visible = true
 	_over_lbl.text = MarksPayout.end_overlay(snap.raw, snap.you_seat(), ClientSession.is_job() or snap.is_job())
+	var offered := snap.rematch_offered()
+	var st := snap.rematch_status()
+	var you_waiting := st in [Contract.REMATCH_ACCEPTED_A, Contract.REMATCH_ACCEPTED_B]
+	_over_settle.visible = offered
+	_over_settle.text = Contract.REMATCH_SETTLED_COPY
+	_over_hint.visible = offered
+	_over_hint.text = Contract.REMATCH_WAIT_COPY if you_waiting else Contract.REMATCH_HINT_COPY
+	_btn_play_again.visible = offered
+	_btn_play_again.disabled = you_waiting
+	_btn_decline.visible = offered
+	_btn_hideout.visible = not offered
+	_over_timer.visible = offered
+	if offered and _rematch_left < 0.0:
+		_rematch_left = float(Contract.REMATCH_TIMEOUT_SEC)
+	if offered:
+		_over_timer.text = Contract.REMATCH_TIMER_COPY % maxi(0, ceili(_rematch_left))
+
+
+func _tick_rematch(delta: float) -> void:
+	if not _over.visible or _rematch_left < 0.0 or _going_hideout:
+		return
+	_rematch_left = maxf(0.0, _rematch_left - delta)
+	if _over_timer:
+		_over_timer.text = Contract.REMATCH_TIMER_COPY % maxi(0, ceili(_rematch_left))
+	if _rematch_left <= 0.0:
+		_on_rematch_timeout()
+
+
+func _on_play_again() -> void:
+	if _rematch_busy or _going_hideout:
+		return
+	var body: Dictionary = MatchAPI.rematch(true)
+	if str(body.get("error", "")) == Contract.REMATCH_ERR_UNAVAILABLE:
+		_go_hideout()
+		return
+	## Editor / local dummy: the rival seat accepts too so Play again drops again.
+	if ClientSession.dummy_player_id != "":
+		var rem: Variant = body.get("rematch", {})
+		var st := str(rem.get("status", "")) if rem is Dictionary else ""
+		if st != Contract.REMATCH_READY and st != Contract.REMATCH_DECLINED and st != Contract.REMATCH_EXPIRED:
+			body = MatchAPI.rematch_as(ClientSession.dummy_player_id, true)
+	_apply_rematch_body(body)
+
+
+func _on_rematch_decline() -> void:
+	if _going_hideout:
+		return
+	MatchAPI.rematch(false)
+	_go_hideout()
+
+
+func _on_rematch_timeout() -> void:
+	if _going_hideout:
+		return
+	var snap: Snapshot = ClientSession.typed_snapshot()
+	if snap.rematch_ready():
+		_enter_rematch({"rematch": snap.rematch(), "snapshot": snap.raw})
+		return
+	MatchAPI.rematch(false)
+	_go_hideout()
+
+
+func _apply_rematch_body(body: Dictionary) -> void:
+	if body.is_empty():
+		return
+	var rem: Variant = body.get("rematch", {})
+	if not (rem is Dictionary):
+		rem = {}
+	var snap_raw: Variant = body.get("snapshot", {})
+	if snap_raw is Dictionary and not snap_raw.is_empty():
+		ClientSession.apply_snapshot(snap_raw)
+	var st := str(rem.get("status", ""))
+	if st == Contract.REMATCH_READY and str(rem.get("newMatchId", body.get("newMatchId", ""))) != "":
+		_enter_rematch(body)
+		return
+	if st in [Contract.REMATCH_DECLINED, Contract.REMATCH_EXPIRED]:
+		_go_hideout()
+		return
+	_refresh(ClientSession.typed_snapshot())
+
+
+func _enter_rematch(body: Dictionary) -> void:
+	if _rematch_busy or _going_hideout:
+		return
+	_rematch_busy = true
+	_over.visible = false
+	_rematch_left = -1.0
+	var snap_dict: Dictionary = MatchAPI.bind_new_match(body)
+	_dummy_placed = false
+	_dummy_busy = false
+	_dummy_delay = 0.0
+	_selected = null
+	_aim = Aim.NONE
+	_relocate_hex = null
+	_rematch_busy = false
+	if snap_dict.is_empty():
+		_go_hideout()
+		return
+	_refresh(ClientSession.typed_snapshot())
+
+
+func _go_hideout() -> void:
+	if _going_hideout:
+		return
+	_going_hideout = true
+	_over.visible = false
+	_rematch_left = -1.0
+	if get_tree() != null:
+		get_tree().change_scene_to_file("res://scenes/lobby/hideout_lobby.tscn")
 
 
 func _describe_last(last: Dictionary) -> String:

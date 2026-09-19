@@ -267,6 +267,52 @@ func get_snapshot(match_id: String, player_id: String) -> Dictionary:
 	return {}
 
 
+func rematch(match_id: String, accept: bool, token: String = "") -> Dictionary:
+	## LIVE POST /matches/:id/rematch { accept } + durable player Bearer.
+	## 404 → rematch_unavailable (Coder pending). Client method stays ready.
+	var bearer := token
+	if bearer == "":
+		bearer = ClientSession.player_bearer()
+	if bearer == "":
+		bearer = ClientSession.join_token
+	var raw: Dictionary = _raw("POST", "/matches/%s/rematch" % match_id, {"accept": accept}, bearer)
+	return _rematch_from_raw(raw)
+
+
+func _rematch_from_raw(raw: Dictionary) -> Dictionary:
+	var status := int(raw.get("status", 0))
+	var js: Variant = raw.get("json", {})
+	if not (js is Dictionary):
+		js = {}
+	var body: Dictionary = js
+	if status == 404:
+		return {
+			"ok": false,
+			"error": Contract.REMATCH_ERR_UNAVAILABLE,
+			"status": 404,
+			"rematch": {},
+			"snapshot": {},
+		}
+	if status >= 400:
+		if str(body.get("error", "")) == "":
+			var result: Variant = body.get("result", {})
+			if result is Dictionary and str(result.get("reason", "")) != "":
+				body["error"] = str(result.get("reason"))
+			else:
+				body["error"] = "http_%s" % str(status)
+		body["ok"] = false
+		body["status"] = status
+		return body
+	if not body.has("ok"):
+		body["ok"] = status >= 200 and status < 300
+	if not body.has("rematch"):
+		var snap: Variant = body.get("snapshot", {})
+		if snap is Dictionary and snap.has("rematch"):
+			body["rematch"] = snap.get("rematch")
+	body["status"] = status
+	return body
+
+
 func apply_action(match_id: String, player_id: String, action: Dictionary) -> ActionResult:
 	var token := ClientSession.token_for(player_id)
 	# Live contract: no `start` — both select_hex auto-activates. Treat as reconnect no-op.
@@ -384,12 +430,20 @@ func _poll_once() -> void:
 		return
 	var snap: Dictionary = js
 	heartbeat()
-	var fp := "%s|%s|%s|%s|%s" % [
+	var rem: Variant = snap.get("rematch", {})
+	var rem_st := ""
+	var rem_new := ""
+	if rem is Dictionary:
+		rem_st = str(rem.get("status", ""))
+		rem_new = str(rem.get("newMatchId", ""))
+	var fp := "%s|%s|%s|%s|%s|%s|%s" % [
 		str(snap.get("status", "")),
 		str(snap.get("phase", "")),
 		str(snap.get("whoseTurn", "")),
 		str(snap.get("turnIndex", "")),
 		str(snap.get("endReason", "")),
+		rem_st,
+		rem_new,
 	]
 	var last: Variant = snap.get("lastAction", {})
 	if last is Dictionary:

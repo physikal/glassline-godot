@@ -15,6 +15,8 @@ signal match_event(player_id: String, event_name: String, snapshot: Dictionary)
 
 ## If >= 0, recon uses this roll instead of randf() (headless tests).
 var test_recon_roll: float = -1.0
+## If >= 0, rematch timeout uses this clock instead of Time.get_ticks_msec().
+var test_now_ms: int = -1
 ## Display stub for hideout. Persists across matches; tests call reset_wallet().
 var account_marks: int = Contract.MOCK_WALLET_STUB
 ## Cosmetic ledger (visual only). Never touches combat / hit / exposure.
@@ -49,6 +51,7 @@ func create_match(opts: Dictionary = {}) -> Dictionary:
 		"endReason": null,
 		"payoutSettled": false,
 		"payouts": {Contract.SEAT_A: {}, Contract.SEAT_B: {}},
+		"rematch": {},
 		"salt": "%s:%s" % [Contract.TERRAIN_SALT, match_id],
 		"tokens": {Contract.SEAT_A: token_a, Contract.SEAT_B: token_b},
 		"seats": {
@@ -287,10 +290,59 @@ func join(match_id: String, token: String) -> Dictionary:
 	}
 
 
+func rematch(match_id: String, player_id: String, accept: bool) -> Dictionary:
+	## POST /matches/:id/rematch { accept }. Marks already settled — no ledger write.
+	var found := _find(match_id, player_id)
+	if found.is_empty():
+		return {"ok": false, "error": "unknown_player", "rematch": {}, "snapshot": {}}
+	var match_state: Dictionary = found["match"]
+	var seat: String = found["seat"]
+	var snap := _snapshot_for_seat(match_state, seat)
+	if match_state["status"] != Contract.STATUS_ENDED:
+		return {"ok": false, "error": Contract.REMATCH_ERR_NOT_ENDED, "rematch": {}, "snapshot": snap}
+	if str(match_state.get("mode", Contract.MODE_PVP)) == Contract.MODE_SP_JOB:
+		return {"ok": false, "error": Contract.REMATCH_ERR_NOT_PVP, "rematch": snap.get("rematch", {}), "snapshot": snap}
+	_touch_rematch(match_state)
+	var rem: Dictionary = _rematch_state(match_state)
+	var st := str(rem.get("status", Contract.REMATCH_NONE))
+	if st in [Contract.REMATCH_READY, Contract.REMATCH_DECLINED, Contract.REMATCH_EXPIRED]:
+		return _rematch_payload(match_state, seat, st == Contract.REMATCH_READY)
+	if not accept:
+		rem["status"] = Contract.REMATCH_DECLINED
+		rem["accepted"][seat] = false
+		_broadcast(match_state)
+		return _rematch_payload(match_state, seat, false)
+	var accepted: Dictionary = rem.get("accepted", {})
+	accepted[seat] = true
+	rem["accepted"] = accepted
+	var other := Contract.other_seat(seat)
+	if bool(accepted.get(other, false)):
+		var spawned: Dictionary = _spawn_rematch(match_state)
+		rem["status"] = Contract.REMATCH_READY
+		rem["newMatchId"] = str(spawned.get("matchId", ""))
+		_broadcast(match_state)
+		return _rematch_payload(match_state, seat, true)
+	rem["status"] = Contract.REMATCH_ACCEPTED_A if seat == Contract.SEAT_A else Contract.REMATCH_ACCEPTED_B
+	_broadcast(match_state)
+	return _rematch_payload(match_state, seat, false)
+
+
+func terrain_fingerprint(match_id: String) -> String:
+	if not _matches.has(match_id):
+		return ""
+	var match_state: Dictionary = _matches[match_id]
+	var bits := PackedStringArray()
+	for q in Contract.BOARD_Q:
+		for r in Contract.BOARD_R:
+			bits.append(str(_terrain_type(match_state, q, r)))
+	return "|".join(bits)
+
+
 func get_snapshot(match_id: String, player_id: String) -> Dictionary:
 	var found := _find(match_id, player_id)
 	if found.is_empty():
 		return {}
+	_touch_rematch(found["match"])
 	return _snapshot_for_seat(found["match"], found["seat"])
 
 
@@ -335,6 +387,7 @@ func apply_action(match_id: String, player_id: String, action: Dictionary) -> Ac
 func clear_all() -> void:
 	_matches.clear()
 	test_recon_roll = -1.0
+	test_now_ms = -1
 	## Wallet stays — PLAY must not wipe hideout Marks. Tests call reset_wallet().
 
 
@@ -757,6 +810,7 @@ func _settle_payout(match_state: Dictionary, end_reason: String) -> void:
 			"marksDelta": delta,
 			"reason": reason,
 		}
+	_open_rematch(match_state)
 
 
 func _event_name(match_state: Dictionary, seat: String) -> String:
@@ -865,7 +919,108 @@ func _snapshot_for_seat(match_state: Dictionary, seat: String) -> Dictionary:
 		snap["reason"] = str(pay.get("reason", ""))
 	else:
 		snap["marks"] = balance
+	if match_state["status"] == Contract.STATUS_ENDED:
+		var rem_bag := _rematch_public(match_state)
+		if not rem_bag.is_empty():
+			snap["rematch"] = rem_bag
 	return snap
+
+
+func _now_ms() -> int:
+	if test_now_ms >= 0:
+		return test_now_ms
+	return Time.get_ticks_msec()
+
+
+func _open_rematch(match_state: Dictionary) -> void:
+	if str(match_state.get("mode", Contract.MODE_PVP)) == Contract.MODE_SP_JOB:
+		match_state["rematch"] = {"status": Contract.REMATCH_NONE}
+		return
+	match_state["rematch"] = {
+		"status": Contract.REMATCH_PENDING,
+		"openedAtMs": _now_ms(),
+		"accepted": {Contract.SEAT_A: false, Contract.SEAT_B: false},
+		"newMatchId": "",
+	}
+
+
+func _rematch_state(match_state: Dictionary) -> Dictionary:
+	var rem: Variant = match_state.get("rematch", {})
+	if rem is Dictionary and not rem.is_empty():
+		return rem
+	var empty := {
+		"status": Contract.REMATCH_NONE,
+		"openedAtMs": 0,
+		"accepted": {Contract.SEAT_A: false, Contract.SEAT_B: false},
+		"newMatchId": "",
+	}
+	match_state["rematch"] = empty
+	return empty
+
+
+func _touch_rematch(match_state: Dictionary) -> void:
+	if match_state["status"] != Contract.STATUS_ENDED:
+		return
+	var rem := _rematch_state(match_state)
+	var st := str(rem.get("status", Contract.REMATCH_NONE))
+	if st in [Contract.REMATCH_READY, Contract.REMATCH_DECLINED, Contract.REMATCH_EXPIRED, Contract.REMATCH_NONE]:
+		return
+	var opened := int(rem.get("openedAtMs", 0))
+	if opened > 0 and _now_ms() - opened >= Contract.REMATCH_TIMEOUT_MS:
+		rem["status"] = Contract.REMATCH_EXPIRED
+
+
+func _rematch_public(match_state: Dictionary) -> Dictionary:
+	_touch_rematch(match_state)
+	var rem := _rematch_state(match_state)
+	var bag := {"status": str(rem.get("status", Contract.REMATCH_NONE))}
+	var new_id := str(rem.get("newMatchId", ""))
+	if new_id != "" and bag["status"] == Contract.REMATCH_READY:
+		bag["newMatchId"] = new_id
+	return bag
+
+
+func _spawn_rematch(old: Dictionary) -> Dictionary:
+	## New matchId + salt. Same two playerIds. No Marks grant/spend.
+	var created: Dictionary = create_match({"mode": Contract.MODE_PVP})
+	var new_id := str(created.get("matchId", ""))
+	if new_id == "" or not _matches.has(new_id):
+		return created
+	var neu: Dictionary = _matches[new_id]
+	neu["salt"] = "%s:%s:r" % [Contract.TERRAIN_SALT, new_id]
+	neu["rematchOf"] = str(old.get("matchId", ""))
+	for seat in [Contract.SEAT_A, Contract.SEAT_B]:
+		var src: Dictionary = old["seats"][seat]
+		neu["seats"][seat]["playerId"] = str(src.get("playerId", ""))
+	if _both_joined(neu):
+		neu["status"] = Contract.STATUS_READY
+	return created
+
+
+func _rematch_payload(match_state: Dictionary, seat: String, include_new: bool) -> Dictionary:
+	var snap := _snapshot_for_seat(match_state, seat)
+	var rem: Variant = snap.get("rematch", {})
+	if not (rem is Dictionary):
+		rem = _rematch_public(match_state)
+	var bag := {
+		"ok": true,
+		"error": "",
+		"status": 200,
+		"rematch": rem,
+		"snapshot": snap,
+	}
+	if include_new:
+		var new_id := str(rem.get("newMatchId", ""))
+		if new_id != "" and _matches.has(new_id):
+			var neu: Dictionary = _matches[new_id]
+			bag["newMatchId"] = new_id
+			bag["joinTokens"] = (neu.get("tokens", {}) as Dictionary).duplicate(true)
+			bag["newMatch"] = {
+				"matchId": new_id,
+				"joinTokens": bag["joinTokens"],
+				"snapshot": _snapshot_for_seat(neu, seat),
+			}
+	return bag
 
 
 func _emit_for_player(player_id: String, event_name: String, snapshot: Dictionary) -> void:
