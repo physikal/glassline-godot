@@ -130,6 +130,7 @@ func _run() -> int:
 	_a2_reconnect_case(failed)
 	_shop_case(failed)
 	_live_shop_shape_case(failed)
+	_shop_sink2_case(failed)
 	_player_persist_case(failed)
 
 	# Recon odds: in-sector + forced roll.
@@ -388,6 +389,8 @@ func _shop_case(failed: PackedStringArray) -> void:
 	_expect(failed, listed.item_id() == Contract.SHOP_STUB_ITEM_ID, "S1 shop stub itemId")
 	_expect(failed, listed.price() == Contract.SHOP_STUB_PRICE, "S1 GD price 50")
 	_expect(failed, listed.price() == 50, "S1 catalog price is 50 not 40")
+	_expect(failed, listed.has_item(Contract.SHOP_BANDANA_ITEM_ID), "S1 catalog includes bandana")
+	_expect(failed, listed.price_of(Contract.SHOP_BANDANA_ITEM_ID) == Contract.SHOP_BANDANA_PRICE, "S1 bandana ★100")
 	_expect(failed, listed.balance() == Contract.MOCK_WALLET_STUB, "S1 you.marks stub 24")
 	_expect(failed, not listed.owns_stub(), "S1 not owned yet")
 	_expect(failed, not listed.can_afford(), "S3 ★24 cannot afford ★50")
@@ -489,6 +492,106 @@ func _live_shop_shape_case(failed: PackedStringArray) -> void:
 		"status": 200,
 	})
 	_expect(failed, session.marks == 30, "S3 replay snapshot still 30 (no second debit locally)")
+	session.free()
+
+
+func _shop_sink2_case(failed: PackedStringArray) -> void:
+	## S2.1–S2.4: BANDANA RECOLOR ★100, same spine as ghillie. No combat delta.
+	server.clear_all()
+	server.reset_wallet(Contract.MOCK_WALLET_STUB)
+	var catalog: Dictionary = server.get_shop()
+	var listed = Shop.from_any(catalog)
+	_expect(failed, listed.has_item(Contract.SHOP_STUB_ITEM_ID), "S2.1 catalog still has ghillie")
+	_expect(failed, listed.has_item(Contract.SHOP_BANDANA_ITEM_ID), "S2.1 catalog has bandana")
+	_expect(failed, listed.price_of(Contract.SHOP_BANDANA_ITEM_ID) == 100, "S2.1 GD price 100")
+	_expect(failed, listed.name_of(Contract.SHOP_BANDANA_ITEM_ID) == Contract.SHOP_BANDANA_ITEM_NAME, "S2.1 name BANDANA RECOLOR")
+	_expect(failed, not listed.can_afford() or listed.balance() < 100, "S2.2 ★24 cannot afford ★100")
+	_expect(failed, not Shop.row_buy_enabled(false, listed.balance() >= 100), "S2.2 BUY disabled when Marks < 100")
+	_expect(failed, Contract.RECON_BASE == 0.35 and Contract.MARKS_PVP_WIN == 25, "S2.4 combat table unchanged")
+
+	var lagged = Shop.from_any(Contract.merge_live_shop_catalog({
+		"items": [{"id": "skin_hideout_stub", "name": "Hideout Skin (stub)", "price": 50, "kind": "skin"}],
+	}))
+	_expect(failed, lagged.has_item(Contract.SHOP_BANDANA_ITEM_ID), "LIVE lag merge appends bandana")
+	_expect(failed, lagged.price_of(Contract.SHOP_STUB_ITEM_ID) == 50, "LIVE lag keeps Coder ghillie price")
+	var live_two = Shop.from_any(Contract.merge_live_shop_catalog({
+		"items": [
+			{"id": "skin_hideout_stub", "name": "Hideout Skin (stub)", "price": 50, "kind": "skin"},
+			{"id": "skin_bandana_stub", "name": "Bandana Skin (stub)", "price": 100, "kind": "skin"},
+		],
+	}))
+	_expect(failed, live_two.name_of(Contract.SHOP_BANDANA_ITEM_ID) == "Bandana Skin (stub)", "prefer LIVE bandana name")
+	_expect(failed, live_two.items.size() == 2, "prefer LIVE catalog size when +1 SKU")
+
+	var session = SessionScript.new()
+	session.apply_shop(catalog)
+	_expect(failed, session.marks == 24, "S2.2 session binds you.marks")
+	var before: int = session.marks
+	var poor: Dictionary = server.buy_shop(Contract.SHOP_BANDANA_ITEM_ID, Contract.new_client_buy_id())
+	var poor_shop = Shop.from_any(poor)
+	_expect(failed, not bool(poor.get("ok", true)), "S2.2 buy rejected")
+	_expect(failed, poor_shop.is_insufficient(), "S2.2 insufficient_marks")
+	_expect(failed, server.account_marks == before, "S2.2 mock ledger unchanged")
+	session.bind_marks(999)
+	session.apply_shop(poor)
+	_expect(failed, session.marks == before, "S2.2 apply_shop replaces 999 with snapshot 24")
+	_expect(failed, session.marks == server.account_marks, "S2.2 never marks -= on client")
+
+	var buy_id := "00000000-0000-4000-8000-0000000000bb"
+	server.reset_wallet(180)
+	session.apply_shop(server.get_shop())
+	_expect(failed, session.marks == 180, "S2.1 seeded wallet from snapshot")
+	var bought: Dictionary = server.buy_shop(Contract.SHOP_BANDANA_ITEM_ID, buy_id)
+	_expect(failed, bool(bought.get("ok", false)), "S2.1 buy ok")
+	session.bind_marks(180)
+	session.apply_shop(bought)
+	_expect(failed, session.marks == 80, "S2.1 you.marks 180-100 from snapshot")
+	_expect(failed, server.account_marks == 80, "S2.1 mock ledger debited once")
+	_expect(failed, session.owns_cosmetic(Contract.SHOP_BANDANA_ITEM_ID), "S2.1 owned bandana")
+	_expect(failed, session.is_equipped(Contract.SHOP_BANDANA_ITEM_ID), "S2.1 auto-equipped")
+	_expect(failed, session.bandana, "S2.4 bandana visual flag from equipped")
+	_expect(failed, not session.ghillie, "S2.4 ghillie off when bandana equipped")
+	var replay: Dictionary = server.buy_shop(Contract.SHOP_BANDANA_ITEM_ID, buy_id)
+	_expect(failed, bool(replay.get("ok", false)), "S2.3 clientBuyId idempotent ok")
+	_expect(failed, server.account_marks == 80, "S2.3 replay does not debit again")
+	session.apply_shop(replay)
+	_expect(failed, session.marks == 80, "S2.3 replay snapshot still 80")
+	var second: Dictionary = server.buy_shop(Contract.SHOP_BANDANA_ITEM_ID, Contract.new_client_buy_id())
+	_expect(failed, str(second.get("error", "")) == Contract.SHOP_ERR_ALREADY_OWNED, "S2.3 second id already_owned")
+	_expect(failed, server.account_marks == 80, "S2.3 already_owned no debit")
+
+	var ghillie: Dictionary = server.buy_shop(Contract.SHOP_STUB_ITEM_ID, Contract.new_client_buy_id())
+	_expect(failed, bool(ghillie.get("ok", false)), "S2.1 still can buy ghillie after bandana")
+	session.apply_shop(ghillie)
+	_expect(failed, session.marks == 30, "S2.1 80-50 ghillie from snapshot")
+	_expect(failed, session.owns_cosmetic(Contract.SHOP_STUB_ITEM_ID), "S2.1 owns both")
+	_expect(failed, session.owns_cosmetic(Contract.SHOP_BANDANA_ITEM_ID), "S2.1 bandana still owned")
+	_expect(failed, session.ghillie, "S2.4 last buy auto-equips ghillie")
+	_expect(failed, not session.bandana, "S2.4 one equipped at a time")
+
+	var unequip: Dictionary = server.equip_cosmetic("")
+	session.apply_shop(unequip)
+	_expect(failed, session.owns_cosmetic(Contract.SHOP_BANDANA_ITEM_ID), "S2.4 still owned")
+	_expect(failed, not session.bandana and not session.ghillie, "S2.4 unequip chrome")
+	var equip: Dictionary = server.equip_cosmetic(Contract.SHOP_BANDANA_ITEM_ID)
+	session.apply_shop(equip)
+	_expect(failed, session.bandana, "S2.4 re-equip bandana chrome")
+	_expect(failed, session.marks == 30, "S2.4 equip does not touch marks")
+	_expect(failed, not session.ghillie, "S2.4 bandana plate not ghillie")
+
+	## LIVE 200 infers item.id — merge owned, never wipe the other SKU.
+	session.bind_marks(130)
+	session.apply_shop({
+		"ok": true,
+		"you": {"marks": 30},
+		"purchaseId": "pur_bandana",
+		"item": {"id": "skin_bandana_stub", "name": "BANDANA RECOLOR", "price": 100, "kind": "skin"},
+		"status": 200,
+	})
+	_expect(failed, session.marks == 30, "S2.1 LIVE buy binds you.marks 130→30")
+	_expect(failed, session.owns_cosmetic(Contract.SHOP_BANDANA_ITEM_ID), "S2.1 LIVE owned from item.id")
+	_expect(failed, session.owns_cosmetic(Contract.SHOP_STUB_ITEM_ID), "S2.1 LIVE buy does not wipe ghillie")
+	_expect(failed, session.bandana, "S2.4 LIVE last buy auto-equips bandana")
 	session.free()
 
 

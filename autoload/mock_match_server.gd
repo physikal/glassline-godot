@@ -89,12 +89,13 @@ func buy_shop(item_id: String, client_buy_id: String = "") -> Dictionary:
 	## Mock ledger. Client still binds you.marks from this payload — never marks -=.
 	if client_buy_id != "" and _shop_receipts.has(client_buy_id):
 		return (_shop_receipts[client_buy_id] as Dictionary).duplicate(true)
-	if item_id != Contract.SHOP_STUB_ITEM_ID and item_id != "ghillie_recolor":
+	item_id = Contract._canonical_shop_id(item_id)
+	var listed: Dictionary = Contract.shop_item_by_id(item_id)
+	if listed.is_empty():
 		return _shop_reject(Contract.SHOP_ERR_UNKNOWN_ITEM)
-	item_id = Contract.SHOP_STUB_ITEM_ID
 	if owned_cosmetics.has(item_id):
 		return _shop_reject(Contract.SHOP_ERR_ALREADY_OWNED)
-	var price := Contract.SHOP_STUB_PRICE
+	var price := int(listed.get("price", Contract.shop_item_price(item_id)))
 	if account_marks < price:
 		return _shop_reject(Contract.SHOP_ERR_INSUFFICIENT)
 	account_marks -= price

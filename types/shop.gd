@@ -38,6 +38,7 @@ static func from_any(payload: Variant):
 	parsed.equipped_present = _has_equipped(bag, root)
 	parsed.purchase_id = str(bag.get("purchaseId", root.get("purchaseId", "")))
 	## LIVE buy 200: { ok, you.marks, purchaseId, item } — infer owned/equip.
+	## Do not mark owned_present — apply_shop merges so a second SKU does not wipe the first.
 	var bought: Variant = bag.get("item", root.get("item", null))
 	if bought is Dictionary:
 		var bought_item: Dictionary = _normalize_item(bought)
@@ -47,7 +48,6 @@ static func from_any(payload: Variant):
 		if parsed.ok and bought_id != "":
 			if not parsed.owned_present:
 				parsed.owned = [bought_id]
-				parsed.owned_present = true
 			if not parsed.equipped_present:
 				parsed.equipped = bought_id
 				parsed.equipped_present = true
@@ -91,7 +91,7 @@ static func _read_items(bag: Dictionary, root: Dictionary) -> Array:
 			var nested: Variant = shop.get("items", [])
 			if nested is Array and not nested.is_empty():
 				return _normalize_items(nested)
-	return [Contract.shop_stub_item()]
+	return Contract.shop_catalog_items()
 
 
 static func _read_owned(bag: Dictionary, root: Dictionary) -> Array:
@@ -228,21 +228,33 @@ func balance() -> int:
 
 
 func stub_item() -> Dictionary:
+	return item_for(Contract.SHOP_STUB_ITEM_ID)
+
+
+func item_for(item_id: String) -> Dictionary:
+	var want := Contract._canonical_shop_id(item_id)
 	for entry in items:
-		if entry is Dictionary and _as_id(entry) == Contract.SHOP_STUB_ITEM_ID:
+		if entry is Dictionary and _as_id(entry) == want:
 			return entry
+	var stub: Dictionary = Contract.shop_item_by_id(want)
+	if not stub.is_empty():
+		return stub
 	if not items.is_empty() and items[0] is Dictionary:
-		return items[0] if items[0] is Dictionary else Contract.shop_stub_item()
+		return items[0]
 	return Contract.shop_stub_item()
 
 
 func price() -> int:
-	var item := stub_item()
+	return price_of(Contract.SHOP_STUB_ITEM_ID)
+
+
+func price_of(item_id: String) -> int:
+	var item := item_for(item_id)
 	if item.has("priceMarks"):
 		return int(item.get("priceMarks"))
 	if item.has("price"):
 		return int(item.get("price"))
-	return Contract.SHOP_STUB_PRICE
+	return Contract.shop_item_price(item_id)
 
 
 func item_id() -> String:
@@ -251,11 +263,32 @@ func item_id() -> String:
 
 
 func item_name() -> String:
-	return str(stub_item().get("name", Contract.SHOP_STUB_ITEM_NAME))
+	return name_of(Contract.SHOP_STUB_ITEM_ID)
+
+
+func name_of(item_id: String) -> String:
+	var item := item_for(item_id)
+	var fallback := Contract.SHOP_STUB_ITEM_NAME
+	if Contract._canonical_shop_id(item_id) == Contract.SHOP_BANDANA_ITEM_ID:
+		fallback = Contract.SHOP_BANDANA_ITEM_NAME
+	return str(item.get("name", fallback))
+
+
+func has_item(item_id: String) -> bool:
+	var want := Contract._canonical_shop_id(item_id)
+	for entry in items:
+		if entry is Dictionary and _as_id(entry) == want:
+			return true
+	return false
 
 
 func owns_stub() -> bool:
-	return owned.has(item_id()) or owned.has(Contract.SHOP_STUB_ITEM_ID)
+	return owns(item_id()) or owns(Contract.SHOP_STUB_ITEM_ID)
+
+
+func owns(item_id: String) -> bool:
+	var want := Contract._canonical_shop_id(item_id)
+	return owned.has(want) or owned.has(item_id)
 
 
 func is_equipped() -> bool:
