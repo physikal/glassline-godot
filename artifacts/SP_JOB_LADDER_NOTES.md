@@ -56,6 +56,15 @@ godot --resolution 1280x720 -- --capture-sp-job-t3
 
 Expect `LIVE_JOBS_LADDER_OK` and stacked **0→10→25→45** on one player. J4 stays **45**.
 
+Verified 2026-09-19 vs `https://glassline-api.vercel.app`:
+
+- `LIVE_JOBS_LADDER_OK p_1c1cf02c02ee4ada8914023b9dc61592 marks 0->45`
+- J1 `j_ff584a9f5be34755a1a112d236731237` 0→10
+- J2 `j_e256f495269d4af59b6cb152a2f21bb3` 10→25
+- J3 `j_658791a7f0194f158d851db01bf03801` 25→45
+- J4 replay `clientJobId=65c8950a-c251-40bc-8ac2-1b0569a6b83d` stayed **45**
+- HTTP log: [`artifacts/live_jobs_ladder_smoke.txt`](live_jobs_ladder_smoke.txt)
+
 T1-only playthrough remains `tools/live_jobs_smoke.py` (`LIVE_JOBS_SMOKE_OK`).
 
 ## Out of this slice

@@ -126,7 +126,7 @@ func _capture_sp_job_t3() -> void:
 		_jobs_panel.visible = false
 	if _shop_row:
 		_shop_row.visible = true
-	_toast_msg("Night Contract  ★20  ·  snapshot")
+	_toast_msg("Night Contract  ·  ★20")
 	await _capture_named("res://artifacts/ux/sp_job_t3_post_marks.png", "J5_SP_JOB_T3_MARKS")
 
 
@@ -403,9 +403,12 @@ func _build_jobs_panel() -> void:
 	for tier in Contract.JOB_TIERS:
 		col.add_child(_make_job_row(int(tier)))
 
+	var back_row := HBoxContainer.new()
+	back_row.add_theme_constant_override("separation", 0)
+	col.add_child(back_row)
 	var cancel := Chrome.chunk_button("BACK", Chrome.INK, Chrome.CREAM, Vector2(160, 40))
 	cancel.pressed.connect(_toggle_jobs)
-	col.add_child(cancel)
+	back_row.add_child(cancel)
 
 
 func _make_job_row(tier: int) -> PanelContainer:
