@@ -38,13 +38,14 @@ Coder PR [#14](https://github.com/physikal/glassline-api/pull/14) (merged): Fiel
 | Gate | Result | Evidence |
 | --- | --- | --- |
 | **G1** catalog `kind: gun` · Fieldbolt owned-by-default | **PASS mock · PASS LIVE** | LIVE `GET /shop` lists six SKUs. Fieldbolt ★0. `/shop/me` `{ owned: ["gun_fieldbolt"], equippedGunId: "gun_fieldbolt" }`. |
-| **G2** buy Railframe ★125 + `clientBuyId` idempotent + equip slot | **PASS mock · PASS LIVE** | Five PvP kills ★125. Buy `125→0`, `purchaseId=pur_fc1e367ee4f6457b9b477e1093490ec1`. Replay same id stays ★0. Auto-equip `equippedGunId=gun_railframe`. Swap Fieldbolt 200. Unequip `{ itemId: null, slot: "gun" }` → `equippedGunId: null`. Skin / decor null throughout. |
+| **G2** buy Railframe ★125 + `clientBuyId` idempotent + equip slot | **PASS mock · PASS LIVE** | Five PvP kills ★125. Buy `125→0`, `purchaseId=pur_d4a0cd4f963144b990cbf0b8a5443813`. Replay same id stays ★0. Auto-equip `equippedGunId=gun_railframe`. Then poster + ghillie. Swap Fieldbolt leaves both. Unequip `{ itemId: null, slot: "gun" }` → `equippedGunId: null`, skin/decor stay. |
 | **G3** 402 insufficient in UI | **PASS mock · PASS LIVE** | Fresh player ★0 vs Crescent ★200 → HTTP 402 `insufficient_marks`. Replay still 402. Chip 0. `you.equippedGunId` stays Fieldbolt. |
 | **G4** dynamic rack | **PASS mock** | Owned painted plate-crop · locked wash silhouette · equipped gold underline. Still [`ux/gun_rack_dynamic.png`](ux/gun_rack_dynamic.png). |
 | **G5** zero combat delta | **PASS mock · PASS LIVE** | Mock Fieldbolt / Railframe / Crescent miss `hit=false` / no Hot / kill `hit=true` `marksDelta +25`. LIVE worn Railframe kill `m_ebfd2cdb475b42808670a000bf2290fb` ★0→25. `RECON_BASE` 0.35. |
 | **G6** UX three gun rows + visual-only copy | **PASS mock** | [`ux/gun_armory_three_row.png`](ux/gun_armory_three_row.png) (Fieldbolt EQUIPPED · Railframe ★125 · Crescent ★200). [`ux/gun_equipped_optic.png`](ux/gun_equipped_optic.png) (`RAILFRAME · visual only`). |
 
-HTTP log: [`artifacts/live_shop_gun_smoke.txt`](live_shop_gun_smoke.txt) · `LIVE_SHOP_GUN_OK` player `p_8ca1239f355142f29f1b822c9bcb816f`.  
+HTTP log: [`artifacts/live_shop_gun_smoke.txt`](live_shop_gun_smoke.txt) · `LIVE_SHOP_GUN_OK` player `p_37dfb06e591c48239a23a52315a967a1` (2026-09-20 Coder PR #14).  
+Coexist: poster + ghillie + Railframe on one player. Swap Fieldbolt leaves `equippedSkinId=skin_hideout_stub` + `equippedDecorId=decor_poster_stub`. Unequip `slot:gun` → `equippedGunId: null`, skin/decor stay. Worn Railframe kill `m_34763c81a1174520847ff006bb50f2ad` ★0→25.  
 Mock: `HEADLESS_LOOP_OK` (`_gun_chrome_case`).
 
 Raw stills (this branch):
