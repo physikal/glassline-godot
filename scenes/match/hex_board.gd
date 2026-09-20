@@ -107,7 +107,7 @@ func _draw() -> void:
 				under.append(center + p + Vector2(0, 3))
 			draw_colored_polygon(under, fill.darkened(0.38))
 			draw_colored_polygon(body, fill)
-			_stamp(center, kind, fill)
+			_paint_hex_face(center, kind, fill, q, r)
 			var outline := Color(0.12, 0.09, 0.07, 0.9)
 			if kind != "unknown":
 				outline = Chrome.HEX_LINE
@@ -121,16 +121,17 @@ func _draw() -> void:
 	_draw_tokens()
 
 
-func _stamp(center: Vector2, kind: String, fill: Color) -> void:
-	## Painted hex-map clumps / rock piles — never flat circle/rect legend icons.
-	var stamp: Texture2D = Chrome.hex_stamp(kind)
-	if stamp:
-		var sz := Vector2(26, 26)
-		draw_texture_rect(stamp, Rect2(center - sz * 0.5 + Vector2(0, 2), sz), false)
+func _paint_hex_face(center: Vector2, kind: String, fill: Color, q: int, r: int) -> void:
+	## Full hex-map tile (brush clump / rock pile / sand / ?). Ban 26px icons.
+	var tile: Texture2D = Chrome.hex_tile(kind, q + r * 3)
+	if tile and tile.get_width() >= 24:
+		var w := HEX_SIZE * 1.7320508
+		var h := HEX_SIZE * 2.0
+		draw_texture_rect(tile, Rect2(center - Vector2(w, h) * 0.5, Vector2(w, h)), false)
 		return
 	match kind:
 		Contract.TYPE_BRUSH:
-			_bush(center + Vector2(0, 2), 11.0)
+			_bush(center + Vector2(0, 2), 13.0)
 		Contract.TYPE_HARD:
 			_rock_pile(center)
 		Contract.TYPE_OPEN:

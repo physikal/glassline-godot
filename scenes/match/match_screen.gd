@@ -914,7 +914,7 @@ func _legend_row(parent: VBoxContainer, kind: String, text: String) -> void:
 	var stamp := TextureRect.new()
 	stamp.texture = Chrome.hex_legend_tex(kind)
 	stamp.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	stamp.custom_minimum_size = Vector2(36, 28)
+	stamp.custom_minimum_size = Vector2(40, 36)
 	stamp.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	stamp.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	stamp.mouse_filter = Control.MOUSE_FILTER_IGNORE

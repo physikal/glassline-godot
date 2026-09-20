@@ -146,6 +146,10 @@ static func hex_stamp(kind: String) -> Texture2D:
 	return _ArtPack.hex_stamp(kind)
 
 
+static func hex_tile(kind: String, variant: int = 0) -> Texture2D:
+	return _ArtPack.hex_tile(kind, variant)
+
+
 static func hex_legend_tex(kind: String) -> Texture2D:
 	return _ArtPack.hex_legend(kind)
 

@@ -82,17 +82,12 @@ static func hex_legend(kind: String) -> Texture2D:
 
 
 static func hex_stamp(kind: String) -> Texture2D:
-	## Transparent painted clumps only. Never a rectangular tile-on-the-board.
-	match kind:
-		Contract.TYPE_BRUSH:
-			return tex(STAMP_BRUSH)
-		Contract.TYPE_HARD:
-			return tex(STAMP_ROCK)
-		_:
-			return null
+	## Full painted hex-map face. Never a 26px legend icon / white square.
+	return hex_tile(kind)
 
 
-static func hex_tile(kind: String) -> Texture2D:
+static func hex_tile(kind: String, variant: int = 0) -> Texture2D:
+	## One locked face per kind — no token-bearing variant crops.
 	match kind:
 		Contract.TYPE_BRUSH:
 			return tex(TILE_BRUSH)

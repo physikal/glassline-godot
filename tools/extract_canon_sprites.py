@@ -6,6 +6,7 @@ as rectangles. Wood / hex-fill is keyed out so the paint stays.
 """
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFilter, ImageEnhance
@@ -131,42 +132,73 @@ def extract_operatives(teal: Image.Image, ghillie: Image.Image) -> None:
     save_sprite(trim_alpha(key_wood(gface, [(6, 6), (160, 6)], 26), 1), "face_ghillie.png")
 
 
+def hex_alpha_mask(width: int, height: int) -> Image.Image:
+    """Pointy-top hex alpha — corners stay transparent so tiles are not rects."""
+    mask = Image.new("L", (width, height), 0)
+    draw = ImageDraw.Draw(mask)
+    cx = (width - 1) / 2.0
+    cy = (height - 1) / 2.0
+    radius = min(width, height) / 2.0 - 0.6
+    pts = []
+    for i in range(6):
+        ang = math.radians(60.0 * i - 30.0)
+        pts.append((cx + radius * math.cos(ang), cy + radius * math.sin(ang)))
+    draw.polygon(pts, fill=255)
+    return mask
+
+
+def apply_hex_mask(img: Image.Image) -> Image.Image:
+    out = img.convert("RGBA")
+    mask = hex_alpha_mask(out.width, out.height)
+    out.putalpha(mask)
+    return out
+
+
 def extract_hex(hex_map: Image.Image) -> None:
-    ## Legend hexes (left column) are the Josh-locked painted stamps.
+    ## Legend hexes (left column) — painted hex chips, not circle/rect icons.
+    def box_at(cx: int, cy: int, hx: int, hy: int) -> tuple[int, int, int, int]:
+        return (cx - hx, cy - hy, cx + hx, cy + hy)
+
+    ## Legend chips — measured on hex-map.jpg (OPEN/BRUSH/HARD/UNKNOWN column).
     legend = {
-        "hex_open": (20, 148, 108, 216),
-        "hex_brush": (20, 216, 108, 284),
-        "hex_hard": (20, 296, 108, 364),
-        "hex_unknown": (20, 376, 108, 444),
+        "hex_open": box_at(76, 180, 40, 36),
+        "hex_brush": box_at(76, 276, 40, 36),
+        "hex_hard": box_at(76, 364, 40, 36),
+        "hex_unknown": box_at(76, 448, 40, 36),
     }
     for name, box in legend.items():
         raw = crop(hex_map, box, f"{name}_legend_raw")
-        save_sprite(raw, f"{name}_legend.png")
+        save_sprite(apply_hex_mask(raw), f"{name}_legend.png")
 
-    ## Board hexes — same paint, larger clumps / rock piles.
+    ## Board hexes — grid-locked centers (sand / brush clump / rock pile / ?).
     board = {
-        "hex_brush": (488, 188, 552, 252),
-        "hex_brush_b": (808, 188, 872, 252),
-        "hex_hard": (568, 188, 632, 252),
-        "hex_hard_b": (648, 188, 712, 252),
-        "hex_open": (408, 188, 472, 252),
-        "hex_unknown": (328, 168, 392, 232),
+        "hex_open": box_at(469, 218, 47, 54),
+        "hex_brush": box_at(656, 218, 47, 54),
+        "hex_brush_b": box_at(422, 299, 47, 54),
+        "hex_hard": box_at(796, 299, 47, 54),
+        "hex_hard_b": box_at(983, 299, 47, 54),
+        "hex_unknown": box_at(328, 299, 47, 54),
     }
     for name, box in board.items():
         raw = crop(hex_map, box, f"{name}_board_raw")
-        save_sprite(raw, f"{name}_tile.png")
+        save_sprite(apply_hex_mask(raw), f"{name}_tile.png")
 
-    ## Brush clump only — key the green hex fill, keep the darker painted bush.
-    brush = crop(hex_map, (500, 200, 540, 240), "brush_clump_raw")
-    brush = key_near(brush, [(118, 168, 72), (132, 178, 80), (148, 188, 92), (104, 156, 64)], 22)
+    ## Clump-only overlays from the same brush / hard faces.
+    brush = crop(hex_map, box_at(656, 218, 22, 20), "brush_clump_raw")
+    brush = key_near(
+        brush,
+        [(210, 163, 93), (212, 165, 95), (204, 160, 89), (196, 149, 81)],
+        36,
+    )
     save_sprite(trim_alpha(brush, 1), "stamp_brush.png")
 
-    rock = crop(hex_map, (580, 200, 620, 240), "rock_pile_raw")
-    rock = key_near(rock, [(158, 162, 168), (148, 152, 158), (170, 174, 180), (140, 144, 150)], 18)
+    rock = crop(hex_map, box_at(796, 299, 22, 20), "rock_pile_raw")
+    rock = key_near(
+        rock,
+        [(118, 115, 108), (146, 141, 137), (163, 160, 153), (107, 106, 104)],
+        18,
+    )
     save_sprite(trim_alpha(rock, 1), "stamp_rock.png")
-
-    open_s = crop(hex_map, (416, 196, 464, 244), "open_speck_raw")
-    save_sprite(open_s, "stamp_open.png")
 
 
 def extract_optic_bits(optic: Image.Image) -> None:
@@ -205,7 +237,7 @@ def main() -> None:
     extract_optic_bits(op)
     contact_preview()
     print("ART_V2_SPRITES", OUT)
-    for p in sorted(OUT.iterdir()):
+    for p in sorted(OUT.glob("*.png")):
         print(f"  {p.name} {Image.open(p).size}")
 
 
