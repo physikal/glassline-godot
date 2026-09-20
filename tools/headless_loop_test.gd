@@ -137,6 +137,7 @@ func _run() -> int:
 	_shop_case(failed)
 	_live_shop_shape_case(failed)
 	_shop_sink2_case(failed)
+	_shop_sink3_case(failed)
 	_equip_chrome_case(failed)
 	_player_persist_case(failed)
 	_first_hunt_coach_case(failed)
@@ -990,6 +991,8 @@ func _shop_case(failed: PackedStringArray) -> void:
 	_expect(failed, listed.price() == 50, "S1 catalog price is 50 not 40")
 	_expect(failed, listed.has_item(Contract.SHOP_BANDANA_ITEM_ID), "S1 catalog includes bandana")
 	_expect(failed, listed.price_of(Contract.SHOP_BANDANA_ITEM_ID) == Contract.SHOP_BANDANA_PRICE, "S1 bandana ★100")
+	_expect(failed, listed.has_item(Contract.SHOP_POSTER_ITEM_ID), "S1 catalog includes poster")
+	_expect(failed, listed.price_of(Contract.SHOP_POSTER_ITEM_ID) == Contract.SHOP_POSTER_PRICE, "S1 poster ★150")
 	_expect(failed, listed.balance() == Contract.MOCK_WALLET_STUB, "S1 you.marks stub 24")
 	_expect(failed, not listed.owns_stub(), "S1 not owned yet")
 	_expect(failed, not listed.can_afford(), "S3 ★24 cannot afford ★50")
@@ -1123,7 +1126,8 @@ func _shop_sink2_case(failed: PackedStringArray) -> void:
 		],
 	}))
 	_expect(failed, live_two.name_of(Contract.SHOP_BANDANA_ITEM_ID) == "Bandana Skin (stub)", "prefer LIVE bandana name")
-	_expect(failed, live_two.items.size() == 2, "prefer LIVE catalog size when +1 SKU")
+	_expect(failed, live_two.has_item(Contract.SHOP_POSTER_ITEM_ID), "LIVE two-SKU merge appends poster")
+	_expect(failed, live_two.items.size() == 3, "LIVE two-SKU merge is three ARMORY rows")
 
 	var session = SessionScript.new()
 	session.apply_shop(catalog)
@@ -1194,6 +1198,152 @@ func _shop_sink2_case(failed: PackedStringArray) -> void:
 	_expect(failed, session.owns_cosmetic(Contract.SHOP_BANDANA_ITEM_ID), "S2.1 LIVE owned from item.id")
 	_expect(failed, session.owns_cosmetic(Contract.SHOP_STUB_ITEM_ID), "S2.1 LIVE buy does not wipe ghillie")
 	_expect(failed, session.bandana, "S2.4 LIVE last buy auto-equips bandana")
+	session.free()
+
+
+func _shop_sink3_case(failed: PackedStringArray) -> void:
+	## S3.1–S3.5: HIDEOUT POSTER ★150, same spine as ghillie / bandana. No combat delta.
+	server.clear_all()
+	server.reset_wallet(Contract.MOCK_WALLET_STUB)
+	var catalog: Dictionary = server.get_shop()
+	var listed = Shop.from_any(catalog)
+	_expect(failed, listed.has_item(Contract.SHOP_STUB_ITEM_ID), "S3.1 catalog still has ghillie")
+	_expect(failed, listed.has_item(Contract.SHOP_BANDANA_ITEM_ID), "S3.1 catalog still has bandana")
+	_expect(failed, listed.has_item(Contract.SHOP_POSTER_ITEM_ID), "S3.1 catalog has poster")
+	_expect(failed, listed.price_of(Contract.SHOP_POSTER_ITEM_ID) == 150, "S3.1 GD price 150")
+	_expect(failed, listed.name_of(Contract.SHOP_POSTER_ITEM_ID) == Contract.SHOP_POSTER_ITEM_NAME, "S3.1 name HIDEOUT POSTER")
+	_expect(failed, listed.items.size() == 3, "S3.6 three catalog rows")
+	_expect(failed, listed.balance() < 150, "S3.3 ★24 cannot afford ★150")
+	_expect(failed, not Shop.row_buy_enabled(false, listed.balance() >= 150), "S3.3 BUY disabled when Marks < 150")
+	_expect(failed, Contract.RECON_BASE == 0.35 and Contract.MARKS_PVP_WIN == 25, "S3.5 combat table unchanged")
+
+	var lagged = Shop.from_any(Contract.merge_live_shop_catalog({
+		"items": [
+			{"id": "skin_hideout_stub", "name": "Hideout Skin (stub)", "price": 50, "kind": "skin"},
+			{"id": "skin_bandana_stub", "name": "BANDANA RECOLOR", "price": 100, "kind": "skin"},
+		],
+	}))
+	_expect(failed, lagged.has_item(Contract.SHOP_POSTER_ITEM_ID), "LIVE lag merge appends poster")
+	_expect(failed, lagged.price_of(Contract.SHOP_BANDANA_ITEM_ID) == 100, "LIVE lag keeps Coder bandana price")
+	var live_three = Shop.from_any(Contract.merge_live_shop_catalog({
+		"items": [
+			{"id": "skin_hideout_stub", "name": "Hideout Skin (stub)", "price": 50, "kind": "skin"},
+			{"id": "skin_bandana_stub", "name": "Bandana Skin (stub)", "price": 100, "kind": "skin"},
+			{"id": "decor_poster_stub", "name": "Hideout Poster (stub)", "price": 150, "kind": "decor"},
+		],
+	}))
+	_expect(failed, live_three.name_of(Contract.SHOP_POSTER_ITEM_ID) == "Hideout Poster (stub)", "prefer LIVE poster name")
+	_expect(failed, live_three.items.size() == 3, "prefer LIVE catalog size when +1 poster SKU")
+
+	var session = SessionScript.new()
+	session.apply_shop(catalog)
+	_expect(failed, session.marks == 24, "S3.3 session binds you.marks")
+	var before: int = session.marks
+	var poor: Dictionary = server.buy_shop(Contract.SHOP_POSTER_ITEM_ID, Contract.new_client_buy_id())
+	var poor_shop = Shop.from_any(poor)
+	_expect(failed, not bool(poor.get("ok", true)), "S3.3 buy rejected")
+	_expect(failed, poor_shop.is_insufficient(), "S3.3 insufficient_marks")
+	_expect(failed, server.account_marks == before, "S3.3 mock ledger unchanged")
+	session.bind_marks(999)
+	session.apply_shop(poor)
+	_expect(failed, session.marks == before, "S3.3 apply_shop replaces 999 with snapshot 24")
+	_expect(failed, session.marks == server.account_marks, "S3.3 never marks -= on client")
+	_expect(failed, not session.poster, "S3.3 402 does not hang poster")
+
+	var buy_id := "00000000-0000-4000-8000-0000000000cc"
+	server.reset_wallet(200)
+	session.apply_shop(server.get_shop())
+	_expect(failed, session.marks == 200, "S3.2 seeded wallet from snapshot")
+	var bought: Dictionary = server.buy_shop(Contract.SHOP_POSTER_ITEM_ID, buy_id)
+	_expect(failed, bool(bought.get("ok", false)), "S3.2 buy ok")
+	session.bind_marks(200)
+	session.apply_shop(bought)
+	_expect(failed, session.marks == 50, "S3.2 you.marks 200-150 from snapshot")
+	_expect(failed, server.account_marks == 50, "S3.2 mock ledger debited once")
+	_expect(failed, session.owns_cosmetic(Contract.SHOP_POSTER_ITEM_ID), "S3.2 owned poster")
+	_expect(failed, session.is_equipped(Contract.SHOP_POSTER_ITEM_ID), "S3.2 auto-equippedDecorId")
+	_expect(failed, session.equipped_decor == Contract.SHOP_POSTER_ITEM_ID, "S3.2 equippedDecorId poster")
+	_expect(failed, session.equipped_cosmetic == "", "S3.2 poster buy does not write skin slot")
+	_expect(failed, session.poster, "S3.4 poster wall flag from equippedDecorId")
+	_expect(failed, not session.ghillie and not session.bandana, "S3.4 no suit until a skin is bought")
+	var replay: Dictionary = server.buy_shop(Contract.SHOP_POSTER_ITEM_ID, buy_id)
+	_expect(failed, bool(replay.get("ok", false)), "S3.2 clientBuyId idempotent ok")
+	_expect(failed, server.account_marks == 50, "S3.2 replay does not debit again")
+	session.apply_shop(replay)
+	_expect(failed, session.marks == 50, "S3.2 replay snapshot still 50")
+	var second: Dictionary = server.buy_shop(Contract.SHOP_POSTER_ITEM_ID, Contract.new_client_buy_id())
+	_expect(failed, str(second.get("error", "")) == Contract.SHOP_ERR_ALREADY_OWNED, "S3.2 second id already_owned")
+	_expect(failed, server.account_marks == 50, "S3.2 already_owned no debit")
+
+	var ghillie: Dictionary = server.buy_shop(Contract.SHOP_STUB_ITEM_ID, Contract.new_client_buy_id())
+	_expect(failed, bool(ghillie.get("ok", false)), "S3.2 still can buy ghillie after poster")
+	session.apply_shop(ghillie)
+	_expect(failed, session.marks == 0, "S3.2 50-50 ghillie from snapshot")
+	_expect(failed, session.owns_cosmetic(Contract.SHOP_STUB_ITEM_ID), "S3.2 owns suit + poster")
+	_expect(failed, session.owns_cosmetic(Contract.SHOP_POSTER_ITEM_ID), "S3.4 poster still owned")
+	_expect(failed, session.poster, "S3.4 wall art stays when ghillie equipped")
+	_expect(failed, session.ghillie, "S3.4 last skin buy auto-equips ghillie")
+	_expect(failed, session.is_equipped(Contract.SHOP_POSTER_ITEM_ID), "S3.4 both slots: poster still equipped")
+	_expect(failed, session.is_equipped(Contract.SHOP_STUB_ITEM_ID), "S3.4 both slots: ghillie equipped")
+
+	var unequip_skin: Dictionary = server.equip_cosmetic("", "skin")
+	session.apply_shop(unequip_skin)
+	_expect(failed, session.owns_cosmetic(Contract.SHOP_POSTER_ITEM_ID), "S3.4 still owned after skin unequip")
+	_expect(failed, session.poster, "S3.4 unequip skin leaves poster up")
+	_expect(failed, not session.ghillie, "S3.4 skin slot cleared")
+	_expect(failed, session.marks == 0, "S3.4 equip does not touch marks")
+	var equip_skin: Dictionary = server.equip_cosmetic(Contract.SHOP_STUB_ITEM_ID, "skin")
+	session.apply_shop(equip_skin)
+	_expect(failed, session.ghillie and session.poster, "S3.4 re-equip skin keeps poster")
+	var unequip_decor: Dictionary = server.equip_cosmetic("", "decor")
+	session.apply_shop(unequip_decor)
+	_expect(failed, session.ghillie and not session.poster, "S3.4 unequip decor leaves skin")
+	_expect(failed, session.marks == 0, "S3.4 decor unequip marks unchanged")
+	var equip_decor: Dictionary = server.equip_cosmetic(Contract.SHOP_POSTER_ITEM_ID, "decor")
+	session.apply_shop(equip_decor)
+	_expect(failed, session.is_equipped(Contract.SHOP_POSTER_ITEM_ID), "S3.4 re-equip poster chrome")
+	_expect(failed, session.ghillie, "S3.4 poster equip does not overwrite skin")
+	_expect(failed, session.marks == 0, "S3.4 re-equip marks unchanged")
+
+	var parsed = Shop.from_any({
+		"ok": true,
+		"you": {
+			"marks": 0,
+			"equippedSkinId": Contract.SHOP_STUB_ITEM_ID,
+			"equippedDecorId": Contract.SHOP_POSTER_ITEM_ID,
+		},
+	})
+	_expect(failed, parsed.equipped == Contract.SHOP_STUB_ITEM_ID, "S3.4 parser reads equippedSkinId")
+	_expect(failed, parsed.equipped_decor == Contract.SHOP_POSTER_ITEM_ID, "S3.4 parser reads equippedDecorId")
+	_expect(failed, parsed.equipped_decor_present, "S3.4 equippedDecorId is present")
+	var snap: Snapshot = Snapshot.from_dict({
+		"you": {
+			"seat": "a",
+			"marks": 0,
+			"equippedSkinId": Contract.SHOP_STUB_ITEM_ID,
+			"equippedDecorId": Contract.SHOP_POSTER_ITEM_ID,
+		},
+	})
+	_expect(failed, snap.you_equipped_skin_id() == Contract.SHOP_STUB_ITEM_ID, "S3.4 snapshot skin")
+	_expect(failed, snap.you_equipped_decor_id() == Contract.SHOP_POSTER_ITEM_ID, "S3.4 snapshot decor")
+
+	## LIVE 200 infers item.id — merge owned, decor slot only, never wipe skin.
+	session.bind_marks(180)
+	session.apply_shop({
+		"ok": true,
+		"you": {"marks": 30, "equippedSkinId": Contract.SHOP_STUB_ITEM_ID},
+		"purchaseId": "pur_poster",
+		"item": {"id": "decor_poster_stub", "name": "HIDEOUT POSTER", "price": 150, "kind": "decor"},
+		"status": 200,
+	})
+	_expect(failed, session.marks == 30, "S3.2 LIVE buy binds you.marks 180→30")
+	_expect(failed, session.owns_cosmetic(Contract.SHOP_POSTER_ITEM_ID), "S3.2 LIVE owned from item.id")
+	_expect(failed, session.owns_cosmetic(Contract.SHOP_STUB_ITEM_ID), "S3.2 LIVE buy does not wipe ghillie")
+	_expect(failed, session.ghillie, "S3.4 LIVE poster buy keeps equippedSkinId")
+	_expect(failed, session.poster, "S3.4 LIVE infer hangs poster on equippedDecorId")
+	_expect(failed, Contract.is_suit_chrome(Contract.SHOP_STUB_ITEM_ID), "S3.5 ghillie stays suit chrome")
+	_expect(failed, not Contract.is_suit_chrome(Contract.SHOP_POSTER_ITEM_ID), "S3.5 poster is not suit chrome")
+	_expect(failed, Contract.is_decor_chrome(Contract.SHOP_POSTER_ITEM_ID), "S3.5 poster is decor chrome")
 	session.free()
 
 

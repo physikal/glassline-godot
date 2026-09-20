@@ -23,8 +23,10 @@ var _join_edit: LineEdit
 var _lobby_poll: float = 0.0
 var _lobby_waiting: bool = false
 var _shop_row: PanelContainer
+var _shop_col: VBoxContainer
 var _shop_lines: Dictionary = {}
 var _bandana_wash: ColorRect
+var _poster: TextureRect
 var _buying_id: String = ""
 
 
@@ -59,6 +61,18 @@ func _ready() -> void:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 		DisplayServer.window_set_size(Vector2i(1280, 720))
 		await _capture_armory_bandana_buy()
+	elif "--capture-armory-three-row" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await _capture_named("res://artifacts/ux/armory_three_row.png", "S35_ARMORY_THREE_ROW")
+	elif "--capture-armory-poster-buy" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await _capture_armory_poster_buy()
+	elif "--capture-hideout-poster" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await _capture_hideout_poster()
 	elif "--capture-equip-hideout" in args:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 		DisplayServer.window_set_size(Vector2i(1280, 720))
@@ -177,6 +191,42 @@ func _capture_armory_bandana_buy() -> void:
 	await _capture_named("res://artifacts/ux/armory_bandana_post_buy.png", "S25_ARMORY_BANDANA_BUY")
 
 
+func _capture_armory_poster_buy() -> void:
+	## Mock ledger only — seed enough Marks, bind poster buy snapshot (never marks -=).
+	if not ClientSession.use_live_api():
+		MockMatchServer.reset_wallet(200)
+	_bind_wallet()
+	_bind_shop()
+	_refresh_marks()
+	_refresh_shop()
+	await get_tree().process_frame
+	_on_shop_primary(Contract.SHOP_POSTER_ITEM_ID)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await _capture_named("res://artifacts/ux/armory_poster_post_buy.png", "S35_ARMORY_POSTER_BUY")
+
+
+func _capture_hideout_poster() -> void:
+	## S3.4: owned + auto-equip poster on the hideout wall. Marks from snapshot only.
+	if not ClientSession.use_live_api():
+		MockMatchServer.reset_wallet(200)
+	_bind_wallet()
+	_bind_shop()
+	_refresh_marks()
+	_refresh_shop()
+	await get_tree().process_frame
+	_on_shop_primary(Contract.SHOP_POSTER_ITEM_ID)
+	await get_tree().process_frame
+	if int(ClientSession.marks) >= Contract.SHOP_STUB_PRICE:
+		_on_shop_primary(Contract.SHOP_STUB_ITEM_ID)
+		await get_tree().process_frame
+	if _shop_row:
+		_shop_row.visible = false
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await _capture_named("res://artifacts/ux/hideout_poster_equipped.png", "S34_HIDEOUT_POSTER")
+
+
 func _capture_equip_hideout() -> void:
 	## E6: OWNED ghillie shows EQUIPPED + hideout plate. Marks from snapshot only.
 	if not ClientSession.use_live_api():
@@ -285,6 +335,21 @@ func _build() -> void:
 	_bandana_wash.visible = false
 	add_child(_bandana_wash)
 
+	## Toy-spy hideout poster — on the wall beside the operative, above ARMORY.
+	_poster = TextureRect.new()
+	_poster.texture = Chrome.make_hideout_poster(96, 128)
+	_poster.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_poster.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_poster.stretch_mode = TextureRect.STRETCH_SCALE
+	_poster.set_anchors_preset(PRESET_CENTER)
+	_poster.offset_left = -340
+	_poster.offset_right = -164
+	_poster.offset_top = -236
+	_poster.offset_bottom = -4
+	_poster.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_poster.visible = false
+	add_child(_poster)
+
 	var dock_cover := ColorRect.new()
 	dock_cover.color = Color("7a4e2c")
 	dock_cover.set_anchors_and_offsets_preset(PRESET_BOTTOM_WIDE)
@@ -357,8 +422,8 @@ func _build() -> void:
 
 	_toast = Label.new()
 	_toast.set_anchors_preset(PRESET_BOTTOM_WIDE)
-	_toast.offset_top = -330
-	_toast.offset_bottom = -294
+	_toast.offset_top = -400
+	_toast.offset_bottom = -364
 	_toast.offset_left = 80
 	_toast.offset_right = -80
 	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -457,34 +522,34 @@ func _currency_chip(icon_kind: String, color: Color, amount: String) -> PanelCon
 
 
 func _build_shop_row() -> void:
-	## Hideout ARMORY — two chrome-only rows (ghillie ★50 + bandana ★100). No IAP / combat.
+	## Hideout ARMORY — catalog rows (ghillie ★50 / bandana ★100 / poster ★150). No IAP / combat.
 	_shop_row = PanelContainer.new()
 	_shop_row.set_anchors_preset(PRESET_BOTTOM_WIDE)
 	_shop_row.offset_left = 72
 	_shop_row.offset_right = -72
-	_shop_row.offset_top = -286
+	_shop_row.offset_top = -358
 	_shop_row.offset_bottom = -118
 	var box := Chrome.flat(Color(0.10, 0.08, 0.06, 0.94), 20, Chrome.HIGH_GOLD, 3)
 	box.content_margin_left = 18
 	box.content_margin_right = 18
-	box.content_margin_top = 8
-	box.content_margin_bottom = 8
+	box.content_margin_top = 6
+	box.content_margin_bottom = 6
 	_shop_row.add_theme_stylebox_override("panel", box)
 	add_child(_shop_row)
 
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 6)
-	_shop_row.add_child(col)
+	_shop_col = VBoxContainer.new()
+	_shop_col.add_theme_constant_override("separation", 4)
+	_shop_row.add_child(_shop_col)
 
 	var kicker := Label.new()
 	kicker.text = "ARMORY"
 	kicker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	Chrome.apply_label(kicker, 10, Chrome.HIGH_GOLD, true)
-	col.add_child(kicker)
+	_shop_col.add_child(kicker)
 
 	for item in Contract.shop_catalog_items():
 		if item is Dictionary:
-			col.add_child(_make_shop_line(item))
+			_shop_col.add_child(_make_shop_line(item))
 
 
 func _make_shop_line(item: Dictionary) -> PanelContainer:
@@ -493,12 +558,12 @@ func _make_shop_line(item: Dictionary) -> PanelContainer:
 	var box := Chrome.flat(Color(0.12, 0.09, 0.07, 0.94), 16, Chrome.HIGH_GOLD, 2)
 	box.content_margin_left = 14
 	box.content_margin_right = 12
-	box.content_margin_top = 4
-	box.content_margin_bottom = 4
+	box.content_margin_top = 3
+	box.content_margin_bottom = 3
 	row.add_theme_stylebox_override("panel", box)
 
 	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 2)
+	col.add_theme_constant_override("separation", 1)
 	row.add_child(col)
 
 	var line := HBoxContainer.new()
@@ -519,7 +584,7 @@ func _make_shop_line(item: Dictionary) -> PanelContainer:
 	Chrome.apply_label(price_lbl, 12, Chrome.HIGH_GOLD, true)
 	line.add_child(price_lbl)
 
-	var btn := Chrome.chunk_button("BUY", Chrome.LOADOUT_BLUE, Color.WHITE, Vector2(172, 44))
+	var btn := Chrome.chunk_button("BUY", Chrome.LOADOUT_BLUE, Color.WHITE, Vector2(172, 38))
 	btn.pressed.connect(func() -> void: _on_shop_primary(item_id))
 	line.add_child(btn)
 
@@ -744,7 +809,8 @@ func _bind_wallet() -> void:
 	var wallet: Dictionary = MatchAPI.wallet()
 	if wallet.has("marks"):
 		ClientSession.bind_marks(int(wallet.get("marks")))
-	if wallet.has("owned") or wallet.has("equipped") or wallet.has("equippedSkinId") or wallet.has("you"):
+	if wallet.has("owned") or wallet.has("equipped") or wallet.has("equippedSkinId") \
+			or wallet.has("equippedDecorId") or wallet.has("you"):
 		ClientSession.apply_shop(wallet)
 
 
@@ -784,6 +850,8 @@ func _refresh_bg() -> void:
 	_bg.texture = _plate_without_baked_chrome(src)
 	if _bandana_wash:
 		_bandana_wash.visible = ClientSession.bandana and not ClientSession.ghillie
+	if _poster:
+		_poster.visible = ClientSession.poster
 
 
 func _plate_without_baked_chrome(src: Texture2D) -> Texture2D:
@@ -825,17 +893,19 @@ func _stamp_wood(img: Image, x0: int, y0: int, x1: int, y1: int, px: int, py: in
 func _focus_shop() -> void:
 	if _shop_row:
 		_shop_row.visible = true
-	_toast_msg("ARMORY  ·  Ghillie ★%d  ·  Bandana ★%d  ·  visual only" % [
+	_toast_msg("ARMORY  ·  Ghillie ★%d  ·  Bandana ★%d  ·  Poster ★%d  ·  visual only" % [
 		Contract.SHOP_STUB_PRICE,
 		Contract.SHOP_BANDANA_PRICE,
+		Contract.SHOP_POSTER_PRICE,
 	])
 
 
 func _refresh_shop() -> void:
-	if _shop_lines.is_empty():
-		return
 	## LIVE and mock both go through MatchAPI.get_shop / buy_shop.
 	var bag = Shop.from_any(MatchAPI.get_shop())
+	_ensure_shop_lines(bag.items)
+	if _shop_lines.is_empty():
+		return
 	for item_id in _shop_lines.keys():
 		var widgets: Dictionary = _shop_lines[item_id]
 		var name_lbl: Label = widgets.get("name")
@@ -865,6 +935,22 @@ func _refresh_shop() -> void:
 		if status:
 			status.text = Shop.row_status_text(owned, can_buy, equipped)
 	_refresh_bg()
+
+
+func _ensure_shop_lines(items: Array) -> void:
+	## Render catalog rows from GET /shop (or mock stub). Do not hardcode a two-row cap.
+	var source: Array = items
+	if source.is_empty():
+		source = Contract.shop_catalog_items()
+	if _shop_col == null:
+		return
+	for entry in source:
+		if not (entry is Dictionary):
+			continue
+		var item_id := str(entry.get("id", entry.get("itemId", "")))
+		if item_id == "" or _shop_lines.has(item_id):
+			continue
+		_shop_col.add_child(_make_shop_line(entry))
 
 
 func _on_shop_primary(item_id: String) -> void:
@@ -914,14 +1000,15 @@ func _on_equip_toggle(item_id: String) -> void:
 		return
 	var marks_before := int(ClientSession.marks)
 	var next_id := "" if ClientSession.is_equipped(item_id) else item_id
-	var body: Dictionary = MatchAPI.equip_cosmetic(next_id)
+	var slot := "decor" if Contract.is_decor_chrome(item_id) else "skin"
+	var body: Dictionary = MatchAPI.equip_cosmetic(next_id, slot)
 	var shop = Shop.from_any(body)
 	if shop.ok:
 		## Snapshot is the only equipped id. Never invent a skin.
 		ClientSession.apply_shop(body)
 	elif ClientSession.use_live_api() and shop.is_unavailable():
 		## Coder /shop/equip 404 — local chrome only, documented blocker.
-		ClientSession.bind_equip_local(next_id)
+		ClientSession.bind_equip_local(next_id, slot)
 		_toast_msg("LIVE /shop/equip pending Coder  ·  local chrome")
 		_refresh_shop()
 		return
@@ -944,10 +1031,10 @@ func _toggle_suit() -> void:
 	for item in Contract.shop_catalog_items():
 		if item is Dictionary:
 			var sid := str(item.get("id", ""))
-			if sid != "" and ClientSession.owns_cosmetic(sid):
+			if sid != "" and Contract.is_suit_chrome(sid) and ClientSession.owns_cosmetic(sid):
 				owned.append(sid)
 	if owned.is_empty():
-		_toast_msg("Buy Ghillie or Bandana Recolor in ARMORY")
+		_toast_msg("Buy Ghillie, Bandana, or Hideout Poster in ARMORY")
 		return
 	var cycle: Array = [""]
 	cycle.append_array(owned)

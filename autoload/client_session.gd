@@ -33,9 +33,11 @@ var lobby_code: String = ""
 var lobby_seat: String = ""
 var ghillie: bool = false
 var bandana: bool = false
+var poster: bool = false
 ## Cosmetic display cache from shop snapshot. Visual only — no combat.
 var owned_cosmetics: Array = []
 var equipped_cosmetic: String = ""
+var equipped_decor: String = ""
 ## -1 follow project/env/export; 0 mock; 1 live
 var live_override: int = -1
 
@@ -123,6 +125,8 @@ func apply_shop(bag: Dictionary) -> void:
 				owned_cosmetics.append(sid)
 	if shop.equipped_present:
 		equipped_cosmetic = str(shop.equipped)
+	if shop.equipped_decor_present:
+		equipped_decor = str(shop.equipped_decor)
 	_sync_cosmetic_flags()
 
 
@@ -131,20 +135,28 @@ func owns_cosmetic(item_id: String) -> bool:
 
 
 func is_equipped(item_id: String) -> bool:
+	if Contract.is_decor_chrome(item_id):
+		return equipped_decor == item_id
 	return equipped_cosmetic == item_id
 
 
-func bind_equip_local(item_id: String) -> void:
+func bind_equip_local(item_id: String, slot: String = "") -> void:
 	## Visual toggle after a successful mock persist / LIVE local-only equip.
+	var use_decor := slot == "decor" or Contract.is_decor_chrome(item_id)
 	if item_id != "" and not owns_cosmetic(item_id):
 		return
-	equipped_cosmetic = item_id
+	if use_decor:
+		equipped_decor = item_id
+	else:
+		equipped_cosmetic = item_id
 	_sync_cosmetic_flags()
 
 
 func _sync_cosmetic_flags() -> void:
 	ghillie = is_equipped(Contract.SHOP_STUB_ITEM_ID)
 	bandana = is_equipped(Contract.SHOP_BANDANA_ITEM_ID)
+	## Wall art binds equippedDecorId. Coexists with skin. Unequip decor hides it.
+	poster = is_equipped(Contract.SHOP_POSTER_ITEM_ID)
 
 
 func apply_snapshot(snap: Dictionary) -> void:
@@ -165,12 +177,14 @@ func apply_snapshot(snap: Dictionary) -> void:
 			seat = str(you.get("seat", seat))
 		## A2: wallet is snapshot you.marks only. Replace — never invent / keep a local grant.
 		bind_marks(int(you.get("marks", 0)))
-		if you.has("owned") or you.has("equipped") or you.has("equippedSkinId") or you.has("cosmetics"):
+		if you.has("owned") or you.has("equipped") or you.has("equippedSkinId") \
+				or you.has("equippedDecorId") or you.has("cosmetics"):
 			apply_shop({
 				"you": you,
 				"owned": you.get("owned", owned_cosmetics),
 				"equipped": you.get("equippedSkinId", you.get("equipped", equipped_cosmetic)),
 				"equippedSkinId": you.get("equippedSkinId", you.get("equipped", equipped_cosmetic)),
+				"equippedDecorId": you.get("equippedDecorId", equipped_decor),
 			})
 	else:
 		bind_marks(0)

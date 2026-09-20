@@ -56,7 +56,7 @@ func get_shop() -> Dictionary:
 	if using_live():
 		var body: Dictionary = LiveMatchClient.get_shop()
 		if _shop_live_missing(body):
-			## LIVE /shop missing — keep both stub rows visible; buy still posts LIVE.
+			## LIVE /shop missing — keep catalog stub rows visible; buy still posts LIVE.
 			body = Contract.shop_catalog_stub(ClientSession.marks)
 		else:
 			body = Contract.merge_live_shop_catalog(body)
@@ -70,6 +70,8 @@ func get_shop() -> Dictionary:
 				if you.has("equippedSkinId"):
 					body["equippedSkinId"] = you.get("equippedSkinId")
 					body["equipped"] = you.get("equippedSkinId")
+				if you.has("equippedDecorId"):
+					body["equippedDecorId"] = you.get("equippedDecorId")
 			if me.has("owned"):
 				body["owned"] = me.get("owned")
 		return body
@@ -82,10 +84,10 @@ func buy_shop(item_id: String, client_buy_id: String = "") -> Dictionary:
 	return MockMatchServer.buy_shop(item_id, client_buy_id)
 
 
-func equip_cosmetic(item_id: String) -> Dictionary:
+func equip_cosmetic(item_id: String, slot: String = "") -> Dictionary:
 	if using_live():
-		return LiveMatchClient.equip_cosmetic(item_id)
-	return MockMatchServer.equip_cosmetic(item_id)
+		return LiveMatchClient.equip_cosmetic(item_id, slot)
+	return MockMatchServer.equip_cosmetic(item_id, slot)
 
 
 func _shop_live_missing(body: Dictionary) -> bool:

@@ -22,6 +22,7 @@ var account_marks: int = Contract.MOCK_WALLET_STUB
 ## Cosmetic ledger (visual only). Never touches combat / hit / exposure.
 var owned_cosmetics: Array = []
 var equipped_cosmetic: String = ""
+var equipped_decor: String = ""
 var _shop_receipts: Dictionary = {}
 ## POST /jobs complete receipts keyed by clientJobId — replay does not grant again.
 var _job_receipts: Dictionary = {}
@@ -84,6 +85,7 @@ func reset_wallet(value: int = Contract.MOCK_WALLET_STUB) -> void:
 	account_marks = value
 	owned_cosmetics.clear()
 	equipped_cosmetic = ""
+	equipped_decor = ""
 	_shop_receipts.clear()
 	_job_receipts.clear()
 
@@ -108,31 +110,66 @@ func buy_shop(item_id: String, client_buy_id: String = "") -> Dictionary:
 	account_marks -= price
 	if not owned_cosmetics.has(item_id):
 		owned_cosmetics.append(item_id)
-	equipped_cosmetic = item_id
+	## Last buy auto-equips the matching slot only. Skin and decor coexist.
+	if Contract.is_decor_chrome(item_id):
+		equipped_decor = item_id
+	else:
+		equipped_cosmetic = item_id
 	var bought := _shop_ok({"type": "buy", "itemId": item_id, "clientBuyId": client_buy_id})
 	if client_buy_id != "":
 		_shop_receipts[client_buy_id] = bought.duplicate(true)
 	return bought
 
 
-func equip_cosmetic(item_id: String) -> Dictionary:
-	## Visual only. Empty / null item_id unequips. Unknown / unowned → reject.
-	## Same id is a no-op (idempotent). Marks untouched.
+func equip_cosmetic(item_id: String, slot: String = "") -> Dictionary:
+	## Visual only. Empty / null item_id unequips that slot. Unknown / unowned → reject.
+	## Same id is a no-op (idempotent). Marks untouched. Decor never overwrites skin.
+	var use_decor := slot == "decor" or Contract.is_decor_chrome(item_id)
+	if item_id == "" and use_decor:
+		equipped_decor = ""
+		return _shop_ok({
+			"type": "equip",
+			"itemId": null,
+			"slot": "decor",
+			"equippedDecorId": null,
+		})
 	if item_id == "":
 		equipped_cosmetic = ""
-		return _shop_ok({"type": "equip", "itemId": null, "equipped": null, "equippedSkinId": null})
+		return _shop_ok({
+			"type": "equip",
+			"itemId": null,
+			"slot": "skin",
+			"equipped": null,
+			"equippedSkinId": null,
+		})
 	item_id = Contract._canonical_shop_id(item_id)
 	var listed: Dictionary = Contract.shop_item_by_id(item_id)
 	if listed.is_empty():
 		return _shop_reject(Contract.SHOP_ERR_UNKNOWN_ITEM)
 	if not owned_cosmetics.has(item_id):
 		return _shop_reject(Contract.SHOP_ERR_NOT_OWNED)
+	if use_decor:
+		equipped_decor = item_id
+		return _shop_ok({
+			"type": "equip",
+			"itemId": item_id,
+			"slot": "decor",
+			"equippedDecorId": item_id,
+		})
 	equipped_cosmetic = item_id
-	return _shop_ok({"type": "equip", "itemId": item_id, "equipped": item_id, "equippedSkinId": item_id})
+	return _shop_ok({
+		"type": "equip",
+		"itemId": item_id,
+		"slot": "skin",
+		"equipped": item_id,
+		"equippedSkinId": item_id,
+	})
 
 
 func _shop_snapshot() -> Dictionary:
-	var bag: Dictionary = Contract.shop_catalog_stub(account_marks, owned_cosmetics, equipped_cosmetic)
+	var bag: Dictionary = Contract.shop_catalog_stub(
+		account_marks, owned_cosmetics, equipped_cosmetic, equipped_decor
+	)
 	bag["source"] = "mock"
 	bag["wallet"] = {"marks": account_marks}
 	return bag
@@ -141,6 +178,7 @@ func _shop_snapshot() -> Dictionary:
 func _shop_ok(result: Dictionary = {}) -> Dictionary:
 	var snap := _shop_snapshot()
 	var skin: Variant = equipped_cosmetic if equipped_cosmetic != "" else null
+	var decor: Variant = equipped_decor if equipped_decor != "" else null
 	return {
 		"ok": true,
 		"error": "",
@@ -149,6 +187,7 @@ func _shop_ok(result: Dictionary = {}) -> Dictionary:
 		"owned": owned_cosmetics.duplicate(),
 		"equipped": skin,
 		"equippedSkinId": skin,
+		"equippedDecorId": decor,
 		"marks": account_marks,
 		"result": result,
 	}
@@ -165,6 +204,7 @@ func _shop_reject(reason: String) -> Dictionary:
 		"owned": owned_cosmetics.duplicate(),
 		"equipped": equipped_cosmetic if equipped_cosmetic != "" else null,
 		"equippedSkinId": equipped_cosmetic if equipped_cosmetic != "" else null,
+		"equippedDecorId": equipped_decor if equipped_decor != "" else null,
 		"marks": account_marks,
 		"result": {"type": Contract.ACT_REJECT, "reason": reason},
 	}
@@ -1220,6 +1260,7 @@ func _snapshot_for_seat(match_state: Dictionary, seat: String) -> Dictionary:
 			"movedLastTurn": bool(you["movedLastTurn"]),
 			"equippedSkinId": equipped_cosmetic if equipped_cosmetic != "" else null,
 			"equipped": equipped_cosmetic if equipped_cosmetic != "" else null,
+			"equippedDecorId": equipped_decor if equipped_decor != "" else null,
 			"decoyAvailable": bool(you.get("decoyAvailable", false)),
 			"decoyRemaining": 1 if bool(you.get("decoyAvailable", false)) else 0,
 			"decoyHex": _decoy_hex_for_snap(you, match_state),

@@ -1,0 +1,139 @@
+BASE https://glassline-api.vercel.app
+ITEM decor_poster_stub PRICE 150
+PASS  GET /health
+PASS  GET /shop 200
+EVID  GET /shop 200 {"items": [{"id": "skin_hideout_stub", "name": "Hideout Skin (stub)", "price": 50, "kind": "skin"}, {"id": "skin_bandana_stub", "name": "BANDANA RECOLOR", "price": 100, "kind": "skin"}, {"id": "decor_poster_stub", "name": "HIDEOUT POSTER", "price": 150, "kind": "decor"}]}
+PASS  catalog price 150
+PASS  catalog kind decor|part|skin
+PASS  GET /shop is catalog-only (no you.marks)
+
+== S3.3 insufficient ==
+PASS  POST /players
+PASS  S3.3 POST /players marks == 0 (got 0)
+EVID  S3.3 player p_34994628f1e5431f9d7a694c04bce0af marks=0
+PASS  S3.3 HTTP 402 (got 402)
+PASS  S3.3 code insufficient_marks
+PASS  S3.3 balance unchanged 0 → 0
+EVID  S3.3 POST /shop/buy 402 {"error": "insufficient_marks", "code": "insufficient_marks", "you": {"marks": 0, "equippedSkinId": null, "equippedDecorId": null}} start=0 clientBuyId=1bfbebf7-7045-45b2-9c25-ca3f05cfd9c2
+PASS  S3.3 replay same clientBuyId still 402 (got 402)
+PASS  S3.3 replay does not debit
+EVID  S3.3 replay 402 {"error": "insufficient_marks", "code": "insufficient_marks", "you": {"marks": 0, "equippedSkinId": null, "equippedDecorId": null}}
+
+== earn eight PvP kills on one player (ledger +25 ×8) ==
+PASS  POST /players
+PASS  S3.2 player minted at 0
+EVID  S3.2 player p_26c430422dd0482c93f9e8cf3ca1258a
+PASS  POST /matches + player Bearer
+PASS  kill 1 join you.marks == 0 (got 0)
+PASS  kill 1 PvP ended
+PASS  kill 1 you.marks 0→25 (+25)
+PASS  kill 1 same playerId
+EVID  PvP m_84640a5be6d548549218cab313676b49 you.marks 0→25 endReason=kill player=p_26c430422dd0482c93f9e8cf3ca1258a
+PASS  POST /matches + player Bearer
+PASS  kill 2 join you.marks == 25 (got 25)
+PASS  kill 2 PvP ended
+PASS  kill 2 you.marks 25→50 (+25)
+PASS  kill 2 same playerId
+EVID  PvP m_00f0296324b64624bcc28d0d70c2f3cf you.marks 25→50 endReason=kill player=p_26c430422dd0482c93f9e8cf3ca1258a
+PASS  POST /matches + player Bearer
+PASS  kill 3 join you.marks == 50 (got 50)
+PASS  kill 3 PvP ended
+PASS  kill 3 you.marks 50→75 (+25)
+PASS  kill 3 same playerId
+EVID  PvP m_1cce8ab370184df5945116a68392f03c you.marks 50→75 endReason=kill player=p_26c430422dd0482c93f9e8cf3ca1258a
+PASS  POST /matches + player Bearer
+PASS  kill 4 join you.marks == 75 (got 75)
+PASS  kill 4 PvP ended
+PASS  kill 4 you.marks 75→100 (+25)
+PASS  kill 4 same playerId
+EVID  PvP m_6e5c213b692c4b3e89c5ecc7ac8cd7d3 you.marks 75→100 endReason=kill player=p_26c430422dd0482c93f9e8cf3ca1258a
+PASS  POST /matches + player Bearer
+PASS  kill 5 join you.marks == 100 (got 100)
+PASS  kill 5 PvP ended
+PASS  kill 5 you.marks 100→125 (+25)
+PASS  kill 5 same playerId
+EVID  PvP m_1ee149c129734f8786cb96babe673302 you.marks 100→125 endReason=kill player=p_26c430422dd0482c93f9e8cf3ca1258a
+PASS  POST /matches + player Bearer
+PASS  kill 6 join you.marks == 125 (got 125)
+PASS  kill 6 PvP ended
+PASS  kill 6 you.marks 125→150 (+25)
+PASS  kill 6 same playerId
+EVID  PvP m_1b220d328c4848cf87100fc393bd9250 you.marks 125→150 endReason=kill player=p_26c430422dd0482c93f9e8cf3ca1258a
+PASS  POST /matches + player Bearer
+PASS  kill 7 join you.marks == 150 (got 150)
+PASS  kill 7 PvP ended
+PASS  kill 7 you.marks 150→175 (+25)
+PASS  kill 7 same playerId
+EVID  PvP m_cfe0695a54354f7daf47d64ba7b595b9 you.marks 150→175 endReason=kill player=p_26c430422dd0482c93f9e8cf3ca1258a
+PASS  POST /matches + player Bearer
+PASS  kill 8 join you.marks == 175 (got 175)
+PASS  kill 8 PvP ended
+PASS  kill 8 you.marks 175→200 (+25)
+PASS  kill 8 same playerId
+EVID  PvP m_be33b1f5482e40029b14d28859345d3b you.marks 175→200 endReason=kill player=p_26c430422dd0482c93f9e8cf3ca1258a
+PASS  same player earned ≥200 (got 200)
+
+== S3.2 buy ==
+EVID  S3.2 POST /shop/buy 200 {"ok": true, "you": {"marks": 50, "equippedSkinId": null, "equippedDecorId": "decor_poster_stub"}, "purchaseId": "pur_9dfd4596a2464976899d24425b594ffb", "item": {"id": "decor_poster_stub", "name": "HIDEOUT POSTER", "price": 150, "kind": "decor"}} before=200 clientBuyId=409c3a54-e5ab-46ff-a554-68f1953db009
+PASS  S3.2 HTTP 200 ok (got 200)
+PASS  S3.2 you.marks debit 200→50 (−150)
+PASS  S3.2 purchaseId present
+PASS  S3.2 item decor_poster_stub
+PASS  S3.2 you.equippedDecorId=decor_poster_stub
+NOTE  S3.2 client bind = response you.marks only (no local marks -=)
+NOTE  S3.2 buy auto-equips equippedDecorId; equippedSkinId unchanged
+
+== S3.2 idempotent clientBuyId ==
+EVID  S3.2 replay 200 {"ok": true, "you": {"marks": 50, "equippedSkinId": null, "equippedDecorId": "decor_poster_stub"}, "purchaseId": "pur_9dfd4596a2464976899d24425b594ffb", "item": {"id": "decor_poster_stub", "name": "HIDEOUT POSTER", "price": 150, "kind": "decor"}} clientBuyId=409c3a54-e5ab-46ff-a554-68f1953db009
+PASS  S3.2 replay 200 (got 200)
+PASS  S3.2 replay no second debit 50 → 50
+PASS  S3.2 same purchaseId
+PASS  S3.2 replay keeps equippedDecorId
+
+== S3.4 equippedDecorId coexists with skin ==
+EVID  S3.4 buy ghillie 200 {"ok": true, "you": {"marks": 0, "equippedSkinId": "skin_hideout_stub", "equippedDecorId": "decor_poster_stub"}, "purchaseId": "pur_eedf80020acc48928e8eee60a58470b6", "item": {"id": "skin_hideout_stub", "name": "Hideout Skin (stub)", "price": 50, "kind": "skin"}}
+PASS  S3.4 buy ghillie 200 (got 200)
+PASS  S3.4 buy ghillie sets equippedSkinId
+PASS  S3.4 buy ghillie keeps equippedDecorId
+EVID  S3.4 re-equip poster 200 {"ok": true, "you": {"marks": 0, "equippedSkinId": "skin_hideout_stub", "equippedDecorId": "decor_poster_stub"}, "item": {"id": "decor_poster_stub", "name": "HIDEOUT POSTER", "price": 150, "kind": "decor"}}
+PASS  S3.4 equip poster 200 (got 200)
+PASS  S3.4 equip poster sets equippedDecorId
+PASS  S3.4 equip poster leaves skin
+EVID  S3.4 unequip decor 200 {"ok": true, "you": {"marks": 0, "equippedSkinId": "skin_hideout_stub", "equippedDecorId": null}}
+PASS  S3.4 unequip decor 200 (got 200)
+PASS  S3.4 unequip decor clears poster
+PASS  S3.4 unequip decor leaves skin
+EVID  S3.4 GET /shop/me 200 {"you": {"marks": 0, "equippedSkinId": "skin_hideout_stub", "equippedDecorId": null}, "owned": ["decor_poster_stub", "skin_hideout_stub"]}
+PASS  S3.4 GET /shop/me 200 (got 200)
+PASS  S3.4 /shop/me skin still ghillie
+PASS  S3.4 /shop/me decor unequipped
+
+PLAYER p_26c430422dd0482c93f9e8cf3ca1258a
+MATCHES m_84640a5be6d548549218cab313676b49 m_00f0296324b64624bcc28d0d70c2f3cf m_1cce8ab370184df5945116a68392f03c m_6e5c213b692c4b3e89c5ecc7ac8cd7d3 m_1ee149c129734f8786cb96babe673302 m_1b220d328c4848cf87100fc393bd9250 m_cfe0695a54354f7daf47d64ba7b595b9 m_be33b1f5482e40029b14d28859345d3b
+
+BASE https://glassline-api.vercel.app
+NOTES
+  - S3.2 client bind = response you.marks only (no local marks -=)
+  - S3.2 buy auto-equips equippedDecorId; equippedSkinId unchanged
+EVIDENCE
+  - GET /shop 200 {"items": [{"id": "skin_hideout_stub", "name": "Hideout Skin (stub)", "price": 50, "kind": "skin"}, {"id": "skin_bandana_stub", "name": "BANDANA RECOLOR", "price": 100, "kind": "skin"}, {"id": "decor_poster_stub", "name": "HIDEOUT POSTER", "price": 150, "kind": "decor"}]}
+  - S3.3 player p_34994628f1e5431f9d7a694c04bce0af marks=0
+  - S3.3 POST /shop/buy 402 {"error": "insufficient_marks", "code": "insufficient_marks", "you": {"marks": 0, "equippedSkinId": null, "equippedDecorId": null}} start=0 clientBuyId=1bfbebf7-7045-45b2-9c25-ca3f05cfd9c2
+  - S3.3 replay 402 {"error": "insufficient_marks", "code": "insufficient_marks", "you": {"marks": 0, "equippedSkinId": null, "equippedDecorId": null}}
+  - S3.2 player p_26c430422dd0482c93f9e8cf3ca1258a
+  - PvP m_84640a5be6d548549218cab313676b49 you.marks 0→25 endReason=kill player=p_26c430422dd0482c93f9e8cf3ca1258a
+  - PvP m_00f0296324b64624bcc28d0d70c2f3cf you.marks 25→50 endReason=kill player=p_26c430422dd0482c93f9e8cf3ca1258a
+  - PvP m_1cce8ab370184df5945116a68392f03c you.marks 50→75 endReason=kill player=p_26c430422dd0482c93f9e8cf3ca1258a
+  - PvP m_6e5c213b692c4b3e89c5ecc7ac8cd7d3 you.marks 75→100 endReason=kill player=p_26c430422dd0482c93f9e8cf3ca1258a
+  - PvP m_1ee149c129734f8786cb96babe673302 you.marks 100→125 endReason=kill player=p_26c430422dd0482c93f9e8cf3ca1258a
+  - PvP m_1b220d328c4848cf87100fc393bd9250 you.marks 125→150 endReason=kill player=p_26c430422dd0482c93f9e8cf3ca1258a
+  - PvP m_cfe0695a54354f7daf47d64ba7b595b9 you.marks 150→175 endReason=kill player=p_26c430422dd0482c93f9e8cf3ca1258a
+  - PvP m_be33b1f5482e40029b14d28859345d3b you.marks 175→200 endReason=kill player=p_26c430422dd0482c93f9e8cf3ca1258a
+  - S3.2 POST /shop/buy 200 {"ok": true, "you": {"marks": 50, "equippedSkinId": null, "equippedDecorId": "decor_poster_stub"}, "purchaseId": "pur_9dfd4596a2464976899d24425b594ffb", "item": {"id": "decor_poster_stub", "name": "HIDEOUT POSTER", "price": 150, "kind": "decor"}} before=200 clientBuyId=409c3a54-e5ab-46ff-a554-68f1953db009
+  - S3.2 replay 200 {"ok": true, "you": {"marks": 50, "equippedSkinId": null, "equippedDecorId": "decor_poster_stub"}, "purchaseId": "pur_9dfd4596a2464976899d24425b594ffb", "item": {"id": "decor_poster_stub", "name": "HIDEOUT POSTER", "price": 150, "kind": "decor"}} clientBuyId=409c3a54-e5ab-46ff-a554-68f1953db009
+  - S3.4 buy ghillie 200 {"ok": true, "you": {"marks": 0, "equippedSkinId": "skin_hideout_stub", "equippedDecorId": "decor_poster_stub"}, "purchaseId": "pur_eedf80020acc48928e8eee60a58470b6", "item": {"id": "skin_hideout_stub", "name": "Hideout Skin (stub)", "price": 50, "kind": "skin"}}
+  - S3.4 re-equip poster 200 {"ok": true, "you": {"marks": 0, "equippedSkinId": "skin_hideout_stub", "equippedDecorId": "decor_poster_stub"}, "item": {"id": "decor_poster_stub", "name": "HIDEOUT POSTER", "price": 150, "kind": "decor"}}
+  - S3.4 unequip decor 200 {"ok": true, "you": {"marks": 0, "equippedSkinId": "skin_hideout_stub", "equippedDecorId": null}}
+  - S3.4 GET /shop/me 200 {"you": {"marks": 0, "equippedSkinId": "skin_hideout_stub", "equippedDecorId": null}, "owned": ["decor_poster_stub", "skin_hideout_stub"]}
+
+LIVE_SHOP_SINK3_OK m_84640a5be6d548549218cab313676b49 m_00f0296324b64624bcc28d0d70c2f3cf m_1cce8ab370184df5945116a68392f03c m_6e5c213b692c4b3e89c5ecc7ac8cd7d3 m_1ee149c129734f8786cb96babe673302 m_1b220d328c4848cf87100fc393bd9250 m_cfe0695a54354f7daf47d64ba7b595b9 m_be33b1f5482e40029b14d28859345d3b marks 200->50 purchaseId=pur_9dfd4596a2464976899d24425b594ffb

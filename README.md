@@ -56,6 +56,7 @@ GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_a2_smoke.
 GLASSLINE_USE_LIVE_API=1 godot --headless --path . res://tools/live_loop_test.tscn
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_shop_smoke.py   # S1–S3 Marks sink (POST /players + two kill wins)
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_shop_sink2_smoke.py  # S2.1–S2.3 bandana ★100 (pending if catalog lags)
+GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_shop_sink3_smoke.py  # S3.1–S3.3 poster ★150 (pending if catalog lags)
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_shop_equip_smoke.py  # E1/E4 equip (pending if /shop/equip 404)
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_decoy_smoke.py      # D1–D5 decoy LIVE_DECOY_OK
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_rematch_smoke.py    # R1–R5 rematch; curl first (404 → PENDING)
@@ -87,10 +88,10 @@ Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` 
 | GET | `/matches/:id` | caller-scoped snapshot (reconnect / dummy seat) |
 | GET | `/matches/:id/events` | SSE `{ event: snapshot\|your_turn, snapshot }` — on drop, poll `GET /matches/:id` |
 | POST | `/jobs` | `{ tier: 1\|2\|3, clientJobId? }` + Bearer player token reuses that `playerId`. Credit is job **end**, not this POST. |
-| GET | `/shop` | `{ items: [{ id, name, price, kind }] }` — LIVE `skin_hideout_stub` ★50 + `skin_bandana_stub` ★100 (catalog-only, no `you.marks`). Mock always has both. |
-| GET | `/shop/me` | Bearer **player** token → `{ you: { marks, equippedSkinId }, owned }`. Hideout binds this — never invents the skin id. |
-| POST | `/shop/buy` | `{ itemId, clientBuyId }` + Bearer **player** token → `{ ok, you: { marks, equippedSkinId }, purchaseId, item }`. **402** `insufficient_marks`. Last buy auto-equips. |
-| POST | `/shop/equip` | `{ itemId }` or `{ itemId: null }` + Bearer **player** token → `{ ok, you: { marks, equippedSkinId } }`. **403** `not_owned`. Marks untouched. |
+| GET | `/shop` | `{ items: [{ id, name, price, kind }] }` — LIVE `skin_hideout_stub` ★50 + `skin_bandana_stub` ★100 + `decor_poster_stub` ★150 when Coder +1 SKU (catalog-only, no `you.marks`). Mock always has all three. |
+| GET | `/shop/me` | Bearer **player** token → `{ you: { marks, equippedSkinId, equippedDecorId }, owned }`. Hideout binds this — never invents the ids. |
+| POST | `/shop/buy` | `{ itemId, clientBuyId }` + Bearer **player** token → `{ ok, you: { marks, equippedSkinId, equippedDecorId }, purchaseId, item }`. **402** `insufficient_marks`. Last buy auto-equips the matching slot only. |
+| POST | `/shop/equip` | `{ itemId }` or `{ itemId: null, slot?: "skin"\|"decor" }` + Bearer **player** token → `{ ok, you: { marks, equippedSkinId, equippedDecorId } }`. **403** `not_owned`. Decor never overwrites skin. Marks untouched. |
 | Auth | | Durable `POST /players` Bearer on create / join / jobs / shop. Match actions / snapshot / SSE use the join token. Dummy seat B stays anonymous. |
 
 `PLAY` still joins **both** seats (you = `a`, local dummy = `b`) against the same server so the offline dummy loop works on live HTTPS. Dummy actions use token `b`; the UI SSE stream uses token `a`.
@@ -99,7 +100,7 @@ Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` 
 
 | Scene | Path | Role |
 | --- | --- | --- |
-| Hideout | `scenes/lobby/hideout_lobby.tscn` | Canon room, ARMORY two rows, PLAY, **INVITE** (private lobby), JOBS, Marks chip |
+| Hideout | `scenes/lobby/hideout_lobby.tscn` | Canon room, ARMORY three rows, PLAY, **INVITE** (private lobby), JOBS, Marks chip |
 | Match | `scenes/match/match_screen.tscn` | 9×7 axial, dummy `select_hex`, START, Attack/Recon/UAV/DECOY, END TURN, first-hunt coach chips |
 | Optic | `scenes/optic/optic_overlay.gd` | Zoom / wobble stub + FIRE |
 | Types | `types/` | Snapshot, ActionIntent, ActionResult (`{ ok, snapshot, result }`) |
@@ -122,7 +123,7 @@ Hideout **INVITE** is the private lobby: **CREATE LOBBY** shows a chunky copy-ab
 
 First live (or mock) PvP hunt can show **first-hunt coach** chips (Attack / Recon / Doll / Decoy) until **GOT IT**. Persist is local `user://glassline_coach.cfg`. SP jobs skip. Notes: `FIRST_HUNT_COACH_NOTES.md`.
 
-Hideout **JOBS** opens three SP rows (T1 ★10 / T2 ★15 / T3 ★20). START posts `POST /jobs` `{ tier, clientJobId }` on LIVE (mock uses the same shape) then the board. Marks chip binds snapshot `you.marks` only. Ability chrome is labeled **UAV** and still posts `{ type: "uav" }`. **DECOY** sits beside it and posts `{ type: "decoy" }` (mock + LIVE D1–D5). Ended PvP offers **PLAY AGAIN** / **DECLINE** — Marks already settled; both accept joins a new `matchId`. Earn table: `artifacts/MARKS_SP_NOTES.md`. Decoy notes: `artifacts/DECOY_NOTES.md`. Rematch: `artifacts/REMATCH_NOTES.md`. Ladder gates: `artifacts/SP_JOB_LADDER_NOTES.md`. Hideout **ARMORY** is two chrome-only Marks sinks (`skin_hideout_stub` ★50 + `skin_bandana_stub` ★100, same `get_shop` / `buy_shop`, no combat / no IAP): `artifacts/MARKS_SINK_NOTES.md` · `artifacts/MARKS_SINK2_NOTES.md`. Owned rows **EQUIP / EQUIPPED** bind hideout + exposure doll to snapshot `you.equippedSkinId`: `artifacts/EQUIP_CHROME_NOTES.md`.
+Hideout **JOBS** opens three SP rows (T1 ★10 / T2 ★15 / T3 ★20). START posts `POST /jobs` `{ tier, clientJobId }` on LIVE (mock uses the same shape) then the board. Marks chip binds snapshot `you.marks` only. Ability chrome is labeled **UAV** and still posts `{ type: "uav" }`. **DECOY** sits beside it and posts `{ type: "decoy" }` (mock + LIVE D1–D5). Ended PvP offers **PLAY AGAIN** / **DECLINE** — Marks already settled; both accept joins a new `matchId`. Earn table: `artifacts/MARKS_SP_NOTES.md`. Decoy notes: `artifacts/DECOY_NOTES.md`. Rematch: `artifacts/REMATCH_NOTES.md`. Ladder gates: `artifacts/SP_JOB_LADDER_NOTES.md`. Hideout **ARMORY** is three chrome-only Marks sinks (`skin_hideout_stub` ★50 + `skin_bandana_stub` ★100 + `decor_poster_stub` ★150, same `get_shop` / `buy_shop`, no combat / no IAP): `artifacts/MARKS_SINK_NOTES.md` · `artifacts/MARKS_SINK2_NOTES.md` · `artifacts/MARKS_SINK3_NOTES.md`. Owned rows **EQUIP / EQUIPPED** bind hideout + exposure doll to snapshot `you.equippedSkinId`. Poster binds `you.equippedDecorId` and can hang while a skin is worn. Notes: `artifacts/EQUIP_CHROME_NOTES.md`.
 
 ## Layout
 
