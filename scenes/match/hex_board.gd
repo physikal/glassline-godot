@@ -124,41 +124,33 @@ func _draw() -> void:
 func _stamp(center: Vector2, kind: String, fill: Color) -> void:
 	match kind:
 		Contract.TYPE_BRUSH:
-			_bush(center + Vector2(-7, 7), 9.2)
-			_bush(center + Vector2(8, -2), 7.8)
-			_bush(center + Vector2(1, 3), 6.0)
-			_bush(center + Vector2(-3, -6), 4.4)
-			draw_circle(center + Vector2(10, 8), 1.6, Color("c6e08a"))
+			## One leafy clump — hex-map plate, not a salad of dots.
+			_bush(center + Vector2(0, 2), 11.0)
 		Contract.TYPE_HARD:
-			_rock(center + Vector2(-6, 5), Vector2(14, 10), fill)
-			_rock(center + Vector2(7, -5), Vector2(11, 8), fill.lightened(0.12))
-			_rock(center + Vector2(1, 8), Vector2(8, 5), fill.darkened(0.08))
-			draw_circle(center + Vector2(-2, -2), 1.4, Color("d5dbe2"))
+			_rock(center + Vector2(-1, 1), Vector2(18, 13), fill)
+			draw_circle(center + Vector2(-5, -2), 2.0, Color("d5dbe2"))
 		Contract.TYPE_OPEN:
-			draw_circle(center + Vector2(-10, 8), 2.0, fill.darkened(0.22))
-			draw_circle(center + Vector2(9, -6), 1.6, fill.darkened(0.16))
-			draw_circle(center + Vector2(3, 10), 1.5, fill.darkened(0.24))
-			draw_circle(center + Vector2(-5, -8), 1.8, Color("7eb24a"))
-			draw_circle(center + Vector2(7, 6), 1.3, Color("8fbf5a"))
-			draw_circle(center + Vector2(-8, 0), 1.1, fill.lightened(0.12))
-			draw_circle(center + Vector2(4, -3), 1.0, Color("c9b87a"))
+			draw_circle(center + Vector2(-8, 7), 1.6, fill.darkened(0.20))
+			draw_circle(center + Vector2(7, -5), 1.3, fill.darkened(0.14))
+			draw_circle(center + Vector2(3, 8), 1.2, Color("c9b87a"))
+			draw_circle(center + Vector2(-4, -6), 1.1, Color("7eb24a"))
 		_:
-			draw_circle(center, 8.5, Color("1a1a22"))
-			_draw_mark(center, "?", Color("d8d8de"))
+			draw_circle(center, 9.0, Color("1a1a22"))
+			_draw_mark(center, "?", Color("e8e8ee"))
 
 
 func _bush(pos: Vector2, radius: float) -> void:
 	draw_circle(pos + Vector2(0, 2), radius, Color("3d6a28"))
-	draw_circle(pos + Vector2(-2, 0), radius * 0.78, Color("5a8f34"))
-	draw_circle(pos + Vector2(2, -1), radius * 0.7, Color("7cb34a"))
-	draw_circle(pos + Vector2(-1, -2), radius * 0.28, Color("c6e08a"))
+	draw_circle(pos + Vector2(-4, 0), radius * 0.72, Color("5a8f34"))
+	draw_circle(pos + Vector2(4, -1), radius * 0.68, Color("7cb34a"))
+	draw_circle(pos + Vector2(0, -3), radius * 0.42, Color("c6e08a"))
 
 
 func _rock(pos: Vector2, size: Vector2, fill: Color) -> void:
 	var rect := Rect2(pos - size * 0.5, size)
-	draw_rect(rect, fill.darkened(0.28))
-	draw_rect(Rect2(rect.position + Vector2(1, 1), size - Vector2(3, 4)), fill.lightened(0.12))
-	draw_rect(Rect2(rect.position + Vector2(2, 1), Vector2(size.x * 0.35, 2)), Color("d5dbe2"))
+	draw_rect(rect, fill.darkened(0.22), true)
+	draw_rect(Rect2(rect.position + Vector2(2, 2), size - Vector2(5, 5)), fill.lightened(0.10), true)
+	draw_rect(Rect2(rect.position + Vector2(3, 2), Vector2(size.x * 0.40, 2)), Color("d5dbe2"), true)
 
 
 func _draw_tokens() -> void:
@@ -208,12 +200,12 @@ func _draw_dashed_ring(center: Vector2, radius: float, color: Color, dashes: int
 		draw_arc(center, radius, a0, a1, 7, color, 2.6, true)
 
 
-func _draw_token(center: Vector2, color: Color, tag: String) -> void:
-	draw_circle(center + Vector2(0, 3), 13.0, Color(0, 0, 0, 0.35))
-	draw_circle(center, 13.0, Color.WHITE)
-	draw_circle(center, 10.0, color)
-	draw_circle(center, 4.0, Color.WHITE)
-	_draw_mark(center + Vector2(0, -20), tag, Color.WHITE)
+func _draw_token(center: Vector2, color: Color, _tag: String) -> void:
+	## Plate tokens — white ring, seat color, no P1/P2 caption.
+	draw_circle(center + Vector2(0, 2), 11.0, Color(0, 0, 0, 0.28))
+	draw_circle(center, 11.0, Color.WHITE)
+	draw_circle(center, 7.5, color)
+	draw_circle(center, 3.0, Color.WHITE)
 
 
 func _draw_mark(center: Vector2, text: String, color: Color) -> void:

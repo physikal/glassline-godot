@@ -39,49 +39,51 @@ func _draw() -> void:
 	var h := size.y
 	if w < 8.0 or h < 8.0:
 		return
-	draw_rect(Rect2(0, 0, w, h), Color(0.10, 0.07, 0.05, 0.62), true)
+	draw_rect(Rect2(0, 0, w, h), Color(0.16, 0.10, 0.07, 0.55), true)
 	draw_rect(Rect2(1, 1, w - 2, h - 2), Chrome.HIGH_GOLD, false, 2.0)
 	var cx := w * 0.5
 	var s := minf(w / 88.0, h / 118.0)
-	var body := Color("e6c39a")
-	var shirt := Color("1d6b54")
-	var pants := Color("2a241c")
+	var skin := Color("e6c39a")
+	var teal := Color("1d6b54")
+	var teal_l := Color("2f8f78")
+	var navy := Color("1e2430")
+	var boot := Color("3d2618")
+	var hair := Color("5a3a22")
 	var ghillie := equipped_skin_id == Contract.SHOP_STUB_ITEM_ID
 	var bandana := equipped_skin_id == Contract.SHOP_BANDANA_ITEM_ID
 	if ghillie:
-		shirt = Color("4a8f32")
-	elif bandana:
-		shirt = Color("8a3a28")
-	if ghillie:
-		## Full leafy hood with a face peek — same chrome read as hideout plate.
-		draw_circle(Vector2(cx, h * 0.24), 8.0 * s, body)
-		draw_circle(Vector2(cx, h * 0.16), 14.0 * s, Color("3d6a28"))
-		draw_circle(Vector2(cx - 8.0 * s, h * 0.12), 7.0 * s, Color("5a8f34"))
-		draw_circle(Vector2(cx + 8.0 * s, h * 0.13), 6.5 * s, Color("7cb34a"))
-		draw_circle(Vector2(cx, h * 0.08), 6.0 * s, Color("6aa03a"))
-		draw_circle(Vector2(cx + 1.0 * s, h * 0.26), 5.0 * s, body)
-		draw_rect(Rect2(cx - 3.0 * s, h * 0.22, 2.0 * s, 2.0 * s), Chrome.INK)
-		draw_rect(Rect2(cx + 2.0 * s, h * 0.22, 2.0 * s, 2.0 * s), Chrome.INK)
+		## Leafy hood + face peek — lobby-ghillie plate.
+		draw_circle(Vector2(cx, h * 0.28), 16.0 * s, Color("3d6a28"))
+		draw_circle(Vector2(cx - 10.0 * s, h * 0.18), 9.0 * s, Color("5a8f34"))
+		draw_circle(Vector2(cx + 10.0 * s, h * 0.20), 8.5 * s, Color("7cb34a"))
+		draw_circle(Vector2(cx, h * 0.12), 8.0 * s, Color("6aa03a"))
+		draw_circle(Vector2(cx + 1.0 * s, h * 0.30), 8.0 * s, skin)
+		draw_rect(Rect2(cx - 3.4 * s, h * 0.27, 2.4 * s, 2.4 * s), Chrome.INK)
+		draw_rect(Rect2(cx + 2.2 * s, h * 0.27, 2.4 * s, 2.4 * s), Chrome.INK)
+		draw_rect(Rect2(cx - 14.0 * s, h * 0.38, 28.0 * s, 28.0 * s), Color("4a8f32"))
+		draw_circle(Vector2(cx - 13.0 * s, h * 0.42), 7.0 * s, Color("5a8f34"))
+		draw_circle(Vector2(cx + 13.0 * s, h * 0.44), 6.5 * s, Color("7cb34a"))
+		draw_circle(Vector2(cx, h * 0.48), 6.0 * s, Color("3d6a28"))
 	else:
-		draw_circle(Vector2(cx, h * 0.22), 9.0 * s, body)
-		draw_rect(Rect2(cx - 10.0 * s, h * 0.10, 20.0 * s, 7.0 * s), Color("5a3a22"))
-		draw_rect(Rect2(cx - 8.0 * s, h * 0.11, 16.0 * s, 4.0 * s), Color("3d2618"))
-		draw_rect(Rect2(cx - 3.5 * s, h * 0.20, 2.4 * s, 2.4 * s), Chrome.INK)
-		draw_rect(Rect2(cx + 1.4 * s, h * 0.20, 2.4 * s, 2.4 * s), Chrome.INK)
-		draw_rect(Rect2(cx - 2.0 * s, h * 0.26, 4.5 * s, 1.6 * s), Color("c45a4a"))
-	if bandana:
-		draw_rect(Rect2(cx - 10.0 * s, h * 0.16, 20.0 * s, 5.5 * s), Color("c45a4a"))
-		draw_rect(Rect2(cx + 8.0 * s, h * 0.20, 5.0 * s, 7.0 * s), Color("c45a4a"))
-	draw_rect(Rect2(cx - 10.0 * s, h * 0.30, 20.0 * s, 24.0 * s), shirt)
-	draw_circle(Vector2(cx, h * 0.38), 4.0 * s, body)
-	if ghillie:
-		draw_circle(Vector2(cx - 10.0 * s, h * 0.32), 6.0 * s, Color("5a8f34"))
-		draw_circle(Vector2(cx + 10.0 * s, h * 0.34), 5.5 * s, Color("7cb34a"))
-		draw_circle(Vector2(cx, h * 0.36), 5.0 * s, Color("3d6a28"))
-	draw_rect(Rect2(cx - 8.0 * s, h * 0.54, 7.0 * s, 18.0 * s), pants)
-	draw_rect(Rect2(cx + 1.0 * s, h * 0.54, 7.0 * s, 18.0 * s), pants)
-	draw_rect(Rect2(cx - 8.0 * s, h * 0.70, 7.0 * s, 4.0 * s), Color("3d2618"))
-	draw_rect(Rect2(cx + 1.0 * s, h * 0.70, 7.0 * s, 4.0 * s), Color("3d2618"))
+		## Teal hoodie kid — lobby-canon plate.
+		draw_rect(Rect2(cx - 12.0 * s, h * 0.10, 24.0 * s, 8.0 * s), hair)
+		draw_rect(Rect2(cx - 10.0 * s, h * 0.11, 20.0 * s, 5.0 * s), Color("3d2618"))
+		draw_circle(Vector2(cx, h * 0.26), 11.0 * s, skin)
+		draw_rect(Rect2(cx - 11.0 * s, h * 0.18, 22.0 * s, 5.0 * s), teal_l)
+		draw_rect(Rect2(cx - 2.0 * s, h * 0.19, 4.0 * s, 3.0 * s), Color.WHITE)
+		draw_rect(Rect2(cx - 4.0 * s, h * 0.24, 2.6 * s, 2.6 * s), Chrome.INK)
+		draw_rect(Rect2(cx + 2.0 * s, h * 0.24, 2.6 * s, 2.6 * s), Chrome.INK)
+		if bandana:
+			draw_rect(Rect2(cx - 12.0 * s, h * 0.20, 24.0 * s, 6.0 * s), Color("c45a4a"))
+			draw_rect(Rect2(cx + 10.0 * s, h * 0.24, 6.0 * s, 8.0 * s), Color("c45a4a"))
+		draw_rect(Rect2(cx - 14.0 * s, h * 0.36, 28.0 * s, 26.0 * s), teal)
+		draw_rect(Rect2(cx - 10.0 * s, h * 0.38, 20.0 * s, 8.0 * s), teal_l)
+		draw_circle(Vector2(cx, h * 0.44), 4.5 * s, skin)
+		draw_circle(Vector2(cx - 6.0 * s, h * 0.42), 2.0 * s, Color.WHITE)
+	draw_rect(Rect2(cx - 10.0 * s, h * 0.62, 8.0 * s, 20.0 * s), navy)
+	draw_rect(Rect2(cx + 2.0 * s, h * 0.62, 8.0 * s, 20.0 * s), navy)
+	draw_rect(Rect2(cx - 10.0 * s, h * 0.80, 8.0 * s, 5.0 * s), boot)
+	draw_rect(Rect2(cx + 2.0 * s, h * 0.80, 8.0 * s, 5.0 * s), boot)
 	var cover_h := h * ((100.0 - exposure_pct) / 100.0) * 0.72
 	if cover_h > 2.0:
 		draw_rect(Rect2(2, h - cover_h, w - 4, cover_h - 2), Color("3d6a28"))

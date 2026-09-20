@@ -35,8 +35,7 @@ var _shop_lines: Dictionary = {}
 var _bandana_wash: ColorRect
 var _poster: TextureRect
 var _buying_id: String = ""
-var _rack_cover: ColorRect
-var _gun_rack: PanelContainer
+var _gun_rack: Control
 var _gun_slots: Dictionary = {}
 var _held_rifle: TextureRect
 var _rifle_showcase: PanelContainer
@@ -153,7 +152,15 @@ func _ready() -> void:
 	elif "--capture-art-armory" in args:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 		DisplayServer.window_set_size(Vector2i(1280, 720))
-		await _capture_named("res://artifacts/ux/art_armory_wartable.png", "ART_ARMORY_WARTABLE")
+		await _capture_named(
+			"res://artifacts/ux/art_armory_wartable.png",
+			"ART_ARMORY_WARTABLE",
+			"res://artifacts/ux/art_01_hideout_armory.png"
+		)
+	elif "--capture-art-ui-chips" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await _capture_art_ui_chips()
 	elif "--capture-art-rifles" in args:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 		DisplayServer.window_set_size(Vector2i(1280, 720))
@@ -196,7 +203,7 @@ func _capture_lobby() -> void:
 	get_tree().quit()
 
 
-func _capture_named(res_path: String, tag: String) -> void:
+func _capture_named(res_path: String, tag: String, also: String = "") -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	await get_tree().process_frame
@@ -204,6 +211,8 @@ func _capture_named(res_path: String, tag: String) -> void:
 	var img := get_viewport().get_texture().get_image()
 	var path := ProjectSettings.globalize_path(res_path)
 	img.save_png(path)
+	if also != "":
+		img.save_png(ProjectSettings.globalize_path(also))
 	print("%s %s" % [tag, path])
 	get_tree().quit()
 
@@ -392,7 +401,11 @@ func _capture_art_hideout() -> void:
 	_refresh_gun_rack()
 	await get_tree().process_frame
 	await get_tree().process_frame
-	await _capture_named("res://artifacts/ux/art_hideout_dynamic.png", "ART_HIDEOUT_DYNAMIC")
+	await _capture_named(
+		"res://artifacts/ux/art_hideout_dynamic.png",
+		"ART_HIDEOUT_DYNAMIC",
+		"res://artifacts/ux/art_02_hideout_rack.png"
+	)
 
 
 func _capture_art_rifles() -> void:
@@ -419,7 +432,77 @@ func _capture_art_operative_doll() -> void:
 	_refresh_gun_rack()
 	await get_tree().process_frame
 	await get_tree().process_frame
-	await _capture_named("res://artifacts/ux/art_operative_doll.png", "ART_OPERATIVE_DOLL")
+	await _capture_named(
+		"res://artifacts/ux/art_operative_doll.png",
+		"ART_OPERATIVE_DOLL",
+		"res://artifacts/ux/art_04_operative_doll.png"
+	)
+
+
+func _capture_art_ui_chips() -> void:
+	## Taste still: Marks + coach + queue + end-summary chips on the hideout wood.
+	if _shop_row:
+		_shop_row.visible = false
+	var board := PanelContainer.new()
+	board.set_anchors_preset(PRESET_CENTER)
+	board.offset_left = -380
+	board.offset_right = 380
+	board.offset_top = -210
+	board.offset_bottom = 210
+	var box := Chrome.flat(Color(0.10, 0.08, 0.06, 0.96), 20, Chrome.HIGH_GOLD, 3)
+	box.content_margin_left = 22
+	box.content_margin_right = 22
+	box.content_margin_top = 16
+	box.content_margin_bottom = 16
+	board.add_theme_stylebox_override("panel", box)
+	add_child(board)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 14)
+	board.add_child(col)
+	var kicker := Label.new()
+	kicker.text = "UI CHIPS"
+	kicker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	Chrome.apply_label(kicker, 10, Chrome.HIGH_GOLD, true)
+	col.add_child(kicker)
+	col.add_child(_chip_demo_row("MARKS", Chrome.marks_chip_text(ClientSession.marks), Chrome.HIGH_GOLD, "star"))
+	col.add_child(_chip_demo_row("COACH", "ATTACK hex · then FIRE", Chrome.ATTACK_RED, "attack"))
+	col.add_child(_chip_demo_row("QUEUE", "FINDING RIVAL", Chrome.TEAL, "queue"))
+	col.add_child(_chip_demo_row("END", "KILL  ·  ★25", Chrome.PLAY_GREEN, "star"))
+	await _capture_named(
+		"res://artifacts/ux/art_ui_chips.png",
+		"ART_UI_CHIPS",
+		"res://artifacts/ux/art_06_ui_chips.png"
+	)
+
+
+func _chip_demo_row(title: String, body: String, accent: Color, icon_kind: String) -> PanelContainer:
+	var row := PanelContainer.new()
+	var box := Chrome.flat(Color(0.12, 0.09, 0.07, 0.94), 14, accent, 2)
+	box.content_margin_left = 12
+	box.content_margin_right = 12
+	box.content_margin_top = 8
+	box.content_margin_bottom = 8
+	row.add_theme_stylebox_override("panel", box)
+	var line := HBoxContainer.new()
+	line.add_theme_constant_override("separation", 12)
+	row.add_child(line)
+	var icon := TextureRect.new()
+	icon.texture = Chrome.make_icon(icon_kind, accent, 22)
+	icon.custom_minimum_size = Vector2(22, 22)
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	line.add_child(icon)
+	var name_lbl := Label.new()
+	name_lbl.text = title
+	name_lbl.custom_minimum_size = Vector2(100, 0)
+	Chrome.apply_label(name_lbl, 10, accent, true)
+	line.add_child(name_lbl)
+	var body_lbl := Label.new()
+	body_lbl.text = body
+	body_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	Chrome.apply_label(body_lbl, 10, Chrome.CREAM, true)
+	line.add_child(body_lbl)
+	return row
 
 
 func _capture_jobs_ladder() -> void:
@@ -471,17 +554,17 @@ func _build() -> void:
 	_bandana_wash.visible = false
 	add_child(_bandana_wash)
 
-	## Toy-spy hideout poster — on the wall beside the operative, above ARMORY.
+	## Toy-spy hideout poster — right wall by INTEL, so the rifle rack keeps the left wall.
 	_poster = TextureRect.new()
 	_poster.texture = Chrome.make_hideout_poster(96, 128)
 	_poster.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_poster.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_poster.stretch_mode = TextureRect.STRETCH_SCALE
 	_poster.set_anchors_preset(PRESET_CENTER)
-	_poster.offset_left = -340
-	_poster.offset_right = -164
-	_poster.offset_top = -236
-	_poster.offset_bottom = -4
+	_poster.offset_left = 210
+	_poster.offset_right = 338
+	_poster.offset_top = -248
+	_poster.offset_bottom = -72
 	_poster.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_poster.visible = false
 	add_child(_poster)
@@ -766,78 +849,83 @@ func _make_shop_line(item: Dictionary) -> PanelContainer:
 
 
 func _build_gun_rack() -> void:
-	## Live three-family rack. Covers baked plate rifles. Visual slots only.
-	_rack_cover = ColorRect.new()
-	_rack_cover.color = Color("5a3a22")
-	_rack_cover.position = Vector2(16, 108)
-	_rack_cover.size = Vector2(268, 328)
-	_rack_cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_rack_cover)
-
-	_gun_rack = PanelContainer.new()
-	_gun_rack.position = Vector2(16, 108)
-	_gun_rack.size = Vector2(268, 328)
-	var box := Chrome.flat(Color(0.16, 0.10, 0.07, 0.96), 14, Chrome.HIGH_GOLD, 3)
-	box.content_margin_left = 10
-	box.content_margin_right = 10
-	box.content_margin_top = 8
-	box.content_margin_bottom = 8
-	_gun_rack.add_theme_stylebox_override("panel", box)
+	## Wall hang — plate rifles on pegs. No dark card over the wood.
+	_gun_rack = Control.new()
+	_gun_rack.position = Vector2(22, 112)
+	_gun_rack.size = Vector2(268, 340)
+	_gun_rack.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_gun_rack)
 
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 6)
-	_gun_rack.add_child(col)
-
+	var plank := ColorRect.new()
+	plank.color = Color("6b4a2c")
+	plank.position = Vector2(8, 0)
+	plank.size = Vector2(220, 22)
+	plank.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_gun_rack.add_child(plank)
+	var plank_lite := ColorRect.new()
+	plank_lite.color = Color("8a6240")
+	plank_lite.position = Vector2(10, 2)
+	plank_lite.size = Vector2(216, 6)
+	plank_lite.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_gun_rack.add_child(plank_lite)
 	var kicker := Label.new()
-	kicker.text = "RACK"
+	kicker.text = "RIFLE RACK"
+	kicker.position = Vector2(12, 2)
+	kicker.size = Vector2(212, 18)
 	kicker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	Chrome.apply_label(kicker, 9, Chrome.HIGH_GOLD, true)
-	col.add_child(kicker)
+	Chrome.apply_label(kicker, 8, Chrome.CREAM, true)
+	_gun_rack.add_child(kicker)
+
+	var col := VBoxContainer.new()
+	col.position = Vector2(0, 28)
+	col.size = Vector2(268, 310)
+	col.add_theme_constant_override("separation", 8)
+	_gun_rack.add_child(col)
 
 	for gid in Contract.gun_family_ids():
 		col.add_child(_make_gun_slot(str(gid)))
 
 
-func _make_gun_slot(gun_id: String) -> PanelContainer:
-	var row := PanelContainer.new()
-	var box := Chrome.flat(Color(0.12, 0.09, 0.07, 0.94), 10, Chrome.WOOD, 2)
-	box.content_margin_left = 6
-	box.content_margin_right = 6
-	box.content_margin_top = 4
-	box.content_margin_bottom = 4
-	row.add_theme_stylebox_override("panel", box)
+func _make_gun_slot(gun_id: String) -> Control:
+	var row := Control.new()
+	row.custom_minimum_size = Vector2(260, 86)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 2)
-	row.add_child(col)
+	var glow := ColorRect.new()
+	glow.color = Color(0, 0, 0, 0)
+	glow.position = Vector2(4, 78)
+	glow.size = Vector2(248, 4)
+	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(glow)
 
 	var rifle := TextureRect.new()
 	rifle.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	rifle.custom_minimum_size = Vector2(236, 48)
+	rifle.position = Vector2(4, 4)
+	rifle.size = Vector2(248, 56)
 	rifle.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	rifle.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	rifle.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(rifle)
-
-	var meta := HBoxContainer.new()
-	meta.add_theme_constant_override("separation", 8)
-	col.add_child(meta)
+	row.add_child(rifle)
 
 	var name_lbl := Label.new()
 	name_lbl.text = Contract.gun_family_name(gun_id)
-	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	Chrome.apply_label(name_lbl, 8, Chrome.CREAM, true)
-	meta.add_child(name_lbl)
+	name_lbl.position = Vector2(8, 60)
+	name_lbl.size = Vector2(140, 18)
+	Chrome.apply_label(name_lbl, 7, Chrome.CREAM, true)
+	row.add_child(name_lbl)
 
 	var status := Label.new()
+	status.position = Vector2(148, 60)
+	status.size = Vector2(108, 18)
+	status.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	Chrome.apply_label(status, 7, Chrome.HIGH_GOLD, true)
-	meta.add_child(status)
+	row.add_child(status)
 
 	_gun_slots[gun_id] = {
 		"row": row,
 		"rifle": rifle,
 		"status": status,
+		"glow": glow,
 	}
 	return row
 
@@ -862,9 +950,9 @@ func _refresh_gun_rack() -> void:
 		var state := ClientSession.gun_slot_state(str(gid))
 		var rifle: TextureRect = widgets.get("rifle")
 		var status: Label = widgets.get("status")
-		var row: PanelContainer = widgets.get("row")
+		var glow: ColorRect = widgets.get("glow")
 		if rifle:
-			rifle.texture = ArtPack.rifle_texture(str(gid), state, 168, 48)
+			rifle.texture = ArtPack.rifle_texture(str(gid), state, 200, 52)
 		if status:
 			if state == "equipped":
 				status.text = "EQUIPPED"
@@ -875,17 +963,11 @@ func _refresh_gun_rack() -> void:
 			else:
 				status.text = "LOCKED"
 				Chrome.apply_label(status, 7, Color("8a7a68"), true)
-		if row:
-			var border := Chrome.HIGH_GOLD if state == "equipped" else (Chrome.WOOD if state == "owned" else Color("3a322c"))
-			var box := Chrome.flat(Color(0.12, 0.09, 0.07, 0.94), 10, border, 2 if state != "equipped" else 3)
-			box.content_margin_left = 6
-			box.content_margin_right = 6
-			box.content_margin_top = 4
-			box.content_margin_bottom = 4
-			row.add_theme_stylebox_override("panel", box)
+		if glow:
+			glow.color = Chrome.HIGH_GOLD if state == "equipped" else Color(0, 0, 0, 0)
 	if _held_rifle:
 		var gid := ClientSession.equipped_gun_id()
-		_held_rifle.texture = ArtPack.rifle_held_texture(gid, 168, 48)
+		_held_rifle.texture = ArtPack.rifle_held_texture(gid, 168, 44)
 		## Plate already holds a Fieldbolt. Overlay only when another family is equipped.
 		_held_rifle.visible = gid != Contract.GUN_FIELDBOLT
 
@@ -923,9 +1005,9 @@ func _show_rifle_showcase(show: bool) -> void:
 			line.add_theme_constant_override("separation", 16)
 			col.add_child(line)
 			var rifle := TextureRect.new()
-			rifle.texture = ArtPack.rifle_texture(str(gid), "owned", 200, 48)
+			rifle.texture = ArtPack.rifle_texture(str(gid), "owned", 200, 52)
 			rifle.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-			rifle.custom_minimum_size = Vector2(200, 48)
+			rifle.custom_minimum_size = Vector2(200, 52)
 			rifle.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 			rifle.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			line.add_child(rifle)

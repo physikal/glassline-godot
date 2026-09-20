@@ -149,6 +149,7 @@ func _capture_art_hex() -> void:
 	var img := get_viewport().get_texture().get_image()
 	var path := ProjectSettings.globalize_path("res://artifacts/ux/art_hex_terrain.png")
 	img.save_png(path)
+	img.save_png(ProjectSettings.globalize_path("res://artifacts/ux/art_03_hex_terrain.png"))
 	print("ART_HEX_TERRAIN ", path)
 	get_tree().quit()
 
@@ -171,6 +172,7 @@ func _capture_art_optic() -> void:
 	var img := get_viewport().get_texture().get_image()
 	var path := ProjectSettings.globalize_path("res://artifacts/ux/art_attack_optic.png")
 	img.save_png(path)
+	img.save_png(ProjectSettings.globalize_path("res://artifacts/ux/art_05_attack_optic.png"))
 	print("ART_ATTACK_OPTIC ", path)
 	get_tree().quit()
 

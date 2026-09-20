@@ -28,11 +28,12 @@ const POSTER_STAR := Color("e8b84a")
 const COIN_GOLD := Color("f0c44a")
 const GEM_PURPLE := Color("b45cff")
 const XP_GREEN := Color("3dcf6e")
-const OPEN := Color("e6d4a0")
-const BRUSH := Color("7cb34a")
-const HARD := Color("9aa3ad")
-const UNKNOWN := Color("2c2c34")
-const FIRE_ORANGE := Color("f0a020")
+const OPEN := Color("f0d9a0")
+const BRUSH := Color("6a9e3a")
+const HARD := Color("8e949c")
+const UNKNOWN := Color("2a2a32")
+const FIRE_ORANGE := Color("f08a1e")
+const ZOOM_YELLOW := Color("f4d44a")
 const P1 := Color("3ecf8e")
 const P2 := Color("f08a2a")
 const HEX_LINE := Color("f2e6c4")
@@ -79,11 +80,37 @@ static func chunk_button(text: String, bg: Color, fg: Color, min_size: Vector2 =
 	return _styled_button(text, bg, fg, min_size, 18, 12)
 
 
+static func circle_button(text: String, bg: Color, fg: Color, diameter: float = 152.0) -> Button:
+	## Plate FIRE — round orange puck, not a square wartable tile.
+	var button := _styled_button(text, bg, fg, Vector2(diameter, diameter), int(diameter * 0.5), 14)
+	button.icon = make_icon("attack", fg, 36)
+	button.add_theme_constant_override("h_separation", 6)
+	button.add_theme_constant_override("icon_max_width", 36)
+	return button
+
+
+static func zoom_pill(text: String, active: bool) -> Button:
+	## Canon optic zoom — yellow slab, black caps. Selected = brighter.
+	var bg := ZOOM_YELLOW if active else Color("d4b438")
+	var fg := INK
+	return _styled_button(text, bg, fg, Vector2(128, 40), 8, 10)
+
+
 static func paint_chunk_button(button: Button, bg: Color, fg: Color) -> void:
 	## Restyle an existing chunk button (active BUY vs disabled / OWNED).
 	if button == null:
 		return
-	var radius := 18
+	_paint_button(button, bg, fg, 18)
+
+
+static func paint_zoom_pill(button: Button, active: bool) -> void:
+	if button == null:
+		return
+	var bg := ZOOM_YELLOW if active else Color("c9a832")
+	_paint_button(button, bg, INK, 8)
+
+
+static func _paint_button(button: Button, bg: Color, fg: Color, radius: int) -> void:
 	button.add_theme_color_override("font_color", fg)
 	button.add_theme_color_override("font_hover_color", fg)
 	button.add_theme_color_override("font_pressed_color", fg)
