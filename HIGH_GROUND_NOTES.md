@@ -27,7 +27,7 @@ Arch stamp 2026-09-20. Client chrome on `you.highGroundActive`.
 
 | Gate | Mock | LIVE | Notes |
 | --- | --- | --- | --- |
-| **H1** HARD attacker +10% | **PASS** | **HOLD** | `you.highGroundActive` true. Miss reports `highGroundApplied` + `hitChance` 0.10. Occupy-hex kill still 1.0 (clamp). |
+| **H1** HARD attacker +10% | **PASS** | **HOLD** | Mock: `you.highGroundActive` true. Miss reports `highGroundApplied` + `hitChance` 0.10. Occupy-hex kill still 1.0 (clamp). LIVE GET omits the flag (`LIVE_HIGH_GROUND_PENDING`). |
 | **H2** OPEN / BRUSH / FoW +0 | **PASS** | **HOLD** | Flag false. Miss `highGroundApplied` false, `hitChance` 0. Omitted flag stays false. |
 | **H3** chip snapshot-only | **PASS** | n/a | Lit reads **+10%**. Muted does not. Missing flag never invents from local HARD terrain. |
 | **H4** guns / Decoy / Marks blind | **PASS** | **HOLD** | Miss on HARD does not change Marks. UAV / Decoy charges untouched. No gun field on attack. |

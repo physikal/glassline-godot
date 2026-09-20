@@ -1,0 +1,7 @@
+SMOKE_BASE https://glassline-api.vercel.app
+PASS  GET /health
+PASS  POST /players
+PASS  join/drop
+SNAP_A_YOU {"seat": "a", "hex": {"q": 2, "r": 2}, "marks": 0, "exposurePct": 50, "movedLastTurn": false, "equippedSkinId": null, "equippedDecorId": null, "equippedGunId": "gun_fieldbolt", "decoyAvailable": true, "decoyRemaining": 1, "decoyHex": null}
+NOTE  LIVE snapshot omits you.highGroundActive. HTTP GET {"matchId":"m_d56a54c9236849c0961ea8f9a2c2ddc6","status":"active","turnIndex":0,"turnCap":16,"whoseTurn":"a","phase":"await_action","uavAvailable":true,"uavRema — Coder resolve not up. Client binds the flag only; mock stills cover H3 chrome.
+LIVE_HIGH_GROUND_PENDING

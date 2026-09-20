@@ -1647,13 +1647,24 @@ func _high_ground_case(failed: PackedStringArray) -> void:
 
 	r = server.apply_action(mid, pid_a, ActionIntent.start())
 	_expect(failed, r.ok, "H1 start")
-	var intent := ActionIntent.attack(0, 0)
+	var empty := Contract.hex_dict(0, 0)
+	for rr in Contract.BOARD_R:
+		for qq in Contract.BOARD_Q:
+			if Contract.same_hex(Contract.hex_dict(qq, rr), hard):
+				continue
+			if Contract.same_hex(Contract.hex_dict(qq, rr), open_hex):
+				continue
+			empty = Contract.hex_dict(qq, rr)
+			break
+		if not Contract.same_hex(empty, hard) and not Contract.same_hex(empty, open_hex):
+			break
+	var intent := ActionIntent.attack(int(empty.get("q", 0)), int(empty.get("r", 0)))
 	_expect(failed, intent.get("type") == Contract.ACT_ATTACK, "H6 type attack")
 	_expect(failed, intent.has("hex"), "H6 hex present")
 	_expect(failed, not intent.has("highGround"), "H6 no highGround field")
 	_expect(failed, not intent.has("highGroundActive"), "H6 no highGroundActive field")
 	_expect(failed, not intent.has("hitChance"), "H6 no hitChance on intent")
-	var marks_before := Snapshot.from_dict(server.get_snapshot(mid, pid_a)).you_marks()
+	var marks_before: int = Snapshot.from_dict(server.get_snapshot(mid, pid_a)).you_marks()
 	r = server.apply_action(mid, pid_a, intent)
 	_expect(failed, r.ok, "H1 attack from HARD")
 	snap = Snapshot.from_dict(r.snapshot)
@@ -1688,7 +1699,16 @@ func _high_ground_case(failed: PackedStringArray) -> void:
 	_expect(failed, not Snapshot.from_dict(server.get_snapshot(fid, pa)).you_high_ground_active(), "H2 A OPEN muted")
 	_expect(failed, Snapshot.from_dict(server.get_snapshot(fid, pb)).you_high_ground_active(), "H5 B HARD not from A OPEN")
 	server.apply_action(fid, pa, ActionIntent.start())
-	r = server.apply_action(fid, pa, ActionIntent.attack(0, 0))
+	var empty2 := Contract.hex_dict(0, 0)
+	for rr2 in Contract.BOARD_R:
+		for qq2 in Contract.BOARD_Q:
+			if Contract.same_hex(Contract.hex_dict(qq2, rr2), open2) or Contract.same_hex(Contract.hex_dict(qq2, rr2), hard2):
+				continue
+			empty2 = Contract.hex_dict(qq2, rr2)
+			break
+		if not Contract.same_hex(empty2, open2) and not Contract.same_hex(empty2, hard2):
+			break
+	r = server.apply_action(fid, pa, ActionIntent.attack(int(empty2.get("q", 0)), int(empty2.get("r", 0))))
 	last = Snapshot.from_dict(r.snapshot).last_action()
 	_expect(failed, last is Dictionary and last.get("highGroundApplied") == false, "H2 OPEN highGroundApplied false")
 	_expect(failed, last is Dictionary and is_equal_approx(float(last.get("hitChance", -1)), 0.0), "H2 OPEN miss hitChance 0")
