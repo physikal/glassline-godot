@@ -140,6 +140,7 @@ func _run() -> int:
 	_shop_sink2_case(failed)
 	_shop_sink3_case(failed)
 	_gun_chrome_case(failed)
+	_optic_joystick_case(failed)
 	_equip_chrome_case(failed)
 	_player_persist_case(failed)
 	_first_hunt_coach_case(failed)
@@ -1532,6 +1533,25 @@ func _gun_chrome_case(failed: PackedStringArray) -> void:
 	var unknown = Shop.from_any({"you": {"equippedGunId": "not_a_gun"}})
 	_expect(failed, unknown.equipped_gun == "", "unknown equippedGunId is empty")
 	session.free()
+
+
+func _optic_joystick_case(failed: PackedStringArray) -> void:
+	## Chrome only: circular thumb replaces the plate D-pad. Fire stays a tap.
+	## Overlay needs ClientSession autoload — stick class + intent are the contract.
+	var Chrome := load("res://scripts/chrome.gd")
+	var well: Texture2D = Chrome.make_optic_stick_well(64)
+	var knob: Texture2D = Chrome.make_optic_stick_knob(32)
+	_expect(failed, well != null and well.get_width() == 64, "stick well texture")
+	_expect(failed, knob != null and knob.get_width() == 32, "stick knob texture")
+	var Joy := load("res://scenes/optic/optic_joystick.gd")
+	var stick = Joy.new()
+	var moved := [Vector2.ZERO]
+	stick.stick_changed.connect(func(v: Vector2) -> void: moved[0] = v)
+	stick.pose(Vector2(0.62, -0.38))
+	_expect(failed, moved[0].length() > 0.4, "posing the thumb emits offset")
+	_expect(failed, ActionIntent.attack(0, 0).get("type") == Contract.ACT_ATTACK, "attack intent unchanged")
+	_expect(failed, not ActionIntent.attack(4, 3).has("stick"), "stick is not an attack field")
+	stick.free()
 
 
 func _equip_chrome_case(failed: PackedStringArray) -> void:

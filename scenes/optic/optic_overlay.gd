@@ -1,10 +1,12 @@
 extends Control
 ## Toy optic. FIRE only submits the chosen hex — MockMatchServer owns hit/miss.
 ## Attack frame is the Josh-locked optic-attack.jpg plate. FAR/MID/NEAR display-only.
+## Virtual thumb stick replaces the plate D-pad. Fire stays a separate tap.
 
 const Chrome := preload("res://scripts/chrome.gd")
 const ArtPack := preload("res://scripts/art_pack.gd")
 const Contract := preload("res://types/contract.gd")
+const OpticJoystick := preload("res://scenes/optic/optic_joystick.gd")
 
 signal fire_pressed
 signal cancelled
@@ -17,9 +19,11 @@ var gun_family: String = Contract.GUN_FIELDBOLT
 
 var _zoom := "MID"
 var _time := 0.0
+var _stick := Vector2.ZERO
 var _figure: Control
 var _note: Label
 var _area: Label
+var _joystick: Control
 
 
 func _ready() -> void:
@@ -34,6 +38,9 @@ func open_for(hex: Dictionary, terrain: String, show_figure: bool, family: Strin
 	intel_visible = show_figure
 	last_server_note = ""
 	_zoom = "MID"
+	_stick = Vector2.ZERO
+	if _joystick and _joystick.has_method("pose"):
+		_joystick.pose(Vector2.ZERO)
 	gun_family = Contract.canonical_gun_id(family)
 	if gun_family == "":
 		gun_family = ClientSession.equipped_gun_id() if ClientSession else Contract.GUN_FIELDBOLT
@@ -41,6 +48,12 @@ func open_for(hex: Dictionary, terrain: String, show_figure: bool, family: Strin
 		_note.text = ""
 	_refresh_area()
 	visible = true
+
+
+func pose_joystick_for_capture() -> void:
+	## Nudge the thumb so the still reads as a stick, not the plate plus-pad.
+	if _joystick and _joystick.has_method("pose"):
+		_joystick.pose(Vector2(0.62, -0.38))
 
 
 func show_server_result(note: String) -> void:
@@ -51,6 +64,9 @@ func show_server_result(note: String) -> void:
 
 func close() -> void:
 	visible = false
+	_stick = Vector2.ZERO
+	if _joystick and _joystick.has_method("pose"):
+		_joystick.pose(Vector2.ZERO)
 
 
 func _process(delta: float) -> void:
@@ -59,7 +75,13 @@ func _process(delta: float) -> void:
 	_time += delta
 	if _figure:
 		var amp := 1.2
-		_figure.position = Vector2(628, 268) + Vector2(sin(_time * 3.1), cos(_time * 2.4)) * amp
+		var wobble := Vector2(sin(_time * 3.1), cos(_time * 2.4)) * amp
+		_figure.position = Vector2(628, 268) + wobble + _stick * 36.0
+
+
+func _on_stick(value: Vector2) -> void:
+	## Display-only reticle nudge. Does not change the attack hex / intent.
+	_stick = value
 
 
 func _build() -> void:
@@ -84,7 +106,7 @@ func _build() -> void:
 	_figure.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_figure)
 
-	## Invisible hotspots over the plate's FAR/MID/NEAR + FIRE. Plate chrome stays.
+	## Invisible hotspots over the plate's FAR/MID/NEAR. Display-only.
 	var zoom_box := VBoxContainer.new()
 	zoom_box.position = Vector2(48, 248)
 	zoom_box.add_theme_constant_override("separation", 10)
@@ -97,7 +119,22 @@ func _build() -> void:
 		zb.pressed.connect(_set_zoom.bind(z))
 		zoom_box.add_child(zb)
 
+	## Stamp out the painted plus-pad, then sit a circular thumb stick on it.
+	var pad_hide := ColorRect.new()
+	pad_hide.color = Color("06090e")
+	pad_hide.position = Vector2(16, 398)
+	pad_hide.size = Vector2(268, 276)
+	pad_hide.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(pad_hide)
+
+	_joystick = OpticJoystick.new()
+	_joystick.position = Vector2(36, 418)
+	_joystick.stick_changed.connect(_on_stick)
+	add_child(_joystick)
+
+	## FIRE is a separate tap on the plate's orange optic button. Not the stick.
 	var fire := Button.new()
+	fire.name = "FireTap"
 	fire.custom_minimum_size = Vector2(148, 148)
 	fire.position = Vector2(1068, 528)
 	fire.modulate = Color(1, 1, 1, 0.04)

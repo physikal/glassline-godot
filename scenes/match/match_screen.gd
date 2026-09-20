@@ -220,13 +220,18 @@ func _capture_art_optic() -> void:
 	_submit(ActionIntent.start())
 	await get_tree().process_frame
 	_optic.open_for(Contract.hex_dict(4, 3), Contract.TYPE_BRUSH, true, ClientSession.equipped_gun_id())
+	if _optic.has_method("pose_joystick_for_capture"):
+		_optic.pose_joystick_for_capture()
 	await get_tree().process_frame
 	await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
 	var path := ProjectSettings.globalize_path("res://artifacts/ux/05_attack_optic_fieldbolt.png")
 	img.save_png(path)
+	var joy := ProjectSettings.globalize_path("res://artifacts/ux/05_attack_optic_joystick.png")
+	img.save_png(joy)
 	print("ART_05_ATTACK_OPTIC ", path)
+	print("ART_05_ATTACK_JOYSTICK ", joy)
 	get_tree().quit()
 
 

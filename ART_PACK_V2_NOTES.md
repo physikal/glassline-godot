@@ -20,6 +20,7 @@ FAR / MID / NEAR stay display-only. Leave this PR open for UX re-taste —
 | 5 | Doll was a blocky avatar | Paper-doll is the hideout operative crop (teal / ghillie). |
 | 6 | Gold / gem on stills | Marks ★ only. Baked gold/gem wood-stamped off the plate. |
 | P2 | FAR/MID/NEAR | Display-only hotspots on the optic plate. No new loops. |
+| P2 | Attack D-pad | Virtual **thumb stick** (drag). Fire stays a separate tap. No new intent. |
 
 ## Taste-gate stills (`artifacts/ux/`)
 
@@ -27,7 +28,7 @@ FAR / MID / NEAR stay display-only. Leave this PR open for UX re-taste —
 2. `02_dynamic_rack.png` — owned starter Fieldbolt + equipped underline · locked Railframe / Crescent
 3. `03_hex_open_brush_hard_unknown.png`
 4. `04_operative_exposure_doll.png` — **match END TURN** paper-doll + % (not a hideout inset)
-5. `05_attack_optic_fieldbolt.png`
+5. `05_attack_optic_fieldbolt.png` / `05_attack_optic_joystick.png` — toy thumb stick over the plate D-pad; Fire separate
 6. `06_ui_chips_marks_coach_queue_end.png` — Marks ★ / coach / queue / end
 
 Side-by-side vs canon: `side_by_side_hideout.png`, `side_by_side_hex.png`,
@@ -48,4 +49,4 @@ python3 tools/compose_art_pack_v2.py
 
 Gun shop SKUs · Marks prices · ballistics / hit% · OEM marks · merging #30.
 
-**HOLD:** Josh / UX / Design — still 04 is a hard gate. Do **not** squash-merge until UX re-taste.
+**HOLD:** Josh / UX / Design — still 04 + joystick taste are hard gates. Do **not** squash-merge until UX re-taste.
