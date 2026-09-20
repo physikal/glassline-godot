@@ -1,14 +1,11 @@
 SMOKE_BASE https://glassline-api.vercel.app
 PASS  GET /health
 PASS  POST /players
-HUNT  0,0 type=brush flag=False m_4036ebee212e4c85b16a8cdea9a40983
-HUNT  1,0 type=open flag=False m_c9b90d448ec04acfaa862a013e1c8b9f
-HUNT  2,0 type=open flag=False m_6248f16315694cb5beb778985c8e98d3
-HUNT  3,0 type=open flag=False m_b82f547b28a84a56ba1d3abc41ee42ff
-HUNT  4,0 type=open flag=False m_c044d1b3f3d948869451f41cd68e8a09
-HUNT  5,0 type=hard flag=True m_d0fbcf6723cc4e78976f45ce1c7b0cde
-HUNT  0,0 type=hard flag=True m_8a5e41e2c9a14880b5466b2bd8eae7c4
-HUNT  1,0 type=open flag=False m_69b3f4ff84a24abcb63a55ef1c075853
+HUNT  0,0 type=brush flag=False m_1b3eea3b339f453ba3b1058c71e854d7
+HUNT  1,0 type=brush flag=False m_cd4f059bf720425bb8ef7ef8f9a60761
+HUNT  2,0 type=hard flag=True m_56e82595873f4669a8915bbf8251c20c
+HUNT  0,0 type=hard flag=True m_777ae80110b4415db17102d1ff45c647
+HUNT  1,0 type=open flag=False m_96456040e499417ebec14f0f58a3313a
 PASS  H1 HARD you.highGroundActive true
 PASS  H1 drop terrain hard
 PASS  H2 OPEN/BRUSH you.highGroundActive false

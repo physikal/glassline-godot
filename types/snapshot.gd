@@ -175,6 +175,22 @@ func last_hit() -> Variant:
 	return null
 
 
+func last_high_ground_applied() -> Variant:
+	## Server lastAction.highGroundApplied only. Null if omitted.
+	var last: Variant = last_action()
+	if last is Dictionary and last.has("highGroundApplied"):
+		return last.get("highGroundApplied")
+	return null
+
+
+func last_hit_chance() -> Variant:
+	## Server lastAction.hitChance only. Null if omitted — never invent.
+	var last: Variant = last_action()
+	if last is Dictionary and last.has("hitChance"):
+		return last.get("hitChance")
+	return null
+
+
 func winner() -> Variant:
 	return raw.get("winner", null)
 

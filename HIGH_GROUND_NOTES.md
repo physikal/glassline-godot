@@ -20,15 +20,15 @@ Arch stamp 2026-09-20. Client chrome on `you.highGroundActive`.
 
 - Snapshot: `you.highGroundActive: boolean` (true iff your revealed cell is HARD).
 - Attack result (preferred): `highGroundApplied: boolean` + final `hitChance`.
-- Base hit chance when the target occupies the hex: **1.0**. Empty hex: **0**. HIGH GROUND is additive on that base.
+- Base hit chance when the target occupies the hex: **0.90**. Empty / decoy: **0**. HARD adds **+0.10** (clamp 0–1).
 - Client chrome never computes the bonus. Missing flag → muted / false.
 
 ## Gates
 
 | Gate | Mock | LIVE | Notes |
 | --- | --- | --- | --- |
-| **H1** HARD attacker +10% | **PASS** | **PASS** | Flag true on HARD. Empty miss `applied` false / `hitChance` 0. Occupy `applied` true / `hitChance` **1.0**. LIVE `m_d0fbcf6723cc4e78976f45ce1c7b0cde`. |
-| **H2** OPEN / BRUSH / FoW +0 | **PASS** | **PASS** | Flag false. Occupy `applied` false / `hitChance` **0.90** (LIVE `BASE_HIT`). `m_69b3f4ff84a24abcb63a55ef1c075853`. |
+| **H1** HARD attacker +10% | **PASS** | **PASS** | Flag true on HARD. Empty miss `applied` false / `hitChance` 0. Occupy `applied` true / `hitChance` **1.0**. LIVE `m_56e82595873f4669a8915bbf8251c20c`. |
+| **H2** OPEN / BRUSH / FoW +0 | **PASS** | **PASS** | Flag false. Occupy `applied` false / `hitChance` **0.90** (LIVE `BASE_HIT`). `m_96456040e499417ebec14f0f58a3313a`. |
 | **H3** chip snapshot-only | **PASS** | n/a | Lit reads **+10%**. Muted does not. Missing flag never invents from local HARD terrain. |
 | **H4** guns / Decoy / Marks blind | **PASS** | **PASS** | Miss Marks Δ0. Decoy charge untouched. HARD kill table **+25** (no extra). |
 | **H5** defender ignored | **PASS** | **PASS** | A HARD / B brush → A lit. A OPEN / defender ignored → A muted. |

@@ -1674,7 +1674,13 @@ func _describe_last(last: Dictionary) -> String:
 		Contract.ACT_ATTACK:
 			if bool(last.get("decoyCleared", false)):
 				return "lastAction attack  hit=false  decoyCleared=true  (toy doll gone)"
-			return "lastAction attack  hit=%s  (server)" % str(last.get("hit", false))
+			var line := "lastAction attack  hit=%s  (server)" % str(last.get("hit", false))
+			## Server result only. Never invent hitChance / highGroundApplied.
+			if last.has("highGroundApplied"):
+				line += "  highGroundApplied=%s" % str(last.get("highGroundApplied"))
+			if last.has("hitChance"):
+				line += "  hitChance=%s" % str(last.get("hitChance"))
+			return line
 		Contract.ACT_RECON:
 			var spotted: Variant = last.get("spotted", last.get("found", false))
 			return "lastAction recon  spotted=%s  (server)" % str(spotted)

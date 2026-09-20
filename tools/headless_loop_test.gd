@@ -1748,6 +1748,14 @@ func _high_ground_case(failed: PackedStringArray) -> void:
 
 	var fog: Snapshot = Snapshot.from_dict({"you": {"hex": {"q": 4, "r": 3}}})
 	_expect(failed, not fog.you_high_ground_active(), "H2 FoW / omitted flag is false")
+	var bare_atk: Snapshot = Snapshot.from_dict({"lastAction": {"type": Contract.ACT_ATTACK, "hit": false}})
+	_expect(failed, bare_atk.last_high_ground_applied() == null, "H3 omitted highGroundApplied is null")
+	_expect(failed, bare_atk.last_hit_chance() == null, "H3 omitted hitChance is null")
+	var named_atk: Snapshot = Snapshot.from_dict({
+		"lastAction": {"type": Contract.ACT_ATTACK, "hit": true, "highGroundApplied": true, "hitChance": 1.0},
+	})
+	_expect(failed, named_atk.last_high_ground_applied() == true, "H3 reads server highGroundApplied")
+	_expect(failed, is_equal_approx(float(named_atk.last_hit_chance()), 1.0), "H3 reads server hitChance")
 
 	var Chrome := load("res://scripts/chrome.gd")
 	var muted: Control = Chrome.high_ground_chip(false)
