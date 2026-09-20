@@ -800,6 +800,9 @@ func _build() -> void:
 	_end_panel = PanelContainer.new()
 	_end_panel.position = Vector2(380, 430)
 	_end_panel.visible = false
+	## HexBoard Sprite2D faces use z_index 1–2; keep END TURN chrome above the table.
+	_end_panel.z_index = 40
+	_end_panel.z_as_relative = false
 	var end_box := Chrome.flat(Color(0.12, 0.09, 0.07, 0.95), 16, Color("f0e3b0"), 2)
 	_end_panel.add_theme_stylebox_override("panel", end_box)
 	add_child(_end_panel)
