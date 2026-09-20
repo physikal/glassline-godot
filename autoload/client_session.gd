@@ -33,6 +33,7 @@ var lobby_code: String = ""
 var lobby_seat: String = ""
 var ghillie: bool = false
 var bandana: bool = false
+var poster: bool = false
 ## Cosmetic display cache from shop snapshot. Visual only — no combat.
 var owned_cosmetics: Array = []
 var equipped_cosmetic: String = ""
@@ -145,6 +146,8 @@ func bind_equip_local(item_id: String) -> void:
 func _sync_cosmetic_flags() -> void:
 	ghillie = is_equipped(Contract.SHOP_STUB_ITEM_ID)
 	bandana = is_equipped(Contract.SHOP_BANDANA_ITEM_ID)
+	## Wall art: owned is enough (buy auto-equips). Suit swap does not take it down.
+	poster = owns_cosmetic(Contract.SHOP_POSTER_ITEM_ID)
 
 
 func apply_snapshot(snap: Dictionary) -> void:

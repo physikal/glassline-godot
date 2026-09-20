@@ -66,8 +66,8 @@ const DECOY_COPY := "Plant a toy doll on a neighbor hex. Rivals see a soft blip.
 ## Mock hideout stub until Coder's ledger / GET wallet exists.
 const MOCK_WALLET_STUB := 24
 
-## Marks sinks — hideout cosmetics. LIVE catalog lock (Coder 2026-09-19).
-## GET /shop item.id + POST /shop/buy itemId. Sink 1 ★50 · sink 2 ★100.
+## Marks sinks — hideout cosmetics. LIVE catalog lock (Coder 2026-09-19 / 2026-09-20).
+## GET /shop item.id + POST /shop/buy itemId. Sink 1 ★50 · sink 2 ★100 · sink 3 ★150.
 const SHOP_STUB_ITEM_ID := "skin_hideout_stub"
 const SHOP_STUB_ITEM_NAME := "GHILLIE RECOLOR"
 const SHOP_STUB_KIND := "skin"
@@ -76,6 +76,10 @@ const SHOP_BANDANA_ITEM_ID := "skin_bandana_stub"
 const SHOP_BANDANA_ITEM_NAME := "BANDANA RECOLOR"
 const SHOP_BANDANA_KIND := "skin"
 const SHOP_BANDANA_PRICE := 100
+const SHOP_POSTER_ITEM_ID := "decor_poster_stub"
+const SHOP_POSTER_ITEM_NAME := "HIDEOUT POSTER"
+const SHOP_POSTER_KIND := "decor"
+const SHOP_POSTER_PRICE := 150
 const SHOP_ERR_INSUFFICIENT := "insufficient_marks"
 const SHOP_ERR_INVALID_BODY := "invalid_buy_body"
 const SHOP_ERR_ALREADY_OWNED := "already_owned"
@@ -255,6 +259,10 @@ static func shop_bandana_item() -> Dictionary:
 	return _shop_item(SHOP_BANDANA_ITEM_ID, SHOP_BANDANA_ITEM_NAME, SHOP_BANDANA_KIND, SHOP_BANDANA_PRICE)
 
 
+static func shop_poster_item() -> Dictionary:
+	return _shop_item(SHOP_POSTER_ITEM_ID, SHOP_POSTER_ITEM_NAME, SHOP_POSTER_KIND, SHOP_POSTER_PRICE)
+
+
 static func _shop_item(item_id: String, item_name: String, kind: String, price: int) -> Dictionary:
 	return {
 		"id": item_id,
@@ -269,8 +277,8 @@ static func _shop_item(item_id: String, item_name: String, kind: String, price: 
 
 
 static func shop_catalog_items() -> Array:
-	## Mock + LIVE-lag fallback. Prefer LIVE items when Coder lists bandana.
-	return [shop_stub_item(), shop_bandana_item()]
+	## Mock + LIVE-lag fallback. Prefer LIVE items when Coder lists poster.
+	return [shop_stub_item(), shop_bandana_item(), shop_poster_item()]
 
 
 static func shop_item_by_id(item_id: String) -> Dictionary:
@@ -293,7 +301,15 @@ static func _canonical_shop_id(item_id: String) -> String:
 		return SHOP_STUB_ITEM_ID
 	if item_id == "bandana_recolor":
 		return SHOP_BANDANA_ITEM_ID
+	if item_id in ["hideout_poster", "poster_stub"]:
+		return SHOP_POSTER_ITEM_ID
 	return item_id
+
+
+static func is_suit_chrome(item_id: String) -> bool:
+	## Ghillie / bandana swap the operative plate. Poster is wall decor, not a suit.
+	var resolved := _canonical_shop_id(item_id)
+	return resolved == SHOP_STUB_ITEM_ID or resolved == SHOP_BANDANA_ITEM_ID
 
 
 static func shop_catalog_stub(marks: int = 0, owned: Array = [], equipped: String = "") -> Dictionary:
@@ -315,8 +331,8 @@ static func shop_catalog_stub(marks: int = 0, owned: Array = [], equipped: Strin
 
 
 static func merge_live_shop_catalog(live: Dictionary) -> Dictionary:
-	## Prefer LIVE when it already lists bandana (+1 SKU). Else keep LIVE rows
-	## and append the missing mock SKU so ARMORY still shows two rows.
+	## Prefer LIVE names/prices when Coder lists a SKU. Append any missing
+	## mock row so ARMORY still shows three chrome sinks (ghillie / bandana / poster).
 	var out: Dictionary = live.duplicate(true)
 	var items: Variant = out.get("items", [])
 	if not (items is Array):
@@ -330,7 +346,7 @@ static func merge_live_shop_catalog(live: Dictionary) -> Dictionary:
 		var iid := str(entry.get("id", entry.get("itemId", "")))
 		if iid != "" and not ids.has(iid):
 			ids.append(iid)
-	if ids.has(SHOP_BANDANA_ITEM_ID) and merged.size() >= 2:
+	if ids.has(SHOP_POSTER_ITEM_ID) and ids.has(SHOP_BANDANA_ITEM_ID) and merged.size() >= 3:
 		return out
 	for stub in shop_catalog_items():
 		var sid := str(stub.get("id", ""))

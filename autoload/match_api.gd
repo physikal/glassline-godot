@@ -56,7 +56,7 @@ func get_shop() -> Dictionary:
 	if using_live():
 		var body: Dictionary = LiveMatchClient.get_shop()
 		if _shop_live_missing(body):
-			## LIVE /shop missing — keep both stub rows visible; buy still posts LIVE.
+			## LIVE /shop missing — keep catalog stub rows visible; buy still posts LIVE.
 			body = Contract.shop_catalog_stub(ClientSession.marks)
 		else:
 			body = Contract.merge_live_shop_catalog(body)

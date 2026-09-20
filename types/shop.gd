@@ -279,8 +279,11 @@ func item_name() -> String:
 func name_of(item_id: String) -> String:
 	var item := item_for(item_id)
 	var fallback := Contract.SHOP_STUB_ITEM_NAME
-	if Contract._canonical_shop_id(item_id) == Contract.SHOP_BANDANA_ITEM_ID:
+	var want := Contract._canonical_shop_id(item_id)
+	if want == Contract.SHOP_BANDANA_ITEM_ID:
 		fallback = Contract.SHOP_BANDANA_ITEM_NAME
+	elif want == Contract.SHOP_POSTER_ITEM_ID:
+		fallback = Contract.SHOP_POSTER_ITEM_NAME
 	return str(item.get("name", fallback))
 
 

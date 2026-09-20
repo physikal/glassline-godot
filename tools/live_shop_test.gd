@@ -104,6 +104,10 @@ func _run() -> int:
 		print("LIVE_SHOP_SINK2_CATALOG_OK")
 	else:
 		print("LIVE_SHOP_SINK2_PENDING catalog missing ", Contract.SHOP_BANDANA_ITEM_ID)
+	if catalog_ids.has(Contract.SHOP_POSTER_ITEM_ID):
+		print("LIVE_SHOP_SINK3_CATALOG_OK")
+	else:
+		print("LIVE_SHOP_SINK3_PENDING catalog missing ", Contract.SHOP_POSTER_ITEM_ID)
 
 	var me: Dictionary = LiveMatchClient.get_shop_me()
 	print("LIVE_SHOP_ME ", JSON.stringify(me))

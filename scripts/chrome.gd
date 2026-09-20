@@ -20,6 +20,11 @@ const DECOY_CARAMEL := Color("c46b3a")
 const HIGH_GOLD := Color("c9a24a")
 ## Bandana recolor wash — toy chrome tint, not a new plate / mil-sim art.
 const BANDANA_WASH := Color(0.76, 0.32, 0.20, 0.24)
+## Hideout poster frame — chunky toy-spy wall art, not an ops board.
+const POSTER_PAPER := Color("f3e6c8")
+const POSTER_INK := Color("3a2a1c")
+const POSTER_TEAL := Color("2f8f78")
+const POSTER_STAR := Color("e8b84a")
 const COIN_GOLD := Color("f0c44a")
 const GEM_PURPLE := Color("b45cff")
 const XP_GREEN := Color("3dcf6e")
@@ -221,6 +226,46 @@ static func make_face(kind: String, px: int = 44) -> Texture2D:
 		_fill_rect(img, cx - 6, cy - 4, 4, 4, INK)
 		_fill_rect(img, cx + 3, cy - 4, 4, 4, INK)
 		_fill_rect(img, cx - 3, cy + 5, 7, 2, Color("c45a4a"))
+	return ImageTexture.create_from_image(img)
+
+
+static func make_hideout_poster(width: int = 72, height: int = 92) -> Texture2D:
+	## Chunky toy-spy wall poster. Gold frame + cream paper. No maps / pins / ops board.
+	var img := Image.create(width, height, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	var wood := Color("4a2e1c")
+	var gold := HIGH_GOLD
+	var paper := POSTER_PAPER
+	var ink := POSTER_INK
+	_fill_rect(img, 0, 0, width, height, wood)
+	_fill_rect(img, 2, 2, width - 4, height - 4, gold)
+	_fill_rect(img, 5, 5, width - 10, height - 10, paper)
+	## Corner tape — hideout pin-up, not a briefing board.
+	var tape := Color("e8d08a")
+	_fill_rect(img, 4, 4, 8, 4, tape)
+	_fill_rect(img, width - 12, 4, 8, 4, tape)
+	_fill_rect(img, 4, height - 8, 8, 4, tape)
+	_fill_rect(img, width - 12, height - 8, 8, 4, tape)
+	var cx := width / 2
+	## Gold star badge
+	_fill_circle(img, cx, 18, 6, POSTER_STAR)
+	_fill_circle(img, cx, 18, 3, Color("fff3b0"))
+	## Toy spy head + goggles (cozy, not mil-sim)
+	_fill_circle(img, cx, 40, 12, Color("e6c39a"))
+	_fill_rect(img, cx - 11, 28, 22, 7, POSTER_TEAL)
+	_fill_rect(img, cx - 10, 36, 8, 6, ink)
+	_fill_rect(img, cx + 2, 36, 8, 6, ink)
+	_fill_rect(img, cx - 8, 38, 4, 3, Color("8fd4c4"))
+	_fill_rect(img, cx + 4, 38, 4, 3, Color("8fd4c4"))
+	_fill_rect(img, cx - 2, 38, 4, 2, ink)
+	_fill_rect(img, cx - 4, 46, 8, 2, Color("c45a4a"))
+	## Teal hoodie hint
+	_fill_rect(img, cx - 13, 52, 26, 16, POSTER_TEAL)
+	_fill_rect(img, cx - 5, 54, 10, 8, Color("e6c39a"))
+	## Little binoculars doodle — toy spy, not a range card.
+	_stroke_circle(img, cx - 8, height - 18, 5, ink)
+	_stroke_circle(img, cx + 8, height - 18, 5, ink)
+	_fill_rect(img, cx - 4, height - 20, 8, 3, ink)
 	return ImageTexture.create_from_image(img)
 
 
