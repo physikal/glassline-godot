@@ -36,7 +36,6 @@ var _bandana_wash: ColorRect
 var _poster: TextureRect
 var _buying_id: String = ""
 var _gun_rack: Control
-var _gun_slots: Dictionary = {}
 var _wallet_row: HBoxContainer
 var _taste_doll: ExposureDoll
 var _dock_quick: Button
@@ -381,13 +380,15 @@ func _capture_queue_matched_board() -> void:
 
 
 func _prep_art_hideout_chrome() -> void:
-	## Taste stills read as the Josh plate: Marks ★, LOADOUT / PLAY / JOBS, painted rack.
+	## Hide ARMORY sheet only. Invite + Quick Match stay on the live dock.
 	if _shop_row:
 		_shop_row.visible = false
 	if _dock_quick:
-		_dock_quick.visible = false
+		_dock_quick.visible = true
 	if _dock_invite:
-		_dock_invite.visible = false
+		_dock_invite.visible = true
+	if _gun_rack:
+		_gun_rack.visible = false
 	_refresh_gun_rack()
 
 
@@ -758,82 +759,21 @@ func _make_shop_line(item: Dictionary) -> PanelContainer:
 
 
 func _build_gun_rack() -> void:
-	## Painted plate rifles on the left wall. No color-block rack.
+	## Plate already paints the olive / tan / teal rack. No overlay labels or debug glow.
 	_gun_rack = Control.new()
+	_gun_rack.visible = false
 	_gun_rack.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_gun_rack.set_anchors_preset(PRESET_FULL_RECT)
 	add_child(_gun_rack)
-	for gid in Contract.gun_family_ids():
-		_gun_rack.add_child(_make_gun_slot(str(gid)))
 
 
-func _make_gun_slot(gun_id: String) -> Control:
-	var row := Control.new()
-	row.position = ArtPack.rack_position(gun_id)
-	row.size = Vector2(300, 62)
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-	var glow := ColorRect.new()
-	glow.color = Color(0, 0, 0, 0)
-	glow.position = Vector2(8, 54)
-	glow.size = Vector2(248, 4)
-	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(glow)
-
-	var rifle := TextureRect.new()
-	rifle.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	rifle.position = Vector2(0, 0)
-	rifle.size = Vector2(268, 56)
-	rifle.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	rifle.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	rifle.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	## Plate already has the olive / tan / teal bolts. Never cover them with a sprite.
-	rifle.visible = false
-	row.add_child(rifle)
-
-	var name_lbl := Label.new()
-	name_lbl.text = Contract.gun_family_name(gun_id)
-	name_lbl.position = Vector2(300, 8)
-	name_lbl.size = Vector2(120, 16)
-	Chrome.apply_label(name_lbl, 7, Chrome.CREAM, true)
-	row.add_child(name_lbl)
-
-	var status := Label.new()
-	status.position = Vector2(300, 26)
-	status.size = Vector2(120, 16)
-	Chrome.apply_label(status, 7, Chrome.HIGH_GOLD, true)
-	row.add_child(status)
-
-	_gun_slots[gun_id] = {
-		"row": row,
-		"rifle": rifle,
-		"status": status,
-		"glow": glow,
-	}
-	return row
+func _make_gun_slot(_gun_id: String) -> Control:
+	return Control.new()
 
 
 func _refresh_gun_rack() -> void:
-	for gid in _gun_slots.keys():
-		var widgets: Dictionary = _gun_slots[gid]
-		var state := ClientSession.gun_slot_state(str(gid))
-		var rifle: TextureRect = widgets.get("rifle")
-		var status: Label = widgets.get("status")
-		var glow: ColorRect = widgets.get("glow")
-		if rifle:
-			rifle.texture = ArtPack.rifle_texture(str(gid), state)
-		if status:
-			if state == "equipped":
-				status.text = "EQUIPPED"
-				Chrome.apply_label(status, 7, Color("c9a24a"), true)
-			elif state == "owned":
-				status.text = "OWNED"
-				Chrome.apply_label(status, 7, Chrome.TEAL, true)
-			else:
-				status.text = "LOCKED"
-				Chrome.apply_label(status, 7, Color("8a7a68"), true)
-		if glow:
-			glow.color = Color("c9a24a") if state == "equipped" else Color(0, 0, 0, 0)
+	if _gun_rack:
+		_gun_rack.visible = false
 
 
 func _build_jobs_panel() -> void:
