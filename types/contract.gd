@@ -163,6 +163,17 @@ const ABANDON_ERR_UNAVAILABLE := "abandon_unavailable"
 const GRACE_RIVAL_COPY := "Waiting on rival…  %s"
 const GRACE_HOLD_COPY := "Reconnect  %s"
 
+## First-hunt coach — client-only tip chips. No API / Marks / combat.
+const COACH_STORE := "user://glassline_coach.cfg"
+const COACH_SECTION := "coach"
+const COACH_SEEN_KEY := "coachSeen"
+const COACH_KICKER := "FIRST HUNT"
+const COACH_GOT_IT := "GOT IT"
+const COACH_ATTACK := "Peek the optic —\ntap a hex."
+const COACH_RECON := "Scout a hex —\nno shot fired."
+const COACH_DOLL := "They peek —\nthe doll lights up."
+const COACH_DECOY := "Once a hunt —\ndrop a fake blip."
+
 
 static func format_grace_clock(sec: float) -> String:
 	var n := maxi(0, ceili(sec))

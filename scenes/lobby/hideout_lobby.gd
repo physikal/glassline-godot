@@ -100,6 +100,10 @@ func _ready() -> void:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 		DisplayServer.window_set_size(Vector2i(1280, 720))
 		await _capture_sp_job_t3()
+	elif "--capture-coach-tips" in args or "--capture-coach-dismissed" in args \
+			or "--capture-coach-chip" in args:
+		await get_tree().process_frame
+		_on_play()
 	elif "--capture-decoy-hud" in args or "--capture-decoy-blip" in args:
 		await get_tree().process_frame
 		_on_play()
