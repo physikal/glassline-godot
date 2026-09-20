@@ -31,6 +31,7 @@ var _btn_uav: Button
 var _btn_decoy: Button
 var _btn_high: Button
 var _high_cap: Label
+var _high_chip: Control
 var _clock_chip: Label
 var _turn_pill: PanelContainer
 var _ability_cap: Label
@@ -122,6 +123,45 @@ func _ready() -> void:
 		_capture_coach_chip()
 	elif "--capture-queue-matched-board" in args:
 		_capture_queue_matched_board()
+	elif "--capture-high-ground-lit" in args:
+		_capture_high_ground(true)
+	elif "--capture-high-ground-muted" in args:
+		_capture_high_ground(false)
+
+
+func _capture_high_ground(lit: bool) -> void:
+	## Mock toggle drives the chip. Client never invents from the local hex.
+	if _coach:
+		_coach.dismiss()
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+	DisplayServer.window_set_size(Vector2i(1280, 720))
+	if not ClientSession.use_live_api():
+		MockMatchServer.test_high_ground_active = lit
+	await get_tree().process_frame
+	var snap := _ensure_active_for_decoy()
+	if ClientSession.match_id != "":
+		_apply_server_reconnect()
+		snap = ClientSession.typed_snapshot()
+	_refresh(snap)
+	_toast.text = ""
+	_status.text = ""
+	_phase.text = ""
+	if _btn_decoy:
+		_btn_decoy.visible = false
+	if _btn_abandon:
+		_btn_abandon.visible = false
+	_set_actions(true)
+	if _clock_chip:
+		_clock_chip.text = "01:30"
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	var name := "high_ground_lit_hard.png" if lit else "high_ground_muted_open.png"
+	var path := ProjectSettings.globalize_path("res://artifacts/ux/%s" % name)
+	img.save_png(path)
+	print("HIGH_GROUND_%s " % ("LIT" if lit else "MUTED"), path)
+	get_tree().quit()
 
 
 func _capture_queue_matched_board() -> void:
@@ -335,6 +375,12 @@ func _apply_server_reconnect() -> Dictionary:
 	_bind_server_exposure(snap)
 	_refresh(snap)
 	return fresh
+
+
+func _bind_high_ground(snap: Snapshot) -> void:
+	## Chip truth is snapshot you.highGroundActive. Never local hex / terrain.
+	if _high_chip:
+		Chrome.paint_high_ground_chip(_high_chip, snap.you_high_ground_active())
 
 
 func _bind_server_exposure(snap: Snapshot) -> void:
@@ -870,16 +916,16 @@ func _build() -> void:
 		_btn_uav.tooltip_text = "Ability — UAV Sweep. Posts type: uav."
 		_btn_uav.pressed.connect(_on_uav)
 		add_child(_btn_uav)
-		## Cover the plate's 4th action key. HIGH GROUND is a parked chip only.
+		## Cover the plate's 4th action key. Chip binds you.highGroundActive.
 		var high_stamp := ColorRect.new()
 		high_stamp.color = Color("1c1208")
 		high_stamp.position = Vector2(920, 564)
 		high_stamp.size = Vector2(360, 120)
 		high_stamp.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(high_stamp)
-		var high_chip := Chrome.high_ground_chip()
-		high_chip.position = Vector2(1008, 598)
-		add_child(high_chip)
+		_high_chip = Chrome.high_ground_chip(false)
+		_high_chip.position = Vector2(1008, 598)
+		add_child(_high_chip)
 		_btn_high = Button.new()
 		_btn_high.visible = false
 		_btn_high.disabled = true
@@ -916,9 +962,9 @@ func _build() -> void:
 		_high_cap = Label.new()
 		_high_cap.visible = false
 		add_child(_high_cap)
-		var high_chip := Chrome.high_ground_chip()
-		high_chip.position = Vector2(1024, 598)
-		add_child(high_chip)
+		_high_chip = Chrome.high_ground_chip(false)
+		_high_chip.position = Vector2(1024, 598)
+		add_child(_high_chip)
 	_ability_cap = Label.new()
 	_ability_cap.visible = false
 	add_child(_ability_cap)
@@ -1202,6 +1248,7 @@ func _refresh(snap: Snapshot) -> void:
 		_btn_decoy.text = "%s SPENT" % Contract.DECOY_LABEL
 	else:
 		_btn_decoy.text = Contract.DECOY_LABEL
+	_bind_high_ground(snap)
 	_sync_coach(snap)
 
 
@@ -1654,7 +1701,13 @@ func _describe_last(last: Dictionary) -> String:
 		Contract.ACT_ATTACK:
 			if bool(last.get("decoyCleared", false)):
 				return "lastAction attack  hit=false  decoyCleared=true  (toy doll gone)"
-			return "lastAction attack  hit=%s  (server)" % str(last.get("hit", false))
+			var line := "lastAction attack  hit=%s  (server)" % str(last.get("hit", false))
+			## Server result only. Never invent hitChance / highGroundApplied.
+			if last.has("highGroundApplied"):
+				line += "  highGroundApplied=%s" % str(last.get("highGroundApplied"))
+			if last.has("hitChance"):
+				line += "  hitChance=%s" % str(last.get("hitChance"))
+			return line
 		Contract.ACT_RECON:
 			var spotted: Variant = last.get("spotted", last.get("found", false))
 			return "lastAction recon  spotted=%s  (server)" % str(spotted)

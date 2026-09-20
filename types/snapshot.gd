@@ -175,6 +175,22 @@ func last_hit() -> Variant:
 	return null
 
 
+func last_high_ground_applied() -> Variant:
+	## Server lastAction.highGroundApplied only. Null if omitted.
+	var last: Variant = last_action()
+	if last is Dictionary and last.has("highGroundApplied"):
+		return last.get("highGroundApplied")
+	return null
+
+
+func last_hit_chance() -> Variant:
+	## Server lastAction.hitChance only. Null if omitted — never invent.
+	var last: Variant = last_action()
+	if last is Dictionary and last.has("hitChance"):
+		return last.get("hitChance")
+	return null
+
+
 func winner() -> Variant:
 	return raw.get("winner", null)
 
@@ -262,6 +278,15 @@ func you_exposure() -> float:
 
 func you_moved_last_turn() -> bool:
 	return bool(you().get("movedLastTurn", false))
+
+
+func you_high_ground_active() -> bool:
+	## Server you.highGroundActive only. Missing / FoW / OPEN / BRUSH → false.
+	## Never invent from local hex or terrain_map().
+	var you_state := you()
+	if not you_state.has("highGroundActive"):
+		return false
+	return bool(you_state.get("highGroundActive", false))
 
 
 func enemy_visible_hex() -> Variant:

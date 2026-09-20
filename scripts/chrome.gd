@@ -167,23 +167,15 @@ static func game_button(kind: String, text: String, bg: Color, fg: Color, min_si
 	return button
 
 
-static func high_ground_chip() -> Control:
-	## Parked display chip — not a 4th action key. No combat buff.
+static func high_ground_chip(active: bool = false) -> Control:
+	## Snapshot-bound plate chip — not a 4th action key. Never invent the bonus.
 	var panel := PanelContainer.new()
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.tooltip_text = Contract.HIGH_GROUND_COPY
-	var box := flat(Color("1a1612"), 12, HIGH_GOLD, 2)
-	box.content_margin_left = 10
-	box.content_margin_right = 12
-	box.content_margin_top = 6
-	box.content_margin_bottom = 6
-	panel.add_theme_stylebox_override("panel", box)
 	panel.custom_minimum_size = Vector2(208, 34)
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_theme_constant_override("separation", 8)
 	var icon := TextureRect.new()
-	icon.texture = make_icon("high", HIGH_GOLD, 18)
 	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	icon.custom_minimum_size = Vector2(18, 18)
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -191,11 +183,40 @@ static func high_ground_chip() -> Control:
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(icon)
 	var lbl := Label.new()
-	lbl.text = "%s  +10%%" % Contract.HIGH_GROUND_LABEL
-	apply_label(lbl, 8, CREAM, true)
 	row.add_child(lbl)
 	panel.add_child(row)
+	panel.set_meta("high_icon", icon)
+	panel.set_meta("high_label", lbl)
+	paint_high_ground_chip(panel, active)
 	return panel
+
+
+static func paint_high_ground_chip(panel: Control, active: bool) -> void:
+	## Lit + “+10%” only while snapshot you.highGroundActive. Muted otherwise.
+	if panel == null:
+		return
+	var border := HIGH_GOLD if active else Color("3a3228")
+	var bg := Color("2a2214") if active else Color("1a1612")
+	var box := flat(bg, 12, border, 3 if active else 2)
+	box.content_margin_left = 10
+	box.content_margin_right = 12
+	box.content_margin_top = 6
+	box.content_margin_bottom = 6
+	panel.add_theme_stylebox_override("panel", box)
+	var icon: TextureRect = panel.get_meta("high_icon") if panel.has_meta("high_icon") else null
+	var lbl: Label = panel.get_meta("high_label") if panel.has_meta("high_label") else null
+	if icon:
+		icon.texture = make_icon("high", HIGH_GOLD if active else Color("5a5348"), 18)
+		icon.modulate = Color.WHITE if active else Color(1, 1, 1, 0.42)
+	if lbl:
+		if active:
+			lbl.text = "%s  +10%%" % Contract.HIGH_GROUND_LABEL
+			apply_label(lbl, 8, CREAM, true)
+		else:
+			lbl.text = Contract.HIGH_GROUND_LABEL
+			apply_label(lbl, 8, Color("7a7268"), true)
+	panel.tooltip_text = Contract.HIGH_GROUND_COPY if active else Contract.HIGH_GROUND_MUTED_COPY
+	panel.set_meta("high_active", active)
 
 
 static func plate_hotspot(min_size: Vector2) -> Button:

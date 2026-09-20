@@ -143,6 +143,7 @@ func _run() -> int:
 	_gun_chrome_case(failed)
 	_optic_joystick_case(failed)
 	_match_board_chrome_case(failed)
+	_high_ground_case(failed)
 	_equip_chrome_case(failed)
 	_player_persist_case(failed)
 	_first_hunt_coach_case(failed)
@@ -1745,7 +1746,7 @@ func _match_board_chrome_case(failed: PackedStringArray) -> void:
 	_expect(failed, board.cell_kind(2, 2) == Contract.TYPE_BRUSH, "revealed stamp from snapshot")
 	_expect(failed, board.cell_kind(0, 0) == "unknown", "rim stays unknown until snapshot")
 	_expect(failed, not ActionIntent.attack(4, 3).has("highGround"), "HIGH GROUND is not an attack field")
-	_expect(failed, Contract.HIGH_GROUND_SUB.find("10%") >= 0, "HIGH GROUND copy is parked display")
+	_expect(failed, Contract.HIGH_GROUND_SUB.find("10%") >= 0, "HIGH GROUND copy names +10%")
 	var created: Dictionary = server.create_match()
 	var mid := str(created.get("matchId", ""))
 	var tokens: Dictionary = created.get("joinTokens", {})
@@ -1792,9 +1793,184 @@ func _match_board_chrome_case(failed: PackedStringArray) -> void:
 	var hot: Button = Chrome.plate_hotspot(Vector2(284, 104))
 	_expect(failed, hot.custom_minimum_size.x == 284, "plate key hotspot matches painted button")
 	hot.free()
-	var chip: Control = Chrome.high_ground_chip()
-	_expect(failed, chip != null and not (chip is Button), "HIGH GROUND is a parked chip, not an action key")
+	var chip: Control = Chrome.high_ground_chip(false)
+	_expect(failed, chip != null and not (chip is Button), "HIGH GROUND is a chip, not an action key")
 	chip.free()
+
+
+func _high_ground_case(failed: PackedStringArray) -> void:
+	## H1–H6: snapshot you.highGroundActive · chip bind · never invent · attack unchanged.
+	server.clear_all()
+	server.reset_wallet(0)
+	var created: Dictionary = server.create_match()
+	var mid := str(created.get("matchId", ""))
+	var tokens: Dictionary = created.get("joinTokens", {})
+	var join_a: Dictionary = server.join(mid, str(tokens.get("a", "")))
+	var join_b: Dictionary = server.join(mid, str(tokens.get("b", "")))
+	var pid_a := str(join_a.get("playerId", ""))
+	var pid_b := str(join_b.get("playerId", ""))
+	var hard: Dictionary = server.find_hex_of_type(mid, Contract.TYPE_HARD)
+	var open_hex: Dictionary = server.find_hex_of_type(mid, Contract.TYPE_OPEN)
+	_expect(failed, not hard.is_empty(), "H1 board has a HARD hex")
+	_expect(failed, not open_hex.is_empty(), "H2 board has an OPEN hex")
+	_expect(failed, not server.find_hex_of_type(mid, Contract.TYPE_BRUSH).is_empty(), "H2 board has a BRUSH hex")
+
+	var r: ActionResult = server.apply_action(mid, pid_a, ActionIntent.select_hex(int(hard.get("q", 0)), int(hard.get("r", 0))))
+	_expect(failed, r.ok, "H1 A drop HARD")
+	var snap: Snapshot = Snapshot.from_dict(r.snapshot)
+	_expect(failed, snap.you_high_ground_active(), "H1 HARD → you.highGroundActive true")
+	_expect(failed, snap.you().has("highGroundActive"), "H1 snapshot names the flag")
+	r = server.apply_action(mid, pid_b, ActionIntent.select_hex(int(open_hex.get("q", 1)), int(open_hex.get("r", 0))))
+	_expect(failed, r.ok, "H2 B drop OPEN")
+	var b_snap: Snapshot = Snapshot.from_dict(server.get_snapshot(mid, pid_b))
+	_expect(failed, not b_snap.you_high_ground_active(), "H2 OPEN → false")
+	_expect(failed, Snapshot.from_dict(server.get_snapshot(mid, pid_a)).you_high_ground_active(), "H5 attacker HARD ignores defender OPEN")
+
+	r = server.apply_action(mid, pid_a, ActionIntent.start())
+	_expect(failed, r.ok, "H1 start")
+	var empty := Contract.hex_dict(0, 0)
+	for rr in Contract.BOARD_R:
+		for qq in Contract.BOARD_Q:
+			if Contract.same_hex(Contract.hex_dict(qq, rr), hard):
+				continue
+			if Contract.same_hex(Contract.hex_dict(qq, rr), open_hex):
+				continue
+			empty = Contract.hex_dict(qq, rr)
+			break
+		if not Contract.same_hex(empty, hard) and not Contract.same_hex(empty, open_hex):
+			break
+	var intent := ActionIntent.attack(int(empty.get("q", 0)), int(empty.get("r", 0)))
+	_expect(failed, intent.get("type") == Contract.ACT_ATTACK, "H6 type attack")
+	_expect(failed, intent.has("hex"), "H6 hex present")
+	_expect(failed, not intent.has("highGround"), "H6 no highGround field")
+	_expect(failed, not intent.has("highGroundActive"), "H6 no highGroundActive field")
+	_expect(failed, not intent.has("hitChance"), "H6 no hitChance on intent")
+	var marks_before: int = Snapshot.from_dict(server.get_snapshot(mid, pid_a)).you_marks()
+	r = server.apply_action(mid, pid_a, intent)
+	_expect(failed, r.ok, "H1 attack from HARD")
+	snap = Snapshot.from_dict(r.snapshot)
+	var last: Variant = snap.last_action()
+	_expect(failed, snap.you_high_ground_active(), "H1 miss snapshot flag still true")
+	_expect(failed, last is Dictionary and last.get("highGroundApplied") == false, "H1 empty miss does not apply")
+	_expect(failed, last is Dictionary and is_equal_approx(float(last.get("hitChance", -1)), 0.0), "H1 empty miss hitChance 0")
+	_expect(failed, last is Dictionary and last.get("hit") == false, "H1 miss still miss")
+	_expect(failed, snap.you_marks() == marks_before, "H4 miss does not change Marks")
+	_expect(failed, snap.decoy_available(), "H4 decoy charge untouched")
+	_expect(failed, snap.uav_remaining() == 1, "H4 UAV charge untouched")
+	server.apply_action(mid, pid_a, ActionIntent.end_turn(50))
+	server.apply_action(mid, pid_b, ActionIntent.recon(4, 3))
+	server.apply_action(mid, pid_b, ActionIntent.end_turn(50))
+	r = server.apply_action(mid, pid_a, ActionIntent.attack(int(open_hex.get("q", 1)), int(open_hex.get("r", 0))))
+	last = Snapshot.from_dict(r.snapshot).last_action()
+	_expect(failed, last is Dictionary and last.get("hit") == true, "H1 HARD occupy hits")
+	_expect(failed, last is Dictionary and last.get("highGroundApplied") == true, "H1 HARD occupy applied")
+	_expect(failed, last is Dictionary and is_equal_approx(float(last.get("hitChance", -1)), 1.0), "H1 HARD occupy hitChance 1.0")
+
+	## Client never invents from a local HARD hex when the flag is omitted.
+	var invented: Snapshot = Snapshot.from_dict({
+		"you": {"hex": hard, "seat": "a"},
+		"terrain": [{"q": int(hard.get("q", 0)), "r": int(hard.get("r", 0)), "type": Contract.TYPE_HARD}],
+	})
+	_expect(failed, not invented.you_high_ground_active(), "H3 missing flag stays false")
+	_expect(failed, invented.terrain_map().has("%d,%d" % [int(hard.get("q", 0)), int(hard.get("r", 0))]), "H3 terrain parse still works")
+
+	server.clear_all()
+	var fresh: Dictionary = server.create_match()
+	var fid := str(fresh.get("matchId", ""))
+	var ftok: Dictionary = fresh.get("joinTokens", {})
+	var fa: Dictionary = server.join(fid, str(ftok.get("a", "")))
+	var fb: Dictionary = server.join(fid, str(ftok.get("b", "")))
+	var pa := str(fa.get("playerId", ""))
+	var pb := str(fb.get("playerId", ""))
+	var open2: Dictionary = server.find_hex_of_type(fid, Contract.TYPE_OPEN)
+	var hard2: Dictionary = server.find_hex_of_type(fid, Contract.TYPE_HARD)
+	server.apply_action(fid, pa, ActionIntent.select_hex(int(open2.get("q", 0)), int(open2.get("r", 0))))
+	server.apply_action(fid, pb, ActionIntent.select_hex(int(hard2.get("q", 1)), int(hard2.get("r", 0))))
+	_expect(failed, not Snapshot.from_dict(server.get_snapshot(fid, pa)).you_high_ground_active(), "H2 A OPEN muted")
+	_expect(failed, Snapshot.from_dict(server.get_snapshot(fid, pb)).you_high_ground_active(), "H5 B HARD not from A OPEN")
+	server.apply_action(fid, pa, ActionIntent.start())
+	var empty2 := Contract.hex_dict(0, 0)
+	for rr2 in Contract.BOARD_R:
+		for qq2 in Contract.BOARD_Q:
+			if Contract.same_hex(Contract.hex_dict(qq2, rr2), open2) or Contract.same_hex(Contract.hex_dict(qq2, rr2), hard2):
+				continue
+			empty2 = Contract.hex_dict(qq2, rr2)
+			break
+		if not Contract.same_hex(empty2, open2) and not Contract.same_hex(empty2, hard2):
+			break
+	r = server.apply_action(fid, pa, ActionIntent.attack(int(empty2.get("q", 0)), int(empty2.get("r", 0))))
+	last = Snapshot.from_dict(r.snapshot).last_action()
+	_expect(failed, last is Dictionary and last.get("highGroundApplied") == false, "H2 OPEN highGroundApplied false")
+	_expect(failed, last is Dictionary and is_equal_approx(float(last.get("hitChance", -1)), 0.0), "H2 OPEN miss hitChance 0")
+	server.apply_action(fid, pa, ActionIntent.end_turn(50))
+	server.apply_action(fid, pb, ActionIntent.recon(4, 3))
+	server.apply_action(fid, pb, ActionIntent.end_turn(50))
+	r = server.apply_action(fid, pa, ActionIntent.attack(int(hard2.get("q", 1)), int(hard2.get("r", 0))))
+	last = Snapshot.from_dict(r.snapshot).last_action()
+	_expect(failed, last is Dictionary and last.get("hit") == true, "H2 OPEN occupy still hits (mock deterministic)")
+	_expect(failed, last is Dictionary and last.get("highGroundApplied") == false, "H2 OPEN occupy not applied")
+	_expect(failed, last is Dictionary and is_equal_approx(float(last.get("hitChance", -1)), Contract.BASE_HIT_CHANCE), "H2 OPEN occupy hitChance 0.90")
+
+	## Brush drop. Fresh match for BRUSH attacker.
+	server.clear_all()
+	var third: Dictionary = server.create_match()
+	var tid := str(third.get("matchId", ""))
+	var ttok: Dictionary = third.get("joinTokens", {})
+	var ta: Dictionary = server.join(tid, str(ttok.get("a", "")))
+	var tb: Dictionary = server.join(tid, str(ttok.get("b", "")))
+	var tpa := str(ta.get("playerId", ""))
+	var tpb := str(tb.get("playerId", ""))
+	var brush3: Dictionary = server.find_hex_of_type(tid, Contract.TYPE_BRUSH)
+	var hard3: Dictionary = server.find_hex_of_type(tid, Contract.TYPE_HARD)
+	server.apply_action(tid, tpa, ActionIntent.select_hex(int(brush3.get("q", 0)), int(brush3.get("r", 0))))
+	server.apply_action(tid, tpb, ActionIntent.select_hex(int(hard3.get("q", 1)), int(hard3.get("r", 0))))
+	_expect(failed, not Snapshot.from_dict(server.get_snapshot(tid, tpa)).you_high_ground_active(), "H2 BRUSH → false")
+	_expect(failed, Snapshot.from_dict(server.get_snapshot(tid, tpb)).you_high_ground_active(), "H5 defender HARD ignored for attacker BRUSH")
+
+	var fog: Snapshot = Snapshot.from_dict({"you": {"hex": {"q": 4, "r": 3}}})
+	_expect(failed, not fog.you_high_ground_active(), "H2 FoW / omitted flag is false")
+	var bare_atk: Snapshot = Snapshot.from_dict({"lastAction": {"type": Contract.ACT_ATTACK, "hit": false}})
+	_expect(failed, bare_atk.last_high_ground_applied() == null, "H3 omitted highGroundApplied is null")
+	_expect(failed, bare_atk.last_hit_chance() == null, "H3 omitted hitChance is null")
+	var named_atk: Snapshot = Snapshot.from_dict({
+		"lastAction": {"type": Contract.ACT_ATTACK, "hit": true, "highGroundApplied": true, "hitChance": 1.0},
+	})
+	_expect(failed, named_atk.last_high_ground_applied() == true, "H3 reads server highGroundApplied")
+	_expect(failed, is_equal_approx(float(named_atk.last_hit_chance()), 1.0), "H3 reads server hitChance")
+
+	var Chrome := load("res://scripts/chrome.gd")
+	var muted: Control = Chrome.high_ground_chip(false)
+	var lit: Control = Chrome.high_ground_chip(true)
+	_expect(failed, muted != null and not (muted is Button), "H3 muted chip is not a key")
+	_expect(failed, lit != null and not (lit is Button), "H3 lit chip is not a key")
+	var muted_lbl: Label = muted.get_meta("high_label")
+	var lit_lbl: Label = lit.get_meta("high_label")
+	_expect(failed, muted_lbl != null and muted_lbl.text.find("+10") < 0, "H3 muted does not read +10%")
+	_expect(failed, lit_lbl != null and lit_lbl.text.find("+10") >= 0, "H3 lit reads +10%")
+	Chrome.paint_high_ground_chip(muted, true)
+	_expect(failed, muted_lbl.text.find("+10") >= 0, "H3 paint lights from snapshot true")
+	Chrome.paint_high_ground_chip(muted, false)
+	_expect(failed, muted_lbl.text.find("+10") < 0, "H3 paint mutes from snapshot false")
+	muted.free()
+	lit.free()
+
+	## Mock stills toggle — never a client-invented bonus.
+	server.clear_all()
+	var tog: Dictionary = server.create_match()
+	var tmid := str(tog.get("matchId", ""))
+	var tjoin: Dictionary = server.join(tmid, str(tog.get("joinTokens", {}).get("a", "")))
+	server.join(tmid, str(tog.get("joinTokens", {}).get("b", "")))
+	var tpid := str(tjoin.get("playerId", ""))
+	var open_t: Dictionary = server.find_hex_of_type(tmid, Contract.TYPE_OPEN)
+	server.apply_action(tmid, tpid, ActionIntent.select_hex(int(open_t.get("q", 0)), int(open_t.get("r", 0))))
+	_expect(failed, not Snapshot.from_dict(server.get_snapshot(tmid, tpid)).you_high_ground_active(), "toggle off default OPEN")
+	server.test_high_ground_active = true
+	_expect(failed, Snapshot.from_dict(server.get_snapshot(tmid, tpid)).you_high_ground_active(), "stills toggle forces lit")
+	server.test_high_ground_active = false
+	var hard_t: Dictionary = server.find_hex_of_type(tmid, Contract.TYPE_HARD)
+	server.apply_action(tmid, tpid, ActionIntent.select_hex(int(hard_t.get("q", 0)), int(hard_t.get("r", 0))))
+	_expect(failed, not Snapshot.from_dict(server.get_snapshot(tmid, tpid)).you_high_ground_active(), "stills toggle forces muted on HARD")
+	server.test_high_ground_active = null
 
 
 func _equip_chrome_case(failed: PackedStringArray) -> void:

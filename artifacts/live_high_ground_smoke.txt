@@ -1,0 +1,34 @@
+SMOKE_BASE https://glassline-api.vercel.app
+PASS  GET /health
+PASS  POST /players
+HUNT  0,0 type=brush flag=False m_1b3eea3b339f453ba3b1058c71e854d7
+HUNT  1,0 type=brush flag=False m_cd4f059bf720425bb8ef7ef8f9a60761
+HUNT  2,0 type=hard flag=True m_56e82595873f4669a8915bbf8251c20c
+HUNT  0,0 type=hard flag=True m_777ae80110b4415db17102d1ff45c647
+HUNT  1,0 type=open flag=False m_96456040e499417ebec14f0f58a3313a
+PASS  H1 HARD you.highGroundActive true
+PASS  H1 drop terrain hard
+PASS  H2 OPEN/BRUSH you.highGroundActive false
+PASS  H2 drop terrain open/brush
+PASS  H5 attacker HARD ignores defender brush
+PASS  H5 attacker OPEN/BRUSH ignores defender terrain
+PASS  H6 attack intent { type, hex } accepted
+PASS  H6 result.type attack
+PASS  H6 no invented top-level highGround
+PASS  H1 miss keeps snapshot flag
+PASS  H1 empty miss highGroundApplied false
+PASS  H1 empty miss hitChance 0
+PASS  H1 empty miss hit false
+PASS  H4 no Marks on miss result
+PASS  H4 Marks unchanged on miss
+PASS  H4 decoy charge untouched
+HARD_OCCUPY {"type": "attack", "hit": true, "kill": true, "decoyCleared": false, "highGroundApplied": true, "hitChance": 1}
+PASS  H1 HARD occupy accepted
+PASS  H1 HARD occupy applied
+PASS  H1 HARD occupy hitChance 1.0
+OFF_OCCUPY {"type": "attack", "hit": true, "kill": true, "decoyCleared": false, "highGroundApplied": false, "hitChance": 0.9}
+PASS  H2 OPEN/BRUSH occupy accepted
+PASS  H2 OPEN/BRUSH occupy not applied
+PASS  H2 OPEN/BRUSH occupy hitChance 0.90
+PASS  H4 HARD kill table +25 not extra
+LIVE_HIGH_GROUND_OK

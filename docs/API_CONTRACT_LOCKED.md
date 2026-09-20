@@ -28,7 +28,7 @@ Client spike types in `types/` and `MockMatchServer` follow this shape so a live
   turnIndex, turnCap: 16, whoseTurn: a|b|null,
   phase: await_action|await_end_turn|null,
   uavRemaining: 0|1,
-  you: { seat, hex, placed, marks, exposurePct, movedLastTurn },
+  you: { seat, hex, placed, marks, exposurePct, movedLastTurn, highGroundActive },
   enemy: { seat, visibleHex, softHotTurnsLeft },
   terrain: [{ q, r, type }],
   lastAction, winner: a|b|draw|null,
@@ -39,7 +39,7 @@ Client spike types in `types/` and `MockMatchServer` follow this shape so a live
 ## Actions POST /matches/:id/actions
 - { type: "select_hex", hex: {q,r} }
 - { type: "start" }
-- { type: "attack", hex: {q,r} }
+- { type: "attack", hex: {q,r} }  // HIGH GROUND is snapshot-only; no extra field
 - { type: "recon", hex: {q,r} }  // sector = center + 6 neighbors
 - { type: "uav" }
 - { type: "decoy" }  // no hex; server picks adjacent empty. LIVE pending Coder.
