@@ -14,9 +14,10 @@ Headless contract check (mock, no network):
 
 ```bash
 godot --headless --path . -s res://tools/headless_loop_test.gd
+godot --headless --path . -s res://tools/headless_coach_test.gd
 ```
 
-Expect `HEADLESS_LOOP_OK`.
+Expect `HEADLESS_LOOP_OK` and `HEADLESS_COACH_OK`.
 
 ## Mock vs live
 
@@ -99,7 +100,7 @@ Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` 
 | Scene | Path | Role |
 | --- | --- | --- |
 | Hideout | `scenes/lobby/hideout_lobby.tscn` | Canon room, ARMORY two rows, PLAY, **INVITE** (private lobby), JOBS, Marks chip |
-| Match | `scenes/match/match_screen.tscn` | 9×7 axial, dummy `select_hex`, START, Attack/Recon/UAV/DECOY, END TURN |
+| Match | `scenes/match/match_screen.tscn` | 9×7 axial, dummy `select_hex`, START, Attack/Recon/UAV/DECOY, END TURN, first-hunt coach chips |
 | Optic | `scenes/optic/optic_overlay.gd` | Zoom / wobble stub + FIRE |
 | Types | `types/` | Snapshot, ActionIntent, ActionResult (`{ ok, snapshot, result }`) |
 | Mock | `autoload/mock_match_server.gd` | Local secret positions |
@@ -118,6 +119,8 @@ Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` 
 8. Ended PvP: **PLAY AGAIN** / **DECLINE**. Marks already settled. Both accept → new `matchId` + salt, drop again. Decline or 30s → hideout. Notes: `artifacts/REMATCH_NOTES.md`.
 
 Hideout **INVITE** is the private lobby: **CREATE LOBBY** shows a chunky copy-able code; **JOIN** takes a 6-char code. Cancel/leave returns to the hideout (no A4 forfeit). Ready uses the existing drop. Notes: `artifacts/PRIVATE_LOBBY_NOTES.md`.
+
+First live (or mock) PvP hunt can show **first-hunt coach** chips (Attack / Recon / Doll / Decoy) until **GOT IT**. Persist is local `user://glassline_coach.cfg`. SP jobs skip. Notes: `FIRST_HUNT_COACH_NOTES.md`.
 
 Hideout **JOBS** opens three SP rows (T1 ★10 / T2 ★15 / T3 ★20). START posts `POST /jobs` `{ tier, clientJobId }` on LIVE (mock uses the same shape) then the board. Marks chip binds snapshot `you.marks` only. Ability chrome is labeled **UAV** and still posts `{ type: "uav" }`. **DECOY** sits beside it and posts `{ type: "decoy" }` (mock + LIVE D1–D5). Ended PvP offers **PLAY AGAIN** / **DECLINE** — Marks already settled; both accept joins a new `matchId`. Earn table: `artifacts/MARKS_SP_NOTES.md`. Decoy notes: `artifacts/DECOY_NOTES.md`. Rematch: `artifacts/REMATCH_NOTES.md`. Ladder gates: `artifacts/SP_JOB_LADDER_NOTES.md`. Hideout **ARMORY** is two chrome-only Marks sinks (`skin_hideout_stub` ★50 + `skin_bandana_stub` ★100, same `get_shop` / `buy_shop`, no combat / no IAP): `artifacts/MARKS_SINK_NOTES.md` · `artifacts/MARKS_SINK2_NOTES.md`. Owned rows **EQUIP / EQUIPPED** bind hideout + exposure doll to snapshot `you.equippedSkinId`: `artifacts/EQUIP_CHROME_NOTES.md`.
 

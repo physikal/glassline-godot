@@ -9,6 +9,7 @@ const ActionResult := preload("res://types/action_result.gd")
 const Snapshot := preload("res://types/snapshot.gd")
 const HexMath := preload("res://scripts/hex_math.gd")
 const MarksPayout := preload("res://types/marks_payout.gd")
+const FirstHuntCoach := preload("res://scenes/match/first_hunt_coach.gd")
 
 enum Aim { NONE, ATTACK, RECON, RELOCATE }
 
@@ -47,6 +48,7 @@ var _btn_decline: Button
 var _btn_hideout: Button
 var _you_chip: Label
 var _rival_chip: Label
+var _coach: FirstHuntCoach
 
 var _aim: int = Aim.NONE
 var _selected: Variant = null
@@ -98,6 +100,12 @@ func _ready() -> void:
 		_capture_end_summary_forfeit()
 	elif "--capture-end-summary-standoff" in args:
 		_capture_end_summary_standoff()
+	elif "--capture-coach-tips" in args:
+		_capture_coach_tips()
+	elif "--capture-coach-dismissed" in args:
+		_capture_coach_dismissed()
+	elif "--capture-coach-chip" in args:
+		_capture_coach_chip()
 
 
 func _capture_after_play() -> void:
@@ -404,6 +412,69 @@ func _capture_end_summary_forfeit() -> void:
 	await _capture_end_summary_png("res://artifacts/ux/end_summary_forfeit.png", "M1_END_SUMMARY_FORFEIT")
 
 
+func _prep_coach_capture() -> Snapshot:
+	FirstHuntCoach.clear_seen()
+	var snap := _force_pvp_active_for_capture()
+	_refresh(snap)
+	_toast.text = ""
+	if _coach:
+		_coach.present(false, snap.status() == Contract.STATUS_ACTIVE)
+	return snap
+
+
+func _capture_coach_png(path: String, tag: String) -> void:
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	var out := ProjectSettings.globalize_path(path)
+	img.save_png(out)
+	print("%s %s" % [tag, out])
+	get_tree().quit()
+
+
+func _capture_coach_tips() -> void:
+	await get_tree().process_frame
+	_prep_coach_capture()
+	await _capture_coach_png("res://artifacts/ux/coach_tips_first_match.png", "C6_COACH_TIPS")
+
+
+func _capture_coach_dismissed() -> void:
+	await get_tree().process_frame
+	var snap := _prep_coach_capture()
+	if _coach:
+		_coach.dismiss()
+	_refresh(snap)
+	_toast.text = ""
+	await _capture_coach_png("res://artifacts/ux/coach_dismissed.png", "C3_COACH_DISMISSED")
+
+
+func _capture_coach_chip() -> void:
+	await get_tree().process_frame
+	_prep_coach_capture()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	var out := ProjectSettings.globalize_path("res://artifacts/ux/coach_chip_closeup.png")
+	if _coach:
+		var r := _coach.chip_global_rect("attack")
+		if r.size.x > 8.0 and r.size.y > 8.0:
+			var pad := 12
+			var region := Rect2i(
+				maxi(0, int(r.position.x) - pad),
+				maxi(0, int(r.position.y) - pad),
+				int(r.size.x) + pad * 2,
+				int(r.size.y) + pad * 2
+			)
+			region = region.intersection(Rect2i(Vector2i.ZERO, img.get_size()))
+			if region.size.x > 0 and region.size.y > 0:
+				img = img.get_region(region)
+	img.save_png(out)
+	print("C6_COACH_CHIP %s" % out)
+	get_tree().quit()
+
+
 func _capture_end_summary_standoff() -> void:
 	await get_tree().process_frame
 	_force_pvp_active_for_capture()
@@ -666,6 +737,12 @@ func _build() -> void:
 	Chrome.apply_label(_toast, 10, Color("f7e7a8"), true)
 	add_child(_toast)
 
+	_coach = FirstHuntCoach.new()
+	_coach.set_anchors_preset(PRESET_FULL_RECT)
+	_coach.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_coach.bind_anchors(_btn_attack, _btn_recon, _btn_decoy, _exposure_doll)
+	add_child(_coach)
+
 	_optic = preload("res://scenes/optic/optic_overlay.gd").new()
 	_optic.set_anchors_preset(PRESET_FULL_RECT)
 	add_child(_optic)
@@ -868,6 +945,7 @@ func _refresh(snap: Snapshot) -> void:
 		_btn_decoy.text = "%s SPENT" % Contract.DECOY_LABEL
 	else:
 		_btn_decoy.text = Contract.DECOY_LABEL
+	_sync_coach(snap)
 
 
 func _highlights(snap: Snapshot) -> Dictionary:
@@ -877,6 +955,14 @@ func _highlights(snap: Snapshot) -> Dictionary:
 	if snap.enemy_soft_hot() > 0 and snap.enemy_visible_hex() != null:
 		extra[Contract.hex_key(snap.enemy_visible_hex())] = Color("f0a020")
 	return extra
+
+
+func _sync_coach(snap: Snapshot) -> void:
+	if _coach == null:
+		return
+	var job := ClientSession.is_job() or snap.is_job()
+	var live := snap.status() == Contract.STATUS_ACTIVE
+	_coach.present(job, live)
 
 
 func _set_actions(on: bool) -> void:

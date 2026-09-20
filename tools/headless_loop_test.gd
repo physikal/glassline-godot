@@ -139,6 +139,7 @@ func _run() -> int:
 	_shop_sink2_case(failed)
 	_equip_chrome_case(failed)
 	_player_persist_case(failed)
+	_first_hunt_coach_case(failed)
 
 	# Recon odds: in-sector + forced roll.
 	_recon_case(failed)
@@ -1337,6 +1338,48 @@ func _player_persist_case(failed: PackedStringArray) -> void:
 	_expect(failed, session.marks == 50, "reset_match keeps display marks")
 	_expect(failed, session.join_token == "", "reset_match clears join token")
 	session.free()
+
+
+func _first_hunt_coach_case(failed: PackedStringArray) -> void:
+	## C1–C5: chips on first live PvP when unseen, gone after dismiss, ConfigFile persists.
+	var Coach := load("res://scenes/match/first_hunt_coach.gd")
+	Coach.reset_store_for_test()
+	_expect(failed, not Coach.is_seen(), "C5 unseen when flag clear")
+	var coach = Coach.new()
+	coach.present(false, true)
+	_expect(failed, coach.is_showing(), "C1 chips when unseen + live")
+	var titles: PackedStringArray = coach.visible_titles()
+	_expect(failed, titles.has("ATTACK") and titles.has("RECON"), "C2 Attack + Recon chips")
+	_expect(failed, titles.has("DOLL") and titles.has("DECOY"), "C2 Doll + Decoy chips")
+	_expect(failed, titles.size() == 4, "C2 four tips")
+	_expect(failed, coach.passthrough_ok(), "C3 chips ignore mouse / no modal")
+	_expect(failed, Contract.COACH_ATTACK.find("optic") >= 0, "C2 Attack cozy copy")
+	_expect(failed, Contract.COACH_RECON.find("Scout") >= 0, "C2 Recon cozy copy")
+	_expect(failed, Contract.COACH_DOLL.find("doll") >= 0, "C2 Doll cozy copy")
+	_expect(failed, Contract.COACH_DECOY.find("blip") >= 0, "C2 Decoy cozy copy")
+	_expect(failed, Contract.RECON_BASE == 0.35 and Contract.MARKS_PVP_WIN == 25, "C4 combat table unchanged")
+	coach.dismiss()
+	_expect(failed, not coach.is_showing(), "C3 gone after Got it")
+	_expect(failed, Coach.is_seen(), "C5 seen after dismiss")
+	var cfg := ConfigFile.new()
+	_expect(failed, cfg.load(Coach.store_path) == OK, "C5 ConfigFile exists")
+	_expect(failed, bool(cfg.get_value(Contract.COACH_SECTION, Contract.COACH_SEEN_KEY, false)), "C5 coachSeen true")
+	var again = Coach.new()
+	again.present(false, true)
+	_expect(failed, not again.is_showing(), "C1 never again after dismiss")
+	Coach.clear_seen()
+	var job = Coach.new()
+	job.present(true, true)
+	_expect(failed, not job.is_showing(), "C1 SP job skips")
+	Coach.clear_seen()
+	var drop = Coach.new()
+	drop.present(false, false)
+	_expect(failed, not drop.is_showing(), "C1 hidden until live after drop")
+	coach.free()
+	again.free()
+	job.free()
+	drop.free()
+	Coach.restore_store()
 
 
 func _recon_case(failed: PackedStringArray) -> void:
