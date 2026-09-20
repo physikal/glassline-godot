@@ -175,6 +175,11 @@ func _ready() -> void:
 	elif "--capture-decoy-hud" in args or "--capture-decoy-blip" in args:
 		await get_tree().process_frame
 		_on_play()
+	elif "--capture-high-ground-lit" in args or "--capture-high-ground-muted" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await get_tree().process_frame
+		_on_play()
 	elif "--capture-rematch-ended" in args or "--capture-rematch-ready" in args:
 		await get_tree().process_frame
 		_on_play()

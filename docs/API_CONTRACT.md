@@ -35,7 +35,7 @@ Source: Notion “Glassline API contract draft v0” (Godot stamp). Client types
   turnIndex, turnCap: 16, whoseTurn: a|b|null,
   phase: await_action|await_end_turn|null,
   uavRemaining: 0|1,
-  you: { seat, hex, placed, marks, exposurePct, movedLastTurn, decoyAvailable, decoyRemaining: 0|1, decoyHex? },
+  you: { seat, hex, placed, marks, exposurePct, movedLastTurn, decoyAvailable, decoyRemaining: 0|1, decoyHex?, highGroundActive },
   enemy: { seat, visibleHex, softHotTurnsLeft, decoySoftHex? },
   terrain: [{ q, r, type }],
   lastAction: ActionResult | null,
@@ -61,13 +61,21 @@ Source: Notion “Glassline API contract draft v0” (Godot stamp). Client types
 ActionResult =
   | { type: "select_hex", terrain: open|brush|hard }
   | { type: "start" }
-  | { type: "attack", hit: boolean, kill: boolean, decoyCleared?: boolean }
+  | { type: "attack", hit: boolean, kill: boolean, decoyCleared?: boolean, highGroundApplied?: boolean, hitChance?: number }
   | { type: "recon", spotted: boolean, hex?: {q,r} }
   | { type: "uav", revealed: boolean, hex?: {q,r} }
   | { type: "decoy", hex?: {q,r}, planted?: boolean }
   | { type: "end_turn" }
   | { type: "reject", reason: string }
 ```
+
+## HIGH GROUND (attacker HARD)
+- Snapshot `you.highGroundActive: boolean` — true iff **your revealed cell** is `hard`. `open` / `brush` / unknown-to-self (FoW) → `false`.
+- Attack intent stays `{ type: "attack", hex }`. Client never sends a bonus.
+- Base hit chance when the target occupies the hex: **1.0** (`BASE_HIT_CHANCE`). Empty hex: **0**.
+- Attacker on HARD → **+0.10 absolute**, one stack, clamp `[0, 1]`. Defender terrain ignored.
+- Attack result (preferred): `highGroundApplied` + final `hitChance`.
+- Guns / Decoy / Marks are blind. Client chrome binds the snapshot flag only — never invents from a local hex.
 
 ## Realtime
 `GET /matches/:id/events` SSE → `{ event: "snapshot"|"your_turn", snapshot }`

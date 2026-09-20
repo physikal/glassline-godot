@@ -17,6 +17,8 @@ signal match_event(player_id: String, event_name: String, snapshot: Dictionary)
 var test_recon_roll: float = -1.0
 ## If >= 0, rematch timeout uses this clock instead of Time.get_ticks_msec().
 var test_now_ms: int = -1
+## Stills / tests: null = compute from revealed own HARD. true/false force snapshot.
+var test_high_ground_active: Variant = null
 ## Display stub for hideout. Persists across matches; tests call reset_wallet().
 var account_marks: int = Contract.MOCK_WALLET_STUB
 ## Cosmetic ledger (visual only). Never touches combat / hit / exposure.
@@ -1023,6 +1025,7 @@ func clear_all() -> void:
 	queue_pair_delay_ms = 80
 	test_recon_roll = -1.0
 	test_now_ms = -1
+	test_high_ground_active = null
 	## Wallet stays — PLAY must not wipe hideout Marks. Tests call reset_wallet().
 
 
@@ -1077,6 +1080,34 @@ func _read_hex(action: Dictionary) -> Variant:
 	if not Contract.on_board(q, r):
 		return null
 	return Contract.hex_dict(q, r)
+
+
+func find_hex_of_type(match_id: String, kind: String) -> Dictionary:
+	## First on-board hex whose hash type matches. Empty if none.
+	if not _matches.has(match_id):
+		return {}
+	var match_state: Dictionary = _matches[match_id]
+	for r in Contract.BOARD_R:
+		for q in Contract.BOARD_Q:
+			if _terrain_type(match_state, q, r) == kind:
+				return Contract.hex_dict(q, r)
+	return {}
+
+
+func _high_ground_active_for(match_state: Dictionary, seat: String) -> bool:
+	## True iff your revealed cell is HARD. OPEN / BRUSH / unknown-to-self → false.
+	## Defender terrain ignored. Stills may force via test_high_ground_active.
+	if test_high_ground_active != null:
+		return bool(test_high_ground_active)
+	var you: Dictionary = match_state["seats"][seat]
+	var hex: Variant = you.get("hex", null)
+	if hex == null or not (hex is Dictionary):
+		return false
+	var key := "%d,%d" % [int(hex.get("q", -1)), int(hex.get("r", -1))]
+	var revealed: Dictionary = match_state["revealed"][seat]
+	if not revealed.has(key):
+		return false
+	return str(revealed[key]) == Contract.TYPE_HARD
 
 
 func _terrain_type(match_state: Dictionary, q: int, r: int) -> String:
@@ -1166,7 +1197,11 @@ func _act_attack(match_state: Dictionary, seat: String, action: Dictionary) -> A
 	_reveal(match_state, seat, int(hex["q"]), int(hex["r"]))
 	var enemy: Dictionary = match_state["seats"][Contract.other_seat(seat)]
 	var hit := bool(enemy["placed"]) and Contract.same_hex(hex, enemy["hex"])
+	var applied := _high_ground_active_for(match_state, seat)
+	var base := Contract.BASE_HIT_CHANCE if hit else 0.0
+	var chance := clampf(base + (Contract.HIGH_GROUND_HIT if applied else 0.0), 0.0, 1.0)
 	# Real kill path unchanged. Decoy hex is never a secret position at place-time.
+	# v0 occupy-hex base is 1.0 so +0.10 clamps; chip still reports the applied flag.
 	if hit:
 		match_state["status"] = Contract.STATUS_ENDED
 		match_state["whoseTurn"] = null
@@ -1182,6 +1217,8 @@ func _act_attack(match_state: Dictionary, seat: String, action: Dictionary) -> A
 			"hit": true,
 			"kill": true,
 			"decoyCleared": false,
+			"highGroundApplied": applied,
+			"hitChance": chance,
 			"marks": pay.get("marks", account_marks),
 			"marksDelta": pay.get("marksDelta", 0),
 			"reason": pay.get("reason", Contract.END_KILL),
@@ -1198,6 +1235,8 @@ func _act_attack(match_state: Dictionary, seat: String, action: Dictionary) -> A
 			"hit": false,
 			"kill": false,
 			"decoyCleared": decoy_cleared,
+			"highGroundApplied": applied,
+			"hitChance": chance,
 		})
 	return _ok(match_state, seat)
 
@@ -1556,6 +1595,7 @@ func _snapshot_for_seat(match_state: Dictionary, seat: String) -> Dictionary:
 			"decoyAvailable": bool(you.get("decoyAvailable", false)),
 			"decoyRemaining": 1 if bool(you.get("decoyAvailable", false)) else 0,
 			"decoyHex": _decoy_hex_for_snap(you, match_state),
+			"highGroundActive": _high_ground_active_for(match_state, seat),
 		},
 		"enemy": {
 			"seat": other,

@@ -245,6 +245,15 @@ func you_moved_last_turn() -> bool:
 	return bool(you().get("movedLastTurn", false))
 
 
+func you_high_ground_active() -> bool:
+	## Server you.highGroundActive only. Missing / FoW / OPEN / BRUSH → false.
+	## Never invent from local hex or terrain_map().
+	var you_state := you()
+	if not you_state.has("highGroundActive"):
+		return false
+	return bool(you_state.get("highGroundActive", false))
+
+
 func enemy_visible_hex() -> Variant:
 	return enemy().get("visibleHex", null)
 

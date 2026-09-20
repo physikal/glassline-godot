@@ -59,6 +59,7 @@ GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_shop_sink
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_shop_sink3_smoke.py  # S3.1–S3.3 poster ★150 (pending if catalog lags)
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_shop_equip_smoke.py  # E1/E4 equip (pending if /shop/equip 404)
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_decoy_smoke.py      # D1–D5 decoy LIVE_DECOY_OK
+GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_high_ground_smoke.py  # H1–H6 HIGH GROUND; PENDING if flag missing
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_rematch_smoke.py    # R1–R5 rematch; curl first (404 → PENDING)
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_lobby_smoke.py      # P1–P5 private lobby LIVE; curl first (bare 404 → PENDING)
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_queue_smoke.py      # Q1–Q5 Quick Match LIVE_QUEUE_OK (61s Q4 TTL)
