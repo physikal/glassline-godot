@@ -112,6 +112,23 @@ func buy_shop(item_id: String, client_buy_id: String = "") -> Dictionary:
 	var listed: Dictionary = Contract.shop_item_by_id(item_id)
 	if listed.is_empty():
 		return _shop_reject(Contract.SHOP_ERR_UNKNOWN_ITEM)
+	## Coder: Fieldbolt is owned-by-default / not sold. Buy is 200 no-op —
+	## no ledger, no auto-equip (explicit unequip stays empty).
+	if item_id == Contract.GUN_FIELDBOLT:
+		if not owned_guns.has(item_id):
+			owned_guns.append(item_id)
+		if not owned_cosmetics.has(item_id):
+			owned_cosmetics.append(item_id)
+		var starter := _shop_ok({
+			"type": "buy",
+			"itemId": item_id,
+			"clientBuyId": client_buy_id,
+			"starterNoop": true,
+		})
+		starter["item"] = listed.duplicate(true)
+		if client_buy_id != "":
+			_shop_receipts[client_buy_id] = starter.duplicate(true)
+		return starter
 	if owned_cosmetics.has(item_id) or (Contract.is_gun_chrome(item_id) and owned_guns.has(item_id)):
 		return _shop_reject(Contract.SHOP_ERR_ALREADY_OWNED)
 	var price := int(listed.get("price", Contract.shop_item_price(item_id)))
@@ -120,7 +137,7 @@ func buy_shop(item_id: String, client_buy_id: String = "") -> Dictionary:
 	account_marks -= price
 	if not owned_cosmetics.has(item_id):
 		owned_cosmetics.append(item_id)
-	## Last buy auto-equips the matching slot only. Skin, decor, and gun coexist.
+	## Last *paid* buy auto-equips that slot only. Skin, decor, and gun coexist.
 	if Contract.is_gun_chrome(item_id):
 		if not owned_guns.has(item_id):
 			owned_guns.append(item_id)

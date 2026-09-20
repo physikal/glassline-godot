@@ -277,13 +277,22 @@ def main() -> int:
     evidence(f"G1 GET /shop/me {json.dumps(me)}")
     guns_me = owned_guns(me)
     worn = equipped_gun(me)
-    if FIELDBOLT in guns_me or worn == FIELDBOLT:
+    if FIELDBOLT in guns_me or worn == FIELDBOLT or FIELDBOLT in (me.get("owned") or []):
         expect(True, "G1 /shop/me starter Fieldbolt owned or equipped")
     else:
         note(
             f"G1 /shop/me did not name Fieldbolt (ownedGuns={guns_me} equippedGunId={worn}). "
             "Client stubs starter owned-by-default until Coder grants it."
         )
+
+    print("\n== G1 Fieldbolt buy is 200 no-op ==")
+    bolt_buy_id = str(uuid.uuid4())
+    worn_before = equipped_gun(me)
+    code, bolt_buy, raw = buy(token_g3, bolt_buy_id, FIELDBOLT)
+    evidence(f"G1 Fieldbolt buy {code} {json.dumps(bolt_buy)}")
+    expect(code == 200 and bolt_buy.get("ok") is True, "G1 Fieldbolt buy 200 no-op")
+    expect(you_marks(bolt_buy) == start_g3, "G1 Fieldbolt buy does not debit")
+    expect(equipped_gun(bolt_buy) == worn_before, "G1 Fieldbolt buy does not re-equip")
 
     if rail is None:
         note("LIVE catalog missing gun_railframe — skip buy / equip / combat. Mock covers G2/G5.")
@@ -326,6 +335,27 @@ def main() -> int:
     expect(code_r == 200 and replay.get("ok") is True, "G2 clientBuyId idempotent 200")
     expect(you_marks(replay) == wallet, "G2 replay does not debit again")
 
+    print("\n== G2 coexist skin + decor + gun ==")
+    earned = wallet or 0
+    for i in range(1, 9):
+        mid, token_a, token_b, join_a, _ = create_and_join(token_a_player)
+        snap = pvp_kill(mid, token_a, token_b)
+        after = you_marks(snap)
+        expect(after == earned + 25, f"coexist kill {i} you.marks {earned}→{after} (+25)")
+        earned = after if after is not None else earned
+    code, bought_p, raw = buy(token_a_player, str(uuid.uuid4()), "decor_poster_stub")
+    evidence(f"G2 buy poster {code} {json.dumps(bought_p)}")
+    expect(code == 200 and bought_p.get("ok") is True, "G2 buy poster 200")
+    expect(you_field(bought_p, "equippedDecorId") == "decor_poster_stub", "G2 poster auto-equip decor")
+    expect(equipped_gun(bought_p) == RAILFRAME, "G2 poster buy leaves Railframe equipped")
+    code, bought_g, raw = buy(token_a_player, str(uuid.uuid4()), "skin_hideout_stub")
+    evidence(f"G2 buy ghillie {code} {json.dumps(bought_g)}")
+    expect(code == 200 and bought_g.get("ok") is True, "G2 buy ghillie 200")
+    expect(you_field(bought_g, "equippedSkinId") == "skin_hideout_stub", "G2 ghillie auto-equip skin")
+    expect(you_field(bought_g, "equippedDecorId") == "decor_poster_stub", "G2 ghillie buy leaves poster")
+    expect(equipped_gun(bought_g) == RAILFRAME, "G2 ghillie buy leaves Railframe")
+    wallet = you_marks(bought_g)
+
     print("\n== G2 equip / unequip gun slot ==")
     code, swapped, raw = equip(token_a_player, FIELDBOLT, "gun")
     evidence(f"G2 equip Fieldbolt {code} {json.dumps(swapped)}")
@@ -338,9 +368,8 @@ def main() -> int:
         expect(you_marks(swapped) == wallet, "G2 gun equip marks untouched")
         if equipped_gun(swapped) is not None:
             expect(equipped_gun(swapped) == FIELDBOLT, f"G2 equippedGunId Fieldbolt (got {equipped_gun(swapped)})")
-        skin = you_field(swapped, "equippedSkinId")
-        decor = you_field(swapped, "equippedDecorId")
-        note(f"G2 coexist after gun swap skin={skin} decor={decor}")
+        expect(you_field(swapped, "equippedSkinId") == "skin_hideout_stub", "G2 gun swap leaves ghillie")
+        expect(you_field(swapped, "equippedDecorId") == "decor_poster_stub", "G2 gun swap leaves poster")
 
     code, off, raw = equip(token_a_player, None, "gun")
     evidence(f"G2 unequip gun {code} {json.dumps(off)}")

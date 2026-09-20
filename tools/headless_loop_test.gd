@@ -1510,6 +1510,24 @@ func _gun_chrome_case(failed: PackedStringArray) -> void:
 	_expect(failed, session.gun_slot_state(Contract.GUN_RAILFRAME) == "locked", "G4 Railframe slot locked")
 	_expect(failed, session.marks == 80, "G1 stub binds you.marks 80")
 
+	## Coder: Fieldbolt buy is 200 no-op — no debit, no re-equip.
+	var starter_buy: Dictionary = server.buy_shop(Contract.GUN_FIELDBOLT, "gun-fieldbolt-noop")
+	_expect(failed, bool(starter_buy.get("ok", false)), "G1 Fieldbolt buy 200 no-op")
+	_expect(failed, server.account_marks == 80, "G1 Fieldbolt buy does not debit")
+	session.apply_shop(starter_buy)
+	_expect(failed, session.marks == 80, "G1 Fieldbolt buy snapshot still 80")
+	_expect(failed, session.is_equipped(Contract.GUN_FIELDBOLT), "G1 Fieldbolt buy does not change equip")
+	var off_gun: Dictionary = server.equip_cosmetic("", Contract.GUN_SLOT)
+	session.apply_shop(off_gun)
+	_expect(failed, session.equipped_gun == "", "G1 unequip before starter buy")
+	var starter_again: Dictionary = server.buy_shop(Contract.GUN_FIELDBOLT, "gun-fieldbolt-noop-2")
+	session.apply_shop(starter_again)
+	_expect(failed, session.equipped_gun == "", "G1 Fieldbolt buy does not re-equip after unequip")
+	_expect(failed, session.marks == 80, "G1 starter no-op marks unchanged")
+	var back_on: Dictionary = server.equip_cosmetic(Contract.GUN_FIELDBOLT, Contract.GUN_SLOT)
+	session.apply_shop(back_on)
+	_expect(failed, session.is_equipped(Contract.GUN_FIELDBOLT), "G1 re-equip Fieldbolt after no-op")
+
 	## G3 — 402 insufficient (Crescent ★200 vs ★80). Never marks -=.
 	var before: int = session.marks
 	var poor: Dictionary = server.buy_shop(Contract.GUN_CRESCENT, Contract.new_client_buy_id())

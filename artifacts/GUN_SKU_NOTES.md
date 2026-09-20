@@ -33,6 +33,8 @@ Probed catalog (Coder +3 gun SKUs landed):
 
 `GET /shop` is **catalog-only** (no `you.marks`). Buy 200 is `{ ok, you: { marks, equippedSkinId, equippedDecorId, equippedGunId }, purchaseId, item }`. 402 is `{ error, code: "insufficient_marks", you: { marks, equippedGunId } }`. Client binds that `you.marks`. Hideout + smoke **never `marks -=`**.
 
+Coder PR [#14](https://github.com/physikal/glassline-api/pull/14) (merged): Fieldbolt buy is **200 no-op** (no ledger, no re-equip). Last **paid** buy auto-equips that slot. Guns live in `owned` + `you.equippedGunId` (no separate `ownedGuns` required). Bare `{ itemId: null }` unequips **skin** only; gun unequip is `{ itemId: null, slot: "gun" }`.
+
 | Gate | Result | Evidence |
 | --- | --- | --- |
 | **G1** catalog `kind: gun` · Fieldbolt owned-by-default | **PASS mock · PASS LIVE** | LIVE `GET /shop` lists six SKUs. Fieldbolt ★0. `/shop/me` `{ owned: ["gun_fieldbolt"], equippedGunId: "gun_fieldbolt" }`. |
