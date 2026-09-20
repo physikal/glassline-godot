@@ -9,10 +9,12 @@ var marks: Variant = null
 var items: Array = []
 var owned: Array = []
 var equipped: String = ""
+var equipped_decor: String = ""
 var error: String = ""
 var ok: bool = true
 var owned_present: bool = false
 var equipped_present: bool = false
+var equipped_decor_present: bool = false
 var purchase_id: String = ""
 
 
@@ -33,9 +35,11 @@ static func from_any(payload: Variant):
 	parsed.items = _read_items(bag, root)
 	parsed.owned = _read_owned(bag, root)
 	parsed.equipped = _read_equipped(bag, root)
+	parsed.equipped_decor = _read_equipped_decor(bag, root)
 	parsed.marks = _read_marks(bag, root)
 	parsed.owned_present = _has_owned(bag, root)
 	parsed.equipped_present = _has_equipped(bag, root)
+	parsed.equipped_decor_present = _has_equipped_decor(bag, root)
 	parsed.purchase_id = str(bag.get("purchaseId", root.get("purchaseId", "")))
 	## LIVE buy 200: { ok, you.marks, purchaseId, item } — infer owned/equip.
 	## Do not mark owned_present — apply_shop merges so a second SKU does not wipe the first.
@@ -48,7 +52,12 @@ static func from_any(payload: Variant):
 		if parsed.ok and bought_id != "":
 			if not parsed.owned_present:
 				parsed.owned = [bought_id]
-			if not parsed.equipped_present:
+			## Decor buy auto-equips equippedDecorId only. Never overwrite skin.
+			if Contract.is_decor_chrome(bought_id):
+				if not parsed.equipped_decor_present:
+					parsed.equipped_decor = bought_id
+					parsed.equipped_decor_present = true
+			elif not parsed.equipped_present:
 				parsed.equipped = bought_id
 				parsed.equipped_present = true
 	return parsed
@@ -151,6 +160,24 @@ static func _read_equipped(bag: Dictionary, root: Dictionary) -> String:
 	return ""
 
 
+static func _read_equipped_decor(bag: Dictionary, root: Dictionary) -> String:
+	## Prefer Coder `you.equippedDecorId`. Never fall back to equippedSkinId.
+	for source in [bag, root]:
+		var you: Variant = source.get("you", {})
+		if you is Dictionary:
+			if you.has("equippedDecorId"):
+				return _as_id(you.get("equippedDecorId", null))
+			var cosmetics: Variant = you.get("cosmetics", {})
+			if cosmetics is Dictionary and cosmetics.has("equippedDecorId"):
+				return _as_id(cosmetics.get("equippedDecorId", null))
+		if source.has("equippedDecorId"):
+			return _as_id(source.get("equippedDecorId", null))
+		var shop: Variant = source.get("shop", {})
+		if shop is Dictionary and shop.has("equippedDecorId"):
+			return _as_id(shop.get("equippedDecorId", null))
+	return ""
+
+
 static func _read_marks(bag: Dictionary, root: Dictionary) -> Variant:
 	for source in [bag, root]:
 		var you: Variant = source.get("you", {})
@@ -225,6 +252,19 @@ static func _has_equipped(bag: Dictionary, root: Dictionary) -> bool:
 		if you is Dictionary and (you.has("equippedSkinId") or you.has("equipped") or you.has("cosmetics")):
 			return true
 		if source.has("equippedSkinId") or source.has("equipped"):
+			return true
+	return false
+
+
+static func _has_equipped_decor(bag: Dictionary, root: Dictionary) -> bool:
+	for source in [bag, root]:
+		var you: Variant = source.get("you", {})
+		if you is Dictionary and you.has("equippedDecorId"):
+			return true
+		if source.has("equippedDecorId"):
+			return true
+		var shop: Variant = source.get("shop", {})
+		if shop is Dictionary and shop.has("equippedDecorId"):
 			return true
 	return false
 

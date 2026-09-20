@@ -130,14 +130,21 @@ func buy_shop(item_id: String, client_buy_id: String = "") -> Dictionary:
 	return _shop_from_raw(raw, true)
 
 
-func equip_cosmetic(item_id: String) -> Dictionary:
-	## LIVE POST /shop/equip { itemId } | { itemId: null } + Bearer **player** token.
-	## 200 { ok, you: { marks, equippedSkinId }, item? }. 403 not_owned. Marks untouched.
+func equip_cosmetic(item_id: String, slot: String = "") -> Dictionary:
+	## LIVE POST /shop/equip { itemId } | { itemId: null, slot?: "skin"|"decor" }.
+	## 200 { ok, you: { marks, equippedSkinId, equippedDecorId }, item? }.
+	## Decor slot never overwrites skin. 403 not_owned. Marks untouched.
 	var payload: Dictionary = {}
+	var use_decor := slot == "decor" or Contract.is_decor_chrome(item_id)
 	if item_id == "":
 		payload["itemId"] = null
+		payload["slot"] = "decor" if use_decor else "skin"
 	else:
 		payload["itemId"] = item_id
+		if use_decor:
+			payload["slot"] = "decor"
+		elif slot != "":
+			payload["slot"] = slot
 	var bearer := ClientSession.player_bearer()
 	if bearer == "":
 		bearer = ClientSession.join_token
@@ -207,7 +214,7 @@ func _shop_from_raw(raw: Dictionary, is_buy: bool = false, is_equip: bool = fals
 			body["ok"] = status >= 200 and status < 300 and str(body.get("error", "")) == ""
 		if not body.has("snapshot"):
 			if body.has("you") or body.has("marks") or body.has("owned") or body.has("item") \
-					or body.has("equipped") or body.has("equippedSkinId"):
+					or body.has("equipped") or body.has("equippedSkinId") or body.has("equippedDecorId"):
 				body["snapshot"] = body.duplicate(true)
 	body["status"] = status
 	return body

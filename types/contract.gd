@@ -308,13 +308,22 @@ static func _canonical_shop_id(item_id: String) -> String:
 
 static func is_suit_chrome(item_id: String) -> bool:
 	## Ghillie / bandana swap the operative plate. Poster is wall decor, not a suit.
+	if item_id == "":
+		return false
 	var resolved := _canonical_shop_id(item_id)
 	return resolved == SHOP_STUB_ITEM_ID or resolved == SHOP_BANDANA_ITEM_ID
 
 
-static func shop_catalog_stub(marks: int = 0, owned: Array = [], equipped: String = "") -> Dictionary:
+static func is_decor_chrome(item_id: String) -> bool:
+	if item_id == "":
+		return false
+	return _canonical_shop_id(item_id) == SHOP_POSTER_ITEM_ID
+
+
+static func shop_catalog_stub(marks: int = 0, owned: Array = [], equipped: String = "", equipped_decor: String = "") -> Dictionary:
 	var owned_ids: Array = owned.duplicate()
 	var skin: Variant = equipped if equipped != "" else null
+	var decor: Variant = equipped_decor if equipped_decor != "" else null
 	return {
 		"items": shop_catalog_items(),
 		"you": {
@@ -322,10 +331,12 @@ static func shop_catalog_stub(marks: int = 0, owned: Array = [], equipped: Strin
 			"owned": owned_ids,
 			"equipped": skin,
 			"equippedSkinId": skin,
+			"equippedDecorId": decor,
 		},
 		"owned": owned_ids,
 		"equipped": skin,
 		"equippedSkinId": skin,
+		"equippedDecorId": decor,
 		"marks": marks,
 	}
 

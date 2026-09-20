@@ -216,6 +216,10 @@ func _capture_hideout_poster() -> void:
 	_refresh_shop()
 	await get_tree().process_frame
 	_on_shop_primary(Contract.SHOP_POSTER_ITEM_ID)
+	await get_tree().process_frame
+	if int(ClientSession.marks) >= Contract.SHOP_STUB_PRICE:
+		_on_shop_primary(Contract.SHOP_STUB_ITEM_ID)
+		await get_tree().process_frame
 	if _shop_row:
 		_shop_row.visible = false
 	await get_tree().process_frame
@@ -805,7 +809,8 @@ func _bind_wallet() -> void:
 	var wallet: Dictionary = MatchAPI.wallet()
 	if wallet.has("marks"):
 		ClientSession.bind_marks(int(wallet.get("marks")))
-	if wallet.has("owned") or wallet.has("equipped") or wallet.has("equippedSkinId") or wallet.has("you"):
+	if wallet.has("owned") or wallet.has("equipped") or wallet.has("equippedSkinId") \
+			or wallet.has("equippedDecorId") or wallet.has("you"):
 		ClientSession.apply_shop(wallet)
 
 
@@ -995,14 +1000,15 @@ func _on_equip_toggle(item_id: String) -> void:
 		return
 	var marks_before := int(ClientSession.marks)
 	var next_id := "" if ClientSession.is_equipped(item_id) else item_id
-	var body: Dictionary = MatchAPI.equip_cosmetic(next_id)
+	var slot := "decor" if Contract.is_decor_chrome(item_id) else "skin"
+	var body: Dictionary = MatchAPI.equip_cosmetic(next_id, slot)
 	var shop = Shop.from_any(body)
 	if shop.ok:
 		## Snapshot is the only equipped id. Never invent a skin.
 		ClientSession.apply_shop(body)
 	elif ClientSession.use_live_api() and shop.is_unavailable():
 		## Coder /shop/equip 404 — local chrome only, documented blocker.
-		ClientSession.bind_equip_local(next_id)
+		ClientSession.bind_equip_local(next_id, slot)
 		_toast_msg("LIVE /shop/equip pending Coder  ·  local chrome")
 		_refresh_shop()
 		return

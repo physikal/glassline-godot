@@ -198,6 +198,25 @@ func you_marks() -> int:
 	return int(you().get("marks", 0))
 
 
+func you_equipped_decor_id() -> String:
+	## Caller-scoped poster id. Empty unless the snapshot named it. Never invent.
+	var you_state := you()
+	if you_state.has("equippedDecorId"):
+		var value: Variant = you_state.get("equippedDecorId")
+		if value == null:
+			return ""
+		if value is Dictionary:
+			return str(value.get("itemId", value.get("id", "")))
+		return str(value)
+	var cosmetics: Variant = you_state.get("cosmetics", {})
+	if cosmetics is Dictionary and cosmetics.has("equippedDecorId"):
+		var worn: Variant = cosmetics.get("equippedDecorId")
+		if worn == null:
+			return ""
+		return str(worn)
+	return ""
+
+
 func you_equipped_skin_id() -> String:
 	## Caller-scoped chrome id. Empty unless the snapshot named it. Never invent.
 	var you_state := you()

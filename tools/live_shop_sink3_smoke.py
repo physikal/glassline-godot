@@ -70,6 +70,20 @@ def evidence(msg: str) -> None:
     print(f"EVID  {msg}")
 
 
+def you_field(bag: dict | None, key: str):
+    if not isinstance(bag, dict):
+        return None
+    you = bag.get("you")
+    if isinstance(you, dict) and key in you:
+        return you.get(key)
+    if key in bag:
+        return bag.get(key)
+    snap = bag.get("snapshot")
+    if isinstance(snap, dict):
+        return you_field(snap, key)
+    return None
+
+
 def you_marks(bag: dict | None) -> int | None:
     if not isinstance(bag, dict):
         return None
@@ -92,6 +106,17 @@ def mint_player():
 
 def buy(player_token: str, client_buy_id: str, item_id: str = ITEM):
     return req("POST", "/shop/buy", {"itemId": item_id, "clientBuyId": client_buy_id}, player_token)
+
+
+def equip(player_token: str, item_id, slot: str | None = None):
+    body = {"itemId": item_id}
+    if slot:
+        body["slot"] = slot
+    return req("POST", "/shop/equip", body, player_token)
+
+
+def shop_me(player_token: str):
+    return req("GET", "/shop/me", token=player_token)
 
 
 def create_and_join(player_token: str):
@@ -211,8 +236,8 @@ def main() -> int:
     expect(you_marks(body2) == start_s3, "S3.3 replay does not debit")
     evidence(f"S3.3 replay {code2} {json.dumps(body2)}")
 
-    # --- Earn ≥150 as the same player (six kill wins, ★25 each) ---
-    print("\n== earn six PvP kills on one player (ledger +25 ×6) ==")
+    # --- Earn ≥200 as the same player (eight kill wins, ★25 each) so poster + ghillie both fit ---
+    print("\n== earn eight PvP kills on one player (ledger +25 ×8) ==")
     player_a = mint_player()
     token_a_player = str(player_a.get("token", ""))
     player_id = str(player_a.get("playerId", ""))
@@ -220,7 +245,7 @@ def main() -> int:
     evidence(f"S3.2 player {player_id}")
     earned = 0
     match_ids: list[str] = []
-    for i in range(1, 7):
+    for i in range(1, 9):
         mid, token_a, token_b, join_a, _ = create_and_join(token_a_player)
         match_ids.append(mid)
         before = you_marks(join_a.get("snapshot") or {})
@@ -234,7 +259,7 @@ def main() -> int:
             f"PvP {mid} you.marks {earned}→{after} endReason={snap.get('endReason')} player={player_id}"
         )
         earned = after if after is not None else earned
-    expect(earned is not None and earned >= PRICE, f"same player earned ≥{PRICE} (got {earned})")
+    expect(earned is not None and earned >= PRICE + 50, f"same player earned ≥{PRICE + 50} (got {earned})")
 
     # --- S3.2 buy OK ---
     print("\n== S3.2 buy ==")
@@ -252,7 +277,12 @@ def main() -> int:
         expect(purchase_id != "", "S3.2 purchaseId present")
         item = body.get("item") or {}
         expect(item.get("id") == item_id or item.get("itemId") == item_id, f"S3.2 item {item_id}")
+        expect(
+            you_field(body, "equippedDecorId") == item_id,
+            f"S3.2 you.equippedDecorId={you_field(body, 'equippedDecorId')}",
+        )
         note("S3.2 client bind = response you.marks only (no local marks -=)")
+        note("S3.2 buy auto-equips equippedDecorId; equippedSkinId unchanged")
     else:
         note(f"S3.2 did not debit: HTTP {code} wallet {earned} body={raw[:300]}")
 
@@ -264,6 +294,35 @@ def main() -> int:
     expect(code_r == 200 and body_r.get("ok") is True, f"S3.2 replay 200 (got {code_r})", raw_r)
     expect(replay_marks == after, f"S3.2 replay no second debit {after} → {replay_marks}")
     expect(str(body_r.get("purchaseId", "")) == purchase_id, "S3.2 same purchaseId")
+    expect(
+        you_field(body_r, "equippedDecorId") == item_id,
+        "S3.2 replay keeps equippedDecorId",
+    )
+
+    # --- Dual slot: buy/equip skin must not clear poster ---
+    print("\n== S3.4 equippedDecorId coexists with skin ==")
+    ghillie_id = "skin_hideout_stub"
+    buy_id_g = str(uuid.uuid4())
+    code_g, body_g, raw_g = buy(token_a_player, buy_id_g, ghillie_id)
+    evidence(f"S3.4 buy ghillie {code_g} {json.dumps(body_g)}")
+    expect(code_g == 200 and body_g.get("ok") is True, f"S3.4 buy ghillie 200 (got {code_g})", raw_g)
+    expect(you_field(body_g, "equippedSkinId") == ghillie_id, "S3.4 buy ghillie sets equippedSkinId")
+    expect(you_field(body_g, "equippedDecorId") == item_id, "S3.4 buy ghillie keeps equippedDecorId")
+    code_e, body_e, raw_e = equip(token_a_player, item_id, "decor")
+    evidence(f"S3.4 re-equip poster {code_e} {json.dumps(body_e)}")
+    expect(code_e == 200 and body_e.get("ok") is True, f"S3.4 equip poster 200 (got {code_e})", raw_e)
+    expect(you_field(body_e, "equippedDecorId") == item_id, "S3.4 equip poster sets equippedDecorId")
+    expect(you_field(body_e, "equippedSkinId") == ghillie_id, "S3.4 equip poster leaves skin")
+    code_u, body_u, raw_u = equip(token_a_player, None, "decor")
+    evidence(f"S3.4 unequip decor {code_u} {json.dumps(body_u)}")
+    expect(code_u == 200 and body_u.get("ok") is True, f"S3.4 unequip decor 200 (got {code_u})", raw_u)
+    expect(you_field(body_u, "equippedDecorId") in (None, ""), "S3.4 unequip decor clears poster")
+    expect(you_field(body_u, "equippedSkinId") == ghillie_id, "S3.4 unequip decor leaves skin")
+    code_m, me, raw_m = shop_me(token_a_player)
+    evidence(f"S3.4 GET /shop/me {code_m} {json.dumps(me)}")
+    expect(code_m == 200, f"S3.4 GET /shop/me 200 (got {code_m})", raw_m)
+    expect(you_field(me, "equippedSkinId") == ghillie_id, "S3.4 /shop/me skin still ghillie")
+    expect(you_field(me, "equippedDecorId") in (None, ""), "S3.4 /shop/me decor unequipped")
 
     print()
     print("PLAYER", player_id)

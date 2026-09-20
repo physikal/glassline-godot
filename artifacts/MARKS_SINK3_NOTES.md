@@ -13,7 +13,8 @@ Editor Play stays MOCK (`use_live_api=false`). Smoke path wires `LiveMatchClient
 | --- | --- | --- | --- |
 | `itemId` | `skin_hideout_stub` | `skin_bandana_stub` | **`decor_poster_stub`** |
 | name | GHILLIE RECOLOR | BANDANA RECOLOR | **HIDEOUT POSTER** |
-| kind | `skin` | `skin` | **`decor`** (LIVE may stamp `skin` / `part`) |
+| kind | `skin` | `skin` | **`decor`** |
+| equip slot | `equippedSkinId` | `equippedSkinId` | **`equippedDecorId`** (coexists with skin) |
 | **price** | ★50 | ★100 | **★150** |
 | combat | false | false | **false** |
 
@@ -37,7 +38,7 @@ Probed catalog (Coder still two SKUs at client land — mock + merge append post
 | **S3.1** catalog SKU `decor_poster_stub` ★150 | **PASS mock · LIVE PENDING** | Mock catalog three rows. LIVE `GET /shop` still two SKUs — `Contract.merge_live_shop_catalog` appends poster so ARMORY renders three. Coder: add `decor_poster_stub` ★150. |
 | **S3.2** buy debit + `clientBuyId` idempotent | **PASS mock · LIVE PENDING** | Mock seed ★200 → snapshot ★50, `purchase` once. Replay same `clientBuyId` still ★50. LIVE buy blocked until Coder +1 SKU. |
 | **S3.3** 402 insufficient in UI | **PASS mock · LIVE PENDING** | Default ★24 vs ★150: BUY disabled / `Not enough Marks.` Mock post → `insufficient_marks`, chip stays ★24. |
-| **S3.4** hideout poster when owned/equipped | **PASS mock** | Wall stamp after buy (auto-equip). Suit swap keeps the poster (owned wall art). Still [`ux/hideout_poster_equipped.png`](ux/hideout_poster_equipped.png). |
+| **S3.4** hideout poster when owned/equipped | **PASS mock** | Wall stamp binds `you.equippedDecorId`. Skin + poster both equipped. Still [`ux/hideout_poster_equipped.png`](ux/hideout_poster_equipped.png). |
 | **S3.5** zero combat delta | **PASS mock** | `RECON_BASE` 0.35 · PvP kill ★25. Exposure doll ignores poster (not suit chrome). |
 | **S3.6** UX three-row ARMORY | **PASS mock** | [`ux/armory_three_row.png`](ux/armory_three_row.png) (Ghillie / Bandana / Poster, ★24, disabled BUY). [`ux/armory_poster_post_buy.png`](ux/armory_poster_post_buy.png) (seed ★200 → snapshot ★50, poster OWNED). |
 
@@ -68,7 +69,8 @@ Never `marks -=` (or `marks +=`) on the client as truth. Hideout BUY posts `{ it
 | --- | --- | --- |
 | GET | `/shop` | `{ items: ShopItem[] }` public. Prefer LIVE when poster is present. |
 | POST | `/players` | `{ }` → `{ playerId, token, marks }`. Persist `token`. |
-| POST | `/shop/buy` | `{ itemId, clientBuyId }` + Bearer **player** token → `{ ok, you: { marks }, purchaseId, item }`. **Idempotent on `(playerId, clientBuyId)`.** |
+| POST | `/shop/buy` | `{ itemId, clientBuyId }` + Bearer **player** token → `{ ok, you: { marks, equippedSkinId, equippedDecorId }, purchaseId, item }`. Last buy auto-equips **that slot only**. |
+| POST | `/shop/equip` | `{ itemId }` or `{ itemId: null, slot?: "skin"\|"decor" }`. Decor never overwrites skin. |
 | 402 | | `{ error, code: "insufficient_marks", you: { marks } }` |
 
 ## S3.1–S3.6 mapping
@@ -78,7 +80,7 @@ Never `marks -=` (or `marks +=`) on the client as truth. Hideout BUY posts `{ it
 | **S3.1** Catalog + shop row | ARMORY row 3 · HIDEOUT POSTER | Catalog-driven rows from `GET /shop` (merge-append if LIVE lags). ★150. |
 | **S3.2** Buy at ★150 | BUY → `POST /shop/buy` | New UUID `clientBuyId`. Chip refreshes from snapshot `you.marks` only (e.g. 200→50). Replay same id does not debit twice. |
 | **S3.3** Insufficient | ★24 vs ★150 | Row BUY **disabled / Not enough Marks.** If posted, reject `insufficient_marks`. Chip unchanged. |
-| **S3.4** Hideout wall | owned / auto-equip | Chunky pixel toy-spy poster (gold frame, cream paper, goggles). Not a mil-sim ops board. Suit swap does not take it down. |
+| **S3.4** Hideout wall | `equippedDecorId` | Chunky pixel toy-spy poster. Coexists with ghillie/bandana. `{ itemId: null, slot: "decor" }` takes it down; skin stays. |
 | **S3.5** Combat | — | Attack / Recon / UAV table unchanged. Doll ignores poster id. |
 | **S3.6** Stills | `artifacts/ux/` | `armory_three_row.png` · `armory_poster_post_buy.png` · `hideout_poster_equipped.png`. |
 
@@ -92,8 +94,8 @@ Never `marks -=` (or `marks +=`) on the client as truth. Hideout BUY posts `{ it
 | Row 3 | HIDEOUT POSTER ★150 — same BUY / insufficient / OWNED / EQUIP states. |
 | Marks chip | `MARKS ★N` from `you.marks` / shop snapshot / mock wallet. Never local debit. |
 | BUY | Enabled only when `you.marks` ≥ that row's price. New `clientBuyId` UUID. |
-| OWNED | Visual toggle for suit SKUs. Poster is wall art when owned (buy auto-equips). |
-| Equip | Poster uses existing `POST /shop/equip`. Not suit chrome — operative click skips it. |
+| OWNED | Suit rows EQUIP the skin slot. Poster row EQUIP writes `equippedDecorId` only. |
+| Equip | `POST /shop/equip` `{ itemId, slot? }`. Poster is not suit chrome — operative click skips it. |
 
 ## Mock vs LIVE
 
@@ -114,6 +116,13 @@ Never `marks -=` (or `marks +=`) on the client as truth. Hideout BUY posts `{ it
 
 IAP / Chips · fourth sink · combat skins · art pass · ranked. LIVE player token is in-slice (`POST /players`).
 
-## Coder blocker
+## Coder field (2026-09-20)
 
-LIVE `GET /shop` (2026-09-20) still lists only `skin_hideout_stub` + `skin_bandana_stub`. Add `decor_poster_stub` · HIDEOUT POSTER · ★150 · kind `decor` (or `part` / `skin`) so S3.1–S3.3 can PASS LIVE. Client merge + mock already ship the third row.
+LIVE catalog now lists `decor_poster_stub`. Skin and poster **coexist**:
+
+| Slot | Wire | SKUs |
+| --- | --- | --- |
+| Skin | `you.equippedSkinId` | `skin_hideout_stub` · `skin_bandana_stub` |
+| Decor | `you.equippedDecorId` | `decor_poster_stub` |
+
+Client never writes skin when toggling poster. Unequip poster is `{ itemId: null, slot: "decor" }`.
