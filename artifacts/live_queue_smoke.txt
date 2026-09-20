@@ -1,24 +1,36 @@
 {
   "ok": true,
   "base": "https://glassline-api.vercel.app",
-  "pass": 14,
+  "pass": 39,
   "fails": [],
   "notes": [
-    "POST /queue no-auth 401 (route up)"
+    "POST /queue no-auth 401 (route up)",
+    "Q4 waiting 61s for LIVE TTL"
   ],
   "evidence": {
-    "host": "p_a1e50f3173c049669dd05c78b82d1194",
-    "guest": "p_5241bcefd9c14d018496fe4826fc5012",
+    "host": "p_c84cf5f88050443387b67eec7f991936",
+    "guest": "p_484fad047e774294a5e3fa7eab4edc20",
     "enqueue": {
       "status": "queued",
-      "queuedAt": "2026-09-20T17:40:48.330Z",
+      "queuedAt": "2026-09-20T17:44:37.828Z",
       "timeoutSec": 60,
-      "expiresAt": "2026-09-20T17:41:48.330Z"
+      "expiresAt": "2026-09-20T17:45:37.828Z"
     },
-    "matchId": "m_5583a3e790ea4f31a9473a45d963964f",
+    "matchId": "m_d8e805252a89494ab4e4d8ac2a1de714",
+    "seats": {
+      "a": "a",
+      "b": "b"
+    },
     "cancel_marks": {
       "before": 0,
       "after": 0
+    },
+    "timeout_marks": {
+      "before": 0,
+      "after": 0,
+      "first": {
+        "status": "expired"
+      }
     }
   }
 }
