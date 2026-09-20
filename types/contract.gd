@@ -92,6 +92,16 @@ const SHOP_EQUIP_COPY := "Tap to wear  ·  visual only"
 const SHOP_EQUIPPED_COPY := "Wearing this  ·  visual only"
 const SHOP_INSUFFICIENT_COPY := "Not enough Marks."
 
+## Visual gun families — hideout rack + optic chrome only. Not shop SKUs.
+## In-fiction names. No OEM / mil-sim copy. No Marks prices.
+const GUN_FIELDBOLT := "gun_fieldbolt"
+const GUN_RAILFRAME := "gun_railframe"
+const GUN_CRESCENT := "gun_crescent"
+const GUN_FIELDBOLT_NAME := "FIELDBOLT"
+const GUN_RAILFRAME_NAME := "RAILFRAME"
+const GUN_CRESCENT_NAME := "CRESCENT"
+const GUN_SLOT := "gun"
+
 ## Locked GD earn table (2026-09-18). Mock display grants only; LIVE ledger is Coder.
 const MARKS_PVP_WIN := 25
 const MARKS_PVP_LOSS := 3
@@ -341,6 +351,39 @@ static func is_decor_chrome(item_id: String) -> bool:
 	if item_id == "":
 		return false
 	return _canonical_shop_id(item_id) == SHOP_POSTER_ITEM_ID
+
+
+static func gun_family_ids() -> Array:
+	return [GUN_FIELDBOLT, GUN_RAILFRAME, GUN_CRESCENT]
+
+
+static func is_gun_chrome(item_id: String) -> bool:
+	return canonical_gun_id(item_id) != ""
+
+
+static func canonical_gun_id(item_id: String) -> String:
+	## Visual slot ids only. Never a shop catalog row.
+	match str(item_id):
+		GUN_FIELDBOLT, "fieldbolt", "starter_bolt", "bolt_classic":
+			return GUN_FIELDBOLT
+		GUN_RAILFRAME, "railframe", "chassis_bolt":
+			return GUN_RAILFRAME
+		GUN_CRESCENT, "crescent", "long_cutout":
+			return GUN_CRESCENT
+		_:
+			return ""
+
+
+static func gun_family_name(item_id: String) -> String:
+	match canonical_gun_id(item_id):
+		GUN_RAILFRAME:
+			return GUN_RAILFRAME_NAME
+		GUN_CRESCENT:
+			return GUN_CRESCENT_NAME
+		GUN_FIELDBOLT:
+			return GUN_FIELDBOLT_NAME
+		_:
+			return ""
 
 
 static func shop_catalog_stub(marks: int = 0, owned: Array = [], equipped: String = "", equipped_decor: String = "") -> Dictionary:

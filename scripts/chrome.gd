@@ -36,6 +36,7 @@ const FIRE_ORANGE := Color("f0a020")
 const P1 := Color("3ecf8e")
 const P2 := Color("f08a2a")
 const HEX_LINE := Color("f2e6c4")
+const _ArtPack := preload("res://scripts/art_pack.gd")
 
 
 static func pixel_font() -> Font:
@@ -141,6 +142,14 @@ static func action_button(kind: String, text: String, bg: Color, fg: Color, min_
 	return button
 
 
+static func hex_stamp(kind: String) -> Texture2D:
+	return _ArtPack.hex_stamp(kind)
+
+
+static func hex_legend_tex(kind: String) -> Texture2D:
+	return _ArtPack.hex_legend(kind)
+
+
 static func terrain_color(kind: String) -> Color:
 	match kind:
 		Contract.TYPE_OPEN:
@@ -209,6 +218,10 @@ static func make_icon(kind: String, color: Color, px: int = 28) -> Texture2D:
 
 
 static func make_face(kind: String, px: int = 44) -> Texture2D:
+	## Same hideout operative crop — not a mushy circle next to painted wood.
+	var plate: Texture2D = _ArtPack.face_texture("p2" if kind == "p2" else "p1")
+	if plate:
+		return plate
 	var img := Image.create(px, px, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
 	var cx := px / 2

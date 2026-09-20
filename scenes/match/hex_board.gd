@@ -122,37 +122,46 @@ func _draw() -> void:
 
 
 func _stamp(center: Vector2, kind: String, fill: Color) -> void:
+	## Painted hex-map clumps / rock piles — never flat circle/rect legend icons.
+	var stamp: Texture2D = Chrome.hex_stamp(kind)
+	if stamp:
+		var sz := Vector2(32, 32)
+		if kind == Contract.TYPE_OPEN:
+			sz = Vector2(28, 28)
+		draw_texture_rect(stamp, Rect2(center - sz * 0.5, sz), false)
+		return
 	match kind:
 		Contract.TYPE_BRUSH:
-			_bush(center + Vector2(-6, 6), 8.5)
-			_bush(center + Vector2(8, -1), 7.2)
-			_bush(center + Vector2(0, 3), 5.4)
+			_bush(center + Vector2(0, 2), 11.0)
 		Contract.TYPE_HARD:
-			_rock(center + Vector2(-5, 4), Vector2(13, 9), fill)
-			_rock(center + Vector2(6, -4), Vector2(10, 8), fill.lightened(0.1))
-			_rock(center + Vector2(1, 7), Vector2(7, 5), fill.darkened(0.06))
+			_rock_pile(center)
 		Contract.TYPE_OPEN:
-			draw_circle(center + Vector2(-9, 7), 1.8, fill.darkened(0.2))
-			draw_circle(center + Vector2(8, -5), 1.5, fill.darkened(0.14))
-			draw_circle(center + Vector2(3, 9), 1.4, fill.darkened(0.22))
-			draw_circle(center + Vector2(-4, -7), 1.6, Color("7eb24a"))
-			draw_circle(center + Vector2(6, 6), 1.2, Color("8fbf5a"))
+			draw_circle(center + Vector2(-8, 6), 1.6, fill.darkened(0.22))
+			draw_circle(center + Vector2(7, -5), 1.3, fill.darkened(0.16))
 		_:
 			_draw_mark(center, "?", Color("d8d8de"))
 
 
 func _bush(pos: Vector2, radius: float) -> void:
-	draw_circle(pos + Vector2(0, 2), radius, Color("3d6a28"))
-	draw_circle(pos + Vector2(-2, 0), radius * 0.78, Color("5a8f34"))
-	draw_circle(pos + Vector2(2, -1), radius * 0.7, Color("7cb34a"))
-	draw_circle(pos + Vector2(-1, -2), radius * 0.28, Color("c6e08a"))
+	## Fallback painted clump if the canon stamp failed to import.
+	draw_circle(pos + Vector2(0, 3), radius, Color("2a4a18"))
+	draw_circle(pos + Vector2(-5, 0), radius * 0.74, Color("3d6a28"))
+	draw_circle(pos + Vector2(5, -1), radius * 0.70, Color("6a9e3a"))
+	draw_circle(pos + Vector2(0, -4), radius * 0.48, Color("5a8f34"))
 
 
-func _rock(pos: Vector2, size: Vector2, fill: Color) -> void:
-	var rect := Rect2(pos - size * 0.5, size)
-	draw_rect(rect, fill.darkened(0.28))
-	draw_rect(Rect2(rect.position + Vector2(1, 1), size - Vector2(3, 4)), fill.lightened(0.12))
-	draw_rect(Rect2(rect.position + Vector2(2, 1), Vector2(size.x * 0.35, 2)), Color("d5dbe2"))
+func _rock_pile(center: Vector2) -> void:
+	var a := PackedVector2Array([
+		center + Vector2(-10, 4), center + Vector2(-2, -6), center + Vector2(8, 2),
+		center + Vector2(4, 8), center + Vector2(-8, 8),
+	])
+	draw_colored_polygon(a, Color("6a7078"))
+	var b := PackedVector2Array([
+		center + Vector2(-2, -2), center + Vector2(6, -8), center + Vector2(11, 0),
+		center + Vector2(4, 4),
+	])
+	draw_colored_polygon(b, Color("9aa3ad"))
+	draw_circle(center + Vector2(-4, -3), 2.0, Color("d5dbe2"))
 
 
 func _draw_tokens() -> void:

@@ -80,6 +80,10 @@ func _ready() -> void:
 		_capture_sp_end()
 	elif "--capture-equip-doll" in args:
 		_capture_equip_doll()
+	elif "--capture-art-hex" in args:
+		_capture_art_hex()
+	elif "--capture-art-optic" in args:
+		_capture_art_optic()
 	elif "--capture-decoy-hud" in args:
 		_capture_decoy_hud()
 	elif "--capture-decoy-blip" in args:
@@ -131,6 +135,41 @@ func _capture_after_play() -> void:
 	var path := ProjectSettings.globalize_path("res://artifacts/a1-after-play.png")
 	img.save_png(path)
 	print("A1_AFTER_PLAY_CAPTURE ", path)
+	get_tree().quit()
+
+
+func _capture_art_hex() -> void:
+	if _coach:
+		_coach.dismiss()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	var path := ProjectSettings.globalize_path("res://artifacts/ux/03_hex_open_brush_hard_unknown.png")
+	img.save_png(path)
+	print("ART_03_HEX ", path)
+	get_tree().quit()
+
+
+func _capture_art_optic() -> void:
+	if _coach:
+		_coach.dismiss()
+	await get_tree().process_frame
+	_submit(ActionIntent.select_hex(2, 2))
+	await get_tree().process_frame
+	if ClientSession.dummy_player_id != "":
+		MatchAPI.apply_action(ClientSession.match_id, ClientSession.dummy_player_id, ActionIntent.select_hex(7, 5))
+		await get_tree().process_frame
+	_submit(ActionIntent.start())
+	await get_tree().process_frame
+	_optic.open_for(Contract.hex_dict(4, 3), Contract.TYPE_BRUSH, true, ClientSession.equipped_gun_id())
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	var path := ProjectSettings.globalize_path("res://artifacts/ux/05_attack_optic_fieldbolt.png")
+	img.save_png(path)
+	print("ART_05_ATTACK_OPTIC ", path)
 	get_tree().quit()
 
 
@@ -605,10 +644,10 @@ func _build() -> void:
 	legend.position = Vector2(16, 168)
 	legend.add_theme_constant_override("separation", 12)
 	add_child(legend)
-	_legend_row(legend, Chrome.OPEN, "OPEN")
-	_legend_row(legend, Chrome.BRUSH, "BRUSH")
-	_legend_row(legend, Chrome.HARD, "HARD")
-	_legend_row(legend, Chrome.UNKNOWN, "UNKNOWN")
+	_legend_row(legend, Contract.TYPE_OPEN, "OPEN")
+	_legend_row(legend, Contract.TYPE_BRUSH, "BRUSH")
+	_legend_row(legend, Contract.TYPE_HARD, "HARD")
+	_legend_row(legend, "unknown", "UNKNOWN")
 
 	_legend_hover = Label.new()
 	_legend_hover.position = Vector2(16, 380)
@@ -869,10 +908,17 @@ func _add_player_card(is_you: bool) -> void:
 		_rival_chip = chip
 
 
-func _legend_row(parent: VBoxContainer, color: Color, text: String) -> void:
+func _legend_row(parent: VBoxContainer, kind: String, text: String) -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
-	row.add_child(Chrome.hex_swatch(color, 22))
+	var stamp := TextureRect.new()
+	stamp.texture = Chrome.hex_legend_tex(kind)
+	stamp.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	stamp.custom_minimum_size = Vector2(36, 28)
+	stamp.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	stamp.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	stamp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(stamp)
 	var lbl := Label.new()
 	lbl.text = text
 	Chrome.apply_label(lbl, 8, Chrome.CREAM, true)
@@ -1028,7 +1074,7 @@ func _handle_hex(q: int, r: int) -> void:
 		_selected = Contract.hex_dict(q, r)
 		var kind := str(snap.terrain_map().get("%d,%d" % [q, r], "unknown"))
 		var show_fig := Contract.same_hex(snap.enemy_visible_hex(), _selected)
-		_optic.open_for(_selected, kind, show_fig)
+		_optic.open_for(_selected, kind, show_fig, ClientSession.equipped_gun_id())
 		return
 	_selected = Contract.hex_dict(q, r)
 	_refresh(snap)

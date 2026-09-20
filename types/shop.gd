@@ -10,11 +10,15 @@ var items: Array = []
 var owned: Array = []
 var equipped: String = ""
 var equipped_decor: String = ""
+var equipped_gun: String = ""
+var owned_guns: Array = []
 var error: String = ""
 var ok: bool = true
 var owned_present: bool = false
 var equipped_present: bool = false
 var equipped_decor_present: bool = false
+var equipped_gun_present: bool = false
+var owned_guns_present: bool = false
 var purchase_id: String = ""
 
 
@@ -36,10 +40,14 @@ static func from_any(payload: Variant):
 	parsed.owned = _read_owned(bag, root)
 	parsed.equipped = _read_equipped(bag, root)
 	parsed.equipped_decor = _read_equipped_decor(bag, root)
+	parsed.equipped_gun = _read_equipped_gun(bag, root)
+	parsed.owned_guns = _read_owned_guns(bag, root)
 	parsed.marks = _read_marks(bag, root)
 	parsed.owned_present = _has_owned(bag, root)
 	parsed.equipped_present = _has_equipped(bag, root)
 	parsed.equipped_decor_present = _has_equipped_decor(bag, root)
+	parsed.equipped_gun_present = _has_equipped_gun(bag, root)
+	parsed.owned_guns_present = _has_owned_guns(bag, root)
 	parsed.purchase_id = str(bag.get("purchaseId", root.get("purchaseId", "")))
 	## LIVE buy 200: { ok, you.marks, purchaseId, item } — infer owned/equip.
 	## Do not mark owned_present — apply_shop merges so a second SKU does not wipe the first.
@@ -53,10 +61,13 @@ static func from_any(payload: Variant):
 			if not parsed.owned_present:
 				parsed.owned = [bought_id]
 			## Decor buy auto-equips equippedDecorId only. Never overwrite skin.
+			## Gun ids are visual rack slots — never a skin / catalog SKU this pass.
 			if Contract.is_decor_chrome(bought_id):
 				if not parsed.equipped_decor_present:
 					parsed.equipped_decor = bought_id
 					parsed.equipped_decor_present = true
+			elif Contract.is_gun_chrome(bought_id):
+				pass
 			elif not parsed.equipped_present:
 				parsed.equipped = bought_id
 				parsed.equipped_present = true
@@ -265,6 +276,85 @@ static func _has_equipped_decor(bag: Dictionary, root: Dictionary) -> bool:
 			return true
 		var shop: Variant = source.get("shop", {})
 		if shop is Dictionary and shop.has("equippedDecorId"):
+			return true
+	return false
+
+
+static func _read_equipped_gun(bag: Dictionary, root: Dictionary) -> String:
+	## Optional Coder `you.equippedGunId`. Absent → client stub (starter Fieldbolt).
+	for source in [bag, root]:
+		var you: Variant = source.get("you", {})
+		if you is Dictionary and you.has("equippedGunId"):
+			return Contract.canonical_gun_id(_as_id(you.get("equippedGunId", null)))
+		var cosmetics: Variant = {}
+		if you is Dictionary:
+			cosmetics = you.get("cosmetics", {})
+		if cosmetics is Dictionary and cosmetics.has("equippedGunId"):
+			return Contract.canonical_gun_id(_as_id(cosmetics.get("equippedGunId", null)))
+		if source.has("equippedGunId"):
+			return Contract.canonical_gun_id(_as_id(source.get("equippedGunId", null)))
+		var shop: Variant = source.get("shop", {})
+		if shop is Dictionary and shop.has("equippedGunId"):
+			return Contract.canonical_gun_id(_as_id(shop.get("equippedGunId", null)))
+	return ""
+
+
+static func _read_owned_guns(bag: Dictionary, root: Dictionary) -> Array:
+	## Optional `ownedGuns` / `ownedGunIds`. Never read skin/decor `owned`.
+	var found: Array = []
+	for source in [bag, root]:
+		var you: Variant = source.get("you", {})
+		if you is Dictionary:
+			found = _as_gun_id_list(you.get("ownedGuns", you.get("ownedGunIds", [])))
+			if not found.is_empty():
+				return found
+			var cosmetics: Variant = you.get("cosmetics", {})
+			if cosmetics is Dictionary:
+				found = _as_gun_id_list(cosmetics.get("ownedGuns", cosmetics.get("ownedGunIds", [])))
+				if not found.is_empty():
+					return found
+		found = _as_gun_id_list(source.get("ownedGuns", source.get("ownedGunIds", [])))
+		if not found.is_empty():
+			return found
+		var shop: Variant = source.get("shop", {})
+		if shop is Dictionary:
+			found = _as_gun_id_list(shop.get("ownedGuns", shop.get("ownedGunIds", [])))
+			if not found.is_empty():
+				return found
+	return []
+
+
+static func _as_gun_id_list(value: Variant) -> Array:
+	var ids: Array = []
+	for item_id in _as_id_list(value):
+		var gid := Contract.canonical_gun_id(str(item_id))
+		if gid != "" and not ids.has(gid):
+			ids.append(gid)
+	return ids
+
+
+static func _has_equipped_gun(bag: Dictionary, root: Dictionary) -> bool:
+	for source in [bag, root]:
+		var you: Variant = source.get("you", {})
+		if you is Dictionary and you.has("equippedGunId"):
+			return true
+		if source.has("equippedGunId"):
+			return true
+		var shop: Variant = source.get("shop", {})
+		if shop is Dictionary and shop.has("equippedGunId"):
+			return true
+	return false
+
+
+static func _has_owned_guns(bag: Dictionary, root: Dictionary) -> bool:
+	for source in [bag, root]:
+		var you: Variant = source.get("you", {})
+		if you is Dictionary and (you.has("ownedGuns") or you.has("ownedGunIds")):
+			return true
+		if source.has("ownedGuns") or source.has("ownedGunIds"):
+			return true
+		var shop: Variant = source.get("shop", {})
+		if shop is Dictionary and (shop.has("ownedGuns") or shop.has("ownedGunIds")):
 			return true
 	return false
 
