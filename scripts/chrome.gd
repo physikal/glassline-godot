@@ -36,6 +36,7 @@ const FIRE_ORANGE := Color("f0a020")
 const P1 := Color("3ecf8e")
 const P2 := Color("f08a2a")
 const HEX_LINE := Color("f2e6c4")
+const _ArtPack := preload("res://scripts/art_pack.gd")
 
 
 static func pixel_font() -> Font:
@@ -134,11 +135,78 @@ static func _styled_button(text: String, bg: Color, fg: Color, min_size: Vector2
 
 
 static func action_button(kind: String, text: String, bg: Color, fg: Color, min_size: Vector2 = Vector2(220, 64)) -> Button:
-	var button := chunk_button(text, bg, fg, min_size)
-	button.icon = make_icon(kind, fg, 28)
-	button.add_theme_constant_override("h_separation", 10)
-	button.add_theme_constant_override("icon_max_width", 28)
+	return game_button(kind, text, bg, fg, min_size)
+
+
+static func game_button(kind: String, text: String, bg: Color, fg: Color, min_size: Vector2 = Vector2(248, 76)) -> Button:
+	## Chunky match-board game key — not a thin SaaS pill.
+	var button := _styled_button(text, bg, fg, min_size, 20, 12)
+	if kind != "":
+		button.icon = make_icon(kind, fg, 30)
+		button.add_theme_constant_override("h_separation", 12)
+		button.add_theme_constant_override("icon_max_width", 30)
 	return button
+
+
+static func high_ground_chip() -> Control:
+	## Parked display chip — not a 4th action key. No combat buff.
+	var panel := PanelContainer.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.tooltip_text = Contract.HIGH_GROUND_COPY
+	var box := flat(Color("1a1612"), 12, HIGH_GOLD, 2)
+	box.content_margin_left = 10
+	box.content_margin_right = 12
+	box.content_margin_top = 6
+	box.content_margin_bottom = 6
+	panel.add_theme_stylebox_override("panel", box)
+	panel.custom_minimum_size = Vector2(208, 34)
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_theme_constant_override("separation", 8)
+	var icon := TextureRect.new()
+	icon.texture = make_icon("high", HIGH_GOLD, 18)
+	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	icon.custom_minimum_size = Vector2(18, 18)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(icon)
+	var lbl := Label.new()
+	lbl.text = "%s  +10%%" % Contract.HIGH_GROUND_LABEL
+	apply_label(lbl, 8, CREAM, true)
+	row.add_child(lbl)
+	panel.add_child(row)
+	return panel
+
+
+static func plate_hotspot(min_size: Vector2) -> Button:
+	## Invisible hit over the painted match-board key. Plate carries the weight.
+	var button := Button.new()
+	button.text = ""
+	button.custom_minimum_size = min_size
+	button.size = min_size
+	button.flat = true
+	var empty := StyleBoxEmpty.new()
+	for style in ["normal", "hover", "pressed", "disabled", "focus"]:
+		button.add_theme_stylebox_override(style, empty)
+	button.add_theme_color_override("font_color", Color(0, 0, 0, 0))
+	button.add_theme_color_override("font_hover_color", Color(0, 0, 0, 0))
+	button.add_theme_color_override("font_pressed_color", Color(0, 0, 0, 0))
+	button.add_theme_color_override("font_disabled_color", Color(0, 0, 0, 0))
+	button.add_theme_color_override("icon_normal_color", Color(0, 0, 0, 0))
+	return button
+
+
+static func hex_stamp(kind: String) -> Texture2D:
+	return _ArtPack.hex_stamp(kind)
+
+
+static func hex_tile(kind: String, variant: int = 0) -> Texture2D:
+	return _ArtPack.hex_tile(kind, variant)
+
+
+static func hex_legend_tex(kind: String) -> Texture2D:
+	return _ArtPack.hex_legend(kind)
 
 
 static func terrain_color(kind: String) -> Color:
@@ -191,6 +259,8 @@ static func make_icon(kind: String, color: Color, px: int = 28) -> Texture2D:
 			_icon_toy_doll(img, color)
 		"clock":
 			_icon_clock(img, color)
+		"high", "highground":
+			_icon_high_ground(img, color)
 		"play":
 			_icon_play(img, color)
 		"jobs":
@@ -209,6 +279,16 @@ static func make_icon(kind: String, color: Color, px: int = 28) -> Texture2D:
 
 
 static func make_face(kind: String, px: int = 44) -> Texture2D:
+	## Same hideout operative crop — not a mushy circle next to painted wood.
+	var plate: Texture2D = _ArtPack.face_texture("p2" if kind == "p2" else "p1")
+	if plate:
+		var src := plate.get_image()
+		if src:
+			if src.is_compressed():
+				src.decompress()
+			src.resize(px, px, Image.INTERPOLATE_NEAREST)
+			return ImageTexture.create_from_image(src)
+		return plate
 	var img := Image.create(px, px, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
 	var cx := px / 2
@@ -228,6 +308,38 @@ static func make_face(kind: String, px: int = 44) -> Texture2D:
 		_fill_rect(img, cx - 6, cy - 4, 4, 4, INK)
 		_fill_rect(img, cx + 3, cy - 4, 4, 4, INK)
 		_fill_rect(img, cx - 3, cy + 5, 7, 2, Color("c45a4a"))
+	return ImageTexture.create_from_image(img)
+
+
+static func make_optic_stick_well(px: int = 220) -> Texture2D:
+	## Chunky toy well — same gray plastic weight as the plate plus-pad.
+	var img := Image.create(px, px, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	var c := px / 2
+	_fill_circle(img, c, c, c - 1, Color("06090e"))
+	_fill_circle(img, c, c, c - 6, Color("2a2c30"))
+	_fill_circle(img, c, c, c - 14, Color("3a3c40"))
+	_fill_circle(img, c, c, c - 22, Color("1c1e22"))
+	_stroke_circle(img, c, c, c - 8, Color("5a5c60"))
+	_stroke_circle(img, c, c, c - 20, Color("4a4c50"))
+	_fill_circle(img, c, c, c - 36, Color("0c1016"))
+	_stroke_circle(img, c, c, c - 38, Color("2a2c30"))
+	return ImageTexture.create_from_image(img)
+
+
+static func make_optic_stick_knob(px: int = 96) -> Texture2D:
+	## Raised plastic thumb — gold ring matches FAR/MID plate chips.
+	var img := Image.create(px, px, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	var c := px / 2
+	_fill_circle(img, c, c + 3, c - 2, Color("141618"))
+	_fill_circle(img, c, c, c - 2, Color("2c2e32"))
+	_fill_circle(img, c, c - 2, c - 8, Color("4a4c50"))
+	_stroke_circle(img, c, c, c - 4, HIGH_GOLD)
+	_stroke_circle(img, c, c, c - 7, Color("e8c86a"))
+	_fill_circle(img, c - 8, c - 10, 12, Color("6a6c70"))
+	_fill_circle(img, c, c + 2, 10, Color("1a1c20"))
+	_stroke_circle(img, c, c + 2, 6, Color("c9a24a"))
 	return ImageTexture.create_from_image(img)
 
 
@@ -341,6 +453,18 @@ static func _icon_star(img: Image, color: Color) -> void:
 		var c := deg_to_rad(-90.0 + float(i + 1) * 72.0)
 		_line(img, cx + cos(b) * 4.5, cy + sin(b) * 4.5, cx + cos(c) * 11.0, cy + sin(c) * 11.0, color)
 	_fill_circle(img, 14, 14, 3, color)
+
+
+static func _icon_high_ground(img: Image, color: Color) -> void:
+	## Stacked hex chips — plate HIGH GROUND, not a mountain / mil-sim badge.
+	_fill_rect(img, 10, 4, 8, 6, color)
+	_fill_rect(img, 8, 6, 12, 4, color)
+	_fill_rect(img, 6, 12, 8, 6, color)
+	_fill_rect(img, 4, 14, 12, 4, color)
+	_fill_rect(img, 14, 12, 8, 6, color)
+	_fill_rect(img, 12, 14, 12, 4, color)
+	_fill_rect(img, 10, 20, 8, 6, color)
+	_fill_rect(img, 8, 22, 12, 4, color)
 
 
 static func _icon_clock(img: Image, color: Color) -> void:

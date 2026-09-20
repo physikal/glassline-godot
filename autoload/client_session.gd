@@ -40,6 +40,9 @@ var poster: bool = false
 var owned_cosmetics: Array = []
 var equipped_cosmetic: String = ""
 var equipped_decor: String = ""
+## Visual gun rack. Starter Fieldbolt owned-by-default until Coder gun SKUs.
+var owned_guns: Array = [Contract.GUN_FIELDBOLT]
+var equipped_gun: String = Contract.GUN_FIELDBOLT
 ## -1 follow project/env/export; 0 mock; 1 live
 var live_override: int = -1
 
@@ -130,7 +133,12 @@ func apply_shop(bag: Dictionary) -> void:
 		equipped_cosmetic = str(shop.equipped)
 	if shop.equipped_decor_present:
 		equipped_decor = str(shop.equipped_decor)
+	if shop.owned_guns_present:
+		owned_guns = shop.owned_guns.duplicate()
+	if shop.equipped_gun_present:
+		equipped_gun = str(shop.equipped_gun)
 	_sync_cosmetic_flags()
+	_sync_gun_stub()
 
 
 func owns_cosmetic(item_id: String) -> bool:
@@ -162,6 +170,42 @@ func _sync_cosmetic_flags() -> void:
 	poster = is_equipped(Contract.SHOP_POSTER_ITEM_ID)
 
 
+func _sync_gun_stub() -> void:
+	## Chrome-only. Starter bolt is always owned. Unknown / unowned equip falls back.
+	if not owned_guns.has(Contract.GUN_FIELDBOLT):
+		owned_guns.append(Contract.GUN_FIELDBOLT)
+	var gid := Contract.canonical_gun_id(equipped_gun)
+	if gid == "" or not owns_gun(gid):
+		equipped_gun = Contract.GUN_FIELDBOLT
+	else:
+		equipped_gun = gid
+
+
+func owns_gun(item_id: String) -> bool:
+	var gid := Contract.canonical_gun_id(item_id)
+	if gid == "":
+		return false
+	if gid == Contract.GUN_FIELDBOLT:
+		return true
+	return owned_guns.has(gid)
+
+
+func equipped_gun_id() -> String:
+	var gid := Contract.canonical_gun_id(equipped_gun)
+	return gid if owns_gun(gid) else Contract.GUN_FIELDBOLT
+
+
+func gun_slot_state(item_id: String) -> String:
+	var gid := Contract.canonical_gun_id(item_id)
+	if gid == "":
+		return "empty"
+	if equipped_gun_id() == gid:
+		return "equipped"
+	if owns_gun(gid):
+		return "owned"
+	return "locked"
+
+
 func apply_snapshot(snap: Dictionary) -> void:
 	## A2: full replace. Never merge invented terrain tags or lastAction.hit.
 	last_snapshot = snap.duplicate(true)
@@ -181,13 +225,16 @@ func apply_snapshot(snap: Dictionary) -> void:
 		## A2: wallet is snapshot you.marks only. Replace — never invent / keep a local grant.
 		bind_marks(int(you.get("marks", 0)))
 		if you.has("owned") or you.has("equipped") or you.has("equippedSkinId") \
-				or you.has("equippedDecorId") or you.has("cosmetics"):
+				or you.has("equippedDecorId") or you.has("cosmetics") \
+				or you.has("equippedGunId") or you.has("ownedGuns") or you.has("ownedGunIds"):
 			apply_shop({
 				"you": you,
 				"owned": you.get("owned", owned_cosmetics),
 				"equipped": you.get("equippedSkinId", you.get("equipped", equipped_cosmetic)),
 				"equippedSkinId": you.get("equippedSkinId", you.get("equipped", equipped_cosmetic)),
 				"equippedDecorId": you.get("equippedDecorId", equipped_decor),
+				"equippedGunId": you.get("equippedGunId", equipped_gun),
+				"ownedGuns": you.get("ownedGuns", you.get("ownedGunIds", owned_guns)),
 			})
 	else:
 		bind_marks(0)

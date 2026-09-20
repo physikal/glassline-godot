@@ -139,6 +139,9 @@ func _run() -> int:
 	_live_shop_shape_case(failed)
 	_shop_sink2_case(failed)
 	_shop_sink3_case(failed)
+	_gun_chrome_case(failed)
+	_optic_joystick_case(failed)
+	_match_board_chrome_case(failed)
 	_equip_chrome_case(failed)
 	_player_persist_case(failed)
 	_first_hunt_coach_case(failed)
@@ -1469,6 +1472,148 @@ func _shop_sink3_case(failed: PackedStringArray) -> void:
 	_expect(failed, not Contract.is_suit_chrome(Contract.SHOP_POSTER_ITEM_ID), "S3.5 poster is not suit chrome")
 	_expect(failed, Contract.is_decor_chrome(Contract.SHOP_POSTER_ITEM_ID), "S3.5 poster is decor chrome")
 	session.free()
+
+
+func _gun_chrome_case(failed: PackedStringArray) -> void:
+	## Visual gun rack only. No catalog SKUs, Marks, or combat.
+	server.clear_all()
+	server.reset_wallet(80)
+	var catalog: Dictionary = server.get_shop()
+	var listed = Shop.from_any(catalog)
+	_expect(failed, listed.items.size() == 3, "gun chrome does not add shop SKUs")
+	_expect(failed, not listed.has_item(Contract.GUN_FIELDBOLT), "Fieldbolt is not a catalog row")
+	_expect(failed, not listed.has_item(Contract.GUN_RAILFRAME), "Railframe is not a catalog row")
+	_expect(failed, not listed.has_item(Contract.GUN_CRESCENT), "Crescent is not a catalog row")
+	_expect(failed, Contract.gun_family_name(Contract.GUN_FIELDBOLT) == "FIELDBOLT", "in-fiction Fieldbolt")
+	_expect(failed, Contract.gun_family_name("railframe") == "RAILFRAME", "alias Railframe")
+	_expect(failed, Contract.is_gun_chrome(Contract.GUN_CRESCENT), "Crescent is gun chrome")
+	_expect(failed, not Contract.is_suit_chrome(Contract.GUN_FIELDBOLT), "gun is not suit chrome")
+	_expect(failed, not Contract.is_decor_chrome(Contract.GUN_RAILFRAME), "gun is not decor chrome")
+
+	var session = SessionScript.new()
+	session.apply_shop(catalog)
+	_expect(failed, session.owns_gun(Contract.GUN_FIELDBOLT), "starter bolt owned by default")
+	_expect(failed, session.equipped_gun_id() == Contract.GUN_FIELDBOLT, "starter bolt default equipped")
+	_expect(failed, not session.owns_gun(Contract.GUN_RAILFRAME), "Railframe locked until SKU")
+	_expect(failed, not session.owns_gun(Contract.GUN_CRESCENT), "Crescent locked until SKU")
+	_expect(failed, session.gun_slot_state(Contract.GUN_FIELDBOLT) == "equipped", "Fieldbolt slot equipped")
+	_expect(failed, session.gun_slot_state(Contract.GUN_RAILFRAME) == "locked", "Railframe slot locked")
+	_expect(failed, session.marks == 80, "gun stub does not touch Marks")
+
+	var me = Shop.from_any({
+		"you": {
+			"marks": 80,
+			"equippedSkinId": null,
+			"equippedDecorId": null,
+			"equippedGunId": "gun_railframe",
+			"ownedGuns": ["gun_fieldbolt", "gun_railframe"],
+		},
+		"owned": [],
+	})
+	_expect(failed, me.equipped_gun_present, "/shop/me equippedGunId present")
+	_expect(failed, me.owned_guns_present, "/shop/me ownedGuns present")
+	_expect(failed, me.equipped_gun == Contract.GUN_RAILFRAME, "parser reads equippedGunId")
+	_expect(failed, me.owned_guns.has(Contract.GUN_RAILFRAME), "parser reads ownedGuns")
+	session.apply_shop({
+		"you": {
+			"marks": 80,
+			"equippedGunId": "gun_railframe",
+			"ownedGuns": ["gun_fieldbolt", "gun_railframe"],
+		},
+	})
+	_expect(failed, session.owns_gun(Contract.GUN_RAILFRAME), "LIVE ownedGuns binds Railframe")
+	_expect(failed, session.equipped_gun_id() == Contract.GUN_RAILFRAME, "LIVE equippedGunId binds")
+	_expect(failed, session.gun_slot_state(Contract.GUN_CRESCENT) == "locked", "Crescent still locked")
+	_expect(failed, session.marks == 80, "gun bind does not debit Marks")
+
+	session.apply_shop({
+		"you": {"marks": 80, "equippedGunId": "gun_crescent"},
+	})
+	_expect(failed, session.equipped_gun_id() == Contract.GUN_FIELDBOLT, "unowned Crescent falls back to starter")
+
+	var unknown = Shop.from_any({"you": {"equippedGunId": "not_a_gun"}})
+	_expect(failed, unknown.equipped_gun == "", "unknown equippedGunId is empty")
+	session.free()
+
+
+func _optic_joystick_case(failed: PackedStringArray) -> void:
+	## Chrome only: circular thumb replaces the plate D-pad. Fire stays a tap.
+	## Overlay needs ClientSession autoload — stick class + intent are the contract.
+	var Chrome := load("res://scripts/chrome.gd")
+	var well: Texture2D = Chrome.make_optic_stick_well(64)
+	var knob: Texture2D = Chrome.make_optic_stick_knob(32)
+	_expect(failed, well != null and well.get_width() == 64, "stick well texture")
+	_expect(failed, knob != null and knob.get_width() == 32, "stick knob texture")
+	var Joy := load("res://scenes/optic/optic_joystick.gd")
+	var stick = Joy.new()
+	var moved := [Vector2.ZERO]
+	stick.stick_changed.connect(func(v: Vector2) -> void: moved[0] = v)
+	stick.pose(Vector2(0.62, -0.38))
+	_expect(failed, moved[0].length() > 0.4, "posing the thumb emits offset")
+	_expect(failed, ActionIntent.attack(0, 0).get("type") == Contract.ACT_ATTACK, "attack intent unchanged")
+	_expect(failed, not ActionIntent.attack(4, 3).has("stick"), "stick is not an attack field")
+	stick.free()
+
+
+func _match_board_chrome_case(failed: PackedStringArray) -> void:
+	## Stamps come from the snapshot. HIGH GROUND is display-only.
+	var Board := load("res://scenes/match/hex_board.gd")
+	var board = Board.new()
+	_expect(failed, board.cell_kind(2, 2) == "unknown", "unrevealed hex is FoW")
+	board._terrain["2,2"] = Contract.TYPE_BRUSH
+	_expect(failed, board.cell_kind(2, 2) == Contract.TYPE_BRUSH, "revealed stamp from snapshot")
+	_expect(failed, board.cell_kind(0, 0) == "unknown", "rim stays unknown until snapshot")
+	_expect(failed, not ActionIntent.attack(4, 3).has("highGround"), "HIGH GROUND is not an attack field")
+	_expect(failed, Contract.HIGH_GROUND_SUB.find("10%") >= 0, "HIGH GROUND copy is parked display")
+	var created: Dictionary = server.create_match()
+	var mid := str(created.get("matchId", ""))
+	var tokens: Dictionary = created.get("joinTokens", {})
+	var join_a: Dictionary = server.join(mid, str(tokens.get("a", "")))
+	server.join(mid, str(tokens.get("b", "")))
+	server.reveal_inner_for_art(mid)
+	var raw: Dictionary = server.get_snapshot(mid, str(join_a.get("playerId", "")))
+	var snap: Snapshot = Snapshot.from_dict(raw)
+	_expect(failed, snap.terrain_map().size() >= 20, "art reveal ships inner stamps")
+	_expect(failed, not snap.terrain_map().has("0,0"), "art reveal leaves rim unknown")
+	board.free()
+
+	server.clear_all()
+	var fresh: Dictionary = server.create_match()
+	var fid := str(fresh.get("matchId", ""))
+	var ftok: Dictionary = fresh.get("joinTokens", {})
+	var fa: Dictionary = server.join(fid, str(ftok.get("a", "")))
+	server.join(fid, str(ftok.get("b", "")))
+	var pid := str(fa.get("playerId", ""))
+	var empty: Snapshot = Snapshot.from_dict(server.get_snapshot(fid, pid))
+	_expect(failed, empty.terrain_map().is_empty(), "no stamps before first select")
+	var drop: ActionResult = server.apply_action(fid, pid, ActionIntent.select_hex(2, 2))
+	_expect(failed, drop.ok, "first select ok")
+	var after: Snapshot = Snapshot.from_dict(drop.snapshot)
+	var mapped: Dictionary = after.terrain_map()
+	_expect(failed, mapped.size() == 1, "snapshot ships only the selected stamp")
+	_expect(failed, mapped.has("2,2"), "first select materializes 2,2")
+	var kind := str(mapped.get("2,2", ""))
+	_expect(failed, kind == Contract.TYPE_OPEN or kind == Contract.TYPE_BRUSH or kind == Contract.TYPE_HARD, "hash type is open/brush/hard")
+	_expect(failed, not mapped.has("4,3"), "unselected hex is not in snapshot")
+	var again: ActionResult = server.apply_action(fid, pid, ActionIntent.select_hex(2, 2))
+	_expect(failed, again.ok, "re-drop same hex ok")
+	_expect(failed, str(Snapshot.from_dict(again.snapshot).terrain_map().get("2,2", "")) == kind, "first-select type is stable")
+	var fog: Snapshot = Snapshot.from_dict({"terrain": [{"q": 1, "r": 1, "type": "unknown"}, {"q": 1, "r": 2}]})
+	_expect(failed, fog.terrain_map().is_empty(), "unknown / typeless rows stay FoW")
+	var Art := load("res://scripts/art_pack.gd")
+	var face_a: Texture2D = Art.hex_tile(Contract.TYPE_BRUSH, 0)
+	var face_b: Texture2D = Art.hex_tile(Contract.TYPE_BRUSH, 99)
+	_expect(failed, face_a != null and face_b != null, "brush stamp loads")
+	_expect(failed, face_a.get_image().get_data() == face_b.get_image().get_data(), "stamp is tileable, not a unique map face")
+	var plate: Texture2D = Art.match_board_plate()
+	_expect(failed, plate != null and plate.get_width() >= 1200, "match-board plate loads")
+	var Chrome := load("res://scripts/chrome.gd")
+	var hot: Button = Chrome.plate_hotspot(Vector2(284, 104))
+	_expect(failed, hot.custom_minimum_size.x == 284, "plate key hotspot matches painted button")
+	hot.free()
+	var chip: Control = Chrome.high_ground_chip()
+	_expect(failed, chip != null and not (chip is Button), "HIGH GROUND is a parked chip, not an action key")
+	chip.free()
 
 
 func _equip_chrome_case(failed: PackedStringArray) -> void:
