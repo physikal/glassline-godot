@@ -19,7 +19,7 @@ const LOCK_INK := Color("2a241c")
 const SILHOUETTE := Color("2c241c")
 
 
-static func rifle_texture(family: String, state: String = "owned", width: int = 200, height: int = 52) -> Texture2D:
+static func rifle_texture(family: String, state: String = "owned", width: int = 240, height: int = 70) -> Texture2D:
 	var img := Image.create(width, height, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
 	var gid := Contract.canonical_gun_id(family)
@@ -58,7 +58,7 @@ static func rifle_family_plate(width: int = 720, height: int = 420) -> Texture2D
 		var y := 56 + i * row_h
 		_fill_rect(img, 28, y, width - 56, row_h - 12, Color("3d2618"))
 		_fill_rect(img, 32, y + 4, width - 64, row_h - 20, Color("2a1c14"))
-		var rifle := rifle_texture(gid, "owned", 220, 52)
+		var rifle := rifle_texture(gid, "owned", 240, 70)
 		var rimg := rifle.get_image()
 		if rimg:
 			img.blit_rect(rimg, Rect2i(0, 0, rimg.get_width(), rimg.get_height()), Vector2i(48, y + 18))
@@ -136,56 +136,67 @@ static func _draw_hooks(img: Image, equipped: bool) -> void:
 
 
 static func _draw_fieldbolt(img: Image, locked: bool) -> void:
-	## Plate olive bolt — chunky toy silhouette, wood-olive stock.
-	var stock := _ink(Color("6e7a38"), locked)
-	var stock_l := _ink(Color("8a9648"), locked)
-	var stock_d := _ink(Color("4a5424"), locked)
-	var barrel := _ink(Color("2a2c2e"), locked)
-	var scope := _ink(Color("1c1e20"), locked)
-	var steel := _ink(Color("6a7074"), locked)
+	## Plate olive bolt — fat toy silhouette so it reads on hideout wood.
+	var ink := Color("1a1410")
+	var stock := _ink(Color("9aaa40"), locked)
+	var stock_l := _ink(Color("c4d45a"), locked)
+	var stock_d := _ink(Color("5a6a28"), locked)
+	var barrel := _ink(Color("1c1e20"), locked)
+	var scope := _ink(Color("141618"), locked)
+	var steel := _ink(Color("8a9096"), locked)
+	_rect_s(img, 6, 16, 44, 26, ink)
 	_rect_s(img, 8, 18, 40, 22, stock)
-	_rect_s(img, 12, 22, 14, 14, stock_l)
-	_rect_s(img, 38, 28, 16, 18, stock_d)
-	_rect_s(img, 42, 30, 8, 12, stock_l)
+	_rect_s(img, 12, 22, 16, 14, stock_l)
+	_rect_s(img, 36, 26, 18, 20, ink)
+	_rect_s(img, 38, 28, 14, 16, stock_d)
+	_rect_s(img, 44, 14, 42, 20, ink)
 	_rect_s(img, 46, 16, 38, 16, steel)
-	_rect_s(img, 50, 18, 28, 8, _ink(STEEL, locked))
-	_rect_s(img, 80, 18, 100, 10, barrel)
-	_rect_s(img, 176, 16, 18, 14, barrel)
-	_rect_s(img, 178, 14, 6, 18, barrel)
-	_rect_s(img, 54, 4, 46, 13, scope)
-	_circ_s(img, 60, 10, 5, _ink(Color("7ec8b0"), locked))
+	_rect_s(img, 78, 16, 104, 16, ink)
+	_rect_s(img, 80, 18, 100, 12, barrel)
+	_rect_s(img, 174, 14, 22, 20, ink)
+	_rect_s(img, 176, 16, 18, 16, barrel)
+	_rect_s(img, 52, 2, 50, 16, ink)
+	_rect_s(img, 54, 4, 46, 12, scope)
+	_circ_s(img, 62, 10, 5, _ink(Color("8fd4c4"), locked))
 	_rect_s(img, 92, 6, 8, 8, scope)
 
 
 static func _draw_railframe(img: Image, locked: bool) -> void:
-	## Plate teal chassis — same toy weight, boxier stock. No rail salad.
-	var chassis := _ink(Color("2a8a8a"), locked)
-	var lite := _ink(Color("4ab0b0"), locked)
-	var dark := _ink(Color("1a5a5a"), locked)
-	var barrel := _ink(Color("1c1e22"), locked)
+	## Plate teal chassis — same fat toy weight. No rail salad.
+	var ink := Color("1a1410")
+	var chassis := _ink(Color("3ab0b0"), locked)
+	var lite := _ink(Color("6ad4d4"), locked)
+	var dark := _ink(Color("1a6a6a"), locked)
+	var barrel := _ink(Color("141618"), locked)
 	var accent := _ink(Color("3ecf8e"), locked)
+	_rect_s(img, 4, 14, 40, 24, ink)
 	_rect_s(img, 6, 16, 36, 20, chassis)
-	_rect_s(img, 10, 20, 12, 12, lite)
-	_rect_s(img, 8, 20, 12, 6, dark)
+	_rect_s(img, 10, 20, 14, 12, lite)
+	_rect_s(img, 32, 12, 48, 22, ink)
 	_rect_s(img, 34, 14, 44, 18, chassis)
-	_rect_s(img, 38, 16, 34, 8, lite)
-	_rect_s(img, 40, 28, 18, 18, dark)
-	_rect_s(img, 42, 30, 12, 12, barrel)
-	_rect_s(img, 36, 26, 30, 4, accent)
+	_rect_s(img, 38, 16, 34, 10, lite)
+	_rect_s(img, 38, 26, 20, 20, ink)
+	_rect_s(img, 40, 28, 16, 16, dark)
+	_rect_s(img, 36, 26, 30, 5, accent)
+	_rect_s(img, 74, 14, 104, 16, ink)
 	_rect_s(img, 76, 16, 100, 12, barrel)
+	_rect_s(img, 170, 12, 24, 20, ink)
 	_rect_s(img, 172, 14, 20, 16, barrel)
-	_rect_s(img, 48, 2, 36, 13, chassis)
+	_rect_s(img, 46, 0, 40, 16, ink)
+	_rect_s(img, 48, 2, 36, 12, chassis)
 	_rect_s(img, 52, 4, 28, 8, lite)
 	_rect_s(img, 76, 6, 8, 6, accent)
 
 
 static func _draw_crescent(img: Image, locked: bool) -> void:
-	## Plate tan long-cutout — thumbhole stock, toy-spy not OEM.
-	var wood := _ink(Color("c4a05a"), locked)
-	var wood_l := _ink(Color("dcc07a"), locked)
-	var wood_d := _ink(Color("8a6a32"), locked)
-	var metal := _ink(Color("5a5248"), locked)
-	var barrel := _ink(Color("2e2822"), locked)
+	## Plate tan long-cutout — fat thumbhole stock, toy-spy not OEM.
+	var ink := Color("1a1410")
+	var wood := _ink(Color("e0b86a"), locked)
+	var wood_l := _ink(Color("f0d48a"), locked)
+	var wood_d := _ink(Color("a07a38"), locked)
+	var metal := _ink(Color("6a6258"), locked)
+	var barrel := _ink(Color("1c1814"), locked)
+	_rect_s(img, 2, 12, 44, 26, ink)
 	_rect_s(img, 4, 14, 40, 22, wood)
 	_rect_s(img, 8, 18, 28, 12, wood_l)
 	var hx0 := int(14 * _sx(img))
@@ -196,12 +207,17 @@ static func _draw_crescent(img: Image, locked: bool) -> void:
 		for xx in range(hx0, hx1):
 			if xx >= 0 and yy >= 0 and xx < img.get_width() and yy < img.get_height():
 				img.set_pixel(xx, yy, Color(0, 0, 0, 0))
+	_rect_s(img, 6, 28, 16, 16, ink)
 	_rect_s(img, 8, 30, 12, 14, wood_d)
+	_rect_s(img, 38, 14, 32, 18, ink)
 	_rect_s(img, 40, 16, 28, 14, metal)
-	_rect_s(img, 66, 18, 108, 9, barrel)
-	_rect_s(img, 170, 16, 22, 13, barrel)
-	_rect_s(img, 46, 2, 48, 13, _ink(Color("4a3220"), locked))
-	_rect_s(img, 50, 4, 40, 8, _ink(Color("6a4a28"), locked))
+	_rect_s(img, 64, 16, 112, 14, ink)
+	_rect_s(img, 66, 18, 108, 10, barrel)
+	_rect_s(img, 168, 14, 26, 18, ink)
+	_rect_s(img, 170, 16, 22, 14, barrel)
+	_rect_s(img, 44, 0, 52, 16, ink)
+	_rect_s(img, 46, 2, 48, 12, _ink(Color("5a3a22"), locked))
+	_rect_s(img, 50, 4, 40, 8, _ink(Color("7a5a32"), locked))
 	_rect_s(img, 88, 6, 8, 6, _ink(Color("e07060"), locked))
 
 
@@ -217,7 +233,8 @@ static func _draw_lock(img: Image) -> void:
 static func _ink(color: Color, locked: bool) -> Color:
 	if not locked:
 		return color
-	return Color("7a6a58").lerp(color.darkened(0.25), 0.35)
+	## Locked = readable wall silhouette, not a vanished grey hairline.
+	return Color("6a5e52").lerp(color.darkened(0.10), 0.40)
 
 
 static func _label(img: Image, x: int, y: int, text: String, color: Color) -> void:

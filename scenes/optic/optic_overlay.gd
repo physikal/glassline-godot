@@ -101,11 +101,6 @@ func _build() -> void:
 	_figure.position = Vector2(628, 268)
 	_figure.size = Vector2(28, 48)
 	_figure.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var pin := ColorRect.new()
-	pin.color = Color("e23b3b")
-	pin.position = Vector2(11, 0)
-	pin.size = Vector2(6, 6)
-	_figure.add_child(pin)
 	_world.add_child(_figure)
 
 	var hud := Control.new()
@@ -119,27 +114,27 @@ func _build() -> void:
 	_reticle.draw.connect(_draw_reticle.bind(_reticle))
 	hud.add_child(_reticle)
 
+	## Invisible hotspots over the plate's ZOOM / FIRE. Plate chrome stays the picture.
 	var zoom_box := VBoxContainer.new()
-	zoom_box.position = Vector2(36, 196)
-	zoom_box.add_theme_constant_override("separation", 8)
+	zoom_box.position = Vector2(48, 248)
+	zoom_box.add_theme_constant_override("separation", 10)
 	add_child(zoom_box)
-	var zoom_title := Label.new()
-	zoom_title.text = "ZOOM"
-	Chrome.apply_label(zoom_title, 9, Chrome.CREAM, true)
-	zoom_box.add_child(zoom_title)
 	for z in ["FAR", "MID", "NEAR"]:
 		var zb := Chrome.zoom_pill(z, z == _zoom)
+		zb.modulate = Color(1, 1, 1, 0.04)
+		zb.custom_minimum_size = Vector2(132, 44)
 		zb.pressed.connect(_set_zoom.bind(z))
 		zoom_box.add_child(zb)
 		_zoom_btns[z] = zb
 
-	var fire := Chrome.circle_button("FIRE", Chrome.FIRE_ORANGE, Color.WHITE, 152)
-	fire.position = Vector2(1088, 508)
+	var fire := Chrome.circle_button("", Chrome.FIRE_ORANGE, Color.WHITE, 148)
+	fire.modulate = Color(1, 1, 1, 0.04)
+	fire.position = Vector2(1068, 528)
 	fire.pressed.connect(func() -> void: fire_pressed.emit())
 	add_child(fire)
 
-	var back := Chrome.chunk_button("BACK", Chrome.INK, Chrome.CREAM, Vector2(120, 40))
-	back.position = Vector2(20, 16)
+	var back := Chrome.chunk_button("BACK", Chrome.INK, Chrome.CREAM, Vector2(100, 36))
+	back.position = Vector2(16, 668)
 	back.pressed.connect(func() -> void:
 		close()
 		cancelled.emit()
@@ -147,42 +142,26 @@ func _build() -> void:
 	add_child(back)
 
 	_area = Label.new()
-	_area.position = Vector2(430, 656)
-	_area.size = Vector2(420, 32)
-	_area.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	Chrome.apply_label(_area, 10, Chrome.CREAM, true)
+	_area.visible = false
 	add_child(_area)
 
 	_family_lbl = Label.new()
-	_family_lbl.position = Vector2(430, 624)
-	_family_lbl.size = Vector2(420, 28)
-	_family_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_family_lbl.position = Vector2(980, 16)
+	_family_lbl.size = Vector2(280, 28)
+	_family_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	Chrome.apply_label(_family_lbl, 10, Chrome.HIGH_GOLD, true)
 	add_child(_family_lbl)
 
 	_note = Label.new()
-	_note.position = Vector2(360, 72)
+	_note.position = Vector2(360, 86)
 	_note.size = Vector2(560, 40)
 	_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	Chrome.apply_label(_note, 16, Color("f0f4c0"), true)
 	add_child(_note)
 
-	var timer_back := ColorRect.new()
-	timer_back.color = Color(0.08, 0.08, 0.10, 0.72)
-	timer_back.position = Vector2(420, 18)
-	timer_back.size = Vector2(440, 18)
-	add_child(timer_back)
 	_timer_fill = ColorRect.new()
-	_timer_fill.color = Color("3ecf8e")
-	_timer_fill.position = Vector2(424, 22)
-	_timer_fill.size = Vector2(432, 10)
-	_timer_fill.pivot_offset = Vector2.ZERO
+	_timer_fill.visible = false
 	add_child(_timer_fill)
-	var timer_lbl := Label.new()
-	timer_lbl.text = "SHOT TIMER"
-	timer_lbl.position = Vector2(430, 2)
-	Chrome.apply_label(timer_lbl, 8, Chrome.CREAM, true)
-	add_child(timer_lbl)
 
 	_refresh_area()
 

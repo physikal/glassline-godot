@@ -124,33 +124,34 @@ func _draw() -> void:
 func _stamp(center: Vector2, kind: String, fill: Color) -> void:
 	match kind:
 		Contract.TYPE_BRUSH:
-			## One leafy clump — hex-map plate, not a salad of dots.
-			_bush(center + Vector2(0, 2), 11.0)
+			## One leafy clump — hex-map plate, high contrast on the green fill.
+			_bush(center + Vector2(0, 3), 13.5)
 		Contract.TYPE_HARD:
-			_rock(center + Vector2(-1, 1), Vector2(18, 13), fill)
-			draw_circle(center + Vector2(-5, -2), 2.0, Color("d5dbe2"))
+			_rock(center + Vector2(0, 2), Vector2(22, 16), fill)
+			draw_circle(center + Vector2(-6, -3), 2.4, Color("eceff2"))
 		Contract.TYPE_OPEN:
-			draw_circle(center + Vector2(-8, 7), 1.6, fill.darkened(0.20))
-			draw_circle(center + Vector2(7, -5), 1.3, fill.darkened(0.14))
-			draw_circle(center + Vector2(3, 8), 1.2, Color("c9b87a"))
-			draw_circle(center + Vector2(-4, -6), 1.1, Color("7eb24a"))
+			draw_circle(center + Vector2(-9, 8), 2.2, fill.darkened(0.28))
+			draw_circle(center + Vector2(8, -6), 1.8, fill.darkened(0.20))
+			draw_circle(center + Vector2(4, 9), 1.6, Color("c4a86a"))
+			draw_circle(center + Vector2(-5, -7), 1.8, Color("5a8f34"))
 		_:
-			draw_circle(center, 9.0, Color("1a1a22"))
-			_draw_mark(center, "?", Color("e8e8ee"))
+			draw_circle(center, 10.0, Color("14141a"))
+			_draw_mark(center, "?", Color("f0f0f6"))
 
 
 func _bush(pos: Vector2, radius: float) -> void:
-	draw_circle(pos + Vector2(0, 2), radius, Color("3d6a28"))
-	draw_circle(pos + Vector2(-4, 0), radius * 0.72, Color("5a8f34"))
-	draw_circle(pos + Vector2(4, -1), radius * 0.68, Color("7cb34a"))
-	draw_circle(pos + Vector2(0, -3), radius * 0.42, Color("c6e08a"))
+	draw_circle(pos + Vector2(0, 3), radius, Color("2a4a18"))
+	draw_circle(pos + Vector2(-5, 0), radius * 0.74, Color("3d6a28"))
+	draw_circle(pos + Vector2(5, -1), radius * 0.70, Color("6a9e3a"))
+	draw_circle(pos + Vector2(0, -4), radius * 0.48, Color("c6e08a"))
+	draw_circle(pos + Vector2(-3, -2), radius * 0.22, Color("e8f4b0"))
 
 
 func _rock(pos: Vector2, size: Vector2, fill: Color) -> void:
 	var rect := Rect2(pos - size * 0.5, size)
-	draw_rect(rect, fill.darkened(0.22), true)
-	draw_rect(Rect2(rect.position + Vector2(2, 2), size - Vector2(5, 5)), fill.lightened(0.10), true)
-	draw_rect(Rect2(rect.position + Vector2(3, 2), Vector2(size.x * 0.40, 2)), Color("d5dbe2"), true)
+	draw_rect(rect, Color("4a5058"), true)
+	draw_rect(Rect2(rect.position + Vector2(2, 2), size - Vector2(5, 6)), fill.lightened(0.16), true)
+	draw_rect(Rect2(rect.position + Vector2(3, 2), Vector2(size.x * 0.42, 3)), Color("eceff2"), true)
 
 
 func _draw_tokens() -> void:
