@@ -92,7 +92,7 @@ static func hex_stamp(kind: String) -> Texture2D:
 
 
 static func hex_tile(kind: String, variant: int = 0) -> Texture2D:
-	## One locked face per kind — no token-bearing variant crops.
+	## Tileable stamp: one painted face per kind. `variant` is ignored.
 	match kind:
 		Contract.TYPE_BRUSH:
 			return tex(TILE_BRUSH)

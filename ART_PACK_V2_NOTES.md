@@ -16,7 +16,7 @@ FAR / MID / NEAR stay display-only. Leave this PR open for UX re-taste —
 | --- | --- | --- |
 | 1 | Rifle rack was abstract color bars | Plate-locked olive **Fieldbolt** / tan **Railframe** / teal **Crescent** on the hideout wall. Never cover those painted guns. |
 | 2 | Hands + optic ≠ rack | One Fieldbolt family: plate-held bolt stays; Attack sits on `optic-attack.jpg`. |
-| 3 | Hex used flat circle/rect icons | Board faces are **Sprite2D hex-map tiles** (sand / painted brush clumps / rock piles / `?`). Ban `draw_texture_rect` 26px white squares. |
+| 3 | Hex used flat circle/rect icons | Board faces are **tileable** OPEN/BRUSH/HARD/? stamps (one painted face per kind). Server `hash(matchId,q,r,salt)` on first select; snapshot ships revealed only; UNKNOWN is FoW chrome. Never a unique full-map painting. Ban `draw_texture_rect` 26px white squares. |
 | 4 | Mixed fidelity (smooth face / mushy blocks) | Same warm painted toy-spy crop language everywhere. |
 | 5 | Doll was a blocky avatar | Paper-doll is the hideout operative crop (teal / ghillie). |
 | 6 | Gold / gem on stills | Marks ★ only. Baked gold/gem wood-stamped off the plate. |
@@ -27,7 +27,7 @@ FAR / MID / NEAR stay display-only. Leave this PR open for UX re-taste —
 
 1. `01_hideout_idle_armory.png`
 2. `02_dynamic_rack.png` — owned starter Fieldbolt + equipped underline · locked Railframe / Crescent
-3. `03_hex_open_brush_hard_unknown.png` — match-board HUD + tileable OPEN/BRUSH/HARD/? stamps
+3. `03_hex_open_brush_hard_unknown.png` — match-board HUD + tileable OPEN/BRUSH/HARD/? stamps. Server `hash(matchId,q,r,salt)` on first select; snapshot ships revealed only; UNKNOWN is FoW.
 4. `04_operative_exposure_doll.png` — **match END TURN** paper-doll + % (not a hideout inset)
 5. `05_attack_optic_fieldbolt.png` / `05_attack_optic_joystick.png` — toy thumb stick over the plate D-pad; Fire separate
 6. `06_ui_chips_marks_coach_queue_end.png` — Marks ★ / coach / queue / end

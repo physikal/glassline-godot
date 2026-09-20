@@ -945,7 +945,7 @@ func rematch(match_id: String, player_id: String, accept: bool) -> Dictionary:
 
 
 func reveal_inner_for_art(match_id: String) -> void:
-	## Capture helper. Server hash still owns the type; client only paints revealed.
+	## Capture-only. Same first-select hash as live; does not invent types.
 	if not _matches.has(match_id):
 		return
 	var match_state: Dictionary = _matches[match_id]
@@ -1092,10 +1092,14 @@ func _terrain_type(match_state: Dictionary, q: int, r: int) -> String:
 
 
 func _reveal(match_state: Dictionary, seat: String, q: int, r: int) -> void:
+	## First select materializes hash(matchId,q,r,salt). Later looks do not rewrite.
 	if not Contract.on_board(q, r):
 		return
 	var key := "%d,%d" % [q, r]
-	match_state["revealed"][seat][key] = _terrain_type(match_state, q, r)
+	var bag: Dictionary = match_state["revealed"][seat]
+	if bag.has(key):
+		return
+	bag[key] = _terrain_type(match_state, q, r)
 
 
 func _set_last(match_state: Dictionary, action: Dictionary) -> void:

@@ -155,7 +155,8 @@ def apply_hex_mask(img: Image.Image) -> Image.Image:
 
 
 def extract_hex(hex_map: Image.Image) -> None:
-    ## Legend hexes (left column) — painted hex chips, not circle/rect icons.
+    ## Tileable OPEN/BRUSH/HARD/? stamps from the match-board / hex-map plate.
+    ## One face per kind — not a unique full-map painting.
     def box_at(cx: int, cy: int, hx: int, hy: int) -> tuple[int, int, int, int]:
         return (cx - hx, cy - hy, cx + hx, cy + hy)
 
@@ -170,13 +171,11 @@ def extract_hex(hex_map: Image.Image) -> None:
         raw = crop(hex_map, box, f"{name}_legend_raw")
         save_sprite(apply_hex_mask(raw), f"{name}_legend.png")
 
-    ## Board hexes — grid-locked centers (sand / brush clump / rock pile / ?).
+    ## One tileable board face per kind — not unique per-hex map crops.
     board = {
         "hex_open": box_at(469, 218, 47, 54),
         "hex_brush": box_at(656, 218, 47, 54),
-        "hex_brush_b": box_at(422, 299, 47, 54),
         "hex_hard": box_at(796, 299, 47, 54),
-        "hex_hard_b": box_at(983, 299, 47, 54),
         "hex_unknown": box_at(328, 299, 47, 54),
     }
     for name, box in board.items():
@@ -229,7 +228,7 @@ def contact_preview() -> None:
 def main() -> None:
     teal = load_jpg("lobby-canon.jpg")
     ghil = load_jpg("lobby-ghillie.jpg")
-    hx = load_jpg("hex-map.jpg")
+    hx = load_jpg("match-board-canon.jpg" if (CANON / "match-board-canon.jpg").exists() else "hex-map.jpg")
     op = load_jpg("optic-attack.jpg")
     extract_rifles(teal)
     extract_operatives(teal, ghil)

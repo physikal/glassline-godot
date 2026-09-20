@@ -258,10 +258,17 @@ func is_your_turn() -> bool:
 
 
 func terrain_map() -> Dictionary:
+	## Revealed OPEN/BRUSH/HARD only. Missing / unknown is FoW — never invent.
 	var mapped := {}
 	for entry in terrain():
-		if entry is Dictionary:
-			mapped[Contract.hex_key(entry)] = str(entry.get("type", Contract.TYPE_OPEN))
+		if not (entry is Dictionary):
+			continue
+		if not entry.has("type"):
+			continue
+		var kind := str(entry.get("type", ""))
+		if kind != Contract.TYPE_OPEN and kind != Contract.TYPE_BRUSH and kind != Contract.TYPE_HARD:
+			continue
+		mapped[Contract.hex_key(entry)] = kind
 	return mapped
 
 

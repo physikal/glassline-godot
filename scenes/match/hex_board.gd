@@ -1,8 +1,7 @@
 extends Node2D
 ## Interactive 9×7 axial board (BOARD_Q=9 cols × BOARD_R=7 rows, 63 hexes).
-## Printed table terrain is a visual placeholder; MatchAPI / snapshot still
-## owns revealed types, tokens, and hit/miss. Hover / optic read snapshot tags
-## only — this paint is not reconnect truth.
+## Faces are tileable OPEN/BRUSH/HARD/? stamps. Snapshot owns revealed types.
+## Client never invents terrain. UNKNOWN is FoW chrome only.
 
 const HexMath := preload("res://scripts/hex_math.gd")
 const Contract := preload("res://types/contract.gd")
@@ -15,16 +14,6 @@ signal hex_hovered(q: int, r: int)
 const HEX_SIZE := 40.0
 const PREVIEW_YOU := Vector2i(2, 2)
 const PREVIEW_RIVAL := Vector2i(6, 4)
-
-## Inner 7×5 printed plate (rim stays unknown until the snapshot reveals it).
-## 1=open  2=brush  3=hard
-const TABLE_INNER := [
-	[1, 2, 3, 1, 2, 3, 1],
-	[2, 1, 1, 3, 1, 2, 3],
-	[1, 3, 2, 1, 1, 3, 2],
-	[3, 1, 2, 3, 1, 1, 2],
-	[2, 3, 1, 1, 2, 3, 1],
-]
 
 var _terrain: Dictionary = {}
 var _you_hex: Variant = null
@@ -81,25 +70,13 @@ func set_hover(hex: Variant) -> void:
 		_ink.queue_redraw()
 
 
-func table_kind(q: int, r: int) -> String:
-	if q <= 0 or q >= Contract.BOARD_Q - 1 or r <= 0 or r >= Contract.BOARD_R - 1:
-		return "unknown"
-	var row: Array = TABLE_INNER[r - 1]
-	var cell := int(row[q - 1])
-	match cell:
-		2:
-			return Contract.TYPE_BRUSH
-		3:
-			return Contract.TYPE_HARD
-		_:
-			return Contract.TYPE_OPEN
-
-
 func cell_kind(q: int, r: int) -> String:
-	## Snapshot revealed stamps only. Client never invents open/brush/hard.
+	## Snapshot revealed stamps only. UNKNOWN is FoW chrome — never invent terrain.
 	var key := "%d,%d" % [q, r]
 	if _terrain.has(key):
-		return str(_terrain[key])
+		var kind := str(_terrain[key])
+		if kind == Contract.TYPE_OPEN or kind == Contract.TYPE_BRUSH or kind == Contract.TYPE_HARD:
+			return kind
 	return "unknown"
 
 
@@ -126,7 +103,7 @@ func _sync_faces() -> void:
 			var key := "%d,%d" % [q, r]
 			var s: Sprite2D = _faces[key]
 			s.position = HexMath.axial_to_pixel(q, r, HEX_SIZE) - _origin
-			var tile: Texture2D = Chrome.hex_tile(cell_kind(q, r), q + r * 3)
+			var tile: Texture2D = Chrome.hex_tile(cell_kind(q, r))
 			s.texture = tile
 			if tile and tile.get_width() >= 24:
 				s.scale = Vector2(w / float(tile.get_width()), h / float(tile.get_height()))
