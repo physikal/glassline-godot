@@ -27,7 +27,7 @@ FAR / MID / NEAR stay display-only. Leave this PR open for UX re-taste —
 
 1. `01_hideout_idle_armory.png`
 2. `02_dynamic_rack.png` — owned starter Fieldbolt + equipped underline · locked Railframe / Crescent
-3. `03_hex_open_brush_hard_unknown.png` — match-board HUD + tileable OPEN/BRUSH/HARD/? stamps. Server `hash(matchId,q,r,salt)` on first select; snapshot ships revealed only; UNKNOWN is FoW.
+3. `03_hex_open_brush_hard_unknown.png` — **HOLD.** Full-bleed `match-board-canon.jpg` HUD (chunky ATTACK/RECON/ABILITY). Stamps cropped from that plate. Server hash on first select; UNKNOWN is FoW. HIGH GROUND display-only.
 4. `04_operative_exposure_doll.png` — **match END TURN** paper-doll + % (not a hideout inset)
 5. `05_attack_optic_fieldbolt.png` / `05_attack_optic_joystick.png` — toy thumb stick over the plate D-pad; Fire separate
 6. `06_ui_chips_marks_coach_queue_end.png` — Marks ★ / coach / queue / end

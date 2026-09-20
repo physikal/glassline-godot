@@ -148,6 +148,24 @@ static func game_button(kind: String, text: String, bg: Color, fg: Color, min_si
 	return button
 
 
+static func plate_hotspot(min_size: Vector2) -> Button:
+	## Invisible hit over the painted match-board key. Plate carries the weight.
+	var button := Button.new()
+	button.text = ""
+	button.custom_minimum_size = min_size
+	button.size = min_size
+	button.flat = true
+	var empty := StyleBoxEmpty.new()
+	for style in ["normal", "hover", "pressed", "disabled", "focus"]:
+		button.add_theme_stylebox_override(style, empty)
+	button.add_theme_color_override("font_color", Color(0, 0, 0, 0))
+	button.add_theme_color_override("font_hover_color", Color(0, 0, 0, 0))
+	button.add_theme_color_override("font_pressed_color", Color(0, 0, 0, 0))
+	button.add_theme_color_override("font_disabled_color", Color(0, 0, 0, 0))
+	button.add_theme_color_override("icon_normal_color", Color(0, 0, 0, 0))
+	return button
+
+
 static func hex_stamp(kind: String) -> Texture2D:
 	return _ArtPack.hex_stamp(kind)
 

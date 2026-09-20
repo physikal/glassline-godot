@@ -160,7 +160,7 @@ def extract_hex(hex_map: Image.Image) -> None:
     def box_at(cx: int, cy: int, hx: int, hy: int) -> tuple[int, int, int, int]:
         return (cx - hx, cy - hy, cx + hx, cy + hy)
 
-    ## Legend chips — measured on hex-map.jpg (OPEN/BRUSH/HARD/UNKNOWN column).
+    ## Legend chips — measured on match-board-canon / hex-map HUD column.
     legend = {
         "hex_open": box_at(76, 180, 40, 36),
         "hex_brush": box_at(76, 276, 40, 36),

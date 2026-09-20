@@ -66,6 +66,7 @@ var _rematch_busy: bool = false
 var _abandon_busy: bool = false
 var _going_hideout: bool = false
 var _art_lock_end_panel: bool = false
+var _plate_hud: bool = false
 
 
 func _ready() -> void:
@@ -671,56 +672,73 @@ func _exit_tree() -> void:
 
 
 func _build() -> void:
-	var desk := TextureRect.new()
-	desk.texture = Chrome.make_wood_texture(320, 180)
-	desk.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	desk.stretch_mode = TextureRect.STRETCH_SCALE
-	desk.set_anchors_preset(PRESET_FULL_RECT)
-	desk.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(desk)
+	var Art := preload("res://scripts/art_pack.gd")
+	var plate_tex: Texture2D = Art.match_board_plate()
+	_plate_hud = plate_tex != null
+	if _plate_hud:
+		var plate := TextureRect.new()
+		plate.texture = plate_tex
+		plate.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		plate.stretch_mode = TextureRect.STRETCH_SCALE
+		plate.set_anchors_preset(PRESET_FULL_RECT)
+		plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(plate)
+	else:
+		var desk := TextureRect.new()
+		desk.texture = Chrome.make_wood_texture(320, 180)
+		desk.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		desk.stretch_mode = TextureRect.STRETCH_SCALE
+		desk.set_anchors_preset(PRESET_FULL_RECT)
+		desk.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(desk)
+		var wash := ColorRect.new()
+		wash.color = Color(0.08, 0.04, 0.03, 0.10)
+		wash.set_anchors_preset(PRESET_FULL_RECT)
+		wash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(wash)
+		var top := ColorRect.new()
+		top.color = Color(0.08, 0.05, 0.04, 0.55)
+		top.set_anchors_and_offsets_preset(PRESET_TOP_WIDE)
+		top.offset_bottom = 96
+		add_child(top)
 
-	var wash := ColorRect.new()
-	wash.color = Color(0.08, 0.04, 0.03, 0.10)
-	wash.set_anchors_preset(PRESET_FULL_RECT)
-	wash.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(wash)
-
-	var top := ColorRect.new()
-	top.color = Color(0.08, 0.05, 0.04, 0.55)
-	top.set_anchors_and_offsets_preset(PRESET_TOP_WIDE)
-	top.offset_bottom = 96
-	add_child(top)
-
-	_add_player_card(true)
-	_add_player_card(false)
-
-	var reticle := TextureRect.new()
-	reticle.texture = Chrome.make_icon("attack", Color.WHITE, 28)
-	reticle.position = Vector2(430, 18)
-	reticle.size = Vector2(36, 36)
-	reticle.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(reticle)
-
-	var title := Label.new()
-	title.text = "SP JOB" if ClientSession.is_job() else "Glassline"
-	title.position = Vector2(0, 10)
-	title.size = Vector2(1280, 36)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	Chrome.apply_label(title, 20, Color.WHITE, true)
-	add_child(title)
+	if _plate_hud:
+		_you_chip = Label.new()
+		_rival_chip = Label.new()
+		_you_chip.visible = false
+		_rival_chip.visible = false
+		add_child(_you_chip)
+		add_child(_rival_chip)
+	else:
+		_add_player_card(true)
+		_add_player_card(false)
+		var reticle := TextureRect.new()
+		reticle.texture = Chrome.make_icon("attack", Color.WHITE, 28)
+		reticle.position = Vector2(430, 18)
+		reticle.size = Vector2(36, 36)
+		reticle.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(reticle)
+		var title := Label.new()
+		title.text = "SP JOB" if ClientSession.is_job() else "Glassline"
+		title.position = Vector2(0, 10)
+		title.size = Vector2(1280, 36)
+		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		Chrome.apply_label(title, 20, Color.WHITE, true)
+		add_child(title)
 
 	_clock_icon = TextureRect.new()
 	_clock_icon.texture = Chrome.make_icon("clock", Chrome.CREAM, 28)
 	_clock_icon.position = Vector2(24, 104)
 	_clock_icon.size = Vector2(24, 24)
 	_clock_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_clock_icon.visible = true
+	_clock_icon.visible = not _plate_hud
 	add_child(_clock_icon)
 	_clock_chip = Label.new()
 	_clock_chip.text = "01:30"
 	_clock_chip.position = Vector2(52, 104)
 	_clock_chip.size = Vector2(160, 28)
 	Chrome.apply_label(_clock_chip, 14, Chrome.CREAM, true)
+	_clock_chip.visible = not _plate_hud
 	add_child(_clock_chip)
 	_grace_lbl = Label.new()
 	_grace_lbl.text = ""
@@ -739,6 +757,7 @@ func _build() -> void:
 
 	_turn_pill = Chrome.pill_chip(Color(0.08, 0.06, 0.05, 0.92), Color("f0e3b0"))
 	_turn_pill.position = Vector2(540, 50)
+	_turn_pill.visible = not _plate_hud
 	add_child(_turn_pill)
 	_turn = Label.new()
 	_turn.text = "TURN  1"
@@ -746,39 +765,54 @@ func _build() -> void:
 	Chrome.apply_label(_turn, 10, Chrome.CREAM, true)
 	_turn_pill.add_child(_turn)
 
-	var legend := VBoxContainer.new()
-	legend.position = Vector2(16, 168)
-	legend.add_theme_constant_override("separation", 12)
-	add_child(legend)
-	_legend_row(legend, Contract.TYPE_OPEN, "OPEN")
-	_legend_row(legend, Contract.TYPE_BRUSH, "BRUSH")
-	_legend_row(legend, Contract.TYPE_HARD, "HARD")
-	_legend_row(legend, "unknown", "UNKNOWN")
+	if not _plate_hud:
+		var legend := VBoxContainer.new()
+		legend.position = Vector2(16, 168)
+		legend.add_theme_constant_override("separation", 12)
+		add_child(legend)
+		_legend_row(legend, Contract.TYPE_OPEN, "OPEN")
+		_legend_row(legend, Contract.TYPE_BRUSH, "BRUSH")
+		_legend_row(legend, Contract.TYPE_HARD, "HARD")
+		_legend_row(legend, "unknown", "UNKNOWN")
 
 	_legend_hover = Label.new()
 	_legend_hover.position = Vector2(16, 380)
 	_legend_hover.size = Vector2(200, 80)
 	_legend_hover.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	Chrome.apply_label(_legend_hover, 8, Chrome.CREAM, true)
+	_legend_hover.visible = not _plate_hud
 	add_child(_legend_hover)
 
-	var well := ColorRect.new()
-	well.color = Color(0.07, 0.05, 0.04, 0.12)
-	well.position = Vector2(210, 128)
-	well.size = Vector2(860, 478)
-	well.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(well)
+	if _plate_hud:
+		## Cover the plate's printed map so only hash-revealed stamps show.
+		var cover := ColorRect.new()
+		cover.color = Color("1f150b")
+		cover.position = Vector2(288, 112)
+		cover.size = Vector2(840, 448)
+		cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(cover)
+	else:
+		var well := ColorRect.new()
+		well.color = Color(0.07, 0.05, 0.04, 0.12)
+		well.position = Vector2(210, 128)
+		well.size = Vector2(860, 478)
+		well.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(well)
 
 	_board_host = Control.new()
-	_board_host.position = Vector2(220, 132)
-	_board_host.size = Vector2(840, 470)
+	if _plate_hud:
+		_board_host.position = Vector2(300, 118)
+		_board_host.size = Vector2(820, 440)
+	else:
+		_board_host.position = Vector2(220, 132)
+		_board_host.size = Vector2(840, 470)
 	_board_host.mouse_filter = Control.MOUSE_FILTER_STOP
 	_board_host.gui_input.connect(_on_board_input)
 	add_child(_board_host)
 
 	_board = HexBoard.new()
 	_board_host.add_child(_board)
-	_board.position = Vector2(420, 235)
+	_board.position = Vector2(_board_host.size.x * 0.5, _board_host.size.y * 0.5)
 
 	_status = Label.new()
 	_status.position = Vector2(200, 82)
@@ -794,46 +828,66 @@ func _build() -> void:
 	Chrome.apply_label(_phase, 8, Chrome.TEAL, true)
 	add_child(_phase)
 
-	var bottom := ColorRect.new()
-	bottom.color = Color(0.10, 0.06, 0.04, 0.72)
-	bottom.set_anchors_and_offsets_preset(PRESET_BOTTOM_WIDE)
-	bottom.offset_top = -118
-	add_child(bottom)
-
-	var row := HBoxContainer.new()
-	row.position = Vector2(24, 612)
-	row.size = Vector2(1232, 92)
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 14)
-	add_child(row)
-
-	_btn_attack = Chrome.game_button("attack", "ATTACK", Chrome.ATTACK_RED, Color.WHITE, Vector2(248, 76))
-	_btn_attack.pressed.connect(_on_attack)
-	row.add_child(_btn_attack)
-	_btn_recon = Chrome.game_button("recon", "RECON", Chrome.RECON_BLUE, Color.WHITE, Vector2(248, 76))
-	_btn_recon.pressed.connect(_on_recon)
-	row.add_child(_btn_recon)
-	_btn_uav = Chrome.game_button("ability", Contract.ABILITY_SLOT, Chrome.ABILITY_PURPLE, Color.WHITE, Vector2(248, 76))
-	_btn_uav.tooltip_text = "Ability — UAV Sweep. Posts type: uav."
-	_btn_uav.pressed.connect(_on_uav)
-	row.add_child(_btn_uav)
+	if _plate_hud:
+		_btn_attack = Chrome.plate_hotspot(Vector2(284, 104))
+		_btn_attack.position = Vector2(36, 572)
+		_btn_attack.pressed.connect(_on_attack)
+		add_child(_btn_attack)
+		_btn_recon = Chrome.plate_hotspot(Vector2(290, 104))
+		_btn_recon.position = Vector2(330, 572)
+		_btn_recon.pressed.connect(_on_recon)
+		add_child(_btn_recon)
+		_btn_uav = Chrome.plate_hotspot(Vector2(290, 104))
+		_btn_uav.position = Vector2(630, 572)
+		_btn_uav.tooltip_text = "Ability — UAV Sweep. Posts type: uav."
+		_btn_uav.pressed.connect(_on_uav)
+		add_child(_btn_uav)
+		_btn_high = Chrome.plate_hotspot(Vector2(320, 104))
+		_btn_high.position = Vector2(930, 572)
+		_btn_high.disabled = true
+		_btn_high.tooltip_text = Contract.HIGH_GROUND_COPY
+		add_child(_btn_high)
+		_high_cap = Label.new()
+		_high_cap.visible = false
+		add_child(_high_cap)
+	else:
+		var bottom := ColorRect.new()
+		bottom.color = Color(0.10, 0.06, 0.04, 0.72)
+		bottom.set_anchors_and_offsets_preset(PRESET_BOTTOM_WIDE)
+		bottom.offset_top = -118
+		add_child(bottom)
+		var row := HBoxContainer.new()
+		row.position = Vector2(24, 612)
+		row.size = Vector2(1232, 92)
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		row.add_theme_constant_override("separation", 14)
+		add_child(row)
+		_btn_attack = Chrome.game_button("attack", "ATTACK", Chrome.ATTACK_RED, Color.WHITE, Vector2(248, 76))
+		_btn_attack.pressed.connect(_on_attack)
+		row.add_child(_btn_attack)
+		_btn_recon = Chrome.game_button("recon", "RECON", Chrome.RECON_BLUE, Color.WHITE, Vector2(248, 76))
+		_btn_recon.pressed.connect(_on_recon)
+		row.add_child(_btn_recon)
+		_btn_uav = Chrome.game_button("ability", Contract.ABILITY_SLOT, Chrome.ABILITY_PURPLE, Color.WHITE, Vector2(248, 76))
+		_btn_uav.tooltip_text = "Ability — UAV Sweep. Posts type: uav."
+		_btn_uav.pressed.connect(_on_uav)
+		row.add_child(_btn_uav)
+		var high_col := VBoxContainer.new()
+		high_col.alignment = BoxContainer.ALIGNMENT_CENTER
+		high_col.add_theme_constant_override("separation", 2)
+		_btn_high = Chrome.game_button("high", Contract.HIGH_GROUND_LABEL, Color("1a1816"), Chrome.CREAM, Vector2(248, 56))
+		_btn_high.disabled = true
+		_btn_high.tooltip_text = Contract.HIGH_GROUND_COPY
+		high_col.add_child(_btn_high)
+		_high_cap = Label.new()
+		_high_cap.text = Contract.HIGH_GROUND_SUB
+		_high_cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		Chrome.apply_label(_high_cap, 8, Chrome.CREAM, true)
+		high_col.add_child(_high_cap)
+		row.add_child(high_col)
 	_ability_cap = Label.new()
 	_ability_cap.visible = false
 	add_child(_ability_cap)
-
-	var high_col := VBoxContainer.new()
-	high_col.alignment = BoxContainer.ALIGNMENT_CENTER
-	high_col.add_theme_constant_override("separation", 2)
-	_btn_high = Chrome.game_button("high", Contract.HIGH_GROUND_LABEL, Color("1a1816"), Chrome.CREAM, Vector2(248, 56))
-	_btn_high.disabled = true
-	_btn_high.tooltip_text = Contract.HIGH_GROUND_COPY
-	high_col.add_child(_btn_high)
-	_high_cap = Label.new()
-	_high_cap.text = Contract.HIGH_GROUND_SUB
-	_high_cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	Chrome.apply_label(_high_cap, 8, Chrome.CREAM, true)
-	high_col.add_child(_high_cap)
-	row.add_child(high_col)
 
 	_decoy_cap = Label.new()
 	_decoy_cap.visible = false

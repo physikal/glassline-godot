@@ -115,22 +115,15 @@ func _sync_faces() -> void:
 func _draw() -> void:
 	_sync_faces()
 	var corners := HexMath.hex_corners(HEX_SIZE - 1.2)
-	var thick := HexMath.hex_corners(HEX_SIZE - 0.4)
 	for q in Contract.BOARD_Q:
 		for r in Contract.BOARD_R:
 			var center := HexMath.axial_to_pixel(q, r, HEX_SIZE) - _origin
 			var key := "%d,%d" % [q, r]
 			var kind := cell_kind(q, r)
 			var fill := Chrome.terrain_color(kind)
-			var shade := 0.03 * float((q * 13 + r * 7) % 5 - 2)
-			fill = fill.lightened(shade)
 			var body := PackedVector2Array()
-			var under := PackedVector2Array()
 			for p in corners:
 				body.append(center + p)
-			for p in thick:
-				under.append(center + p + Vector2(0, 3))
-			draw_colored_polygon(under, fill.darkened(0.38))
 			var face: Sprite2D = _faces.get(key)
 			if face == null or not face.visible:
 				draw_colored_polygon(body, fill)
@@ -149,14 +142,12 @@ func render_ink(layer: CanvasItem) -> void:
 			var body := PackedVector2Array()
 			for p in corners:
 				body.append(center + p)
-			var outline := Color(0.12, 0.09, 0.07, 0.9)
-			if kind != "unknown":
-				outline = Chrome.HEX_LINE
+			var outline := Color(0.10, 0.08, 0.07, 0.88)
 			if Contract.same_hex(_selected, Contract.hex_dict(q, r)):
 				outline = Color("e23b3b")
 			elif Contract.same_hex(_hover, Contract.hex_dict(q, r)):
 				outline = Color.WHITE
-			layer.draw_polyline(body + PackedVector2Array([body[0]]), outline, 2.4, true)
+			layer.draw_polyline(body + PackedVector2Array([body[0]]), outline, 1.6, true)
 			if _highlights.has(key):
 				layer.draw_arc(center, HEX_SIZE * 0.72, 0.0, TAU, 28, _highlights[key], 3.0, true)
 	_draw_tokens_on(layer)

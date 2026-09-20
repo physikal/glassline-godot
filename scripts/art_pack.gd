@@ -25,6 +25,8 @@ const TILE_BRUSH := "res://assets/art_v2/hex_brush_tile.png"
 const TILE_HARD := "res://assets/art_v2/hex_hard_tile.png"
 const TILE_OPEN := "res://assets/art_v2/hex_open_tile.png"
 const TILE_UNKNOWN := "res://assets/art_v2/hex_unknown_tile.png"
+const MATCH_BOARD := "res://assets/canon/match-board-canon.jpg"
+const MATCH_BOARD_FALLBACK := "res://assets/canon/hex-map.jpg"
 
 ## Plate-pixel hang points on the 1280×720 hideout (olive / tan / teal).
 const RACK_POS := {
@@ -72,6 +74,14 @@ static func face_texture(kind: String) -> Texture2D:
 	if kind == "ghillie" or kind == "p2":
 		return tex(FACE_GHILLIE)
 	return tex(FACE_TEAL)
+
+
+static func match_board_plate() -> Texture2D:
+	## Josh match-board HUD. Prefer the named plate; hex-map is the same family.
+	var plate := tex(MATCH_BOARD)
+	if plate != null:
+		return plate
+	return tex(MATCH_BOARD_FALLBACK)
 
 
 static func hex_legend(kind: String) -> Texture2D:

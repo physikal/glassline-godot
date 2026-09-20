@@ -1605,6 +1605,12 @@ func _match_board_chrome_case(failed: PackedStringArray) -> void:
 	var face_b: Texture2D = Art.hex_tile(Contract.TYPE_BRUSH, 99)
 	_expect(failed, face_a != null and face_b != null, "brush stamp loads")
 	_expect(failed, face_a.get_image().get_data() == face_b.get_image().get_data(), "stamp is tileable, not a unique map face")
+	var plate: Texture2D = Art.match_board_plate()
+	_expect(failed, plate != null and plate.get_width() >= 1200, "match-board plate loads")
+	var Chrome := load("res://scripts/chrome.gd")
+	var hot: Button = Chrome.plate_hotspot(Vector2(284, 104))
+	_expect(failed, hot.custom_minimum_size.x == 284, "plate key hotspot matches painted button")
+	hot.free()
 
 
 func _equip_chrome_case(failed: PackedStringArray) -> void:
