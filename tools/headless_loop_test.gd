@@ -9,6 +9,7 @@ const Snapshot := preload("res://types/snapshot.gd")
 const MarksPayout := preload("res://types/marks_payout.gd")
 const Shop := preload("res://types/shop.gd")
 const HexMath := preload("res://scripts/hex_math.gd")
+const Chrome := preload("res://scripts/chrome.gd")
 const MockScript := preload("res://autoload/mock_match_server.gd")
 const SessionScript := preload("res://autoload/client_session.gd")
 
@@ -1498,6 +1499,9 @@ func _gun_chrome_case(failed: PackedStringArray) -> void:
 	_expect(failed, not Contract.is_decor_chrome(Contract.GUN_RAILFRAME), "gun is not decor chrome")
 	_expect(failed, Contract.GUN_VISUAL_COPY.find("visual") >= 0, "G6 zero-combat copy")
 	_expect(failed, Shop.row_status_text(true, true, true).find("visual") >= 0, "G6 EQUIPPED copy visual only")
+	_expect(failed, not Chrome.debug_status_ribbons(), "P2 ARMORY/RACK debug ribbons off by default")
+	_expect(failed, Chrome.armory_debug_ribbon().find("Fieldbolt owned") >= 0, "P2 ARMORY debug ribbon copy stays gated")
+	_expect(failed, Chrome.rack_debug_ribbon().find("Fieldbolt equipped") >= 0, "P2 RACK debug ribbon copy stays gated")
 
 	var session = SessionScript.new()
 	session.apply_shop(catalog)

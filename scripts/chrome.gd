@@ -76,6 +76,25 @@ static func marks_star_text(balance: int) -> String:
 	return "★%d" % balance
 
 
+static func debug_status_ribbons() -> bool:
+	## Soft P2: ARMORY / RACK inventory dumps are not production chrome.
+	## Headless / capture can opt in with GLASSLINE_DEBUG_STATUS=1 or --debug-status.
+	if OS.get_environment("GLASSLINE_DEBUG_STATUS") == "1":
+		return true
+	return "--debug-status" in OS.get_cmdline_user_args()
+
+
+static func armory_debug_ribbon() -> String:
+	return "ARMORY  ·  Fieldbolt owned  ·  Railframe ★%d  ·  Crescent ★%d  ·  visual only" % [
+		Contract.GUN_RAILFRAME_PRICE,
+		Contract.GUN_CRESCENT_PRICE,
+	]
+
+
+static func rack_debug_ribbon() -> String:
+	return "RACK  ·  Fieldbolt equipped  ·  Railframe owned  ·  Crescent locked  ·  visual only"
+
+
 static func chunk_button(text: String, bg: Color, fg: Color, min_size: Vector2 = Vector2(220, 64)) -> Button:
 	return _styled_button(text, bg, fg, min_size, 18, 12)
 

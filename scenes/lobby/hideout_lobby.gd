@@ -421,7 +421,7 @@ func _capture_gun_armory_three_row() -> void:
 		_shop_row.offset_top = -420
 		_shop_row.offset_bottom = -88
 	_hide_non_gun_shop_rows()
-	_toast_msg("ARMORY  ·  Fieldbolt owned  ·  Railframe ★125  ·  Crescent ★200  ·  visual only")
+	_debug_status_toast(Chrome.armory_debug_ribbon())
 	await _capture_named("res://artifacts/ux/gun_armory_three_row.png", "GUN_ARMORY_THREE_ROW")
 
 
@@ -438,7 +438,7 @@ func _capture_gun_rack_dynamic() -> void:
 	if _shop_row:
 		_shop_row.visible = false
 	_refresh_gun_rack()
-	_toast_msg("RACK  ·  Fieldbolt equipped  ·  Railframe owned  ·  Crescent locked  ·  visual only")
+	_debug_status_toast(Chrome.rack_debug_ribbon())
 	await _capture_named("res://artifacts/ux/gun_rack_dynamic.png", "GUN_RACK_DYNAMIC")
 
 
@@ -1252,10 +1252,8 @@ func _focus_shop() -> void:
 		return
 	if _shop_row:
 		_shop_row.visible = true
-	_toast_msg("ARMORY  ·  Fieldbolt owned  ·  Railframe ★%d  ·  Crescent ★%d  ·  visual only" % [
-		Contract.GUN_RAILFRAME_PRICE,
-		Contract.GUN_CRESCENT_PRICE,
-	])
+	## Soft P2: LOADOUT opens ARMORY rows. No inventory-dump ribbon in LIVE play.
+	_debug_status_toast(Chrome.armory_debug_ribbon())
 
 
 func _refresh_shop() -> void:
@@ -1421,6 +1419,11 @@ func _toggle_suit() -> void:
 
 func _toast_msg(text: String) -> void:
 	_toast.text = text
+
+
+func _debug_status_toast(text: String) -> void:
+	## Soft P2: ARMORY · Fieldbolt owned… / RACK · Fieldbolt equipped… stay gated.
+	_toast_msg(text if Chrome.debug_status_ribbons() else "")
 
 
 func _toggle_jobs() -> void:
