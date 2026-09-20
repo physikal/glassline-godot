@@ -203,6 +203,14 @@ static func make_icon(kind: String, color: Color, px: int = 28) -> Texture2D:
 			_icon_coin(img, color)
 		"gem":
 			_icon_gem(img, color)
+		"lock":
+			_icon_lock(img, color)
+		"ghillie":
+			_icon_leaf(img, color)
+		"bandana":
+			_icon_bandana(img, color)
+		"poster":
+			_icon_poster(img, color)
 		_:
 			_icon_star(img, color)
 	return ImageTexture.create_from_image(img)
@@ -224,7 +232,9 @@ static func make_face(kind: String, px: int = 44) -> Texture2D:
 	else:
 		_fill_circle(img, cx, cy, 20, Color("1d6b54"))
 		_fill_circle(img, cx, cy + 1, 15, Color("e6c39a"))
-		_fill_rect(img, cx - 12, cy - 16, 24, 8, Color("5a3a22"))
+		_fill_rect(img, cx - 14, cy - 18, 28, 10, Color("5a3a22"))
+		_fill_rect(img, cx - 12, cy - 16, 24, 6, Color("3d2618"))
+		_fill_rect(img, cx - 16, cy - 10, 32, 5, Color("c45a4a"))
 		_fill_rect(img, cx - 6, cy - 4, 4, 4, INK)
 		_fill_rect(img, cx + 3, cy - 4, 4, 4, INK)
 		_fill_rect(img, cx - 3, cy + 5, 7, 2, Color("c45a4a"))
@@ -378,6 +388,29 @@ static func _icon_ticket(img: Image, color: Color) -> void:
 	_fill_rect(img, 8, 16, 5, 2, color)
 	_fill_circle(img, 20, 14, 3, color)
 	_fill_circle(img, 20, 14, 1, INK)
+
+
+static func _icon_lock(img: Image, color: Color) -> void:
+	_fill_rect(img, 8, 13, 12, 10, color)
+	_stroke_circle(img, 14, 12, 5, color)
+
+
+static func _icon_leaf(img: Image, color: Color) -> void:
+	_fill_circle(img, 14, 16, 8, color)
+	_fill_circle(img, 10, 12, 5, color)
+	_fill_circle(img, 18, 13, 5, color)
+	_fill_rect(img, 13, 6, 3, 8, color)
+
+
+static func _icon_bandana(img: Image, color: Color) -> void:
+	_fill_rect(img, 4, 10, 20, 7, color)
+	_fill_rect(img, 18, 15, 5, 7, color)
+
+
+static func _icon_poster(img: Image, color: Color) -> void:
+	_fill_rect(img, 6, 4, 16, 20, color)
+	_fill_rect(img, 8, 6, 12, 16, Color(0, 0, 0, 0.28))
+	_fill_circle(img, 14, 12, 3, color)
 
 
 static func _icon_clipboard(img: Image, color: Color) -> void:

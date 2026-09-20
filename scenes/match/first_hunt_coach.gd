@@ -220,7 +220,7 @@ func _make_chip(title: String, body: String, accent: Color, icon_kind: String) -
 	panel.custom_minimum_size = Vector2(200, 78)
 	panel.size = Vector2(200, 78)
 	panel.set_meta("coach_title", title)
-	var box := Chrome.flat(Color(0.11, 0.08, 0.06, 0.94), 12, accent, 2)
+	var box := Chrome.flat(Color(0.12, 0.08, 0.06, 0.96), 14, accent, 3)
 	box.content_margin_left = 10
 	box.content_margin_right = 8
 	box.content_margin_top = 6

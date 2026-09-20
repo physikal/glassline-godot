@@ -136,6 +136,7 @@ func _run() -> int:
 	_job_case(failed)
 	_a2_reconnect_case(failed)
 	_shop_case(failed)
+	_gun_chrome_case(failed)
 	_live_shop_shape_case(failed)
 	_shop_sink2_case(failed)
 	_shop_sink3_case(failed)
@@ -1468,6 +1469,68 @@ func _shop_sink3_case(failed: PackedStringArray) -> void:
 	_expect(failed, Contract.is_suit_chrome(Contract.SHOP_STUB_ITEM_ID), "S3.5 ghillie stays suit chrome")
 	_expect(failed, not Contract.is_suit_chrome(Contract.SHOP_POSTER_ITEM_ID), "S3.5 poster is not suit chrome")
 	_expect(failed, Contract.is_decor_chrome(Contract.SHOP_POSTER_ITEM_ID), "S3.5 poster is decor chrome")
+	session.free()
+
+
+func _gun_chrome_case(failed: PackedStringArray) -> void:
+	## Visual gun rack only. No catalog SKUs, Marks, or combat.
+	server.clear_all()
+	server.reset_wallet(80)
+	var catalog: Dictionary = server.get_shop()
+	var listed = Shop.from_any(catalog)
+	_expect(failed, listed.items.size() == 3, "gun chrome does not add shop SKUs")
+	_expect(failed, not listed.has_item(Contract.GUN_FIELDBOLT), "Fieldbolt is not a catalog row")
+	_expect(failed, not listed.has_item(Contract.GUN_RAILFRAME), "Railframe is not a catalog row")
+	_expect(failed, not listed.has_item(Contract.GUN_CRESCENT), "Crescent is not a catalog row")
+	_expect(failed, Contract.gun_family_name(Contract.GUN_FIELDBOLT) == "FIELDBOLT", "in-fiction Fieldbolt")
+	_expect(failed, Contract.gun_family_name("railframe") == "RAILFRAME", "alias Railframe")
+	_expect(failed, Contract.is_gun_chrome(Contract.GUN_CRESCENT), "Crescent is gun chrome")
+	_expect(failed, not Contract.is_suit_chrome(Contract.GUN_FIELDBOLT), "gun is not suit chrome")
+	_expect(failed, not Contract.is_decor_chrome(Contract.GUN_RAILFRAME), "gun is not decor chrome")
+
+	var session = SessionScript.new()
+	session.apply_shop(catalog)
+	_expect(failed, session.owns_gun(Contract.GUN_FIELDBOLT), "starter bolt owned by default")
+	_expect(failed, session.equipped_gun_id() == Contract.GUN_FIELDBOLT, "starter bolt default equipped")
+	_expect(failed, not session.owns_gun(Contract.GUN_RAILFRAME), "Railframe locked until SKU")
+	_expect(failed, not session.owns_gun(Contract.GUN_CRESCENT), "Crescent locked until SKU")
+	_expect(failed, session.gun_slot_state(Contract.GUN_FIELDBOLT) == "equipped", "Fieldbolt slot equipped")
+	_expect(failed, session.gun_slot_state(Contract.GUN_RAILFRAME) == "locked", "Railframe slot locked")
+	_expect(failed, session.marks == 80, "gun stub does not touch Marks")
+
+	var me = Shop.from_any({
+		"you": {
+			"marks": 80,
+			"equippedSkinId": null,
+			"equippedDecorId": null,
+			"equippedGunId": "gun_railframe",
+			"ownedGuns": ["gun_fieldbolt", "gun_railframe"],
+		},
+		"owned": [],
+	})
+	_expect(failed, me.equipped_gun_present, "/shop/me equippedGunId present")
+	_expect(failed, me.owned_guns_present, "/shop/me ownedGuns present")
+	_expect(failed, me.equipped_gun == Contract.GUN_RAILFRAME, "parser reads equippedGunId")
+	_expect(failed, me.owned_guns.has(Contract.GUN_RAILFRAME), "parser reads ownedGuns")
+	session.apply_shop({
+		"you": {
+			"marks": 80,
+			"equippedGunId": "gun_railframe",
+			"ownedGuns": ["gun_fieldbolt", "gun_railframe"],
+		},
+	})
+	_expect(failed, session.owns_gun(Contract.GUN_RAILFRAME), "LIVE ownedGuns binds Railframe")
+	_expect(failed, session.equipped_gun_id() == Contract.GUN_RAILFRAME, "LIVE equippedGunId binds")
+	_expect(failed, session.gun_slot_state(Contract.GUN_CRESCENT) == "locked", "Crescent still locked")
+	_expect(failed, session.marks == 80, "gun bind does not debit Marks")
+
+	session.apply_shop({
+		"you": {"marks": 80, "equippedGunId": "gun_crescent"},
+	})
+	_expect(failed, session.equipped_gun_id() == Contract.GUN_FIELDBOLT, "unowned Crescent falls back to starter")
+
+	var unknown = Shop.from_any({"you": {"equippedGunId": "not_a_gun"}})
+	_expect(failed, unknown.equipped_gun == "", "unknown equippedGunId is empty")
 	session.free()
 
 

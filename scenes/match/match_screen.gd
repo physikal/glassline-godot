@@ -80,6 +80,12 @@ func _ready() -> void:
 		_capture_sp_end()
 	elif "--capture-equip-doll" in args:
 		_capture_equip_doll()
+	elif "--capture-art-hex" in args:
+		_capture_art_hex()
+	elif "--capture-art-optic" in args:
+		_capture_art_optic()
+	elif "--capture-art-doll" in args:
+		_capture_art_doll()
 	elif "--capture-decoy-hud" in args:
 		_capture_decoy_hud()
 	elif "--capture-decoy-blip" in args:
@@ -131,6 +137,66 @@ func _capture_after_play() -> void:
 	var path := ProjectSettings.globalize_path("res://artifacts/a1-after-play.png")
 	img.save_png(path)
 	print("A1_AFTER_PLAY_CAPTURE ", path)
+	get_tree().quit()
+
+
+func _capture_art_hex() -> void:
+	if _coach:
+		_coach.dismiss()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	var path := ProjectSettings.globalize_path("res://artifacts/ux/art_hex_terrain.png")
+	img.save_png(path)
+	print("ART_HEX_TERRAIN ", path)
+	get_tree().quit()
+
+
+func _capture_art_optic() -> void:
+	if _coach:
+		_coach.dismiss()
+	await get_tree().process_frame
+	_submit(ActionIntent.select_hex(2, 2))
+	await get_tree().process_frame
+	if ClientSession.dummy_player_id != "":
+		MatchAPI.apply_action(ClientSession.match_id, ClientSession.dummy_player_id, ActionIntent.select_hex(7, 5))
+		await get_tree().process_frame
+	_submit(ActionIntent.start())
+	await get_tree().process_frame
+	_optic.open_for(Contract.hex_dict(4, 3), Contract.TYPE_BRUSH, true, ClientSession.equipped_gun_id())
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	var path := ProjectSettings.globalize_path("res://artifacts/ux/art_attack_optic.png")
+	img.save_png(path)
+	print("ART_ATTACK_OPTIC ", path)
+	get_tree().quit()
+
+
+func _capture_art_doll() -> void:
+	if _coach:
+		_coach.dismiss()
+	await get_tree().process_frame
+	_submit(ActionIntent.select_hex(2, 2))
+	await get_tree().process_frame
+	if ClientSession.dummy_player_id != "":
+		MatchAPI.apply_action(ClientSession.match_id, ClientSession.dummy_player_id, ActionIntent.select_hex(7, 5))
+		await get_tree().process_frame
+	_submit(ActionIntent.start())
+	await get_tree().process_frame
+	_end_panel.visible = true
+	if _exposure_doll:
+		_exposure_doll.bind_server_pct(72.0)
+		_exposure_doll.bind_equipped(ClientSession.equipped_cosmetic)
+		_exposure_doll.custom_minimum_size = Vector2(110, 148)
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	var path := ProjectSettings.globalize_path("res://artifacts/ux/art_operative_doll.png")
+	img.save_png(path)
+	print("ART_OPERATIVE_DOLL ", path)
 	get_tree().quit()
 
 
@@ -1028,7 +1094,7 @@ func _handle_hex(q: int, r: int) -> void:
 		_selected = Contract.hex_dict(q, r)
 		var kind := str(snap.terrain_map().get("%d,%d" % [q, r], "unknown"))
 		var show_fig := Contract.same_hex(snap.enemy_visible_hex(), _selected)
-		_optic.open_for(_selected, kind, show_fig)
+		_optic.open_for(_selected, kind, show_fig, ClientSession.equipped_gun_id())
 		return
 	_selected = Contract.hex_dict(q, r)
 	_refresh(snap)
