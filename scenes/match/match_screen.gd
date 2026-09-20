@@ -1038,7 +1038,10 @@ func _refresh(snap: Snapshot) -> void:
 	_board.apply_snapshot(snap, _selected, _highlights(snap))
 	_you_chip.text = "%s\n%s" % [ClientSession.HANDLE, Chrome.marks_star_text(snap.you_marks())]
 	_rival_chip.text = "BOT" if ClientSession.is_job() or snap.is_job() else ClientSession.RIVAL
-	_turn.text = "TURN  %d" % snap.turn_index()
+	var turn_n := snap.turn_index()
+	if turn_n < 1:
+		turn_n = 1
+	_turn.text = "TURN  %d" % turn_n
 	_phase.text = ""
 
 	match snap.status():
