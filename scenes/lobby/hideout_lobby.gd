@@ -408,16 +408,14 @@ func _capture_art_operative_doll() -> void:
 	if _shop_row:
 		_shop_row.visible = false
 	var doll := ExposureDoll.new()
-	doll.custom_minimum_size = Vector2(120, 160)
-	doll.size = Vector2(120, 160)
-	doll.set_anchors_preset(PRESET_CENTER)
-	doll.offset_left = 170
-	doll.offset_right = 290
-	doll.offset_top = -80
-	doll.offset_bottom = 80
-	doll.bind_server_pct(72.0)
+	doll.custom_minimum_size = Vector2(160, 220)
+	doll.set_anchors_preset(PRESET_TOP_LEFT)
+	doll.position = Vector2(300, 148)
+	doll.size = Vector2(160, 220)
+	doll.bind_server_pct(92.0)
 	doll.bind_equipped(ClientSession.equipped_cosmetic)
 	add_child(doll)
+	doll.size = Vector2(160, 220)
 	_refresh_gun_rack()
 	await get_tree().process_frame
 	await get_tree().process_frame
@@ -772,13 +770,13 @@ func _build_gun_rack() -> void:
 	_rack_cover = ColorRect.new()
 	_rack_cover.color = Color("5a3a22")
 	_rack_cover.position = Vector2(16, 108)
-	_rack_cover.size = Vector2(268, 304)
+	_rack_cover.size = Vector2(268, 328)
 	_rack_cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_rack_cover)
 
 	_gun_rack = PanelContainer.new()
 	_gun_rack.position = Vector2(16, 108)
-	_gun_rack.size = Vector2(268, 304)
+	_gun_rack.size = Vector2(268, 328)
 	var box := Chrome.flat(Color(0.16, 0.10, 0.07, 0.96), 14, Chrome.HIGH_GOLD, 3)
 	box.content_margin_left = 10
 	box.content_margin_right = 10
@@ -816,7 +814,7 @@ func _make_gun_slot(gun_id: String) -> PanelContainer:
 
 	var rifle := TextureRect.new()
 	rifle.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	rifle.custom_minimum_size = Vector2(236, 40)
+	rifle.custom_minimum_size = Vector2(236, 48)
 	rifle.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	rifle.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	rifle.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -866,7 +864,7 @@ func _refresh_gun_rack() -> void:
 		var status: Label = widgets.get("status")
 		var row: PanelContainer = widgets.get("row")
 		if rifle:
-			rifle.texture = ArtPack.rifle_texture(str(gid), state, 168, 44)
+			rifle.texture = ArtPack.rifle_texture(str(gid), state, 168, 48)
 		if status:
 			if state == "equipped":
 				status.text = "EQUIPPED"
@@ -886,7 +884,10 @@ func _refresh_gun_rack() -> void:
 			box.content_margin_bottom = 4
 			row.add_theme_stylebox_override("panel", box)
 	if _held_rifle:
-		_held_rifle.texture = ArtPack.rifle_held_texture(ClientSession.equipped_gun_id(), 140, 40)
+		var gid := ClientSession.equipped_gun_id()
+		_held_rifle.texture = ArtPack.rifle_held_texture(gid, 168, 48)
+		## Plate already holds a Fieldbolt. Overlay only when another family is equipped.
+		_held_rifle.visible = gid != Contract.GUN_FIELDBOLT
 
 
 func _show_rifle_showcase(show: bool) -> void:
@@ -1267,9 +1268,9 @@ func _plate_without_baked_chrome(src: Texture2D) -> Texture2D:
 	_stamp_wood(img, 0, 0, mini(400, w), mini(122, h), px, py, pw, ph)
 	_stamp_wood(img, maxi(0, w - 500), 0, w, mini(62, h), px, py, pw, ph)
 	_stamp_wood(img, 0, maxi(0, h - 220), w, h, px, py, pw, ph)
-	## Cover baked plate rifles so the live rack / held silhouette can bind.
+	## Cover baked plate rifles so the live rack can bind. Leave the plate's held gun
+	## when Fieldbolt is equipped — overlay only swaps other families.
 	_stamp_wood(img, int(w * 0.015), int(h * 0.165), int(w * 0.275), int(h * 0.50), px, py, pw, ph)
-	_stamp_wood(img, int(w * 0.44), int(h * 0.50), int(w * 0.64), int(h * 0.59), px, py, pw, ph)
 	var wood := img.get_pixel(px, py)
 	for cover in _wood_covers:
 		cover.color = wood

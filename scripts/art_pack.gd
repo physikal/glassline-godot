@@ -112,87 +112,78 @@ static func make_shop_icon(item_id: String, px: int = 22) -> Texture2D:
 
 
 static func _draw_hooks(img: Image, dim: bool) -> void:
-	var hook := Color("4a3224") if dim else Color("6b4428")
+	var hook := Color("8a6a48") if dim else Color("c9a24a")
 	var w := img.get_width()
 	var h := img.get_height()
-	_fill_rect(img, 10, 4, 8, 4, hook)
-	_fill_rect(img, 12, 2, 4, 8, hook)
-	_fill_rect(img, w - 22, 4, 8, 4, hook)
-	_fill_rect(img, w - 20, 2, 4, 8, hook)
-	_fill_rect(img, 6, h - 6, w - 12, 3, hook.darkened(0.15))
+	_fill_rect(img, 6, 2, 10, 5, hook)
+	_fill_rect(img, 8, 1, 6, 9, hook)
+	_fill_rect(img, w - 16, 2, 10, 5, hook)
+	_fill_rect(img, w - 14, 1, 6, 9, hook)
+	_fill_rect(img, 4, h - 5, w - 8, 4, hook.darkened(0.20))
 
 
 static func _draw_fieldbolt(img: Image, locked: bool) -> void:
 	## Classic wood bolt — Remington 700 / M24 family, toy silhouette.
-	var wood := _ink(WOOD, locked)
-	var wood_l := _ink(WOOD_LIGHT, locked)
-	var metal := _ink(METAL, locked)
-	var barrel := _ink(Color("2a2e32"), locked)
-	var scope := _ink(Color("1a1c20"), locked)
-	var y := 18
-	_fill_rect(img, 8, y + 2, 22, 14, wood)
-	_fill_rect(img, 10, y + 4, 8, 10, wood_l)
-	_fill_rect(img, 26, y + 8, 10, 14, wood)
-	_fill_rect(img, 28, y + 10, 6, 10, wood_l)
-	_fill_rect(img, 32, y, 28, 10, metal)
-	_fill_rect(img, 36, y + 2, 18, 6, _ink(METAL_LITE, locked))
-	_fill_rect(img, 48, y - 8, 4, 10, _ink(STEEL, locked))
-	_fill_circle(img, 50, y - 8, 3, _ink(STEEL, locked))
-	_fill_rect(img, 58, y + 2, 86, 6, barrel)
-	_fill_rect(img, 140, y + 1, 8, 8, barrel)
-	_fill_rect(img, 38, y - 10, 28, 8, scope)
-	_fill_rect(img, 62, y - 8, 6, 6, _ink(TEAL, locked))
-	_fill_rect(img, 40, y - 8, 4, 4, _ink(Color("8fd4c4"), locked))
-	_fill_rect(img, 20, y + 14, 14, 4, wood_l)
+	var wood := _ink(Color("c48a4a"), locked)
+	var wood_l := _ink(Color("e0b06a"), locked)
+	var metal := _ink(Color("6a7178"), locked)
+	var barrel := _ink(Color("3a3e44"), locked)
+	var scope := _ink(Color("2a2e32"), locked)
+	_fill_rect(img, 6, 16, 28, 18, wood)
+	_fill_rect(img, 10, 18, 10, 12, wood_l)
+	_fill_rect(img, 28, 24, 14, 16, wood)
+	_fill_rect(img, 30, 26, 8, 12, wood_l)
+	_fill_rect(img, 36, 14, 32, 14, metal)
+	_fill_rect(img, 40, 16, 22, 8, _ink(STEEL, locked))
+	_fill_rect(img, 54, 6, 6, 12, _ink(STEEL, locked))
+	_fill_circle(img, 57, 6, 4, _ink(STEEL, locked))
+	_fill_rect(img, 66, 16, 86, 10, barrel)
+	_fill_rect(img, 148, 14, 12, 14, barrel)
+	_fill_rect(img, 42, 4, 32, 10, scope)
+	_fill_rect(img, 70, 6, 8, 6, _ink(TEAL, locked))
+	_fill_rect(img, 44, 6, 6, 6, _ink(Color("8fd4c4"), locked))
 
 
 static func _draw_railframe(img: Image, locked: bool) -> void:
 	## Chassis bolt — AI AX / AWM-class, chunky toy frame. No rail salad.
-	var chassis := _ink(Color("2c3238"), locked)
-	var lite := _ink(Color("4a545c"), locked)
-	var accent := _ink(TEAL, locked)
-	var barrel := _ink(Color("1a1e22"), locked)
-	var y := 16
-	_fill_rect(img, 8, y + 4, 18, 10, chassis)
-	_fill_rect(img, 10, y + 6, 6, 14, lite)
-	_fill_rect(img, 6, y + 8, 8, 4, chassis)
-	_fill_rect(img, 24, y, 36, 12, chassis)
-	_fill_rect(img, 28, y + 2, 28, 6, lite)
-	_fill_rect(img, 30, y + 12, 12, 16, chassis)
-	_fill_rect(img, 32, y + 14, 8, 12, _ink(Color("1a1c20"), locked))
-	_fill_rect(img, 26, y + 10, 22, 3, accent)
-	_fill_rect(img, 58, y + 2, 82, 8, barrel)
-	_fill_rect(img, 136, y, 10, 12, barrel)
-	_fill_rect(img, 42, y - 12, 26, 12, chassis)
-	_fill_rect(img, 44, y - 10, 22, 8, lite)
-	_fill_rect(img, 64, y - 8, 6, 6, accent)
-	_fill_rect(img, 24, y - 2, 8, 4, _ink(STEEL, locked))
+	var chassis := _ink(Color("4a545c"), locked)
+	var lite := _ink(Color("8a949c"), locked)
+	var accent := _ink(Color("3ecf8e"), locked)
+	var barrel := _ink(Color("2a2e32"), locked)
+	_fill_rect(img, 6, 16, 22, 14, chassis)
+	_fill_rect(img, 8, 18, 8, 18, lite)
+	_fill_rect(img, 4, 20, 10, 6, chassis)
+	_fill_rect(img, 24, 12, 40, 16, chassis)
+	_fill_rect(img, 28, 14, 32, 8, lite)
+	_fill_rect(img, 30, 26, 16, 16, chassis)
+	_fill_rect(img, 32, 28, 12, 12, barrel)
+	_fill_rect(img, 26, 24, 28, 4, accent)
+	_fill_rect(img, 62, 14, 86, 12, barrel)
+	_fill_rect(img, 144, 12, 14, 16, barrel)
+	_fill_rect(img, 40, 2, 30, 12, chassis)
+	_fill_rect(img, 42, 4, 26, 8, lite)
+	_fill_rect(img, 64, 6, 8, 6, accent)
 
 
 static func _draw_crescent(img: Image, locked: bool) -> void:
 	## Long cutout — SVD / Dragunov-class thumbhole, toy-spy not OEM.
-	var wood := _ink(Color("5a3a22"), locked)
-	var wood_l := _ink(Color("7a5230"), locked)
-	var metal := _ink(Color("3a332c"), locked)
-	var barrel := _ink(Color("2a2620"), locked)
-	var y := 17
-	_fill_rect(img, 6, y, 26, 16, wood)
-	_fill_rect(img, 8, y + 2, 22, 12, wood_l)
-	_fill_rect(img, 12, y + 5, 12, 8, Color(0, 0, 0, 0) if not locked else LOCK_INK)
-	if locked:
-		_fill_rect(img, 12, y + 5, 12, 8, LOCK_INK)
-	else:
-		for yy in range(y + 5, y + 13):
-			for xx in range(12, 24):
-				img.set_pixel(xx, yy, Color(0, 0, 0, 0))
-	_fill_rect(img, 10, y + 14, 8, 10, wood)
-	_fill_rect(img, 28, y + 2, 22, 10, metal)
-	_fill_rect(img, 48, y + 3, 100, 5, barrel)
-	_fill_rect(img, 144, y + 1, 12, 8, barrel)
-	_fill_rect(img, 34, y - 10, 40, 10, _ink(Color("2a1c14"), locked))
-	_fill_rect(img, 36, y - 8, 36, 6, _ink(Color("4a3220"), locked))
-	_fill_rect(img, 70, y - 7, 6, 5, _ink(Color("c45a4a"), locked))
-	_fill_rect(img, 8, y + 18, 18, 3, wood_l)
+	var wood := _ink(Color("b87a3a"), locked)
+	var wood_l := _ink(Color("d4a05a"), locked)
+	var metal := _ink(Color("5a5248"), locked)
+	var barrel := _ink(Color("3a332c"), locked)
+	_fill_rect(img, 4, 12, 32, 20, wood)
+	_fill_rect(img, 8, 16, 24, 12, wood_l)
+	for yy in range(18, 28):
+		for xx in range(12, 24):
+			if xx >= 0 and yy >= 0 and xx < img.get_width() and yy < img.get_height():
+				img.set_pixel(xx, yy, Color("3a2a1c") if locked else Color(0, 0, 0, 0))
+	_fill_rect(img, 8, 28, 10, 12, wood)
+	_fill_rect(img, 32, 14, 24, 14, metal)
+	_fill_rect(img, 54, 16, 100, 8, barrel)
+	_fill_rect(img, 148, 14, 16, 12, barrel)
+	_fill_rect(img, 36, 2, 44, 12, _ink(Color("4a3220"), locked))
+	_fill_rect(img, 38, 4, 40, 8, _ink(Color("6a4a28"), locked))
+	_fill_rect(img, 74, 6, 8, 6, _ink(Color("e07060"), locked))
 
 
 static func _draw_lock(img: Image) -> void:
@@ -216,7 +207,7 @@ static func _gold_frame(img: Image) -> void:
 static func _ink(color: Color, locked: bool) -> Color:
 	if not locked:
 		return color
-	return Color(SILHOUETTE.r, SILHOUETTE.g, SILHOUETTE.b, 0.82).lerp(color.darkened(0.55), 0.28)
+	return Color("7a6a58").lerp(color.darkened(0.25), 0.35)
 
 
 static func _label(img: Image, x: int, y: int, text: String, color: Color) -> void:
