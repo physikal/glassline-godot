@@ -174,7 +174,8 @@ func bind_lobby_match(body: Dictionary) -> Dictionary:
 		ClientSession.seat = seat
 	var snap: Dictionary = {}
 	var posted: Variant = body.get("snapshot", {})
-	if posted is Dictionary and str(posted.get("matchId", "")) == mid:
+	## Join returns a match snap. GET /lobbies/:id keeps a lobby snap even when ready.
+	if posted is Dictionary and Contract.is_match_snapshot(posted, mid):
 		snap = posted
 	if snap.is_empty():
 		snap = get_snapshot(mid, ClientSession.player_id)

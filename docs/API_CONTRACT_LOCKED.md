@@ -54,7 +54,10 @@ Client spike types in `types/` and `MockMatchServer` follow this shape so a live
 SSE default GET /matches/:id/events → { event: snapshot|your_turn, snapshot }
 WS later same payload. Auth: Bearer from join.
 
-## Private lobby (2026-09-20)
-POST /lobbies → { lobbyId, code, snapshot } waiting. 6-char, no 0O1I. TTL 10 min.
-POST /lobbies/join { code } → seat B; ready { matchId, joinToken }.
-POST /lobbies/:id/cancel → hideout, no forfeit Marks. Curl LIVE first; 404 → mock.
+## Private lobby (LIVE 2026-09-20)
+POST /lobbies → 201 { lobbyId lob_…, code, snapshot } waiting. 6-char, no 0O1I. TTL 10 min.
+POST /lobbies/join { code } → 200 seat B; ready { matchId, joinToken, snapshot=match }.
+GET /lobbies/:id ready → lobby snap + top-level matchId/joinToken.
+POST /lobbies/:id/cancel waiting → 200 cancelled (no forfeit Marks); after ready → 409 lobby_already_started.
+Errors: 400 invalid_lobby_code · 404 lobby_not_found · 409 already_in_lobby | lobby_cancelled | lobby_already_started.
+Prefer LIVE smoke once 200/201. Bare 404 → mock.

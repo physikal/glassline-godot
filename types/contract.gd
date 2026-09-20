@@ -131,12 +131,16 @@ const LOBBY_READY := "ready"
 const LOBBY_CANCELLED := "cancelled"
 const LOBBY_EXPIRED := "expired"
 const LOBBY_ERR_UNAVAILABLE := "lobby_unavailable"
-const LOBBY_ERR_BAD_CODE := "bad_code"
+const LOBBY_ERR_BAD_CODE := "invalid_lobby_code"
+const LOBBY_ERR_NOT_FOUND := "lobby_not_found"
 const LOBBY_ERR_EXPIRED := "lobby_expired"
 const LOBBY_ERR_CANCELLED := "lobby_cancelled"
 const LOBBY_ERR_FULL := "lobby_full"
-const LOBBY_ERR_SELF := "same_player"
+const LOBBY_ERR_SELF := "already_in_lobby"
 const LOBBY_ERR_INVALID := "invalid_lobby_code"
+const LOBBY_ERR_INVALID_BODY := "invalid_join_body"
+const LOBBY_ERR_STARTED := "lobby_already_started"
+const LOBBY_ERR_FORBIDDEN := "not_member"
 const LOBBY_KICKER := "WARTABLE"
 const LOBBY_HEADING := "PRIVATE HUNT"
 const LOBBY_BLURB := "Invite a rival with a short code. Same hunt. No queue."
@@ -349,6 +353,22 @@ static func is_lobby_code(code: String) -> bool:
 		if LOBBY_CODE_ALPHABET.find(norm.substr(i, 1)) < 0:
 			return false
 	return true
+
+
+static func is_match_snapshot(snap: Dictionary, match_id: String = "") -> bool:
+	## Join handoff is a match snap. GET /lobbies/:id keeps a lobby snap + top-level matchId.
+	if snap.is_empty():
+		return false
+	if str(snap.get("kind", "")) == "lobby":
+		return false
+	var mid := str(snap.get("matchId", ""))
+	if match_id != "" and mid != "" and mid != match_id:
+		return false
+	if mid == "" and match_id == "":
+		return false
+	return snap.has("terrain") or snap.has("turnIndex") or snap.has("phase") \
+			or snap.has("whoseTurn") \
+			or str(snap.get("kind", "")) in [MODE_PVP, MODE_SP_JOB, "job"]
 
 
 static func lobby_code_display(code: String) -> String:

@@ -261,7 +261,7 @@ func create_lobby(player_id: String = "") -> Dictionary:
 	if player_id == "":
 		player_id = "p_mock"
 	var code := _mint_lobby_code()
-	var lobby_id := "lb_%d" % _next_lobby
+	var lobby_id := "lob_%d" % _next_lobby
 	_next_lobby += 1
 	var row := {
 		"lobbyId": lobby_id,
@@ -284,10 +284,10 @@ func join_lobby(code: String, player_id: String = "") -> Dictionary:
 		player_id = "p_guest"
 	var norm := Contract.normalize_lobby_code(code)
 	if not Contract.is_lobby_code(norm):
-		return _lobby_reject(Contract.LOBBY_ERR_BAD_CODE)
+		return _lobby_reject(Contract.LOBBY_ERR_INVALID)
 	var lobby_id := str(_lobby_by_code.get(norm, ""))
 	if lobby_id == "" or not _lobbies.has(lobby_id):
-		return _lobby_reject(Contract.LOBBY_ERR_BAD_CODE)
+		return _lobby_reject(Contract.LOBBY_ERR_NOT_FOUND)
 	var row: Dictionary = _lobbies[lobby_id]
 	_touch_lobby(row)
 	var st := str(row.get("status", ""))
@@ -297,21 +297,21 @@ func join_lobby(code: String, player_id: String = "") -> Dictionary:
 		return _lobby_reject(Contract.LOBBY_ERR_CANCELLED)
 	if player_id == str(row.get("hostPlayerId", "")):
 		if st == Contract.LOBBY_READY:
-			return _lobby_payload(row, player_id)
+			return _lobby_payload(row, player_id, true)
 		return _lobby_reject(Contract.LOBBY_ERR_SELF)
 	if st == Contract.LOBBY_READY:
 		if player_id == str(row.get("guestPlayerId", "")):
-			return _lobby_payload(row, player_id)
+			return _lobby_payload(row, player_id, true)
 		return _lobby_reject(Contract.LOBBY_ERR_FULL)
 	row["guestPlayerId"] = player_id
 	_promote_lobby(row)
-	return _lobby_payload(row, player_id)
+	return _lobby_payload(row, player_id, true)
 
 
 func get_lobby(lobby_id: String, player_id: String = "") -> Dictionary:
 	## GET /lobbies/:id — host poll. Ready returns this seat's joinToken.
 	if not _lobbies.has(lobby_id):
-		return _lobby_reject("unknown_lobby")
+		return _lobby_reject(Contract.LOBBY_ERR_NOT_FOUND)
 	var row: Dictionary = _lobbies[lobby_id]
 	_touch_lobby(row)
 	if player_id == "":
@@ -327,23 +327,14 @@ func get_lobby(lobby_id: String, player_id: String = "") -> Dictionary:
 func cancel_lobby(lobby_id: String, player_id: String = "") -> Dictionary:
 	## POST /lobbies/:id/cancel — hideout. No forfeit Marks.
 	if not _lobbies.has(lobby_id):
-		return _lobby_reject("unknown_lobby")
+		return _lobby_reject(Contract.LOBBY_ERR_NOT_FOUND)
 	var row: Dictionary = _lobbies[lobby_id]
 	_touch_lobby(row)
 	if player_id == "":
 		player_id = str(row.get("hostPlayerId", "p_mock"))
 	var st := str(row.get("status", ""))
 	if st == Contract.LOBBY_READY:
-		return {
-			"ok": false,
-			"error": "lobby_already_ready",
-			"code": "lobby_already_ready",
-			"status": st,
-			"lobbyId": lobby_id,
-			"you": {"marks": account_marks},
-			"marks": account_marks,
-			"snapshot": {},
-		}
+		return _lobby_reject(Contract.LOBBY_ERR_STARTED, row)
 	if st == Contract.LOBBY_EXPIRED:
 		return _lobby_reject(Contract.LOBBY_ERR_EXPIRED, row)
 	row["status"] = Contract.LOBBY_CANCELLED
@@ -388,7 +379,8 @@ func _lobby_seat_for(row: Dictionary, player_id: String) -> String:
 	return Contract.SEAT_A
 
 
-func _lobby_payload(row: Dictionary, player_id: String) -> Dictionary:
+func _lobby_payload(row: Dictionary, player_id: String, include_match_snap: bool = false) -> Dictionary:
+	## Join handoff may attach the match snap. GET / cancel keep a lobby snap (LIVE).
 	var seat := _lobby_seat_for(row, player_id)
 	var st := str(row.get("status", Contract.LOBBY_WAITING))
 	var lobby_snap := {
@@ -397,9 +389,12 @@ func _lobby_payload(row: Dictionary, player_id: String) -> Dictionary:
 		"lobbyId": str(row.get("lobbyId", "")),
 		"code": str(row.get("code", "")),
 		"seat": seat,
-		"you": {"seat": seat, "marks": account_marks},
+		"you": {"seat": seat, "playerId": player_id, "marks": account_marks},
+		"opponent": null,
 		"expiresAt": _lobby_expires_iso(row),
 	}
+	if st == Contract.LOBBY_READY and str(row.get("matchId", "")) != "":
+		lobby_snap["matchId"] = str(row.get("matchId", ""))
 	var bag := {
 		"ok": true,
 		"error": "",
@@ -408,7 +403,7 @@ func _lobby_payload(row: Dictionary, player_id: String) -> Dictionary:
 		"code": str(row.get("code", "")),
 		"seat": seat,
 		"playerId": player_id,
-		"you": {"seat": seat, "marks": account_marks},
+		"you": {"seat": seat, "playerId": player_id, "marks": account_marks},
 		"marks": account_marks,
 		"snapshot": lobby_snap,
 		"expiresAt": _lobby_expires_iso(row),
@@ -420,9 +415,19 @@ func _lobby_payload(row: Dictionary, player_id: String) -> Dictionary:
 		bag["matchId"] = match_id
 		bag["joinToken"] = join
 		bag["joinTokens"] = tokens.duplicate(true)
-		if match_id != "" and _matches.has(match_id):
+		if include_match_snap and match_id != "" and _matches.has(match_id):
 			bag["snapshot"] = _snapshot_for_seat(_matches[match_id], seat)
 	return bag
+
+
+func _lobby_http(reason: String) -> int:
+	if reason in [Contract.LOBBY_ERR_BAD_CODE, Contract.LOBBY_ERR_INVALID, Contract.LOBBY_ERR_INVALID_BODY]:
+		return 400
+	if reason == Contract.LOBBY_ERR_NOT_FOUND:
+		return 404
+	if reason == Contract.LOBBY_ERR_FORBIDDEN:
+		return 403
+	return 409
 
 
 func _lobby_reject(reason: String, row: Dictionary = {}) -> Dictionary:
@@ -443,6 +448,7 @@ func _lobby_reject(reason: String, row: Dictionary = {}) -> Dictionary:
 		"error": reason,
 		"code": reason,
 		"status": st,
+		"httpStatus": _lobby_http(reason),
 		"you": {"marks": account_marks},
 		"marks": account_marks,
 		"snapshot": snap,

@@ -240,7 +240,7 @@ func heartbeat() -> Dictionary:
 
 
 func create_lobby() -> Dictionary:
-	## LIVE POST /lobbies + player Bearer. 404 → lobby_unavailable (Coder pending).
+	## LIVE POST /lobbies + player Bearer. Bare 404 (no lobby_not_found) → route missing.
 	var raw: Dictionary = _raw("POST", "/lobbies", {}, ClientSession.player_bearer())
 	return _lobby_from_raw(raw)
 
@@ -253,9 +253,9 @@ func join_lobby(code: String) -> Dictionary:
 
 
 func get_lobby(lobby_id: String) -> Dictionary:
-	## LIVE GET /lobbies/:id — host poll until ready { matchId, joinToken }.
+	## LIVE GET /lobbies/:id — host poll. Ready: lobby snap + top-level matchId/joinToken.
 	if lobby_id == "":
-		return {"ok": false, "error": "unknown_lobby", "code": "unknown_lobby"}
+		return {"ok": false, "error": Contract.LOBBY_ERR_NOT_FOUND, "code": Contract.LOBBY_ERR_NOT_FOUND}
 	var raw: Dictionary = _raw("GET", "/lobbies/%s" % lobby_id, null, ClientSession.player_bearer())
 	return _lobby_from_raw(raw)
 
@@ -263,7 +263,7 @@ func get_lobby(lobby_id: String) -> Dictionary:
 func cancel_lobby(lobby_id: String) -> Dictionary:
 	## LIVE POST /lobbies/:id/cancel. Hideout; no forfeit Marks.
 	if lobby_id == "":
-		return {"ok": false, "error": "unknown_lobby", "code": "unknown_lobby"}
+		return {"ok": false, "error": Contract.LOBBY_ERR_NOT_FOUND, "code": Contract.LOBBY_ERR_NOT_FOUND}
 	var raw: Dictionary = _raw("POST", "/lobbies/%s/cancel" % lobby_id, {}, ClientSession.player_bearer())
 	return _lobby_from_raw(raw)
 
@@ -275,6 +275,13 @@ func _lobby_from_raw(raw: Dictionary) -> Dictionary:
 		js = {}
 	var body: Dictionary = js
 	if http_status == 404:
+		var not_found := str(body.get("code", body.get("error", "")))
+		if not_found in [Contract.LOBBY_ERR_NOT_FOUND, "unknown_lobby"]:
+			body["error"] = Contract.LOBBY_ERR_NOT_FOUND
+			body["code"] = Contract.LOBBY_ERR_NOT_FOUND
+			body["ok"] = false
+			body["httpStatus"] = 404
+			return body
 		return {
 			"ok": false,
 			"error": Contract.LOBBY_ERR_UNAVAILABLE,

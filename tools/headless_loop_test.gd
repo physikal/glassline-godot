@@ -374,11 +374,12 @@ func _lobby_case(failed: PackedStringArray) -> void:
 	var parsed = LobbyScript.from_any(host)
 	_expect(failed, bool(host.get("ok", false)), "P1 create ok")
 	_expect(failed, str(host.get("status", "")) == Contract.LOBBY_WAITING, "P1 status waiting")
-	_expect(failed, str(host.get("lobbyId", "")) != "", "P1 lobbyId")
+	_expect(failed, str(host.get("lobbyId", "")).begins_with("lob_"), "P1 lobbyId lob_")
 	_expect(failed, Contract.is_lobby_code(str(host.get("code", ""))), "P1 6-char code")
 	_expect(failed, str(host.get("matchId", "")) == "", "P1 no match yet")
 	_expect(failed, int(host.get("marks", -1)) == 24, "P1 Marks unchanged on create")
 	_expect(failed, parsed.is_waiting(), "P1 parser waiting")
+	_expect(failed, str(host.get("snapshot", {}).get("kind", "")) == "lobby", "P1 create lobby snap")
 	var code := str(host.get("code", ""))
 	var lid := str(host.get("lobbyId", ""))
 	var poll: Dictionary = server.get_lobby(lid, "p_host")
@@ -387,13 +388,22 @@ func _lobby_case(failed: PackedStringArray) -> void:
 	## P4 — bad / expired / self.
 	var bad: Dictionary = server.join_lobby("NOPE!!", "p_guest")
 	_expect(failed, not bool(bad.get("ok", true)), "P4 junk rejected")
-	_expect(failed, str(bad.get("code", "")) == Contract.LOBBY_ERR_BAD_CODE, "P4 bad_code")
+	_expect(failed, str(bad.get("code", "")) == Contract.LOBBY_ERR_INVALID, "P4 invalid_lobby_code")
 	_expect(failed, int(bad.get("marks", -1)) == 24, "P4 reject Marks frozen")
 	var missing: Dictionary = server.join_lobby("ABCDEF", "p_guest")
-	_expect(failed, str(missing.get("code", "")) == Contract.LOBBY_ERR_BAD_CODE, "P4 unknown code")
+	_expect(failed, str(missing.get("code", "")) == Contract.LOBBY_ERR_NOT_FOUND, "P4 lobby_not_found")
+	var missing_parsed = LobbyScript.from_any(missing)
+	_expect(failed, missing_parsed.is_reject() and not missing_parsed.is_unavailable(), "P4 404 not_found is reject")
 	var self_join: Dictionary = server.join_lobby(code, "p_host")
-	_expect(failed, str(self_join.get("code", "")) == Contract.LOBBY_ERR_SELF, "P4 host cannot sit B")
+	_expect(failed, str(self_join.get("code", "")) == Contract.LOBBY_ERR_SELF, "P4 already_in_lobby")
 	_expect(failed, server.account_marks == 24, "P4 self-join Marks frozen")
+	var route_gap = LobbyScript.from_any({
+		"ok": false,
+		"error": Contract.LOBBY_ERR_UNAVAILABLE,
+		"code": Contract.LOBBY_ERR_UNAVAILABLE,
+		"httpStatus": 404,
+	})
+	_expect(failed, route_gap.is_unavailable(), "P route-missing 404 is unavailable")
 
 	## P2 — guest sits B → ready match + joinToken.
 	var guest: Dictionary = server.join_lobby(code, "p_guest")
@@ -409,7 +419,13 @@ func _lobby_case(failed: PackedStringArray) -> void:
 	_expect(failed, str(replay_host.get("joinToken", "")) != "", "P2 host joinToken")
 	_expect(failed, str(replay_host.get("joinToken", "")) != str(guest.get("joinToken", "")), "P2 seats get own tokens")
 	_expect(failed, str(replay_host.get("seat", "")) == Contract.SEAT_A, "P2 host seat A")
+	_expect(failed, str(replay_host.get("snapshot", {}).get("kind", "")) == "lobby", "P2 GET keeps lobby snap")
+	_expect(failed, not Contract.is_match_snapshot(replay_host.get("snapshot", {}), str(guest.get("matchId", ""))), "P2 GET snap is not match")
+	_expect(failed, Contract.is_match_snapshot(guest.get("snapshot", {}), str(guest.get("matchId", ""))), "P2 join snap is match")
 	_expect(failed, server.account_marks == 24, "P2 join Marks frozen")
+	var started: Dictionary = server.cancel_lobby(lid, "p_host")
+	_expect(failed, str(started.get("code", "")) == Contract.LOBBY_ERR_STARTED, "P5 cancel after ready 409")
+	_expect(failed, server.account_marks == 24, "P5 started-cancel Marks frozen")
 	var mid := str(guest.get("matchId", ""))
 	var pid_a := "p_host"
 	var pid_b := "p_guest"
