@@ -88,9 +88,9 @@ def main() -> None:
             UX / "side_by_side_optic.png",
         ),
         (
-            UX / "04_operative_exposure_doll.png",
+            UX / "ghillie_hideout.png" if (UX / "ghillie_hideout.png").exists() else UX / "04_operative_exposure_doll.png",
             CANON / "lobby-ghillie.jpg",
-            "LIVE operative + doll",
+            "LIVE ghillie hideout",
             "CANON lobby-ghillie",
             UX / "side_by_side_ghillie.png",
         ),

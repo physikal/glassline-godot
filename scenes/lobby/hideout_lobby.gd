@@ -39,6 +39,8 @@ var _gun_rack: Control
 var _gun_slots: Dictionary = {}
 var _wallet_row: HBoxContainer
 var _taste_doll: ExposureDoll
+var _dock_quick: Button
+var _dock_invite: Button
 
 
 func _ready() -> void:
@@ -152,6 +154,9 @@ func _ready() -> void:
 	elif "--capture-art-armory" in args:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 		DisplayServer.window_set_size(Vector2i(1280, 720))
+		_prep_art_hideout_chrome()
+		if _shop_row:
+			_shop_row.visible = true
 		await _capture_named("res://artifacts/ux/01_hideout_idle_armory.png", "ART_01_HIDEOUT_IDLE_ARMORY")
 	elif "--capture-art-ui-chips" in args:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
@@ -195,7 +200,7 @@ func _capture_lobby() -> void:
 	get_tree().quit()
 
 
-func _capture_named(res_path: String, tag: String) -> void:
+func _capture_named(res_path: String, tag: String, quit_after: bool = true) -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	await get_tree().process_frame
@@ -204,7 +209,8 @@ func _capture_named(res_path: String, tag: String) -> void:
 	var path := ProjectSettings.globalize_path(res_path)
 	img.save_png(path)
 	print("%s %s" % [tag, path])
-	get_tree().quit()
+	if quit_after:
+		get_tree().quit()
 
 
 func _capture_shop_buy() -> void:
@@ -374,6 +380,17 @@ func _capture_queue_matched_board() -> void:
 	_poll_queue()
 
 
+func _prep_art_hideout_chrome() -> void:
+	## Taste stills read as the Josh plate: Marks ★, LOADOUT / PLAY / JOBS, painted rack.
+	if _shop_row:
+		_shop_row.visible = false
+	if _dock_quick:
+		_dock_quick.visible = false
+	if _dock_invite:
+		_dock_invite.visible = false
+	_refresh_gun_rack()
+
+
 func _capture_art_hideout() -> void:
 	## Starter Fieldbolt owned+equipped, other two locked painted silhouettes.
 	if not ClientSession.use_live_api():
@@ -382,17 +399,22 @@ func _capture_art_hideout() -> void:
 	_bind_shop()
 	_refresh_marks()
 	_refresh_shop()
-	if _shop_row:
-		_shop_row.visible = false
-	_refresh_gun_rack()
+	_prep_art_hideout_chrome()
 	await get_tree().process_frame
 	await get_tree().process_frame
-	await _capture_named("res://artifacts/ux/02_dynamic_rack.png", "ART_02_DYNAMIC_RACK")
+	await _capture_named("res://artifacts/ux/02_dynamic_rack.png", "ART_02_DYNAMIC_RACK", false)
+	## Ghillie plate pair for side_by_side_ghillie — same hideout, ghillie body.
+	ClientSession.ghillie = true
+	ClientSession.equipped_cosmetic = Contract.SHOP_STUB_ITEM_ID
+	_refresh_bg()
+	_prep_art_hideout_chrome()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await _capture_named("res://artifacts/ux/ghillie_hideout.png", "ART_GHILLIE_HIDEOUT")
 
 
 func _capture_art_operative_doll() -> void:
-	if _shop_row:
-		_shop_row.visible = false
+	_prep_art_hideout_chrome()
 	_taste_doll = ExposureDoll.new()
 	_taste_doll.custom_minimum_size = Vector2(168, 280)
 	_taste_doll.set_anchors_preset(PRESET_TOP_LEFT)
@@ -533,14 +555,14 @@ func _build() -> void:
 	play.pressed.connect(_on_play)
 	row.add_child(play)
 
-	var quick := Chrome.dock_button(Contract.QUEUE_CTA, Chrome.TEAL, Color.WHITE, Vector2(240, 68), "quick")
-	quick.tooltip_text = "Find a rival. Same hunt. No ranked."
-	quick.pressed.connect(_on_quick_match)
-	row.add_child(quick)
+	_dock_quick = Chrome.dock_button(Contract.QUEUE_CTA, Chrome.TEAL, Color.WHITE, Vector2(240, 68), "quick")
+	_dock_quick.tooltip_text = "Find a rival. Same hunt. No ranked."
+	_dock_quick.pressed.connect(_on_quick_match)
+	row.add_child(_dock_quick)
 
-	var invite := Chrome.dock_button("INVITE", Chrome.HIGH_GOLD, Chrome.INK, Vector2(180, 68), "invite")
-	invite.pressed.connect(_toggle_invite)
-	row.add_child(invite)
+	_dock_invite = Chrome.dock_button("INVITE", Chrome.HIGH_GOLD, Chrome.INK, Vector2(180, 68), "invite")
+	_dock_invite.pressed.connect(_toggle_invite)
+	row.add_child(_dock_invite)
 
 	var jobs := Chrome.dock_button("JOBS", Chrome.JOBS_ORANGE, Color.WHITE, Vector2(180, 68), "jobs")
 	jobs.pressed.connect(_toggle_jobs)
@@ -765,17 +787,19 @@ func _make_gun_slot(gun_id: String) -> Control:
 	rifle.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	rifle.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	rifle.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	## Plate already has the olive / tan / teal bolts. Never cover them with a sprite.
+	rifle.visible = false
 	row.add_child(rifle)
 
 	var name_lbl := Label.new()
 	name_lbl.text = Contract.gun_family_name(gun_id)
-	name_lbl.position = Vector2(268, 8)
+	name_lbl.position = Vector2(300, 8)
 	name_lbl.size = Vector2(120, 16)
 	Chrome.apply_label(name_lbl, 7, Chrome.CREAM, true)
 	row.add_child(name_lbl)
 
 	var status := Label.new()
-	status.position = Vector2(268, 26)
+	status.position = Vector2(300, 26)
 	status.size = Vector2(120, 16)
 	Chrome.apply_label(status, 7, Chrome.HIGH_GOLD, true)
 	row.add_child(status)
@@ -1139,8 +1163,7 @@ func _plate_without_baked_chrome(src: Texture2D) -> Texture2D:
 	## Cover baked gold / gem — Marks ★ is the only still chip.
 	_stamp_wood(img, maxi(0, w - 420), 0, w, mini(70, h), px, py, pw, ph)
 	_stamp_wood(img, 0, maxi(0, h - 220), w, h, px, py, pw, ph)
-	## Cover baked plate rifles so the live painted rack can bind.
-	_stamp_wood(img, int(w * 0.010), int(h * 0.255), int(w * 0.240), int(h * 0.52), px, py, pw, ph)
+	## Leave the plate's olive / tan / teal rifles. They ARE the Fieldbolt family.
 	var wood := img.get_pixel(px, py)
 	for cover in _wood_covers:
 		cover.color = wood

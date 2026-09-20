@@ -13,7 +13,7 @@ FAR / MID / NEAR stay display-only. Leave this PR open for UX re-taste —
 
 | # | Fail | v2 fix |
 | --- | --- | --- |
-| 1 | Rifle rack was abstract color bars | Olive **Fieldbolt** / tan **Railframe** / teal **Crescent** cropped from the hideout wall. Real sniper silhouettes at thumbnail. |
+| 1 | Rifle rack was abstract color bars | Plate-locked olive **Fieldbolt** / tan **Railframe** / teal **Crescent** on the hideout wall. Never cover those painted guns. |
 | 2 | Hands + optic ≠ rack | One Fieldbolt family: plate-held bolt stays; Attack sits on `optic-attack.jpg`. |
 | 3 | Hex used flat circle/rect icons | Board faces are **Sprite2D hex-map tiles** (sand / painted brush clumps / rock piles / `?`). Ban `draw_texture_rect` 26px white squares. |
 | 4 | Mixed fidelity (smooth face / mushy blocks) | Same warm painted toy-spy crop language everywhere. |
