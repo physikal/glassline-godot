@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""LIVE third Marks sink S3.1–S3.3 vs glassline-api (HIDEOUT POSTER ★150).
+"""LIVE third Marks sink S3.1–S3.5 vs glassline-api (HIDEOUT POSTER ★150).
 
 Same spine as sink 1 / 2: durable POST /players Bearer + GET /shop + POST /shop/buy
-{ itemId, clientBuyId }. Client never marks -=.
+{ itemId, clientBuyId }. Equip uses equippedDecorId (skin slot untouched).
+Client never marks -=.
 
 If LIVE catalog does not yet list decor_poster_stub, this exits 0 with
-LIVE_SHOP_SINK3_PENDING so Coder can land the +1 SKU. UI + mock still ship.
+LIVE_SHOP_SINK3_PENDING. UI + mock still ship.
 
   GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_shop_sink3_smoke.py
 """

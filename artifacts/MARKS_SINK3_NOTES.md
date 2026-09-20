@@ -23,26 +23,26 @@ Constants: `Contract.SHOP_POSTER_ITEM_ID` / `SHOP_POSTER_PRICE`. Swap here if GD
 ## LIVE S3.1–S3.5 (2026-09-20)
 
 **Base:** `https://glassline-api.vercel.app`  
-**Contract:** `/docs/contract` · `POST /players` durable token · GET `/shop` public catalog · POST `/shop/buy` `{ itemId, clientBuyId }` + `Authorization: Bearer <playerToken>`
+**Contract:** `/docs/contract` · `POST /players` durable token · GET `/shop` public catalog · POST `/shop/buy` `{ itemId, clientBuyId }` + `Authorization: Bearer <playerToken>` · POST `/shop/equip` `{ itemId }` / `{ itemId: null, slot: "decor" }`
 
-Probed catalog (Coder still two SKUs at client land — mock + merge append poster):
+Probed catalog (Coder +1 SKU landed):
 
 ```json
-{"items":[{"id":"skin_hideout_stub","name":"Hideout Skin (stub)","price":50,"kind":"skin"},{"id":"skin_bandana_stub","name":"BANDANA RECOLOR","price":100,"kind":"skin"}]}
+{"items":[{"id":"skin_hideout_stub","name":"Hideout Skin (stub)","price":50,"kind":"skin"},{"id":"skin_bandana_stub","name":"BANDANA RECOLOR","price":100,"kind":"skin"},{"id":"decor_poster_stub","name":"HIDEOUT POSTER","price":150,"kind":"decor"}]}
 ```
 
-`GET /shop` is **catalog-only** (no `you.marks`). Buy 200 shape is `{ ok, you: { marks }, purchaseId, item }`. 402 is `{ error, code: "insufficient_marks", you: { marks } }`. Client binds that `you.marks`. Hideout + smoke **never `marks -=`**.
+`GET /shop` is **catalog-only** (no `you.marks`). Buy 200 is `{ ok, you: { marks, equippedSkinId, equippedDecorId }, purchaseId, item }`. 402 is `{ error, code: "insufficient_marks", you: { marks, equippedSkinId, equippedDecorId } }`. Client binds that `you.marks`. Hideout + smoke **never `marks -=`**.
 
 | Gate | Result | Evidence |
 | --- | --- | --- |
-| **S3.1** catalog SKU `decor_poster_stub` ★150 | **PASS mock · LIVE PENDING** | Mock catalog three rows. LIVE `GET /shop` still two SKUs — `Contract.merge_live_shop_catalog` appends poster so ARMORY renders three. Coder: add `decor_poster_stub` ★150. |
-| **S3.2** buy debit + `clientBuyId` idempotent | **PASS mock · LIVE PENDING** | Mock seed ★200 → snapshot ★50, `purchase` once. Replay same `clientBuyId` still ★50. LIVE buy blocked until Coder +1 SKU. |
-| **S3.3** 402 insufficient in UI | **PASS mock · LIVE PENDING** | Default ★24 vs ★150: BUY disabled / `Not enough Marks.` Mock post → `insufficient_marks`, chip stays ★24. |
-| **S3.4** hideout poster when owned/equipped | **PASS mock** | Wall stamp binds `you.equippedDecorId`. Skin + poster both equipped. Still [`ux/hideout_poster_equipped.png`](ux/hideout_poster_equipped.png). |
-| **S3.5** zero combat delta | **PASS mock** | `RECON_BASE` 0.35 · PvP kill ★25. Exposure doll ignores poster (not suit chrome). |
-| **S3.6** UX three-row ARMORY | **PASS mock** | [`ux/armory_three_row.png`](ux/armory_three_row.png) (Ghillie / Bandana / Poster, ★24, disabled BUY). [`ux/armory_poster_post_buy.png`](ux/armory_poster_post_buy.png) (seed ★200 → snapshot ★50, poster OWNED). |
+| **S3.1** catalog SKU `decor_poster_stub` ★150 | **PASS mock · PASS LIVE** | LIVE `GET /shop` lists three SKUs. Poster kind `decor` ★150. |
+| **S3.2** buy debit + `clientBuyId` idempotent | **PASS mock · PASS LIVE** | Eight PvP kills ★200. Buy poster `200→50`, `purchaseId=pur_9dfd4596a2464976899d24425b594ffb`. Replay same `clientBuyId` still ★50. `you.equippedDecorId=decor_poster_stub`, skin null. |
+| **S3.3** 402 insufficient in UI | **PASS mock · PASS LIVE** | Fresh player ★0 → HTTP 402 `insufficient_marks`. Replay still 402. Chip unchanged. |
+| **S3.4** hideout poster when owned/equipped | **PASS mock · PASS LIVE** | Buy ghillie keeps `equippedDecorId`. Re-equip poster leaves skin. `{ itemId: null, slot: "decor" }` clears poster, skin stays. Still [`ux/hideout_poster_equipped.png`](ux/hideout_poster_equipped.png) (ghillie + poster). |
+| **S3.5** zero combat delta | **PASS mock · PASS LIVE** | Eight LIVE kills still ★25. `RECON_BASE` 0.35. Exposure doll ignores poster. |
+| **S3.6** UX three-row ARMORY | **PASS mock** | [`ux/armory_three_row.png`](ux/armory_three_row.png) (★24, all BUY disabled). [`ux/armory_poster_post_buy.png`](ux/armory_poster_post_buy.png) (seed ★200 → snapshot ★50, poster EQUIPPED). |
 
-HTTP log: [`artifacts/live_shop_sink3_smoke.txt`](live_shop_sink3_smoke.txt) · `LIVE_SHOP_SINK3_PENDING` until Coder lands the SKU.  
+HTTP log: [`artifacts/live_shop_sink3_smoke.txt`](live_shop_sink3_smoke.txt) · `LIVE_SHOP_SINK3_OK` player `p_26c430422dd0482c93f9e8cf3ca1258a`.  
 Mock: `HEADLESS_LOOP_OK` (`_shop_sink3_case`).
 
 Raw stills (this branch):
@@ -101,9 +101,9 @@ Never `marks -=` (or `marks +=`) on the client as truth. Hideout BUY posts `{ it
 
 | Mode | Shop |
 | --- | --- |
-| Editor MOCK | `MockMatchServer.get_shop` / `buy_shop` ledger. Three SKUs. Prices 50 / 100 / 150. |
-| LIVE + catalog lags | Merge appends mock poster so the third row still renders. BUY posts LIVE (`unknown_item` until Coder +1). |
-| LIVE + Coder +1 SKU | Prefer LIVE items (name / price from catalog). |
+| Editor MOCK | `MockMatchServer.get_shop` / `buy_shop` ledger. Three SKUs. Prices 50 / 100 / 150. Dual slots. |
+| LIVE + catalog lags | Merge appends mock poster so the third row still renders. |
+| LIVE + Coder +1 SKU | Prefer LIVE items. `equippedDecorId` + `equippedSkinId` coexist. |
 
 ## Demo (mock)
 
