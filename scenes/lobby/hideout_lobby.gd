@@ -656,6 +656,7 @@ func _build_invite_panel() -> void:
 	_invite_home.add_child(blurb)
 
 	var create := Chrome.chunk_button(Contract.LOBBY_CREATE_COPY, Chrome.HIGH_GOLD, Chrome.INK, Vector2(420, 52))
+	create.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	create.pressed.connect(_on_create_lobby)
 	_invite_home.add_child(create)
 
@@ -691,6 +692,7 @@ func _build_invite_panel() -> void:
 	_invite_home.add_child(_invite_reject)
 
 	var back := Chrome.chunk_button(Contract.LOBBY_BACK_COPY, Chrome.INK, Chrome.CREAM, Vector2(160, 40))
+	back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	back.pressed.connect(_close_invite)
 	_invite_home.add_child(back)
 
@@ -714,19 +716,24 @@ func _build_invite_panel() -> void:
 	Chrome.apply_label(_invite_code_lbl, 28, Chrome.HIGH_GOLD, true)
 	_invite_wait.add_child(_invite_code_lbl)
 
-	var wait_copy := Chrome.chunk_button(Contract.LOBBY_COPY_CODE, Chrome.TEAL, Color.WHITE, Vector2(200, 44))
-	wait_copy.pressed.connect(_on_copy_lobby_code)
-	_invite_wait.add_child(wait_copy)
-
 	var wait_line := Label.new()
 	wait_line.text = Contract.LOBBY_WAIT_COPY
 	wait_line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	Chrome.apply_label(wait_line, 8, Chrome.CREAM, true)
 	_invite_wait.add_child(wait_line)
 
+	var wait_actions := HBoxContainer.new()
+	wait_actions.alignment = BoxContainer.ALIGNMENT_CENTER
+	wait_actions.add_theme_constant_override("separation", 16)
+	_invite_wait.add_child(wait_actions)
+
+	var wait_copy := Chrome.chunk_button(Contract.LOBBY_COPY_CODE, Chrome.TEAL, Color.WHITE, Vector2(200, 44))
+	wait_copy.pressed.connect(_on_copy_lobby_code)
+	wait_actions.add_child(wait_copy)
+
 	var cancel := Chrome.chunk_button(Contract.LOBBY_CANCEL_COPY, Chrome.INK, Chrome.CREAM, Vector2(160, 40))
 	cancel.pressed.connect(_on_cancel_lobby)
-	_invite_wait.add_child(cancel)
+	wait_actions.add_child(cancel)
 
 
 func _bind_wallet() -> void:
@@ -981,6 +988,8 @@ func _open_invite() -> void:
 	if _invite_panel:
 		_invite_panel.visible = true
 	_show_invite_home()
+	if _invite_reject:
+		_invite_reject.text = ""
 	_toast_msg("")
 
 
@@ -1051,7 +1060,7 @@ func _on_create_lobby() -> void:
 	ClientSession.lobby_code = lobby.code
 	ClientSession.lobby_seat = lobby.seat if lobby.seat != "" else Contract.SEAT_A
 	_show_invite_wait()
-	_toast_msg(Contract.LOBBY_WAIT_COPY)
+	_toast_msg("")
 
 
 func _on_join_lobby() -> void:
@@ -1075,7 +1084,7 @@ func _on_join_lobby() -> void:
 	## Plain reject. Field stays editable — no soft lock.
 	if _invite_reject:
 		_invite_reject.text = lobby.reject_copy()
-	_toast_msg(lobby.reject_copy())
+	_toast_msg("")
 	if _join_edit:
 		_join_edit.editable = true
 		_join_edit.grab_focus()

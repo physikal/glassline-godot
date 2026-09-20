@@ -1,0 +1,13 @@
+{
+  "pending": "lobbies_404",
+  "base": "https://glassline-api.vercel.app",
+  "evidence": {
+    "host": "p_c9e6f03c7918477c907b451e7dbc9c4e",
+    "guest": "p_6880fc8bfae947de87748260f5647e9e",
+    "create_status": 404,
+    "create_body": {
+      "error": "404 Not Found"
+    },
+    "pending": "lobbies_404"
+  }
+}

@@ -30,7 +30,9 @@ POST /lobbies/join   → HTTP 404
 GET  /lobbies        → HTTP 404
 ```
 
-`python3 tools/live_lobby_smoke.py` → **`LIVE_LOBBY_PENDING lobbies_404`**. Log: `artifacts/live_lobby_smoke.txt`. Re-run when Coder lands the routes; prefer LIVE P1–P5 once 200.
+`python3 tools/live_lobby_smoke.py` → **`LIVE_LOBBY_PENDING lobbies_404`**.
+
+Minted players `p_c9e6f03c7918477c907b451e7dbc9c4e` / `p_6880fc8bfae947de87748260f5647e9e` then `POST /lobbies` **404**. Log: `artifacts/live_lobby_smoke.txt`. Re-run when Coder lands the routes; prefer LIVE P1–P5 once 200.
 
 ## Gates P1–P6
 
