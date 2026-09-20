@@ -169,10 +169,10 @@ const COACH_SECTION := "coach"
 const COACH_SEEN_KEY := "coachSeen"
 const COACH_KICKER := "FIRST HUNT"
 const COACH_GOT_IT := "GOT IT"
-const COACH_ATTACK := "Peek the optic — tap a hex to take the shot."
-const COACH_RECON := "Scout a hex — see who's hiding without firing."
-const COACH_DOLL := "When they peek, the doll lights up — that's your tell."
-const COACH_DECOY := "Once per match — drop a fake blip to bait their shot."
+const COACH_ATTACK := "Peek the optic —\ntap a hex."
+const COACH_RECON := "Scout a hex —\nno shot fired."
+const COACH_DOLL := "They peek —\nthe doll lights up."
+const COACH_DECOY := "Once a hunt —\ndrop a fake blip."
 
 
 static func format_grace_clock(sec: float) -> String:

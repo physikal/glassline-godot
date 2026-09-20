@@ -24,10 +24,10 @@ coachSeen=true
 
 | Chip | Line |
 | --- | --- |
-| ATTACK | Peek the optic — tap a hex to take the shot. |
-| RECON | Scout a hex — see who's hiding without firing. |
-| DOLL | When they peek, the doll lights up — that's your tell. |
-| DECOY | Once per match — drop a fake blip to bait their shot. |
+| ATTACK | Peek the optic — tap a hex. |
+| RECON | Scout a hex — no shot fired. |
+| DOLL | They peek — the doll lights up. |
+| DECOY | Once a hunt — drop a fake blip. |
 
 ## Gates
 

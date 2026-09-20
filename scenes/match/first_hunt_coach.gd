@@ -217,8 +217,8 @@ func _make_chip(title: String, body: String, accent: Color, icon_kind: String) -
 	var panel := PanelContainer.new()
 	## Decorative only — hex / action clicks pass through the chip body.
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.custom_minimum_size = Vector2(212, 86)
-	panel.size = Vector2(212, 86)
+	panel.custom_minimum_size = Vector2(200, 78)
+	panel.size = Vector2(200, 78)
 	panel.set_meta("coach_title", title)
 	var box := Chrome.flat(Color(0.11, 0.08, 0.06, 0.94), 12, accent, 2)
 	box.content_margin_left = 10
@@ -254,7 +254,7 @@ func _make_chip(title: String, body: String, accent: Color, icon_kind: String) -
 	var body_lbl := Label.new()
 	body_lbl.text = body
 	body_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	body_lbl.custom_minimum_size = Vector2(188, 44)
+	body_lbl.custom_minimum_size = Vector2(176, 36)
 	body_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	Chrome.apply_label(body_lbl, 8, Chrome.CREAM, true)
 	col.add_child(body_lbl)
