@@ -148,6 +148,37 @@ static func game_button(kind: String, text: String, bg: Color, fg: Color, min_si
 	return button
 
 
+static func high_ground_chip() -> Control:
+	## Parked display chip — not a 4th action key. No combat buff.
+	var panel := PanelContainer.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.tooltip_text = Contract.HIGH_GROUND_COPY
+	var box := flat(Color("1a1612"), 12, HIGH_GOLD, 2)
+	box.content_margin_left = 10
+	box.content_margin_right = 12
+	box.content_margin_top = 6
+	box.content_margin_bottom = 6
+	panel.add_theme_stylebox_override("panel", box)
+	panel.custom_minimum_size = Vector2(208, 34)
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_theme_constant_override("separation", 8)
+	var icon := TextureRect.new()
+	icon.texture = make_icon("high", HIGH_GOLD, 18)
+	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	icon.custom_minimum_size = Vector2(18, 18)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(icon)
+	var lbl := Label.new()
+	lbl.text = "%s  +10%%" % Contract.HIGH_GROUND_LABEL
+	apply_label(lbl, 8, CREAM, true)
+	row.add_child(lbl)
+	panel.add_child(row)
+	return panel
+
+
 static func plate_hotspot(min_size: Vector2) -> Button:
 	## Invisible hit over the painted match-board key. Plate carries the weight.
 	var button := Button.new()

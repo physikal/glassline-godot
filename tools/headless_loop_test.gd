@@ -1611,6 +1611,9 @@ func _match_board_chrome_case(failed: PackedStringArray) -> void:
 	var hot: Button = Chrome.plate_hotspot(Vector2(284, 104))
 	_expect(failed, hot.custom_minimum_size.x == 284, "plate key hotspot matches painted button")
 	hot.free()
+	var chip: Control = Chrome.high_ground_chip()
+	_expect(failed, chip != null and not (chip is Button), "HIGH GROUND is a parked chip, not an action key")
+	chip.free()
 
 
 func _equip_chrome_case(failed: PackedStringArray) -> void:

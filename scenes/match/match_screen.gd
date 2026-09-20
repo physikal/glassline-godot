@@ -786,8 +786,8 @@ func _build() -> void:
 	if _plate_hud:
 		## Cover the plate's printed map so only hash-revealed stamps show.
 		var cover := ColorRect.new()
-		## FoW fill — same UNKNOWN chrome as the plate rim, not a brown hole.
-		cover.color = Color("292d2e")
+		## Desk wood under the hexes — not a grey edge overlay.
+		cover.color = Color("20160e")
 		cover.position = Vector2(300, 118)
 		cover.size = Vector2(820, 430)
 		cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -843,10 +843,19 @@ func _build() -> void:
 		_btn_uav.tooltip_text = "Ability — UAV Sweep. Posts type: uav."
 		_btn_uav.pressed.connect(_on_uav)
 		add_child(_btn_uav)
-		_btn_high = Chrome.plate_hotspot(Vector2(320, 104))
-		_btn_high.position = Vector2(930, 572)
+		## Cover the plate's 4th action key. HIGH GROUND is a parked chip only.
+		var high_stamp := ColorRect.new()
+		high_stamp.color = Color("1c1208")
+		high_stamp.position = Vector2(920, 564)
+		high_stamp.size = Vector2(360, 120)
+		high_stamp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(high_stamp)
+		var high_chip := Chrome.high_ground_chip()
+		high_chip.position = Vector2(1008, 598)
+		add_child(high_chip)
+		_btn_high = Button.new()
+		_btn_high.visible = false
 		_btn_high.disabled = true
-		_btn_high.tooltip_text = Contract.HIGH_GROUND_COPY
 		add_child(_btn_high)
 		_high_cap = Label.new()
 		_high_cap.visible = false
@@ -873,19 +882,16 @@ func _build() -> void:
 		_btn_uav.tooltip_text = "Ability — UAV Sweep. Posts type: uav."
 		_btn_uav.pressed.connect(_on_uav)
 		row.add_child(_btn_uav)
-		var high_col := VBoxContainer.new()
-		high_col.alignment = BoxContainer.ALIGNMENT_CENTER
-		high_col.add_theme_constant_override("separation", 2)
-		_btn_high = Chrome.game_button("high", Contract.HIGH_GROUND_LABEL, Color("1a1816"), Chrome.CREAM, Vector2(248, 56))
+		_btn_high = Button.new()
+		_btn_high.visible = false
 		_btn_high.disabled = true
-		_btn_high.tooltip_text = Contract.HIGH_GROUND_COPY
-		high_col.add_child(_btn_high)
+		add_child(_btn_high)
 		_high_cap = Label.new()
-		_high_cap.text = Contract.HIGH_GROUND_SUB
-		_high_cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		Chrome.apply_label(_high_cap, 8, Chrome.CREAM, true)
-		high_col.add_child(_high_cap)
-		row.add_child(high_col)
+		_high_cap.visible = false
+		add_child(_high_cap)
+		var high_chip := Chrome.high_ground_chip()
+		high_chip.position = Vector2(1024, 598)
+		add_child(high_chip)
 	_ability_cap = Label.new()
 	_ability_cap.visible = false
 	add_child(_ability_cap)

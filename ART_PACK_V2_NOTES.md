@@ -22,12 +22,13 @@ FAR / MID / NEAR stay display-only. Leave this PR open for UX re-taste —
 | 6 | Gold / gem on stills | Marks ★ only. Baked gold/gem wood-stamped off the plate. |
 | P2 | FAR/MID/NEAR | Display-only hotspots on the optic plate. No new loops. |
 | P2 | Attack D-pad | Virtual **thumb stick** (drag). Fire stays a separate tap. No new intent. |
+| P2 | HIGH GROUND | Parked **display chip** (not a 4th action key). No live buff. |
 
 ## Taste-gate stills (`artifacts/ux/`)
 
 1. `01_hideout_idle_armory.png`
 2. `02_dynamic_rack.png` — owned starter Fieldbolt + equipped underline · locked Railframe / Crescent
-3. `03_hex_open_brush_hard_unknown.png` — **HOLD.** Full-bleed `match-board-canon.jpg` HUD (chunky ATTACK/RECON/ABILITY). Stamps cropped from that plate. Server hash on first select; UNKNOWN is FoW. HIGH GROUND display-only.
+3. `03_hex_open_brush_hard_unknown.png` — **PASS.** Full-bleed `match-board-canon.jpg` HUD (chunky ATTACK/RECON/ABILITY). Stamps cropped from that plate. Server hash on first select; UNKNOWN is FoW. HIGH GROUND is a parked chip.
 4. `04_operative_exposure_doll.png` — **match END TURN** paper-doll + % (not a hideout inset)
 5. `05_attack_optic_fieldbolt.png` / `05_attack_optic_joystick.png` — toy thumb stick over the plate D-pad; Fire separate
 6. `06_ui_chips_marks_coach_queue_end.png` — Marks ★ / coach / queue / end
@@ -50,6 +51,6 @@ python3 tools/compose_art_pack_v2.py
 
 Gun shop SKUs · Marks prices · ballistics / hit% · OEM marks · merging #30.
 
-**HOLD:** Josh / UX / Design — stills 03 + 04 + joystick are hard gates. HIGH GROUND is display-only. Do **not** squash-merge until UX re-taste.
+**UX PASS** on stills 03 · 04 · 05. HIGH GROUND is a parked display chip (no live buff). Soft P2 scrub done. #30 stays unmerged.
 
 Canon set: lobby · ghillie · hex-map · optic · **match-board**.
