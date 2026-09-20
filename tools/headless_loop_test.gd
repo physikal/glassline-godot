@@ -127,6 +127,7 @@ func _run() -> int:
 
 	_decoy_case(failed)
 	_lobby_case(failed)
+	_queue_case(failed)
 	_rematch_case(failed)
 	_a4_gaps_case(failed)
 	_end_summary_case(failed)
@@ -488,6 +489,129 @@ func _lobby_case(failed: PackedStringArray) -> void:
 	var stale: Dictionary = server.join_lobby(code, "p_guest")
 	_expect(failed, str(stale.get("code", "")) == Contract.LOBBY_ERR_EXPIRED, "P4 expired join")
 	_expect(failed, server.account_marks == 18, "P4 expired Marks frozen")
+	server.test_now_ms = -1
+
+
+func _queue_case(failed: PackedStringArray) -> void:
+	## Q1–Q5 mock: 1-tap queue, pair → same hunt, cancel/timeout Marks Δ0, no bot fill.
+	var QueueScript := load("res://types/queue.gd")
+	_expect(failed, Contract.QUEUE_TTL_SEC == 60, "Q TTL 60s")
+	_expect(failed, Contract.QUEUE_HEADING.find("RIVAL") >= 0, "Q6 finding a rival")
+	_expect(failed, Contract.QUEUE_WAIT_COPY.find("Finding a rival") >= 0, "Q6 wait copy")
+	_expect(failed, Contract.QUEUE_CTA == "QUICK MATCH", "Q1 CTA")
+	_expect(failed, Contract.QUEUE_HEADING.find("RANK") < 0, "Q6 no ranked heading")
+	_expect(failed, Contract.QUEUE_BLURB.find("MMR") < 0, "Q6 no MMR")
+	_expect(failed, Contract.QUEUE_WAIT_COPY.find("countdown") < 0, "Q6 no countdown copy")
+	_expect(failed, Contract.QUEUE_BLURB.find("ELO") < 0, "Q6 no ELO")
+
+	## Q1 — one tap enqueue, still waiting, Marks frozen, no match yet.
+	server.clear_all()
+	server.reset_wallet(24)
+	server.queue_pair_delay_ms = 80
+	server.test_now_ms = 1000
+	var one: Dictionary = server.enqueue("p_host")
+	var parsed = QueueScript.from_any(one)
+	_expect(failed, bool(one.get("ok", false)), "Q1 enqueue ok")
+	_expect(failed, str(one.get("status", "")) == Contract.QUEUE_QUEUED, "Q1 status queued")
+	_expect(failed, int(one.get("timeoutSec", 0)) == 60, "Q1 timeoutSec 60")
+	_expect(failed, str(one.get("expiresAt", "")) != "", "Q1 expiresAt")
+	_expect(failed, str(one.get("matchId", "")) == "", "Q1 no match yet")
+	_expect(failed, int(one.get("marks", -1)) == 24, "Q1 Marks unchanged")
+	_expect(failed, parsed.is_queued(), "Q1 parser queued")
+	_expect(failed, str(one.get("snapshot", {}).get("kind", "")) == "queue", "Q1 queue snap")
+	_expect(failed, server._matches.is_empty(), "Q1 minted no match")
+
+	## Idempotent re-queue refreshes TTL (Coder pick, documented).
+	server.test_now_ms = 20000
+	var again: Dictionary = server.enqueue("p_host")
+	_expect(failed, str(again.get("status", "")) == Contract.QUEUE_QUEUED, "Q1 requeue still queued")
+	_expect(failed, int(again.get("secondsLeft", 0)) >= 50, "Q1 requeue refresh TTL")
+	_expect(failed, server.account_marks == 24, "Q1 requeue Marks frozen")
+
+	## Q5 — pair delay elapses with one player: still queued. No bot fill.
+	server.test_now_ms = 20000 + 200
+	var lonely: Dictionary = server.get_queue("p_host")
+	_expect(failed, str(lonely.get("status", "")) == Contract.QUEUE_QUEUED, "Q5 still queued after delay")
+	_expect(failed, str(lonely.get("matchId", "")) == "", "Q5 no bot matchId")
+	_expect(failed, server._matches.is_empty(), "Q5 no bot match minted")
+	_expect(failed, server.account_marks == 24, "Q5 lonely Marks frozen")
+
+	## Q2 — second human sits → pair after delay → same rules / Marks / rematch.
+	server.queue_pair_delay_ms = 80
+	server.test_now_ms = 30000
+	var guest: Dictionary = server.enqueue("p_guest")
+	_expect(failed, str(guest.get("status", "")) == Contract.QUEUE_QUEUED, "Q2 guest queued before delay")
+	_expect(failed, str(guest.get("matchId", "")) == "", "Q2 no match during delay")
+	server.test_now_ms = 30000 + 80
+	var host_ready: Dictionary = server.get_queue("p_host")
+	var guest_ready: Dictionary = server.get_queue("p_guest")
+	_expect(failed, str(host_ready.get("status", "")) == Contract.QUEUE_MATCHED, "Q2 host matched")
+	_expect(failed, str(guest_ready.get("status", "")) == Contract.QUEUE_MATCHED, "Q2 guest matched")
+	_expect(failed, str(host_ready.get("matchId", "")) != "", "Q2 matchId")
+	_expect(failed, str(host_ready.get("joinToken", "")) != "", "Q2 host joinToken")
+	_expect(failed, str(guest_ready.get("joinToken", "")) != "", "Q2 guest joinToken")
+	_expect(failed, str(host_ready.get("joinToken", "")) != str(guest_ready.get("joinToken", "")), "Q2 own tokens")
+	_expect(failed, str(host_ready.get("seat", "")) == Contract.SEAT_A, "Q2 host seat A")
+	_expect(failed, str(guest_ready.get("seat", "")) == Contract.SEAT_B, "Q2 guest seat B")
+	_expect(failed, Contract.is_match_snapshot(host_ready.get("snapshot", {}), str(host_ready.get("matchId", ""))), "Q2 match snap")
+	_expect(failed, server.account_marks == 24, "Q2 pair Marks frozen")
+	var started: Dictionary = server.dequeue("p_host")
+	_expect(failed, str(started.get("status", "")) == Contract.QUEUE_IDLE, "Q2 DELETE after pair idle")
+	_expect(failed, str(server.get_queue("p_host").get("status", "")) == Contract.QUEUE_MATCHED, "Q2 matched row stays")
+	_expect(failed, server.account_marks == 24, "Q2 started-dequeue Marks frozen")
+	var mid := str(host_ready.get("matchId", ""))
+	var pid_a := "p_host"
+	var pid_b := "p_guest"
+	var snap_a: Snapshot = Snapshot.from_dict(server.get_snapshot(mid, pid_a))
+	var snap_b: Snapshot = Snapshot.from_dict(server.get_snapshot(mid, pid_b))
+	_expect(failed, snap_a.status() == Contract.STATUS_READY, "Q2 A ready to drop")
+	_expect(failed, snap_b.status() == Contract.STATUS_READY, "Q2 B ready to drop")
+	server.apply_action(mid, pid_a, ActionIntent.select_hex(2, 2))
+	server.apply_action(mid, pid_b, ActionIntent.select_hex(7, 5))
+	server.apply_action(mid, pid_a, ActionIntent.start())
+	var miss: ActionResult = server.apply_action(mid, pid_a, ActionIntent.attack(0, 0))
+	var miss_snap: Snapshot = Snapshot.from_dict(miss.snapshot)
+	_expect(failed, bool(miss.ok) and miss_snap.last_action().get("hit") == false, "Q2 miss hit=false")
+	server.apply_action(mid, pid_a, ActionIntent.end_turn(50))
+	var kill: ActionResult = server.apply_action(mid, pid_b, ActionIntent.attack(2, 2))
+	var kill_snap: Snapshot = Snapshot.from_dict(kill.snapshot)
+	_expect(failed, kill_snap.status() == Contract.STATUS_ENDED, "Q2 kill ended")
+	_expect(failed, kill_snap.marks_delta() == Contract.MARKS_PVP_WIN, "Q2 winner ★25")
+	var loser: Snapshot = Snapshot.from_dict(server.get_snapshot(mid, pid_a))
+	_expect(failed, loser.marks_delta() == Contract.MARKS_PVP_LOSS, "Q2 loser ★3")
+	_expect(failed, loser.rematch_offered(), "Q2 rematch still offered")
+	_expect(failed, Contract.RECON_BASE == 0.35 and Contract.MARKS_PVP_WIN == 25, "Q2 combat table unchanged")
+
+	## Q3 — cancel → hideout, Marks Δ0, no match.
+	server.clear_all()
+	server.reset_wallet(24)
+	server.test_now_ms = 1000
+	one = server.enqueue("p_host")
+	var before_ids: Array = server._matches.keys()
+	var left: Dictionary = server.dequeue("p_host")
+	_expect(failed, bool(left.get("ok", false)), "Q3 cancel ok")
+	_expect(failed, str(left.get("status", "")) == Contract.QUEUE_IDLE, "Q3 idle")
+	_expect(failed, server.account_marks == 24, "Q3 cancel Marks frozen")
+	_expect(failed, server._matches.keys() == before_ids, "Q3 cancel minted no match")
+	var idle: Dictionary = server.get_queue("p_host")
+	_expect(failed, str(idle.get("status", "")) == Contract.QUEUE_IDLE, "Q3 poll idle")
+	_expect(failed, server.account_marks == 24, "Q3 idle Marks frozen")
+
+	## Q4 — 60s TTL → hideout, Marks Δ0, no forfeit overlay / match.
+	server.clear_all()
+	server.reset_wallet(18)
+	server.test_now_ms = 1000
+	one = server.enqueue("p_host")
+	before_ids = server._matches.keys()
+	server.test_now_ms = 1000 + Contract.QUEUE_TTL_MS + 50
+	var aged: Dictionary = server.get_queue("p_host")
+	_expect(failed, str(aged.get("status", "")) == Contract.QUEUE_EXPIRED, "Q4 TTL expired")
+	_expect(failed, bool(aged.get("timedOut", false)), "Q4 timedOut flag")
+	_expect(failed, server.account_marks == 18, "Q4 timeout Marks frozen")
+	_expect(failed, server._matches.keys() == before_ids, "Q4 timeout minted no match")
+	var after: Dictionary = server.get_queue("p_host")
+	_expect(failed, str(after.get("status", "")) == Contract.QUEUE_IDLE, "Q4 next poll idle")
+	_expect(failed, server.account_marks == 18, "Q4 idle after timeout Marks frozen")
 	server.test_now_ms = -1
 
 

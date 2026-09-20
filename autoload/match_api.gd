@@ -156,6 +156,38 @@ func cancel_lobby(lobby_id: String) -> Dictionary:
 	return MockMatchServer.cancel_lobby(lobby_id, pid)
 
 
+func enqueue() -> Dictionary:
+	if using_live():
+		return LiveMatchClient.enqueue()
+	var pid := ClientSession.durable_player_id
+	if pid == "":
+		pid = "p_mock"
+	return MockMatchServer.enqueue(pid)
+
+
+func get_queue() -> Dictionary:
+	if using_live():
+		return LiveMatchClient.get_queue()
+	var pid := ClientSession.durable_player_id
+	if pid == "":
+		pid = "p_mock"
+	return MockMatchServer.get_queue(pid)
+
+
+func dequeue() -> Dictionary:
+	if using_live():
+		return LiveMatchClient.dequeue()
+	var pid := ClientSession.durable_player_id
+	if pid == "":
+		pid = "p_mock"
+	return MockMatchServer.dequeue(pid)
+
+
+func bind_queue_match(body: Dictionary) -> Dictionary:
+	## Same seat join as private lobby ready handoff.
+	return bind_lobby_match(body)
+
+
 func bind_lobby_match(body: Dictionary) -> Dictionary:
 	## Prefer posted matchId + joinToken. Client never invents seats.
 	var mid := str(body.get("matchId", body.get("newMatchId", "")))

@@ -126,9 +126,22 @@ Errors: **400** `invalid_lobby_code` / `invalid_join_body` · **404** `lobby_not
 
 Bare `POST /lobbies` 404 (no `lobby_not_found`) → route missing; mock. Prefer LIVE smoke once 200/201.
 
+## Quick Match (LIVE 2026-09-20, Coder `queue.ts`)
+`POST /queue` Bearer **player** → **200** `{ status: queued, queuedAt, timeoutSec: 60, expiresAt }`
+or **200** `{ status: matched, matchId, joinToken, seat, snapshot }` (match snap, `ready`).
+
+`GET /queue` → `idle` | queued + `secondsLeft` | `matched` | **`expired`** (once, then idle).
+
+`DELETE /queue` → **200** `{ status: idle }`. Waiting rows only. **Marks Δ0**.
+
+TTL **60s**. Re-POST while queued **refreshes `expiresAt`** (keeps `queuedAt`). **No bot fill.** Pair two humans → existing drop / rematch / A4.
+
+Errors: **401** · **409** `already_in_match` / `in_lobby`. Bare 404 → `queue_unavailable`.
+
 ## Other REST
 - `GET /health` → `{ ok: true }`
 - `GET /matches/:id` → caller-scoped snapshot (reconnect)
 - `POST /matches/:id/abandon` → join Bearer, no body
 - `POST /matches/:id/rematch` → `{ accept }` + join-token Bearer (player token fallback)
 - `POST /lobbies` · `POST /lobbies/join` · `GET /lobbies/:id` · `POST /lobbies/:id/cancel`
+- `POST /queue` · `GET /queue` · `DELETE /queue`

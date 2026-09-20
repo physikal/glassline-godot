@@ -106,6 +106,21 @@ func _ready() -> void:
 		_capture_coach_dismissed()
 	elif "--capture-coach-chip" in args:
 		_capture_coach_chip()
+	elif "--capture-queue-matched-board" in args:
+		_capture_queue_matched_board()
+
+
+func _capture_queue_matched_board() -> void:
+	if _coach:
+		_coach.dismiss()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	var path := ProjectSettings.globalize_path("res://artifacts/ux/queue_matched_board.png")
+	img.save_png(path)
+	print("Q2_QUEUE_MATCHED_BOARD ", path)
+	get_tree().quit()
 
 
 func _capture_after_play() -> void:
