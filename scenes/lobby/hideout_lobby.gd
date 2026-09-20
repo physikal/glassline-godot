@@ -153,9 +153,9 @@ func _ready() -> void:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 		DisplayServer.window_set_size(Vector2i(1280, 720))
 		await _capture_named(
-			"res://artifacts/ux/art_armory_wartable.png",
-			"ART_ARMORY_WARTABLE",
-			"res://artifacts/ux/art_01_hideout_armory.png"
+			"res://artifacts/ux/01_hideout_idle_armory.png",
+			"ART_01_HIDEOUT_IDLE_ARMORY",
+			"res://artifacts/ux/art_armory_wartable.png"
 		)
 	elif "--capture-art-ui-chips" in args:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
@@ -402,9 +402,9 @@ func _capture_art_hideout() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	await _capture_named(
-		"res://artifacts/ux/art_hideout_dynamic.png",
-		"ART_HIDEOUT_DYNAMIC",
-		"res://artifacts/ux/art_02_hideout_rack.png"
+		"res://artifacts/ux/02_dynamic_rack.png",
+		"ART_02_DYNAMIC_RACK",
+		"res://artifacts/ux/art_hideout_dynamic.png"
 	)
 
 
@@ -433,76 +433,17 @@ func _capture_art_operative_doll() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	await _capture_named(
-		"res://artifacts/ux/art_operative_doll.png",
-		"ART_OPERATIVE_DOLL",
-		"res://artifacts/ux/art_04_operative_doll.png"
+		"res://artifacts/ux/04_operative_exposure_doll.png",
+		"ART_04_OPERATIVE_DOLL",
+		"res://artifacts/ux/art_operative_doll.png"
 	)
 
 
 func _capture_art_ui_chips() -> void:
-	## Taste still: Marks + coach + queue + end-summary chips on the hideout wood.
-	if _shop_row:
-		_shop_row.visible = false
-	var board := PanelContainer.new()
-	board.set_anchors_preset(PRESET_CENTER)
-	board.offset_left = -380
-	board.offset_right = 380
-	board.offset_top = -210
-	board.offset_bottom = 210
-	var box := Chrome.flat(Color(0.10, 0.08, 0.06, 0.96), 20, Chrome.HIGH_GOLD, 3)
-	box.content_margin_left = 22
-	box.content_margin_right = 22
-	box.content_margin_top = 16
-	box.content_margin_bottom = 16
-	board.add_theme_stylebox_override("panel", box)
-	add_child(board)
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 14)
-	board.add_child(col)
-	var kicker := Label.new()
-	kicker.text = "UI CHIPS"
-	kicker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	Chrome.apply_label(kicker, 10, Chrome.HIGH_GOLD, true)
-	col.add_child(kicker)
-	col.add_child(_chip_demo_row("MARKS", Chrome.marks_chip_text(ClientSession.marks), Chrome.HIGH_GOLD, "star"))
-	col.add_child(_chip_demo_row("COACH", "ATTACK hex · then FIRE", Chrome.ATTACK_RED, "attack"))
-	col.add_child(_chip_demo_row("QUEUE", "FINDING RIVAL", Chrome.TEAL, "queue"))
-	col.add_child(_chip_demo_row("END", "KILL  ·  ★25", Chrome.PLAY_GREEN, "star"))
-	await _capture_named(
-		"res://artifacts/ux/art_ui_chips.png",
-		"ART_UI_CHIPS",
-		"res://artifacts/ux/art_06_ui_chips.png"
-	)
-
-
-func _chip_demo_row(title: String, body: String, accent: Color, icon_kind: String) -> PanelContainer:
-	var row := PanelContainer.new()
-	var box := Chrome.flat(Color(0.12, 0.09, 0.07, 0.94), 14, accent, 2)
-	box.content_margin_left = 12
-	box.content_margin_right = 12
-	box.content_margin_top = 8
-	box.content_margin_bottom = 8
-	row.add_theme_stylebox_override("panel", box)
-	var line := HBoxContainer.new()
-	line.add_theme_constant_override("separation", 12)
-	row.add_child(line)
-	var icon := TextureRect.new()
-	icon.texture = Chrome.make_icon(icon_kind, accent, 22)
-	icon.custom_minimum_size = Vector2(22, 22)
-	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	line.add_child(icon)
-	var name_lbl := Label.new()
-	name_lbl.text = title
-	name_lbl.custom_minimum_size = Vector2(100, 0)
-	Chrome.apply_label(name_lbl, 10, accent, true)
-	line.add_child(name_lbl)
-	var body_lbl := Label.new()
-	body_lbl.text = body
-	body_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	Chrome.apply_label(body_lbl, 10, Chrome.CREAM, true)
-	line.add_child(body_lbl)
-	return row
+	## Official still 6 is the 2×2 of live Marks / coach / queue / end stills
+	## (`06_ui_chips_marks_coach_queue_end.png`). Do not overwrite it with hideout idle.
+	print("ART_06_UI_CHIPS res://artifacts/ux/06_ui_chips_marks_coach_queue_end.png")
+	get_tree().quit()
 
 
 func _capture_jobs_ladder() -> void:

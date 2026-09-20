@@ -147,10 +147,10 @@ func _capture_art_hex() -> void:
 	await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
-	var path := ProjectSettings.globalize_path("res://artifacts/ux/art_hex_terrain.png")
+	var path := ProjectSettings.globalize_path("res://artifacts/ux/03_hex_open_brush_hard_unknown.png")
 	img.save_png(path)
-	img.save_png(ProjectSettings.globalize_path("res://artifacts/ux/art_03_hex_terrain.png"))
-	print("ART_HEX_TERRAIN ", path)
+	img.save_png(ProjectSettings.globalize_path("res://artifacts/ux/art_hex_terrain.png"))
+	print("ART_03_HEX ", path)
 	get_tree().quit()
 
 
@@ -170,10 +170,10 @@ func _capture_art_optic() -> void:
 	await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
-	var path := ProjectSettings.globalize_path("res://artifacts/ux/art_attack_optic.png")
+	var path := ProjectSettings.globalize_path("res://artifacts/ux/05_attack_optic_fieldbolt.png")
 	img.save_png(path)
-	img.save_png(ProjectSettings.globalize_path("res://artifacts/ux/art_05_attack_optic.png"))
-	print("ART_ATTACK_OPTIC ", path)
+	img.save_png(ProjectSettings.globalize_path("res://artifacts/ux/art_attack_optic.png"))
+	print("ART_05_ATTACK_OPTIC ", path)
 	get_tree().quit()
 
 
