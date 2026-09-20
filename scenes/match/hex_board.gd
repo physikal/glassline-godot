@@ -125,10 +125,8 @@ func _stamp(center: Vector2, kind: String, fill: Color) -> void:
 	## Painted hex-map clumps / rock piles — never flat circle/rect legend icons.
 	var stamp: Texture2D = Chrome.hex_stamp(kind)
 	if stamp:
-		var sz := Vector2(32, 32)
-		if kind == Contract.TYPE_OPEN:
-			sz = Vector2(28, 28)
-		draw_texture_rect(stamp, Rect2(center - sz * 0.5, sz), false)
+		var sz := Vector2(26, 26)
+		draw_texture_rect(stamp, Rect2(center - sz * 0.5 + Vector2(0, 2), sz), false)
 		return
 	match kind:
 		Contract.TYPE_BRUSH:

@@ -8,18 +8,22 @@ const Contract := preload("res://types/contract.gd")
 
 var exposure_pct: float = 50.0
 var equipped_skin_id: String = ""
+var _body: TextureRect
+var _cover: ColorRect
+var _pct: Label
 
 
 func _ready() -> void:
 	if custom_minimum_size.x < 88.0 or custom_minimum_size.y < 118.0:
 		custom_minimum_size = Vector2(88, 118)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	queue_redraw()
+	_build()
+	_refresh()
 
 
 func set_exposure(value: float) -> void:
 	exposure_pct = clampf(value, 0.0, 100.0)
-	queue_redraw()
+	_refresh()
 
 
 func bind_server_pct(value: float) -> void:
@@ -29,40 +33,54 @@ func bind_server_pct(value: float) -> void:
 
 func bind_equipped(item_id: String) -> void:
 	## Same id as hideout operative. Empty = teal jacket. Never invent an id.
-	if equipped_skin_id == item_id:
+	if equipped_skin_id == item_id and _body and _body.texture:
 		return
 	equipped_skin_id = item_id
-	queue_redraw()
+	_refresh()
 
 
-func _draw() -> void:
-	var w := size.x
-	var h := size.y
-	if w < 8.0 or h < 8.0:
-		return
-	draw_rect(Rect2(0, 0, w, h), Color(0.16, 0.10, 0.07, 0.42), true)
-	draw_rect(Rect2(1, 1, w - 2, h - 2), Color("3d2618"), false, 2.0)
-	var plate := ArtPack.doll_texture(equipped_skin_id)
-	if plate:
-		var pad := 6.0
-		var dest := Rect2(pad, 18.0, w - pad * 2.0, h - 24.0)
-		draw_texture_rect(plate, dest, false)
-	else:
-		_draw_fallback(w, h)
-	var cover_h := h * ((100.0 - exposure_pct) / 100.0) * 0.72
-	if cover_h > 2.0:
-		draw_rect(Rect2(4, h - cover_h, w - 8, cover_h - 4), Color(0.24, 0.42, 0.18, 0.55))
-	var font := Chrome.pixel_font()
-	var tag := "%d%%" % int(exposure_pct)
-	draw_string(font, Vector2(8, 14), tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Chrome.HIGH_GOLD)
+func _build() -> void:
+	var frame := ColorRect.new()
+	frame.color = Color(0.16, 0.10, 0.07, 0.55)
+	frame.set_anchors_preset(PRESET_FULL_RECT)
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(frame)
+
+	_body = TextureRect.new()
+	_body.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_body.set_anchors_preset(PRESET_FULL_RECT)
+	_body.offset_left = 4
+	_body.offset_right = -4
+	_body.offset_top = 16
+	_body.offset_bottom = -4
+	_body.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_body.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_body.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_body)
+
+	_cover = ColorRect.new()
+	_cover.color = Color(0.24, 0.42, 0.18, 0.50)
+	_cover.set_anchors_and_offsets_preset(PRESET_BOTTOM_WIDE)
+	_cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_cover)
+
+	_pct = Label.new()
+	_pct.position = Vector2(6, 2)
+	_pct.size = Vector2(80, 16)
+	Chrome.apply_label(_pct, 8, Chrome.HIGH_GOLD, true)
+	add_child(_pct)
 
 
-func _draw_fallback(w: float, h: float) -> void:
-	var cx := w * 0.5
-	var s := minf(w / 88.0, h / 118.0)
-	var skin := Color("e6c39a")
-	var teal := Color("1d6b54")
-	draw_circle(Vector2(cx, h * 0.26), 13.0 * s, skin)
-	draw_rect(Rect2(cx - 16.0 * s, h * 0.36, 32.0 * s, 28.0 * s), teal)
-	draw_rect(Rect2(cx - 10.0 * s, h * 0.62, 8.0 * s, 20.0 * s), Color("1e2430"))
-	draw_rect(Rect2(cx + 2.0 * s, h * 0.62, 8.0 * s, 20.0 * s), Color("1e2430"))
+func _refresh() -> void:
+	if _body == null:
+		_build()
+	_body.texture = ArtPack.doll_texture(equipped_skin_id)
+	if _pct:
+		_pct.text = "%d%%" % int(exposure_pct)
+	if _cover:
+		var h := size.y
+		if h < 8.0:
+			h = custom_minimum_size.y
+		var cover_h := h * ((100.0 - exposure_pct) / 100.0) * 0.72
+		_cover.offset_top = -maxf(0.0, cover_h)
+		_cover.visible = cover_h > 2.0

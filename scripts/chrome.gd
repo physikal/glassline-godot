@@ -221,6 +221,12 @@ static func make_face(kind: String, px: int = 44) -> Texture2D:
 	## Same hideout operative crop — not a mushy circle next to painted wood.
 	var plate: Texture2D = _ArtPack.face_texture("p2" if kind == "p2" else "p1")
 	if plate:
+		var src := plate.get_image()
+		if src:
+			if src.is_compressed():
+				src.decompress()
+			src.resize(px, px, Image.INTERPOLATE_NEAREST)
+			return ImageTexture.create_from_image(src)
 		return plate
 	var img := Image.create(px, px, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))

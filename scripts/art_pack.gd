@@ -82,15 +82,14 @@ static func hex_legend(kind: String) -> Texture2D:
 
 
 static func hex_stamp(kind: String) -> Texture2D:
+	## Transparent painted clumps only. Never a rectangular tile-on-the-board.
 	match kind:
 		Contract.TYPE_BRUSH:
 			return tex(STAMP_BRUSH)
 		Contract.TYPE_HARD:
 			return tex(STAMP_ROCK)
-		Contract.TYPE_OPEN:
-			return tex(TILE_OPEN)
 		_:
-			return tex(TILE_UNKNOWN)
+			return null
 
 
 static func hex_tile(kind: String) -> Texture2D:

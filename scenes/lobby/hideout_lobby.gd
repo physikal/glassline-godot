@@ -579,7 +579,9 @@ func _build_top_bar() -> void:
 
 	var face := TextureRect.new()
 	face.texture = Chrome.make_face("p1", 40)
+	face.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	face.custom_minimum_size = Vector2(40, 40)
+	face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	face.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	face.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	id_row.add_child(face)
