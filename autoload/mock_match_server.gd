@@ -944,6 +944,17 @@ func rematch(match_id: String, player_id: String, accept: bool) -> Dictionary:
 	return _rematch_payload(match_state, seat)
 
 
+func reveal_inner_for_art(match_id: String) -> void:
+	## Capture helper. Server hash still owns the type; client only paints revealed.
+	if not _matches.has(match_id):
+		return
+	var match_state: Dictionary = _matches[match_id]
+	for q in range(1, Contract.BOARD_Q - 1):
+		for r in range(1, Contract.BOARD_R - 1):
+			_reveal(match_state, Contract.SEAT_A, q, r)
+			_reveal(match_state, Contract.SEAT_B, q, r)
+
+
 func terrain_fingerprint(match_id: String) -> String:
 	if not _matches.has(match_id):
 		return ""

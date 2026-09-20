@@ -135,10 +135,16 @@ static func _styled_button(text: String, bg: Color, fg: Color, min_size: Vector2
 
 
 static func action_button(kind: String, text: String, bg: Color, fg: Color, min_size: Vector2 = Vector2(220, 64)) -> Button:
-	var button := chunk_button(text, bg, fg, min_size)
-	button.icon = make_icon(kind, fg, 28)
-	button.add_theme_constant_override("h_separation", 10)
-	button.add_theme_constant_override("icon_max_width", 28)
+	return game_button(kind, text, bg, fg, min_size)
+
+
+static func game_button(kind: String, text: String, bg: Color, fg: Color, min_size: Vector2 = Vector2(248, 76)) -> Button:
+	## Chunky match-board game key — not a thin SaaS pill.
+	var button := _styled_button(text, bg, fg, min_size, 20, 12)
+	if kind != "":
+		button.icon = make_icon(kind, fg, 30)
+		button.add_theme_constant_override("h_separation", 12)
+		button.add_theme_constant_override("icon_max_width", 30)
 	return button
 
 
@@ -204,6 +210,8 @@ static func make_icon(kind: String, color: Color, px: int = 28) -> Texture2D:
 			_icon_toy_doll(img, color)
 		"clock":
 			_icon_clock(img, color)
+		"high", "highground":
+			_icon_high_ground(img, color)
 		"play":
 			_icon_play(img, color)
 		"jobs":
@@ -396,6 +404,18 @@ static func _icon_star(img: Image, color: Color) -> void:
 		var c := deg_to_rad(-90.0 + float(i + 1) * 72.0)
 		_line(img, cx + cos(b) * 4.5, cy + sin(b) * 4.5, cx + cos(c) * 11.0, cy + sin(c) * 11.0, color)
 	_fill_circle(img, 14, 14, 3, color)
+
+
+static func _icon_high_ground(img: Image, color: Color) -> void:
+	## Stacked hex chips — plate HIGH GROUND, not a mountain / mil-sim badge.
+	_fill_rect(img, 10, 4, 8, 6, color)
+	_fill_rect(img, 8, 6, 12, 4, color)
+	_fill_rect(img, 6, 12, 8, 6, color)
+	_fill_rect(img, 4, 14, 12, 4, color)
+	_fill_rect(img, 14, 12, 8, 6, color)
+	_fill_rect(img, 12, 14, 12, 4, color)
+	_fill_rect(img, 10, 20, 8, 6, color)
+	_fill_rect(img, 8, 22, 12, 4, color)
 
 
 static func _icon_clock(img: Image, color: Color) -> void:

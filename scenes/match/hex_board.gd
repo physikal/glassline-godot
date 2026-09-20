@@ -96,10 +96,11 @@ func table_kind(q: int, r: int) -> String:
 
 
 func cell_kind(q: int, r: int) -> String:
+	## Snapshot revealed stamps only. Client never invents open/brush/hard.
 	var key := "%d,%d" % [q, r]
 	if _terrain.has(key):
 		return str(_terrain[key])
-	return table_kind(q, r)
+	return "unknown"
 
 
 func _build_faces() -> void:

@@ -141,6 +141,7 @@ func _run() -> int:
 	_shop_sink3_case(failed)
 	_gun_chrome_case(failed)
 	_optic_joystick_case(failed)
+	_match_board_chrome_case(failed)
 	_equip_chrome_case(failed)
 	_player_persist_case(failed)
 	_first_hunt_coach_case(failed)
@@ -1552,6 +1553,29 @@ func _optic_joystick_case(failed: PackedStringArray) -> void:
 	_expect(failed, ActionIntent.attack(0, 0).get("type") == Contract.ACT_ATTACK, "attack intent unchanged")
 	_expect(failed, not ActionIntent.attack(4, 3).has("stick"), "stick is not an attack field")
 	stick.free()
+
+
+func _match_board_chrome_case(failed: PackedStringArray) -> void:
+	## Stamps come from the snapshot. HIGH GROUND is display-only.
+	var Board := load("res://scenes/match/hex_board.gd")
+	var board = Board.new()
+	_expect(failed, board.cell_kind(2, 2) == "unknown", "unrevealed hex is FoW")
+	board._terrain["2,2"] = Contract.TYPE_BRUSH
+	_expect(failed, board.cell_kind(2, 2) == Contract.TYPE_BRUSH, "revealed stamp from snapshot")
+	_expect(failed, board.cell_kind(0, 0) == "unknown", "rim stays unknown until snapshot")
+	_expect(failed, not ActionIntent.attack(4, 3).has("highGround"), "HIGH GROUND is not an attack field")
+	_expect(failed, Contract.HIGH_GROUND_SUB.find("10%") >= 0, "HIGH GROUND copy is parked display")
+	var created: Dictionary = server.create_match()
+	var mid := str(created.get("matchId", ""))
+	var tokens: Dictionary = created.get("joinTokens", {})
+	var join_a: Dictionary = server.join(mid, str(tokens.get("a", "")))
+	server.join(mid, str(tokens.get("b", "")))
+	server.reveal_inner_for_art(mid)
+	var raw: Dictionary = server.get_snapshot(mid, str(join_a.get("playerId", "")))
+	var snap: Snapshot = Snapshot.from_dict(raw)
+	_expect(failed, snap.terrain_map().size() >= 20, "art reveal ships inner stamps")
+	_expect(failed, not snap.terrain_map().has("0,0"), "art reveal leaves rim unknown")
+	board.free()
 
 
 func _equip_chrome_case(failed: PackedStringArray) -> void:

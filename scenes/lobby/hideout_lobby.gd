@@ -168,6 +168,8 @@ func _ready() -> void:
 		await get_tree().process_frame
 		_on_play()
 	elif "--capture-art-hex" in args or "--capture-art-optic" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
 		await get_tree().process_frame
 		_on_play()
 	elif "--capture-decoy-hud" in args or "--capture-decoy-blip" in args:

@@ -89,9 +89,9 @@ def main() -> None:
         ),
         (
             UX / "03_hex_open_brush_hard_unknown.png",
-            CANON / "hex-map.jpg",
-            "LIVE hex stamps",
-            "CANON hex-map",
+            CANON / "match-board-canon.jpg" if (CANON / "match-board-canon.jpg").exists() else CANON / "hex-map.jpg",
+            "LIVE match HUD / stamps",
+            "CANON match-board",
             UX / "side_by_side_hex.png",
         ),
         (

@@ -3,7 +3,8 @@
 PR #30 failed Josh / UX taste. This pack **does not revive that dialect**.
 Rifles, hex stamps, and the exposure doll are **cropped from Josh-locked plates**
 in `assets/canon/` (`lobby-canon.jpg`, `lobby-ghillie.jpg`, `hex-map.jpg`,
-`optic-attack.jpg`). No rectangle guns. No circle/rect legend icons on the board.
+`optic-attack.jpg`, `match-board-canon.jpg`). No rectangle guns. No circle/rect
+legend icons on the board. Match HUD follows the match-board plate.
 
 Chrome only. **No** ballistics, Marks economy, combat, API, or gun SKUs.
 FAR / MID / NEAR stay display-only. Leave this PR open for UX re-taste —
@@ -26,7 +27,7 @@ FAR / MID / NEAR stay display-only. Leave this PR open for UX re-taste —
 
 1. `01_hideout_idle_armory.png`
 2. `02_dynamic_rack.png` — owned starter Fieldbolt + equipped underline · locked Railframe / Crescent
-3. `03_hex_open_brush_hard_unknown.png`
+3. `03_hex_open_brush_hard_unknown.png` — match-board HUD + tileable OPEN/BRUSH/HARD/? stamps
 4. `04_operative_exposure_doll.png` — **match END TURN** paper-doll + % (not a hideout inset)
 5. `05_attack_optic_fieldbolt.png` / `05_attack_optic_joystick.png` — toy thumb stick over the plate D-pad; Fire separate
 6. `06_ui_chips_marks_coach_queue_end.png` — Marks ★ / coach / queue / end
@@ -49,4 +50,6 @@ python3 tools/compose_art_pack_v2.py
 
 Gun shop SKUs · Marks prices · ballistics / hit% · OEM marks · merging #30.
 
-**HOLD:** Josh / UX / Design — still 04 + joystick taste are hard gates. Do **not** squash-merge until UX re-taste.
+**HOLD:** Josh / UX / Design — stills 03 + 04 + joystick are hard gates. HIGH GROUND is display-only. Do **not** squash-merge until UX re-taste.
+
+Canon set: lobby · ghillie · hex-map · optic · **match-board**.

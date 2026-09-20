@@ -62,6 +62,10 @@ const ABILITY_SLOT := "ABILITY"
 const DECOY_LABEL := "DECOY"
 const DECOY_SLOT := "TOY DOLL"
 const DECOY_COPY := "Plant a toy doll on a neighbor hex. Rivals see a soft blip. Once a hunt."
+## Parked plate chrome — never a live combat buff / hit% modifier.
+const HIGH_GROUND_LABEL := "HIGH GROUND"
+const HIGH_GROUND_SUB := "+10% ACCURACY"
+const HIGH_GROUND_COPY := "Display only. Not a combat buff."
 
 ## Mock hideout stub until Coder's ledger / GET wallet exists.
 const MOCK_WALLET_STUB := 24

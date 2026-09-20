@@ -29,6 +29,10 @@ var _btn_attack: Button
 var _btn_recon: Button
 var _btn_uav: Button
 var _btn_decoy: Button
+var _btn_high: Button
+var _high_cap: Label
+var _clock_chip: Label
+var _turn_pill: PanelContainer
 var _ability_cap: Label
 var _decoy_cap: Label
 var _btn_start: Button
@@ -196,8 +200,40 @@ func _capture_art_operative_doll() -> void:
 
 
 func _capture_art_hex() -> void:
+	## Match-board plate HUD + server-revealed stamps. Not a hideout / SaaS dock.
 	if _coach:
 		_coach.dismiss()
+	_dummy_busy = true
+	_dummy_delay = 0.0
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+	DisplayServer.window_set_size(Vector2i(1280, 720))
+	await get_tree().process_frame
+	var snap: Snapshot = ClientSession.typed_snapshot()
+	if snap.status() == Contract.STATUS_READY or snap.status() == Contract.STATUS_WAITING:
+		_submit(ActionIntent.select_hex(2, 2))
+		await get_tree().process_frame
+		if ClientSession.dummy_player_id != "":
+			MatchAPI.apply_action(ClientSession.match_id, ClientSession.dummy_player_id, ActionIntent.select_hex(7, 5))
+			await get_tree().process_frame
+		snap = ClientSession.typed_snapshot()
+	if snap.status() == Contract.STATUS_READY:
+		_submit(ActionIntent.start())
+		await get_tree().process_frame
+	if not ClientSession.use_live_api() and ClientSession.match_id != "":
+		MockMatchServer.reveal_inner_for_art(ClientSession.match_id)
+		_apply_server_reconnect()
+	_toast.text = ""
+	_status.text = ""
+	_phase.text = ""
+	if _btn_decoy:
+		_btn_decoy.visible = false
+	if _btn_abandon:
+		_btn_abandon.visible = false
+	_set_actions(true)
+	if _clock_chip:
+		_clock_chip.text = "01:30"
+	if _clock_icon:
+		_clock_icon.visible = true
 	await get_tree().process_frame
 	await get_tree().process_frame
 	await RenderingServer.frame_post_draw
@@ -644,15 +680,15 @@ func _build() -> void:
 	add_child(desk)
 
 	var wash := ColorRect.new()
-	wash.color = Color(0.08, 0.04, 0.03, 0.28)
+	wash.color = Color(0.08, 0.04, 0.03, 0.10)
 	wash.set_anchors_preset(PRESET_FULL_RECT)
 	wash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(wash)
 
 	var top := ColorRect.new()
-	top.color = Color(0.10, 0.06, 0.04, 0.88)
+	top.color = Color(0.08, 0.05, 0.04, 0.55)
 	top.set_anchors_and_offsets_preset(PRESET_TOP_WIDE)
-	top.offset_bottom = 108
+	top.offset_bottom = 96
 	add_child(top)
 
 	_add_player_card(true)
@@ -666,25 +702,31 @@ func _build() -> void:
 	add_child(reticle)
 
 	var title := Label.new()
-	title.text = "SP JOB" if ClientSession.is_job() else "GLASSLINE"
-	title.position = Vector2(0, 16)
-	title.size = Vector2(1280, 40)
+	title.text = "SP JOB" if ClientSession.is_job() else "Glassline"
+	title.position = Vector2(0, 10)
+	title.size = Vector2(1280, 36)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	Chrome.apply_label(title, 22, Color.WHITE, true)
+	Chrome.apply_label(title, 20, Color.WHITE, true)
 	add_child(title)
 
 	_clock_icon = TextureRect.new()
-	_clock_icon.texture = Chrome.make_icon("clock", Chrome.HIGH_GOLD, 28)
-	_clock_icon.position = Vector2(24, 118)
+	_clock_icon.texture = Chrome.make_icon("clock", Chrome.CREAM, 28)
+	_clock_icon.position = Vector2(24, 104)
 	_clock_icon.size = Vector2(24, 24)
 	_clock_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_clock_icon.visible = false
+	_clock_icon.visible = true
 	add_child(_clock_icon)
+	_clock_chip = Label.new()
+	_clock_chip.text = "01:30"
+	_clock_chip.position = Vector2(52, 104)
+	_clock_chip.size = Vector2(160, 28)
+	Chrome.apply_label(_clock_chip, 14, Chrome.CREAM, true)
+	add_child(_clock_chip)
 	_grace_lbl = Label.new()
 	_grace_lbl.text = ""
-	_grace_lbl.position = Vector2(52, 114)
-	_grace_lbl.size = Vector2(560, 32)
-	Chrome.apply_label(_grace_lbl, 14, Chrome.HIGH_GOLD, true)
+	_grace_lbl.position = Vector2(52, 132)
+	_grace_lbl.size = Vector2(560, 24)
+	Chrome.apply_label(_grace_lbl, 10, Chrome.HIGH_GOLD, true)
 	_grace_lbl.visible = false
 	add_child(_grace_lbl)
 
@@ -695,12 +737,14 @@ func _build() -> void:
 	_btn_abandon.visible = false
 	add_child(_btn_abandon)
 
+	_turn_pill = Chrome.pill_chip(Color(0.08, 0.06, 0.05, 0.92), Color("f0e3b0"))
+	_turn_pill.position = Vector2(540, 50)
+	add_child(_turn_pill)
 	_turn = Label.new()
-	_turn.position = Vector2(0, 56)
-	_turn.size = Vector2(1280, 22)
+	_turn.text = "TURN  1"
 	_turn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	Chrome.apply_label(_turn, 10, Chrome.HIGH_GOLD, true)
-	add_child(_turn)
+	Chrome.apply_label(_turn, 10, Chrome.CREAM, true)
+	_turn_pill.add_child(_turn)
 
 	var legend := VBoxContainer.new()
 	legend.position = Vector2(16, 168)
@@ -719,7 +763,7 @@ func _build() -> void:
 	add_child(_legend_hover)
 
 	var well := ColorRect.new()
-	well.color = Color(0.07, 0.05, 0.04, 0.55)
+	well.color = Color(0.07, 0.05, 0.04, 0.12)
 	well.position = Vector2(210, 128)
 	well.size = Vector2(860, 478)
 	well.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -751,50 +795,54 @@ func _build() -> void:
 	add_child(_phase)
 
 	var bottom := ColorRect.new()
-	bottom.color = Color(0.10, 0.06, 0.04, 0.90)
+	bottom.color = Color(0.10, 0.06, 0.04, 0.72)
 	bottom.set_anchors_and_offsets_preset(PRESET_BOTTOM_WIDE)
-	bottom.offset_top = -108
+	bottom.offset_top = -118
 	add_child(bottom)
 
 	var row := HBoxContainer.new()
-	row.position = Vector2(40, 624)
-	row.size = Vector2(1200, 80)
+	row.position = Vector2(24, 612)
+	row.size = Vector2(1232, 92)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 16)
+	row.add_theme_constant_override("separation", 14)
 	add_child(row)
 
-	_btn_attack = Chrome.action_button("attack", "ATTACK", Chrome.ATTACK_RED, Color.WHITE, Vector2(200, 68))
+	_btn_attack = Chrome.game_button("attack", "ATTACK", Chrome.ATTACK_RED, Color.WHITE, Vector2(248, 76))
 	_btn_attack.pressed.connect(_on_attack)
 	row.add_child(_btn_attack)
-	_btn_recon = Chrome.action_button("recon", "RECON", Chrome.RECON_BLUE, Color.WHITE, Vector2(200, 68))
+	_btn_recon = Chrome.game_button("recon", "RECON", Chrome.RECON_BLUE, Color.WHITE, Vector2(248, 76))
 	_btn_recon.pressed.connect(_on_recon)
 	row.add_child(_btn_recon)
-	var uav_col := VBoxContainer.new()
-	uav_col.alignment = BoxContainer.ALIGNMENT_CENTER
-	uav_col.add_theme_constant_override("separation", 2)
-	_ability_cap = Label.new()
-	_ability_cap.text = Contract.ABILITY_SLOT
-	_ability_cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	Chrome.apply_label(_ability_cap, 8, Chrome.HIGH_GOLD, true)
-	uav_col.add_child(_ability_cap)
-	_btn_uav = Chrome.action_button("ability", Contract.ABILITY_LABEL, Chrome.ABILITY_PURPLE, Color.WHITE, Vector2(200, 56))
+	_btn_uav = Chrome.game_button("ability", Contract.ABILITY_SLOT, Chrome.ABILITY_PURPLE, Color.WHITE, Vector2(248, 76))
 	_btn_uav.tooltip_text = "Ability — UAV Sweep. Posts type: uav."
 	_btn_uav.pressed.connect(_on_uav)
-	uav_col.add_child(_btn_uav)
-	row.add_child(uav_col)
-	var decoy_col := VBoxContainer.new()
-	decoy_col.alignment = BoxContainer.ALIGNMENT_CENTER
-	decoy_col.add_theme_constant_override("separation", 2)
+	row.add_child(_btn_uav)
+	_ability_cap = Label.new()
+	_ability_cap.visible = false
+	add_child(_ability_cap)
+
+	var high_col := VBoxContainer.new()
+	high_col.alignment = BoxContainer.ALIGNMENT_CENTER
+	high_col.add_theme_constant_override("separation", 2)
+	_btn_high = Chrome.game_button("high", Contract.HIGH_GROUND_LABEL, Color("1a1816"), Chrome.CREAM, Vector2(248, 56))
+	_btn_high.disabled = true
+	_btn_high.tooltip_text = Contract.HIGH_GROUND_COPY
+	high_col.add_child(_btn_high)
+	_high_cap = Label.new()
+	_high_cap.text = Contract.HIGH_GROUND_SUB
+	_high_cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	Chrome.apply_label(_high_cap, 8, Chrome.CREAM, true)
+	high_col.add_child(_high_cap)
+	row.add_child(high_col)
+
 	_decoy_cap = Label.new()
-	_decoy_cap.text = Contract.DECOY_SLOT
-	_decoy_cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	Chrome.apply_label(_decoy_cap, 8, Chrome.HIGH_GOLD, true)
-	decoy_col.add_child(_decoy_cap)
-	_btn_decoy = Chrome.action_button("decoy", Contract.DECOY_LABEL, Chrome.DECOY_CARAMEL, Color.WHITE, Vector2(200, 56))
+	_decoy_cap.visible = false
+	add_child(_decoy_cap)
+	_btn_decoy = Chrome.game_button("decoy", Contract.DECOY_LABEL, Chrome.DECOY_CARAMEL, Color.WHITE, Vector2(200, 64))
 	_btn_decoy.tooltip_text = Contract.DECOY_COPY
 	_btn_decoy.pressed.connect(_on_decoy)
-	decoy_col.add_child(_btn_decoy)
-	row.add_child(decoy_col)
+	_btn_decoy.position = Vector2(24, 548)
+	add_child(_btn_decoy)
 
 	## Soft P2: rematch-ready START is a centered drop cue, not tucked under P2.
 	_btn_start = Chrome.chunk_button("START", Chrome.PLAY_GREEN, Color.WHITE, Vector2(320, 56))
@@ -937,35 +985,20 @@ func _build() -> void:
 
 
 func _add_player_card(is_you: bool) -> void:
-	var card := ColorRect.new()
-	card.color = Color(0.08, 0.05, 0.04, 0.72)
-	card.size = Vector2(300, 72)
-	if is_you:
-		card.position = Vector2(16, 12)
-	else:
-		card.position = Vector2(1008, 12)
-		card.size = Vector2(256, 72)
-	add_child(card)
-
+	var origin := Vector2(16, 12) if is_you else Vector2(980, 12)
 	var face := TextureRect.new()
 	face.texture = Chrome.make_face("p1" if is_you else "p2", 44)
 	face.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	face.position = card.position + Vector2(8, 14)
+	face.position = origin
 	face.size = Vector2(44, 44)
 	face.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(face)
 
-	var tag := Label.new()
-	tag.text = "P1" if is_you else "P2"
-	tag.position = card.position + Vector2(60, 8)
-	Chrome.apply_label(tag, 8, Chrome.HIGH_GOLD if is_you else Chrome.P2, true)
-	add_child(tag)
-
 	var chip := Label.new()
-	chip.position = card.position + Vector2(60, 26)
-	chip.size = Vector2(230, 42)
+	chip.position = origin + Vector2(52, 4)
+	chip.size = Vector2(230, 48)
 	chip.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	Chrome.apply_label(chip, 10, Chrome.CREAM, true)
+	Chrome.apply_label(chip, 11, Chrome.CREAM, true)
 	add_child(chip)
 	if is_you:
 		_you_chip = chip
@@ -1003,12 +1036,10 @@ func _on_match_event(player_id: String, _event_name: String, snapshot: Dictionar
 func _refresh(snap: Snapshot) -> void:
 	_bind_server_exposure(snap)
 	_board.apply_snapshot(snap, _selected, _highlights(snap))
-	_you_chip.text = "%s  SEAT %s  %s" % [ClientSession.HANDLE, snap.you_seat().to_upper(), Chrome.marks_chip_text(snap.you_marks())]
+	_you_chip.text = "%s\n%s" % [ClientSession.HANDLE, Chrome.marks_star_text(snap.you_marks())]
 	_rival_chip.text = "BOT" if ClientSession.is_job() or snap.is_job() else ClientSession.RIVAL
-	_turn.text = "TURN  %d / %d" % [snap.turn_index(), snap.turn_cap()]
-	var whose := str(snap.whose_turn()) if snap.whose_turn() != null else "-"
-	var phase_txt := str(snap.phase()) if snap.phase() != null else "-"
-	_phase.text = "STATUS %s   PHASE %s   TO %s" % [snap.status(), phase_txt, whose.to_upper()]
+	_turn.text = "TURN  %d" % snap.turn_index()
+	_phase.text = ""
 
 	match snap.status():
 		Contract.STATUS_READY:
@@ -1072,9 +1103,9 @@ func _refresh(snap: Snapshot) -> void:
 		_toast.text = _describe_last(last)
 	_btn_uav.disabled = _btn_uav.disabled or snap.uav_remaining() <= 0
 	if snap.uav_remaining() <= 0:
-		_btn_uav.text = "%s SPENT" % Contract.ABILITY_LABEL
+		_btn_uav.text = "%s SPENT" % Contract.ABILITY_SLOT
 	else:
-		_btn_uav.text = Contract.ABILITY_LABEL
+		_btn_uav.text = Contract.ABILITY_SLOT
 	_btn_decoy.disabled = _btn_decoy.disabled or not snap.decoy_available()
 	if not snap.decoy_available():
 		_btn_decoy.text = "%s SPENT" % Contract.DECOY_LABEL
@@ -1267,7 +1298,7 @@ func _bind_grace(snap: Snapshot) -> void:
 func _paint_grace(snap: Snapshot, left: float) -> void:
 	var show := snap.status() == Contract.STATUS_ACTIVE and left > 0.0
 	if _clock_icon:
-		_clock_icon.visible = show
+		_clock_icon.visible = true
 	if _grace_lbl:
 		_grace_lbl.visible = show
 		if show:
