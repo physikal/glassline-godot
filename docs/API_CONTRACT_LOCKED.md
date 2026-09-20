@@ -61,3 +61,9 @@ GET /lobbies/:id ready → lobby snap + top-level matchId/joinToken.
 POST /lobbies/:id/cancel waiting → 200 cancelled (no forfeit Marks); after ready → 409 lobby_already_started.
 Errors: 400 invalid_lobby_code · 404 lobby_not_found · 409 already_in_lobby | lobby_cancelled | lobby_already_started.
 Prefer LIVE smoke once 200/201. Bare 404 → mock.
+
+## Quick Match (mock 2026-09-20; LIVE pending)
+POST /queue Bearer player → queued { queuedAt, timeoutSec: 60 }.
+GET /queue → queue { status, secondsLeft } or matched { matchId, joinToken }.
+DELETE /queue → idle. 60s TTL → timeout/idle. Cancel/timeout Marks Δ0. No bot fill.
+Bare POST /queue 404 → queue_unavailable; mock.

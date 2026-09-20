@@ -31,6 +31,8 @@ var client_job_id: String = ""
 var lobby_id: String = ""
 var lobby_code: String = ""
 var lobby_seat: String = ""
+## Quick Match queue. Cleared on reset_match / cancel / timeout.
+var queueing: bool = false
 var ghillie: bool = false
 var bandana: bool = false
 var poster: bool = false
@@ -57,6 +59,7 @@ func reset_match() -> void:
 	lobby_id = ""
 	lobby_code = ""
 	lobby_seat = ""
+	queueing = false
 	## player_token / durable_player_id / marks stay — LIVE wallet is per player.
 
 

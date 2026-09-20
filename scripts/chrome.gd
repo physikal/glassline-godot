@@ -197,6 +197,8 @@ static func make_icon(kind: String, color: Color, px: int = 28) -> Texture2D:
 			_icon_clipboard(img, color)
 		"invite":
 			_icon_ticket(img, color)
+		"quick", "queue":
+			_icon_binoculars(img, color)
 		"coin":
 			_icon_coin(img, color)
 		"gem":

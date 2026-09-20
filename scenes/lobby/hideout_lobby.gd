@@ -5,6 +5,7 @@ const Contract := preload("res://types/contract.gd")
 const MarksPayout := preload("res://types/marks_payout.gd")
 const Shop := preload("res://types/shop.gd")
 const Lobby := preload("res://types/lobby.gd")
+const Queue := preload("res://types/queue.gd")
 
 var _bg: TextureRect
 var _wood_covers: Array[ColorRect] = []
@@ -22,6 +23,10 @@ var _invite_reject: Label
 var _join_edit: LineEdit
 var _lobby_poll: float = 0.0
 var _lobby_waiting: bool = false
+var _queue_panel: PanelContainer
+var _queue_waiting: bool = false
+var _queue_poll: float = 0.0
+var _queue_elapsed: float = 0.0
 var _shop_row: PanelContainer
 var _shop_col: VBoxContainer
 var _shop_lines: Dictionary = {}
@@ -106,6 +111,22 @@ func _ready() -> void:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 		DisplayServer.window_set_size(Vector2i(1280, 720))
 		await _capture_lobby_cancel_hideout()
+	elif "--capture-queue-finding-rival" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await _capture_queue_finding_rival()
+	elif "--capture-queue-cancel-hideout" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await _capture_queue_cancel_hideout()
+	elif "--capture-queue-timeout-hideout" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await _capture_queue_timeout_hideout()
+	elif "--capture-queue-matched-board" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await _capture_queue_matched_board()
 	elif "--capture-sp-jobs-ladder" in args:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 		DisplayServer.window_set_size(Vector2i(1280, 720))
@@ -286,6 +307,48 @@ func _capture_lobby_cancel_hideout() -> void:
 	await _capture_named("res://artifacts/ux/lobby_cancel_hideout.png", "P6_LOBBY_CANCEL_HIDEOUT")
 
 
+func _prep_queue_capture() -> void:
+	if not ClientSession.use_live_api():
+		MockMatchServer.reset_wallet(24)
+		MockMatchServer.queue_pair_delay_ms = 80
+		ClientSession.durable_player_id = "p_mock"
+	_bind_wallet()
+	_refresh_marks()
+
+
+func _capture_queue_finding_rival() -> void:
+	_prep_queue_capture()
+	_on_quick_match()
+	await _capture_named("res://artifacts/ux/queue_finding_rival.png", "Q6_QUEUE_FINDING")
+
+
+func _capture_queue_cancel_hideout() -> void:
+	_prep_queue_capture()
+	_on_quick_match()
+	await get_tree().process_frame
+	_on_cancel_queue()
+	await _capture_named("res://artifacts/ux/queue_cancel_hideout.png", "Q3_QUEUE_CANCEL_HIDEOUT")
+
+
+func _capture_queue_timeout_hideout() -> void:
+	_prep_queue_capture()
+	_on_quick_match()
+	await get_tree().process_frame
+	_on_queue_timeout()
+	await _capture_named("res://artifacts/ux/queue_timeout_hideout.png", "Q4_QUEUE_TIMEOUT_HIDEOUT")
+
+
+func _capture_queue_matched_board() -> void:
+	## Pair a second mock seat, then hand off into the existing drop board.
+	_prep_queue_capture()
+	if not ClientSession.use_live_api():
+		MockMatchServer.queue_pair_delay_ms = 0
+	_on_quick_match()
+	if not ClientSession.use_live_api():
+		MockMatchServer.enqueue("p_guest")
+	_poll_queue()
+
+
 func _capture_jobs_ladder() -> void:
 	if not _jobs_panel.visible:
 		_toggle_jobs()
@@ -406,15 +469,20 @@ func _build() -> void:
 	loadout.pressed.connect(_focus_shop)
 	row.add_child(loadout)
 
-	var play := Chrome.dock_button("PLAY", Chrome.PLAY_GREEN, Color.WHITE, Vector2(300, 78), "play")
+	var play := Chrome.dock_button("PLAY", Chrome.PLAY_GREEN, Color.WHITE, Vector2(240, 78), "play")
 	play.pressed.connect(_on_play)
 	row.add_child(play)
 
-	var invite := Chrome.dock_button("INVITE", Chrome.HIGH_GOLD, Chrome.INK, Vector2(210, 68), "invite")
+	var quick := Chrome.dock_button(Contract.QUEUE_CTA, Chrome.TEAL, Color.WHITE, Vector2(240, 68), "quick")
+	quick.tooltip_text = "Find a rival. Same hunt. No ranked."
+	quick.pressed.connect(_on_quick_match)
+	row.add_child(quick)
+
+	var invite := Chrome.dock_button("INVITE", Chrome.HIGH_GOLD, Chrome.INK, Vector2(180, 68), "invite")
 	invite.pressed.connect(_toggle_invite)
 	row.add_child(invite)
 
-	var jobs := Chrome.dock_button("JOBS", Chrome.JOBS_ORANGE, Color.WHITE, Vector2(210, 68), "jobs")
+	var jobs := Chrome.dock_button("JOBS", Chrome.JOBS_ORANGE, Color.WHITE, Vector2(180, 68), "jobs")
 	jobs.pressed.connect(_toggle_jobs)
 	row.add_child(jobs)
 
@@ -432,6 +500,7 @@ func _build() -> void:
 
 	_build_jobs_panel()
 	_build_invite_panel()
+	_build_queue_panel()
 
 
 func _build_top_bar() -> void:
@@ -805,6 +874,58 @@ func _build_invite_panel() -> void:
 	wait_actions.add_child(cancel)
 
 
+func _build_queue_panel() -> void:
+	## Cozy wartable "Finding a rival…" — toy-spy, no MMR / ranked countdown.
+	_queue_panel = PanelContainer.new()
+	_queue_panel.visible = false
+	_queue_panel.set_anchors_preset(PRESET_CENTER)
+	_queue_panel.offset_left = -320
+	_queue_panel.offset_right = 320
+	_queue_panel.offset_top = -190
+	_queue_panel.offset_bottom = 190
+	var box := Chrome.flat(Color(0.10, 0.08, 0.06, 0.96), 20, Chrome.TEAL, 3)
+	box.content_margin_left = 22
+	box.content_margin_right = 22
+	box.content_margin_top = 16
+	box.content_margin_bottom = 16
+	_queue_panel.add_theme_stylebox_override("panel", box)
+	add_child(_queue_panel)
+
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 12)
+	_queue_panel.add_child(col)
+
+	var kicker := Label.new()
+	kicker.text = Contract.QUEUE_KICKER
+	Chrome.apply_label(kicker, 8, Chrome.HIGH_GOLD, true)
+	col.add_child(kicker)
+
+	var heading := Label.new()
+	heading.text = Contract.QUEUE_HEADING
+	heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	Chrome.apply_label(heading, 16, Chrome.CREAM, true)
+	col.add_child(heading)
+
+	var blurb := Label.new()
+	blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	blurb.text = Contract.QUEUE_BLURB
+	Chrome.apply_label(blurb, 8, Chrome.CREAM)
+	col.add_child(blurb)
+
+	var chip := Chrome.pill_chip(Chrome.INK, Chrome.TEAL)
+	col.add_child(chip)
+	var wait := Label.new()
+	wait.text = Contract.QUEUE_WAIT_COPY
+	wait.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	Chrome.apply_label(wait, 10, Chrome.CREAM, true)
+	chip.add_child(wait)
+
+	var cancel := Chrome.chunk_button(Contract.QUEUE_CANCEL_COPY, Chrome.INK, Chrome.CREAM, Vector2(200, 44))
+	cancel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	cancel.pressed.connect(_on_cancel_queue)
+	col.add_child(cancel)
+
+
 func _bind_wallet() -> void:
 	var wallet: Dictionary = MatchAPI.wallet()
 	if wallet.has("marks"):
@@ -891,6 +1012,8 @@ func _stamp_wood(img: Image, x0: int, y0: int, x1: int, y1: int, px: int, py: in
 
 
 func _focus_shop() -> void:
+	if _queue_waiting:
+		return
 	if _shop_row:
 		_shop_row.visible = true
 	_toast_msg("ARMORY  ·  Ghillie ★%d  ·  Bandana ★%d  ·  Poster ★%d  ·  visual only" % [
@@ -1051,6 +1174,8 @@ func _toast_msg(text: String) -> void:
 
 
 func _toggle_jobs() -> void:
+	if _queue_waiting:
+		return
 	if _invite_panel and _invite_panel.visible and _lobby_waiting:
 		return
 	if _invite_panel:
@@ -1063,6 +1188,8 @@ func _toggle_jobs() -> void:
 
 
 func _toggle_invite() -> void:
+	if _queue_waiting:
+		return
 	if _lobby_waiting and _invite_panel and _invite_panel.visible:
 		return
 	if _invite_panel and _invite_panel.visible:
@@ -1242,7 +1369,135 @@ func _enter_lobby_match(body: Dictionary) -> void:
 	get_tree().change_scene_to_file("res://scenes/match/match_screen.tscn")
 
 
+func _on_quick_match() -> void:
+	if _queue_waiting:
+		return
+	if _lobby_waiting:
+		return
+	if ClientSession.use_live_api():
+		var health: Dictionary = MatchAPI.health()
+		if not bool(health.get("ok", false)):
+			_toast_msg("Live API down at %s  (GET /health)" % ClientSession.api_base_url())
+			return
+		MatchAPI.ensure_player()
+	var body: Dictionary = MatchAPI.enqueue()
+	var q = Queue.from_any(body)
+	if q.has_marks:
+		ClientSession.bind_marks(q.marks)
+		_refresh_marks()
+	if q.is_unavailable():
+		_toast_msg("LIVE /queue pending Coder  ·  mock QUICK MATCH on F2")
+		return
+	if q.is_matched():
+		_enter_queue_match(body)
+		return
+	if not q.is_queued():
+		_toast_msg("Queue failed  ·  %s" % q.error)
+		return
+	_show_queue_wait()
+
+
+func _show_queue_wait() -> void:
+	if _jobs_panel:
+		_jobs_panel.visible = false
+	if _invite_panel:
+		_invite_panel.visible = false
+	if _shop_row:
+		_shop_row.visible = false
+	if _queue_panel:
+		_queue_panel.visible = true
+	_queue_waiting = true
+	ClientSession.queueing = true
+	_queue_poll = 0.0
+	_queue_elapsed = 0.0
+	_toast_msg("")
+
+
+func _close_queue() -> void:
+	_queue_waiting = false
+	ClientSession.queueing = false
+	_queue_poll = 0.0
+	_queue_elapsed = 0.0
+	if _queue_panel:
+		_queue_panel.visible = false
+	if _shop_row:
+		_shop_row.visible = true
+	if _jobs_panel:
+		_jobs_panel.visible = false
+
+
+func _on_cancel_queue() -> void:
+	var marks_before := int(ClientSession.marks)
+	var body: Dictionary = MatchAPI.dequeue()
+	var q = Queue.from_any(body)
+	if q.has_marks:
+		ClientSession.bind_marks(q.marks)
+	_close_queue()
+	_refresh_marks()
+	if int(ClientSession.marks) != marks_before:
+		_toast_msg("Marks chip rebound from snapshot")
+	else:
+		_toast_msg(Contract.QUEUE_HIDEOUT_COPY)
+
+
+func _on_queue_timeout() -> void:
+	var marks_before := int(ClientSession.marks)
+	var body: Dictionary = MatchAPI.dequeue()
+	var q = Queue.from_any(body)
+	if q.has_marks:
+		ClientSession.bind_marks(q.marks)
+	_close_queue()
+	_refresh_marks()
+	if int(ClientSession.marks) != marks_before:
+		_toast_msg("Marks chip rebound from snapshot")
+	else:
+		_toast_msg(Contract.QUEUE_TIMEOUT_COPY)
+
+
+func _poll_queue() -> void:
+	if not _queue_waiting:
+		return
+	var body: Dictionary = MatchAPI.get_queue()
+	var q = Queue.from_any(body)
+	if q.has_marks:
+		ClientSession.bind_marks(q.marks)
+		_refresh_marks()
+	if q.is_matched():
+		_enter_queue_match(body)
+		return
+	if q.is_timeout() or q.is_unavailable():
+		_close_queue()
+		_toast_msg(q.reject_copy())
+		return
+	if q.is_idle():
+		_close_queue()
+		_toast_msg(Contract.QUEUE_HIDEOUT_COPY)
+
+
+func _enter_queue_match(body: Dictionary) -> void:
+	_queue_waiting = false
+	ClientSession.queueing = false
+	var snap: Dictionary = MatchAPI.bind_queue_match(body)
+	if ClientSession.match_id == "" or snap.is_empty():
+		_toast_msg("Queue ready but bind failed")
+		_close_queue()
+		return
+	if _queue_panel:
+		_queue_panel.visible = false
+	get_tree().change_scene_to_file.call_deferred("res://scenes/match/match_screen.tscn")
+
+
 func _process(delta: float) -> void:
+	if _queue_waiting:
+		_queue_elapsed += delta
+		if _queue_elapsed >= float(Contract.QUEUE_TTL_SEC):
+			_on_queue_timeout()
+			return
+		_queue_poll += delta
+		if _queue_poll >= 1.0:
+			_queue_poll = 0.0
+			_poll_queue()
+		return
 	if not _lobby_waiting:
 		return
 	_lobby_poll += delta
@@ -1280,6 +1535,8 @@ func _refresh_mode() -> void:
 
 
 func _on_play() -> void:
+	if _queue_waiting:
+		return
 	_start_match(Contract.MODE_PVP)
 
 

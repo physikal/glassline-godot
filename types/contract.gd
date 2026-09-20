@@ -160,6 +160,26 @@ const LOBBY_UNAVAILABLE_COPY := "LIVE invite not ready"
 const LOBBY_COPIED_COPY := "Code copied."
 const LOBBY_HIDEOUT_COPY := "Back at the hideout."
 
+## Quick Match — 1-tap hideout queue. No bot fill / MMR / ranked.
+const QUEUE_TTL_SEC := 60
+const QUEUE_TTL_MS := 60000
+const QUEUE_IDLE := "idle"
+const QUEUE_QUEUED := "queued"
+const QUEUE_MATCHED := "matched"
+const QUEUE_TIMEOUT := "timeout"
+const QUEUE_ERR_UNAVAILABLE := "queue_unavailable"
+const QUEUE_ERR_MATCHED := "queue_already_matched"
+const QUEUE_ERR_FORBIDDEN := "not_in_queue"
+const QUEUE_KICKER := "WARTABLE"
+const QUEUE_HEADING := "FINDING A RIVAL…"
+const QUEUE_BLURB := "Scouting the hideouts. Same hunt when they sit."
+const QUEUE_WAIT_COPY := "Finding a rival…"
+const QUEUE_CANCEL_COPY := "CANCEL"
+const QUEUE_CTA := "QUICK MATCH"
+const QUEUE_HIDEOUT_COPY := "Back at the hideout."
+const QUEUE_TIMEOUT_COPY := "No rival yet. Back at the hideout."
+const QUEUE_UNAVAILABLE_COPY := "LIVE queue not ready"
+
 ## Soft A4 gaps — abandon CTA + grace countdown. Duration stays 30s.
 const ABANDON_COPY := "ABANDON"
 const ABANDON_ERR_UNAVAILABLE := "abandon_unavailable"

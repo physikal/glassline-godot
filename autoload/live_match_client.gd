@@ -275,6 +275,61 @@ func cancel_lobby(lobby_id: String) -> Dictionary:
 	return _lobby_from_raw(raw)
 
 
+func enqueue() -> Dictionary:
+	## LIVE POST /queue + player Bearer. Bare 404 → route missing.
+	var raw: Dictionary = _raw("POST", "/queue", {}, ClientSession.player_bearer())
+	return _queue_from_raw(raw)
+
+
+func get_queue() -> Dictionary:
+	## LIVE GET /queue — poll until matchId + joinToken or idle/timeout.
+	var raw: Dictionary = _raw("GET", "/queue", null, ClientSession.player_bearer())
+	return _queue_from_raw(raw)
+
+
+func dequeue() -> Dictionary:
+	## LIVE DELETE /queue. Hideout; no forfeit Marks.
+	var raw: Dictionary = _raw("DELETE", "/queue", null, ClientSession.player_bearer())
+	return _queue_from_raw(raw)
+
+
+func _queue_from_raw(raw: Dictionary) -> Dictionary:
+	var http_status := int(raw.get("status", 0))
+	var js: Variant = raw.get("json", {})
+	if not (js is Dictionary):
+		js = {}
+	var body: Dictionary = js
+	if http_status == 404:
+		var not_found := str(body.get("code", body.get("error", "")))
+		if not_found in ["queue_not_found", "not_in_queue"]:
+			body["error"] = not_found
+			body["code"] = not_found
+			body["ok"] = false
+			body["httpStatus"] = 404
+			return body
+		return {
+			"ok": false,
+			"error": Contract.QUEUE_ERR_UNAVAILABLE,
+			"code": Contract.QUEUE_ERR_UNAVAILABLE,
+			"httpStatus": 404,
+			"status": "",
+			"snapshot": {},
+		}
+	if http_status >= 400:
+		var err := str(body.get("code", body.get("error", "")))
+		if err == "":
+			err = "http_%s" % str(http_status)
+		body["error"] = err
+		body["code"] = err
+		body["ok"] = false
+		body["httpStatus"] = http_status
+		return body
+	if not body.has("ok"):
+		body["ok"] = http_status >= 200 and http_status < 300 and str(body.get("error", "")) == ""
+	body["httpStatus"] = http_status
+	return body
+
+
 func _lobby_from_raw(raw: Dictionary) -> Dictionary:
 	var http_status := int(raw.get("status", 0))
 	var js: Variant = raw.get("json", {})
@@ -718,6 +773,8 @@ func _raw(method: String, path: String, body: Variant, token: String) -> Diction
 			verb = HTTPClient.METHOD_POST
 		"PUT":
 			verb = HTTPClient.METHOD_PUT
+		"DELETE":
+			verb = HTTPClient.METHOD_DELETE
 	err = client.request(verb, path, headers, payload)
 	if err != OK:
 		client.close()

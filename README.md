@@ -61,6 +61,7 @@ GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_shop_equi
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_decoy_smoke.py      # D1–D5 decoy LIVE_DECOY_OK
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_rematch_smoke.py    # R1–R5 rematch; curl first (404 → PENDING)
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_lobby_smoke.py      # P1–P5 private lobby LIVE; curl first (bare 404 → PENDING)
+GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_queue_smoke.py      # Q1–Q5 Quick Match; curl first (bare 404 → PENDING)
 GLASSLINE_USE_LIVE_API=1 godot --headless --path . res://tools/live_shop_test.tscn
 ```
 
@@ -100,7 +101,7 @@ Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` 
 
 | Scene | Path | Role |
 | --- | --- | --- |
-| Hideout | `scenes/lobby/hideout_lobby.tscn` | Canon room, ARMORY three rows, PLAY, **INVITE** (private lobby), JOBS, Marks chip |
+| Hideout | `scenes/lobby/hideout_lobby.tscn` | Canon room, ARMORY three rows, PLAY, **QUICK MATCH**, **INVITE** (private lobby), JOBS, Marks chip |
 | Match | `scenes/match/match_screen.tscn` | 9×7 axial, dummy `select_hex`, START, Attack/Recon/UAV/DECOY, END TURN, first-hunt coach chips |
 | Optic | `scenes/optic/optic_overlay.gd` | Zoom / wobble stub + FIRE |
 | Types | `types/` | Snapshot, ActionIntent, ActionResult (`{ ok, snapshot, result }`) |
@@ -118,6 +119,8 @@ Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` 
 6. UAV once → `enemy.visibleHex`. END TURN. **DECOY** once → server plants a toy doll on an adjacent empty hex (`you.decoyHex`); rival sees `enemy.decoySoftHex`. Attack on that hex is `hit:false` + `decoyCleared`. Expires next own `end_turn`. No Marks / no hit% buff.
 7. ATTACK that hex → `hit` / `kill`. End overlay reads server `payout` (`marks`, `marksDelta`, `reason`) — never local `marks +=`.
 8. Ended PvP: **PLAY AGAIN** / **DECLINE**. Marks already settled. Both accept → new `matchId` + salt, drop again. Decline or 30s → hideout. Notes: `artifacts/REMATCH_NOTES.md`.
+
+Hideout **QUICK MATCH** is 1-tap `POST /queue` (60s TTL, no bot fill). Cozy “Finding a rival…” wartable — cancel or timeout returns hideout with Marks Δ0. Pair hands off the same drop / rematch / A4 path as private lobby. LIVE `/queue` 404 → mock. Notes: `QUICK_MATCH_NOTES.md`.
 
 Hideout **INVITE** is the private lobby: **CREATE LOBBY** shows a chunky copy-able code; **JOIN** takes a 6-char code. Cancel/leave returns to the hideout (no A4 forfeit). Ready uses the existing drop. Notes: `artifacts/PRIVATE_LOBBY_NOTES.md`.
 

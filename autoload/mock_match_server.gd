@@ -30,6 +30,11 @@ var _job_receipts: Dictionary = {}
 var _lobbies: Dictionary = {}
 var _lobby_by_code: Dictionary = {}
 var _next_lobby: int = 1
+## Quick Match queue. Pair two waiting players after a short delay. No bot fill.
+var _queue: Dictionary = {}
+var _queue_pairs: Array = []
+var _queue_timed_out: Dictionary = {}
+var queue_pair_delay_ms: int = 80
 
 var _matches: Dictionary = {}
 var _next_id: int = 1
@@ -362,6 +367,261 @@ func get_lobby(lobby_id: String, player_id: String = "") -> Dictionary:
 	if st == Contract.LOBBY_CANCELLED:
 		return _lobby_payload(row, player_id)
 	return _lobby_payload(row, player_id)
+
+
+func enqueue(player_id: String = "") -> Dictionary:
+	## POST /queue — idempotent re-queue refreshes TTL. No bot fill.
+	if player_id == "":
+		player_id = "p_mock"
+	_expire_queue()
+	_complete_queue_pairs()
+	if _queue.has(player_id):
+		var existing: Dictionary = _queue[player_id]
+		if str(existing.get("status", "")) == Contract.QUEUE_MATCHED:
+			return _queue_payload(player_id)
+		existing["queuedAtMs"] = _now_ms()
+		_try_schedule_queue_pair()
+		_complete_queue_pairs()
+		return _queue_payload(player_id)
+	_queue[player_id] = {
+		"playerId": player_id,
+		"status": Contract.QUEUE_QUEUED,
+		"queuedAtMs": _now_ms(),
+		"matchId": "",
+		"seat": "",
+	}
+	_try_schedule_queue_pair()
+	_complete_queue_pairs()
+	return _queue_payload(player_id)
+
+
+func get_queue(player_id: String = "") -> Dictionary:
+	## GET /queue — poll until matched { matchId, joinToken } or idle/timeout.
+	if player_id == "":
+		player_id = "p_mock"
+	_expire_queue()
+	_complete_queue_pairs()
+	if _queue_timed_out.has(player_id):
+		_queue_timed_out.erase(player_id)
+		return _queue_idle(player_id, true)
+	if not _queue.has(player_id):
+		return _queue_idle(player_id, false)
+	return _queue_payload(player_id)
+
+
+func dequeue(player_id: String = "") -> Dictionary:
+	## DELETE /queue — hideout. Marks Δ0. Already paired → 409.
+	if player_id == "":
+		player_id = "p_mock"
+	_expire_queue()
+	_complete_queue_pairs()
+	if _queue.has(player_id) and str(_queue[player_id].get("status", "")) == Contract.QUEUE_MATCHED:
+		return _queue_reject(Contract.QUEUE_ERR_MATCHED, player_id)
+	_drop_queue_player(player_id)
+	_queue_timed_out.erase(player_id)
+	return _queue_idle(player_id, false)
+
+
+func _try_schedule_queue_pair() -> void:
+	var waiting: Array = []
+	for pid in _queue.keys():
+		var row: Dictionary = _queue[pid]
+		if str(row.get("status", "")) != Contract.QUEUE_QUEUED:
+			continue
+		if _queue_player_pending(str(pid)):
+			continue
+		waiting.append(str(pid))
+	while waiting.size() >= 2:
+		var pid_a := str(waiting.pop_front())
+		var pid_b := str(waiting.pop_front())
+		_queue_pairs.append({
+			"a": pid_a,
+			"b": pid_b,
+			"readyAtMs": _now_ms() + queue_pair_delay_ms,
+			"matchId": "",
+		})
+
+
+func _queue_player_pending(player_id: String) -> bool:
+	for pair in _queue_pairs:
+		if not (pair is Dictionary):
+			continue
+		if str(pair.get("matchId", "")) != "":
+			continue
+		if str(pair.get("a", "")) == player_id or str(pair.get("b", "")) == player_id:
+			return true
+	return false
+
+
+func _complete_queue_pairs() -> void:
+	var now := _now_ms()
+	for pair in _queue_pairs:
+		if not (pair is Dictionary):
+			continue
+		if str(pair.get("matchId", "")) != "":
+			continue
+		if now < int(pair.get("readyAtMs", 0)):
+			continue
+		var pid_a := str(pair.get("a", ""))
+		var pid_b := str(pair.get("b", ""))
+		if not _queue.has(pid_a) or not _queue.has(pid_b):
+			continue
+		if str(_queue[pid_a].get("status", "")) != Contract.QUEUE_QUEUED:
+			continue
+		if str(_queue[pid_b].get("status", "")) != Contract.QUEUE_QUEUED:
+			continue
+		_promote_queue_pair(pid_a, pid_b, pair)
+
+
+func _promote_queue_pair(pid_a: String, pid_b: String, pair: Dictionary) -> void:
+	## Two waiting humans → existing PvP match. Never mint a bot seat (Q5).
+	var created: Dictionary = create_match({"mode": Contract.MODE_PVP, "queue": true})
+	var match_id := str(created.get("matchId", ""))
+	if match_id == "" or not _matches.has(match_id):
+		return
+	var match_state: Dictionary = _matches[match_id]
+	match_state["seats"][Contract.SEAT_A]["playerId"] = pid_a
+	match_state["seats"][Contract.SEAT_B]["playerId"] = pid_b
+	if _both_joined(match_state):
+		match_state["status"] = Contract.STATUS_READY
+	var tokens: Dictionary = match_state.get("tokens", {})
+	_queue[pid_a]["status"] = Contract.QUEUE_MATCHED
+	_queue[pid_a]["matchId"] = match_id
+	_queue[pid_a]["seat"] = Contract.SEAT_A
+	_queue[pid_a]["joinToken"] = str(tokens.get(Contract.SEAT_A, ""))
+	_queue[pid_b]["status"] = Contract.QUEUE_MATCHED
+	_queue[pid_b]["matchId"] = match_id
+	_queue[pid_b]["seat"] = Contract.SEAT_B
+	_queue[pid_b]["joinToken"] = str(tokens.get(Contract.SEAT_B, ""))
+	pair["matchId"] = match_id
+
+
+func _expire_queue() -> void:
+	var now := _now_ms()
+	var gone: Array = []
+	for pid in _queue.keys():
+		var row: Dictionary = _queue[pid]
+		if str(row.get("status", "")) != Contract.QUEUE_QUEUED:
+			continue
+		if now - int(row.get("queuedAtMs", 0)) >= Contract.QUEUE_TTL_MS:
+			gone.append(str(pid))
+	for pid in gone:
+		_drop_queue_player(str(pid))
+		_queue_timed_out[str(pid)] = true
+
+
+func _drop_queue_player(player_id: String) -> void:
+	_queue.erase(player_id)
+	var keep: Array = []
+	for pair in _queue_pairs:
+		if not (pair is Dictionary):
+			continue
+		if str(pair.get("matchId", "")) != "":
+			keep.append(pair)
+			continue
+		if str(pair.get("a", "")) == player_id or str(pair.get("b", "")) == player_id:
+			continue
+		keep.append(pair)
+	_queue_pairs = keep
+
+
+func _queue_seconds_left(row: Dictionary) -> int:
+	if str(row.get("status", "")) != Contract.QUEUE_QUEUED:
+		return 0
+	var age := _now_ms() - int(row.get("queuedAtMs", 0))
+	return maxi(0, int(ceili(float(Contract.QUEUE_TTL_MS - age) / 1000.0)))
+
+
+func _queue_queued_iso(row: Dictionary) -> String:
+	var queued := int(row.get("queuedAtMs", _now_ms()))
+	var ago_ms := maxi(0, _now_ms() - queued)
+	var unix := int(Time.get_unix_time_from_system()) - int(ago_ms / 1000)
+	return Time.get_datetime_string_from_unix_time(unix, true) + "Z"
+
+
+func _queue_payload(player_id: String) -> Dictionary:
+	if not _queue.has(player_id):
+		return _queue_idle(player_id, false)
+	var row: Dictionary = _queue[player_id]
+	var st := str(row.get("status", Contract.QUEUE_QUEUED))
+	var left := _queue_seconds_left(row)
+	var q := {"status": st, "secondsLeft": left}
+	var you := {
+		"playerId": player_id,
+		"seat": str(row.get("seat", "")),
+		"marks": account_marks,
+	}
+	var bag := {
+		"ok": true,
+		"error": "",
+		"status": st,
+		"queuedAt": _queue_queued_iso(row),
+		"timeoutSec": Contract.QUEUE_TTL_SEC,
+		"secondsLeft": left,
+		"queue": q,
+		"playerId": player_id,
+		"seat": str(row.get("seat", "")),
+		"you": you,
+		"marks": account_marks,
+		"snapshot": {
+			"kind": "queue",
+			"status": st,
+			"queue": q,
+			"you": you,
+		},
+	}
+	if st == Contract.QUEUE_MATCHED:
+		var match_id := str(row.get("matchId", ""))
+		var seat := str(row.get("seat", Contract.SEAT_A))
+		var join := str(row.get("joinToken", ""))
+		bag["matchId"] = match_id
+		bag["joinToken"] = join
+		bag["joinTokens"] = {}
+		if match_id != "" and _matches.has(match_id):
+			var tokens: Dictionary = _matches[match_id].get("tokens", {})
+			bag["joinTokens"] = tokens.duplicate(true)
+			if join == "":
+				join = str(tokens.get(seat, ""))
+				bag["joinToken"] = join
+			bag["snapshot"] = _snapshot_for_seat(_matches[match_id], seat)
+	return bag
+
+
+func _queue_idle(player_id: String, timed_out: bool) -> Dictionary:
+	var st := Contract.QUEUE_TIMEOUT if timed_out else Contract.QUEUE_IDLE
+	var q := {"status": st, "secondsLeft": 0, "timedOut": timed_out}
+	return {
+		"ok": true,
+		"error": "",
+		"status": st,
+		"timedOut": timed_out,
+		"timeoutSec": Contract.QUEUE_TTL_SEC,
+		"secondsLeft": 0,
+		"queue": q,
+		"playerId": player_id,
+		"you": {"playerId": player_id, "marks": account_marks},
+		"marks": account_marks,
+		"snapshot": {
+			"kind": "queue",
+			"status": st,
+			"queue": q,
+			"you": {"playerId": player_id, "marks": account_marks},
+		},
+	}
+
+
+func _queue_reject(reason: String, player_id: String = "") -> Dictionary:
+	return {
+		"ok": false,
+		"error": reason,
+		"code": reason,
+		"status": Contract.QUEUE_MATCHED if reason == Contract.QUEUE_ERR_MATCHED else "",
+		"httpStatus": 409 if reason == Contract.QUEUE_ERR_MATCHED else 400,
+		"playerId": player_id,
+		"you": {"marks": account_marks},
+		"marks": account_marks,
+		"snapshot": {"you": {"marks": account_marks}},
+	}
 
 
 func cancel_lobby(lobby_id: String, player_id: String = "") -> Dictionary:
@@ -733,6 +993,10 @@ func clear_all() -> void:
 	_matches.clear()
 	_lobbies.clear()
 	_lobby_by_code.clear()
+	_queue.clear()
+	_queue_pairs.clear()
+	_queue_timed_out.clear()
+	queue_pair_delay_ms = 80
 	test_recon_roll = -1.0
 	test_now_ms = -1
 	## Wallet stays — PLAY must not wipe hideout Marks. Tests call reset_wallet().
