@@ -26,12 +26,13 @@ FAR / MID / NEAR stay display-only. Leave this PR open for UX re-taste —
 1. `01_hideout_idle_armory.png`
 2. `02_dynamic_rack.png` — owned starter Fieldbolt + equipped underline · locked Railframe / Crescent
 3. `03_hex_open_brush_hard_unknown.png`
-4. `04_operative_exposure_doll.png`
+4. `04_operative_exposure_doll.png` — **match END TURN** paper-doll + % (not a hideout inset)
 5. `05_attack_optic_fieldbolt.png`
 6. `06_ui_chips_marks_coach_queue_end.png` — Marks ★ / coach / queue / end
 
 Side-by-side vs canon: `side_by_side_hideout.png`, `side_by_side_hex.png`,
-`side_by_side_optic.png`, `side_by_side_ghillie.png`.
+`side_by_side_optic.png`, `side_by_side_ghillie.png`,
+`side_by_side_exposure_doll.png`.
 
 ```bash
 godot --headless --path . -s res://tools/headless_loop_test.gd   # HEADLESS_LOOP_OK
@@ -46,3 +47,5 @@ python3 tools/compose_art_pack_v2.py
 ## Out of this slice
 
 Gun shop SKUs · Marks prices · ballistics / hit% · OEM marks · merging #30.
+
+**HOLD:** Josh / UX / Design — still 04 is a hard gate. Do **not** squash-merge until UX re-taste.

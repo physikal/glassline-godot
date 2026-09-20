@@ -63,8 +63,41 @@ def compose_ui_chips() -> None:
     print("CHIPS", out)
 
 
+def cream_card_box(img: Image.Image) -> tuple[int, int, int, int] | None:
+    """Bounding box of the cream paper-doll card in a match still."""
+    px = img.load()
+    w, h = img.size
+    xs: list[int] = []
+    ys: list[int] = []
+    for y in range(0, h, 2):
+        for x in range(0, w, 2):
+            r, g, b = px[x, y][:3]
+            if r > 220 and 190 < g < 240 and 150 < b < 220 and r > g > b:
+                xs.append(x)
+                ys.append(y)
+    if len(xs) < 80:
+        return None
+    return (max(0, min(xs) - 8), max(0, min(ys) - 8), min(w, max(xs) + 8), min(h, max(ys) + 8))
+
+
+def compose_doll_sbs() -> None:
+    live_path = UX / "04_operative_exposure_doll.png"
+    canon_path = CANON / "lobby-canon.jpg"
+    if not live_path.exists() or not canon_path.exists():
+        print("SKIP side_by_side_exposure_doll.png")
+        return
+    live = load(live_path)
+    box = cream_card_box(live)
+    if box is None:
+        box = (340, 200, 780, 620)
+    doll = live.crop(box)
+    canon = load(canon_path).crop((536, 176, 768, 560))
+    side_by_side(doll, canon, "LIVE end-turn paper-doll", "CANON lobby-canon operative", UX / "side_by_side_exposure_doll.png")
+
+
 def main() -> None:
     compose_ui_chips()
+    compose_doll_sbs()
     pairs = [
         (
             UX / "02_dynamic_rack.png",
@@ -88,7 +121,7 @@ def main() -> None:
             UX / "side_by_side_optic.png",
         ),
         (
-            UX / "ghillie_hideout.png" if (UX / "ghillie_hideout.png").exists() else UX / "04_operative_exposure_doll.png",
+            UX / "ghillie_hideout.png",
             CANON / "lobby-ghillie.jpg",
             "LIVE ghillie hideout",
             "CANON lobby-ghillie",

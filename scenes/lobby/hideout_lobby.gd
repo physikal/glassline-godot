@@ -162,9 +162,11 @@ func _ready() -> void:
 		DisplayServer.window_set_size(Vector2i(1280, 720))
 		await _capture_queue_finding_rival()
 	elif "--capture-art-operative-doll" in args:
+		## Still 04 is the match end-turn doll — not a hideout inset.
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 		DisplayServer.window_set_size(Vector2i(1280, 720))
-		await _capture_art_operative_doll()
+		await get_tree().process_frame
+		_on_play()
 	elif "--capture-art-hex" in args or "--capture-art-optic" in args:
 		await get_tree().process_frame
 		_on_play()
@@ -412,22 +414,6 @@ func _capture_art_hideout() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	await _capture_named("res://artifacts/ux/ghillie_hideout.png", "ART_GHILLIE_HIDEOUT")
-
-
-func _capture_art_operative_doll() -> void:
-	_prep_art_hideout_chrome()
-	_taste_doll = ExposureDoll.new()
-	_taste_doll.custom_minimum_size = Vector2(168, 280)
-	_taste_doll.set_anchors_preset(PRESET_TOP_LEFT)
-	_taste_doll.position = Vector2(292, 168)
-	_taste_doll.size = Vector2(168, 280)
-	_taste_doll.bind_server_pct(88.0)
-	_taste_doll.bind_equipped(ClientSession.equipped_cosmetic)
-	add_child(_taste_doll)
-	_refresh_gun_rack()
-	await get_tree().process_frame
-	await get_tree().process_frame
-	await _capture_named("res://artifacts/ux/04_operative_exposure_doll.png", "ART_04_OPERATIVE_DOLL")
 
 
 func _capture_jobs_ladder() -> void:
@@ -765,10 +751,6 @@ func _build_gun_rack() -> void:
 	_gun_rack.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_gun_rack.set_anchors_preset(PRESET_FULL_RECT)
 	add_child(_gun_rack)
-
-
-func _make_gun_slot(_gun_id: String) -> Control:
-	return Control.new()
 
 
 func _refresh_gun_rack() -> void:

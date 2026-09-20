@@ -61,6 +61,7 @@ var _grace_left: float = -1.0
 var _rematch_busy: bool = false
 var _abandon_busy: bool = false
 var _going_hideout: bool = false
+var _art_lock_end_panel: bool = false
 
 
 func _ready() -> void:
@@ -82,6 +83,8 @@ func _ready() -> void:
 		_capture_equip_doll()
 	elif "--capture-art-hex" in args:
 		_capture_art_hex()
+	elif "--capture-art-operative-doll" in args:
+		_capture_art_operative_doll()
 	elif "--capture-art-optic" in args:
 		_capture_art_optic()
 	elif "--capture-decoy-hud" in args:
@@ -135,6 +138,60 @@ func _capture_after_play() -> void:
 	var path := ProjectSettings.globalize_path("res://artifacts/a1-after-play.png")
 	img.save_png(path)
 	print("A1_AFTER_PLAY_CAPTURE ", path)
+	get_tree().quit()
+
+
+func _capture_art_operative_doll() -> void:
+	## Match end-turn paper-doll — never a hideout inset.
+	if _coach:
+		_coach.dismiss()
+	_dummy_busy = true
+	_dummy_delay = 0.0
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+	DisplayServer.window_set_size(Vector2i(1280, 720))
+	await get_tree().process_frame
+	var snap: Snapshot = ClientSession.typed_snapshot()
+	if snap.status() == Contract.STATUS_READY or snap.status() == Contract.STATUS_WAITING:
+		_submit(ActionIntent.select_hex(2, 2))
+		await get_tree().process_frame
+		if ClientSession.dummy_player_id != "":
+			MatchAPI.apply_action(ClientSession.match_id, ClientSession.dummy_player_id, ActionIntent.select_hex(7, 5))
+			await get_tree().process_frame
+		snap = ClientSession.typed_snapshot()
+	if snap.status() == Contract.STATUS_READY:
+		_submit(ActionIntent.start())
+		await get_tree().process_frame
+		snap = ClientSession.typed_snapshot()
+	## Empty-hex miss → await_end_turn (same path as the headless loop).
+	if snap.status() == Contract.STATUS_ACTIVE and str(snap.phase()) == Contract.PHASE_ACTION:
+		_submit(ActionIntent.attack(0, 0))
+		await get_tree().process_frame
+		await get_tree().process_frame
+		snap = ClientSession.typed_snapshot()
+	_toast.text = ""
+	_set_actions(false)
+	_art_lock_end_panel = true
+	_end_panel.visible = true
+	_end_panel.position = Vector2(340, 200)
+	if _exposure_doll:
+		_exposure_doll.custom_minimum_size = Vector2(200, 292)
+		_exposure_doll.size = Vector2(200, 292)
+		_exposure_doll.bind_equipped(ClientSession.equipped_cosmetic)
+		_exposure_doll.bind_server_pct(72.0)
+	if _exposure_lbl:
+		_exposure_lbl.text = "EXPOSURE  72%"
+	if _exposure:
+		_exposure.value = 72.0
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if _exposure_doll:
+		_exposure_doll.bind_server_pct(72.0)
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	var path := ProjectSettings.globalize_path("res://artifacts/ux/04_operative_exposure_doll.png")
+	img.save_png(path)
+	print("ART_04_OPERATIVE_DOLL ", path)
+	print("ART_04_PHASE ", str(snap.phase()), " STATUS ", snap.status())
 	get_tree().quit()
 
 
@@ -741,7 +798,7 @@ func _build() -> void:
 	add_child(_btn_start)
 
 	_end_panel = PanelContainer.new()
-	_end_panel.position = Vector2(430, 520)
+	_end_panel.position = Vector2(380, 430)
 	_end_panel.visible = false
 	var end_box := Chrome.flat(Color(0.12, 0.09, 0.07, 0.95), 16, Color("f0e3b0"), 2)
 	_end_panel.add_theme_stylebox_override("panel", end_box)
@@ -757,7 +814,7 @@ func _build() -> void:
 	expose_row.add_theme_constant_override("separation", 12)
 	end_col.add_child(expose_row)
 	_exposure_doll = ExposureDoll.new()
-	_exposure_doll.custom_minimum_size = Vector2(88, 118)
+	_exposure_doll.custom_minimum_size = Vector2(120, 168)
 	expose_row.add_child(_exposure_doll)
 	var expose_col := VBoxContainer.new()
 	expose_col.add_theme_constant_override("separation", 6)
@@ -963,7 +1020,16 @@ func _refresh(snap: Snapshot) -> void:
 			_set_abandon_visible(true)
 			_bind_grace(snap)
 			var yours := snap.is_your_turn()
-			if _dummy_delay > 0.0:
+			if _art_lock_end_panel:
+				_status.text = "End turn — set exposure, optional adjacent move."
+				_set_actions(false)
+				_end_panel.visible = true
+				if _exposure_doll:
+					var skin := snap.you_equipped_skin_id()
+					if skin == "":
+						skin = ClientSession.equipped_cosmetic
+					_exposure_doll.bind_equipped(skin)
+			elif _dummy_delay > 0.0:
 				_status.text = "Rival is lining up…  %.1fs" % _dummy_delay
 				_set_actions(false)
 				_end_panel.visible = false
