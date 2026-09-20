@@ -217,6 +217,25 @@ func you_equipped_decor_id() -> String:
 	return ""
 
 
+func you_equipped_gun_id() -> String:
+	## Caller-scoped gun id. Empty unless the snapshot named it. Never invent.
+	var you_state := you()
+	if you_state.has("equippedGunId"):
+		var value: Variant = you_state.get("equippedGunId")
+		if value == null:
+			return ""
+		if value is Dictionary:
+			return Contract.canonical_gun_id(str(value.get("itemId", value.get("id", ""))))
+		return Contract.canonical_gun_id(str(value))
+	var cosmetics: Variant = you_state.get("cosmetics", {})
+	if cosmetics is Dictionary and cosmetics.has("equippedGunId"):
+		var worn: Variant = cosmetics.get("equippedGunId")
+		if worn == null:
+			return ""
+		return Contract.canonical_gun_id(str(worn))
+	return ""
+
+
 func you_equipped_skin_id() -> String:
 	## Caller-scoped chrome id. Empty unless the snapshot named it. Never invent.
 	var you_state := you()

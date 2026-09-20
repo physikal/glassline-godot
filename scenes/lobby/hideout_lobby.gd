@@ -36,6 +36,8 @@ var _bandana_wash: ColorRect
 var _poster: TextureRect
 var _buying_id: String = ""
 var _gun_rack: Control
+var _gun_hands: TextureRect
+var _gun_kicker: Label
 var _wallet_row: HBoxContainer
 var _taste_doll: ExposureDoll
 var _dock_quick: Button
@@ -167,6 +169,18 @@ func _ready() -> void:
 		DisplayServer.window_set_size(Vector2i(1280, 720))
 		await get_tree().process_frame
 		_on_play()
+	elif "--capture-gun-armory-three-row" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await _capture_gun_armory_three_row()
+	elif "--capture-gun-rack-dynamic" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await _capture_gun_rack_dynamic()
+	elif "--capture-gun-equipped-optic" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await _capture_gun_equipped_optic()
 	elif "--capture-art-hex" in args or "--capture-art-optic" in args:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 		DisplayServer.window_set_size(Vector2i(1280, 720))
@@ -391,9 +405,72 @@ func _prep_art_hideout_chrome() -> void:
 		_dock_quick.visible = true
 	if _dock_invite:
 		_dock_invite.visible = true
-	if _gun_rack:
-		_gun_rack.visible = false
 	_refresh_gun_rack()
+
+
+func _capture_gun_armory_three_row() -> void:
+	## Taste: Fieldbolt owned · Railframe ★125 · Crescent ★200.
+	if not ClientSession.use_live_api():
+		MockMatchServer.reset_wallet(24)
+	_bind_wallet()
+	_bind_shop()
+	_refresh_marks()
+	_refresh_shop()
+	if _shop_row:
+		_shop_row.visible = true
+		_shop_row.offset_top = -420
+		_shop_row.offset_bottom = -88
+	_hide_non_gun_shop_rows()
+	_toast_msg("ARMORY  ·  Fieldbolt owned  ·  Railframe ★125  ·  Crescent ★200  ·  visual only")
+	await _capture_named("res://artifacts/ux/gun_armory_three_row.png", "GUN_ARMORY_THREE_ROW")
+
+
+func _capture_gun_rack_dynamic() -> void:
+	## Owned painted + equipped highlight · locked silhouettes.
+	if not ClientSession.use_live_api():
+		MockMatchServer.reset_wallet(200)
+		MockMatchServer.buy_shop(Contract.GUN_RAILFRAME, "ux-rack-rail")
+		MockMatchServer.equip_cosmetic(Contract.GUN_FIELDBOLT, Contract.GUN_SLOT)
+	_bind_wallet()
+	_bind_shop()
+	_refresh_marks()
+	_refresh_shop()
+	if _shop_row:
+		_shop_row.visible = false
+	_refresh_gun_rack()
+	_toast_msg("RACK  ·  Fieldbolt equipped  ·  Railframe owned  ·  Crescent locked  ·  visual only")
+	await _capture_named("res://artifacts/ux/gun_rack_dynamic.png", "GUN_RACK_DYNAMIC")
+
+
+func _capture_gun_equipped_optic() -> void:
+	## Attack optic family matches equipped Railframe (not hardcoded Fieldbolt).
+	if not ClientSession.use_live_api():
+		MockMatchServer.reset_wallet(200)
+		MockMatchServer.buy_shop(Contract.GUN_RAILFRAME, "ux-optic-rail")
+	_bind_wallet()
+	_bind_shop()
+	_refresh_marks()
+	_refresh_shop()
+	await get_tree().process_frame
+	_start_match(Contract.MODE_PVP)
+
+
+func _hide_non_gun_shop_rows() -> void:
+	if _shop_col == null:
+		return
+	for child in _shop_col.get_children():
+		if child == _gun_kicker:
+			continue
+		if child is Label and str((child as Label).text) == "ARMORY":
+			(child as Label).text = "ARMORY"
+			continue
+		var matched := false
+		for item_id in _shop_lines.keys():
+			if Contract.is_gun_chrome(str(item_id)) and _shop_lines[item_id].get("row", null) == child:
+				matched = true
+				break
+		if child is PanelContainer and not matched:
+			(child as CanvasItem).visible = false
 
 
 func _capture_art_hideout() -> void:
@@ -666,7 +743,7 @@ func _currency_chip(icon_kind: String, color: Color, amount: String) -> PanelCon
 
 
 func _build_shop_row() -> void:
-	## Hideout ARMORY — catalog rows (ghillie ★50 / bandana ★100 / poster ★150). No IAP / combat.
+	## Hideout ARMORY — catalog rows (skins / poster / guns). No IAP / combat.
 	_shop_row = PanelContainer.new()
 	_shop_row.set_anchors_preset(PRESET_BOTTOM_WIDE)
 	_shop_row.offset_left = 72
@@ -681,9 +758,15 @@ func _build_shop_row() -> void:
 	_shop_row.add_theme_stylebox_override("panel", box)
 	add_child(_shop_row)
 
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_shop_row.add_child(scroll)
+
 	_shop_col = VBoxContainer.new()
 	_shop_col.add_theme_constant_override("separation", 4)
-	_shop_row.add_child(_shop_col)
+	_shop_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(_shop_col)
 
 	var kicker := Label.new()
 	kicker.text = "ARMORY"
@@ -692,7 +775,17 @@ func _build_shop_row() -> void:
 	_shop_col.add_child(kicker)
 
 	for item in Contract.shop_catalog_items():
-		if item is Dictionary:
+		if item is Dictionary and not Contract.is_gun_chrome(str(item.get("id", ""))):
+			_shop_col.add_child(_make_shop_line(item))
+
+	_gun_kicker = Label.new()
+	_gun_kicker.text = "GUNS  ·  visual only"
+	_gun_kicker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	Chrome.apply_label(_gun_kicker, 8, Chrome.HIGH_GOLD, true)
+	_shop_col.add_child(_gun_kicker)
+
+	for item in Contract.shop_catalog_items():
+		if item is Dictionary and Contract.is_gun_chrome(str(item.get("id", ""))):
 			_shop_col.add_child(_make_shop_line(item))
 
 
@@ -738,6 +831,7 @@ func _make_shop_line(item: Dictionary) -> PanelContainer:
 	col.add_child(status)
 
 	_shop_lines[item_id] = {
+		"row": row,
 		"name": name_lbl,
 		"price": price_lbl,
 		"btn": btn,
@@ -747,17 +841,67 @@ func _make_shop_line(item: Dictionary) -> PanelContainer:
 
 
 func _build_gun_rack() -> void:
-	## Plate already paints the olive / tan / teal rack. No overlay labels or debug glow.
+	## Plate-cropped family stamps. Owned painted · locked silhouette · equipped gold.
 	_gun_rack = Control.new()
-	_gun_rack.visible = false
 	_gun_rack.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_gun_rack.set_anchors_preset(PRESET_FULL_RECT)
 	add_child(_gun_rack)
+	_gun_hands = TextureRect.new()
+	_gun_hands.texture = ArtPack.rifle_held_texture()
+	_gun_hands.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_gun_hands.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_gun_hands.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_gun_hands.position = ArtPack.HELD_POS
+	_gun_hands.size = ArtPack.HELD_SIZE
+	_gun_hands.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_gun_hands)
 
 
 func _refresh_gun_rack() -> void:
-	if _gun_rack:
-		_gun_rack.visible = false
+	if _gun_rack == null:
+		return
+	for child in _gun_rack.get_children():
+		child.queue_free()
+	_gun_rack.visible = true
+	for family in Contract.gun_family_ids():
+		var gid := str(family)
+		var state := ClientSession.gun_slot_state(gid)
+		var stamp := TextureRect.new()
+		stamp.texture = ArtPack.rifle_texture(gid, "locked" if state == "locked" else "owned")
+		stamp.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		stamp.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		stamp.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		stamp.position = ArtPack.rack_position(gid)
+		stamp.size = ArtPack.rack_size(gid)
+		stamp.mouse_filter = Control.MOUSE_FILTER_STOP
+		stamp.gui_input.connect(_on_rack_stamp_input.bind(gid))
+		_gun_rack.add_child(stamp)
+		if state == "equipped":
+			var glow := ColorRect.new()
+			glow.color = Color(Chrome.HIGH_GOLD, 0.0)
+			glow.position = ArtPack.rack_position(gid) + Vector2(-6, ArtPack.rack_size(gid).y - 4)
+			glow.size = Vector2(ArtPack.rack_size(gid).x + 12, 5)
+			glow.color = Chrome.HIGH_GOLD
+			glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			_gun_rack.add_child(glow)
+	if _gun_hands:
+		var family := ClientSession.equipped_gun_id()
+		_gun_hands.texture = ArtPack.rifle_held_texture()
+		_gun_hands.modulate = ArtPack.optic_accent(family)
+		_gun_hands.visible = true
+
+
+func _on_rack_stamp_input(event: InputEvent, item_id: String) -> void:
+	if not (event is InputEventMouseButton):
+		return
+	var mouse := event as InputEventMouseButton
+	if not mouse.pressed or mouse.button_index != MOUSE_BUTTON_LEFT:
+		return
+	if ClientSession.owns_gun(item_id):
+		if not ClientSession.is_equipped(item_id):
+			_on_equip_toggle(item_id)
+		return
+	_toast_msg("Buy %s in ARMORY  ·  visual only" % Contract.gun_family_name(item_id))
 
 
 func _build_jobs_panel() -> void:
@@ -1020,7 +1164,8 @@ func _bind_wallet() -> void:
 	if wallet.has("marks"):
 		ClientSession.bind_marks(int(wallet.get("marks")))
 	if wallet.has("owned") or wallet.has("equipped") or wallet.has("equippedSkinId") \
-			or wallet.has("equippedDecorId") or wallet.has("you"):
+			or wallet.has("equippedDecorId") or wallet.has("equippedGunId") \
+			or wallet.has("ownedGuns") or wallet.has("you"):
 		ClientSession.apply_shop(wallet)
 
 
@@ -1107,10 +1252,9 @@ func _focus_shop() -> void:
 		return
 	if _shop_row:
 		_shop_row.visible = true
-	_toast_msg("ARMORY  ·  Ghillie ★%d  ·  Bandana ★%d  ·  Poster ★%d  ·  visual only" % [
-		Contract.SHOP_STUB_PRICE,
-		Contract.SHOP_BANDANA_PRICE,
-		Contract.SHOP_POSTER_PRICE,
+	_toast_msg("ARMORY  ·  Fieldbolt owned  ·  Railframe ★%d  ·  Crescent ★%d  ·  visual only" % [
+		Contract.GUN_RAILFRAME_PRICE,
+		Contract.GUN_CRESCENT_PRICE,
 	])
 
 
@@ -1130,7 +1274,10 @@ func _refresh_shop() -> void:
 			name_lbl.text = bag.name_of(str(item_id))
 		var price: int = int(bag.price_of(str(item_id)))
 		if price_lbl:
-			price_lbl.text = Chrome.marks_star_text(price)
+			if Contract.is_gun_chrome(str(item_id)) and price <= 0:
+				price_lbl.text = Contract.GUN_STARTER_COPY
+			else:
+				price_lbl.text = Chrome.marks_star_text(price)
 		var owned: bool = ClientSession.owns_cosmetic(str(item_id))
 		var equipped: bool = ClientSession.is_equipped(str(item_id))
 		var can_buy: bool = int(ClientSession.marks) >= price
@@ -1165,7 +1312,14 @@ func _ensure_shop_lines(items: Array) -> void:
 		var item_id := str(entry.get("id", entry.get("itemId", "")))
 		if item_id == "" or _shop_lines.has(item_id):
 			continue
-		_shop_col.add_child(_make_shop_line(entry))
+		var line := _make_shop_line(entry)
+		if Contract.is_gun_chrome(item_id) and _gun_kicker != null:
+			_shop_col.add_child(line)
+		elif _gun_kicker != null:
+			_shop_col.add_child(line)
+			_shop_col.move_child(line, _gun_kicker.get_index())
+		else:
+			_shop_col.add_child(line)
 
 
 func _on_shop_primary(item_id: String) -> void:
@@ -1215,7 +1369,11 @@ func _on_equip_toggle(item_id: String) -> void:
 		return
 	var marks_before := int(ClientSession.marks)
 	var next_id := "" if ClientSession.is_equipped(item_id) else item_id
-	var slot := "decor" if Contract.is_decor_chrome(item_id) else "skin"
+	var slot := "skin"
+	if Contract.is_gun_chrome(item_id):
+		slot = Contract.GUN_SLOT
+	elif Contract.is_decor_chrome(item_id):
+		slot = "decor"
 	var body: Dictionary = MatchAPI.equip_cosmetic(next_id, slot)
 	var shop = Shop.from_any(body)
 	if shop.ok:

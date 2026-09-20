@@ -1,0 +1,154 @@
+BASE https://glassline-api.vercel.app
+PASS  GET /health
+PASS  GET /shop 200
+EVID  GET /shop 200 {"items": [{"id": "skin_hideout_stub", "name": "Hideout Skin (stub)", "price": 50, "kind": "skin"}, {"id": "skin_bandana_stub", "name": "BANDANA RECOLOR", "price": 100, "kind": "skin"}, {"id": "decor_poster_stub", "name": "HIDEOUT POSTER", "price": 150, "kind": "decor"}, {"id": "gun_fieldbolt", "name": "FIELDBOLT", "price": 0, "kind": "gun"}, {"id": "gun_railframe", "name": "RAILFRAME", "price": 125, "kind": "gun"}, {"id": "gun_crescent", "name": "CRESCENT", "price": 200, "kind": "gun"}]}
+PASS  catalog Railframe ★125
+PASS  catalog Railframe kind gun
+PASS  catalog Crescent ★200
+PASS  catalog Crescent kind gun
+PASS  catalog Fieldbolt ★0 starter
+PASS  catalog Fieldbolt kind gun
+PASS  GET /shop is catalog-only (no you.marks)
+
+== G3 insufficient ==
+PASS  POST /players
+PASS  G3 POST /players marks == 0 (got 0)
+EVID  G3 player p_66e26ea8baa84c2f859edd406f52bd67 marks=0
+PASS  G3 HTTP 402 (got 402)
+PASS  G3 code insufficient_marks
+PASS  G3 balance unchanged 0 → 0
+EVID  G3 POST /shop/buy 402 {"error": "insufficient_marks", "code": "insufficient_marks", "you": {"marks": 0, "equippedSkinId": null, "equippedDecorId": null, "equippedGunId": "gun_fieldbolt"}} start=0 clientBuyId=79781e89-030d-4e5b-a388-392a5a5461bf
+PASS  G3 replay same clientBuyId still 402 (got 402)
+PASS  G3 replay does not debit
+
+== G1 GET /shop/me starter ==
+PASS  GET /shop/me 200 (got 200)
+EVID  G1 GET /shop/me {"you": {"marks": 0, "equippedSkinId": null, "equippedDecorId": null, "equippedGunId": "gun_fieldbolt"}, "owned": ["gun_fieldbolt"]}
+PASS  G1 /shop/me starter Fieldbolt owned or equipped
+
+== G1 Fieldbolt buy is 200 no-op ==
+EVID  G1 Fieldbolt buy 200 {"ok": true, "you": {"marks": 0, "equippedSkinId": null, "equippedDecorId": null, "equippedGunId": "gun_fieldbolt"}, "purchaseId": "pur_f8dbd44e186441f1bbb532f514aa347e", "item": {"id": "gun_fieldbolt", "name": "FIELDBOLT", "price": 0, "kind": "gun"}}
+PASS  G1 Fieldbolt buy 200 no-op
+PASS  G1 Fieldbolt buy does not debit
+PASS  G1 Fieldbolt buy does not re-equip
+
+== G2 earn five PvP kills then buy Railframe ==
+PASS  POST /players
+PASS  G2 player minted at 0
+EVID  G2 player p_37dfb06e591c48239a23a52315a967a1
+PASS  POST /matches + player Bearer
+PASS  G2 rail hunt 1 marks rose (0→25)
+EVID  G2 rail hunt 1 m_91990503dd49417390c5a3bc8a258037 marks=25 status=ended
+PASS  POST /matches + player Bearer
+PASS  G2 rail hunt 2 marks rose (25→50)
+EVID  G2 rail hunt 2 m_79fed4096e8a4c23a86c82751aafd4d2 marks=50 status=ended
+PASS  POST /matches + player Bearer
+PASS  G2 rail hunt 3 marks rose (50→75)
+EVID  G2 rail hunt 3 m_62fe7b18f84c48009c5591ab62f0eab9 marks=75 status=ended
+PASS  POST /matches + player Bearer
+PASS  G2 rail hunt 4 marks rose (75→100)
+EVID  G2 rail hunt 4 m_c74fafa04a3f4663894e9544e004a382 marks=100 status=ended
+PASS  POST /matches + player Bearer
+PASS  G2 rail hunt 5 marks rose (100→125)
+EVID  G2 rail hunt 5 m_7e151ce6aa3d4496a8224ab4a1e54ae0 marks=125 status=ended
+PASS  G2 wallet >= ★125 (got 125)
+EVID  G2 buy Railframe 200 {"ok": true, "you": {"marks": 0, "equippedSkinId": null, "equippedDecorId": null, "equippedGunId": "gun_railframe"}, "purchaseId": "pur_d4a0cd4f963144b990cbf0b8a5443813", "item": {"id": "gun_railframe", "name": "RAILFRAME", "price": 125, "kind": "gun"}}
+PASS  G2 buy Railframe 200
+PASS  G2 buy debit 125→0
+PASS  G2 last-buy auto-equip Railframe (got gun_railframe)
+EVID  G2 replay 200 {"ok": true, "you": {"marks": 0, "equippedSkinId": null, "equippedDecorId": null, "equippedGunId": "gun_railframe"}, "purchaseId": "pur_d4a0cd4f963144b990cbf0b8a5443813", "item": {"id": "gun_railframe", "name": "RAILFRAME", "price": 125, "kind": "gun"}}
+PASS  G2 clientBuyId idempotent 200
+PASS  G2 replay does not debit again
+
+== G2 coexist skin + decor + gun ==
+PASS  POST /matches + player Bearer
+PASS  G2 coexist hunt 1 marks rose (0→25)
+EVID  G2 coexist hunt 1 m_a783de5ea0d047449fdc256beeb38f91 marks=25 status=ended
+PASS  POST /matches + player Bearer
+PASS  G2 coexist hunt 2 marks rose (25→50)
+EVID  G2 coexist hunt 2 m_7f447a92080c405684ceebbf69669267 marks=50 status=ended
+PASS  POST /matches + player Bearer
+PASS  G2 coexist hunt 3 marks rose (50→75)
+EVID  G2 coexist hunt 3 m_f770c12525d14b39932762cd68b66bd3 marks=75 status=ended
+PASS  POST /matches + player Bearer
+PASS  G2 coexist hunt 4 marks rose (75→100)
+EVID  G2 coexist hunt 4 m_300ea90c9d2a4c4eab68699c01706e8e marks=100 status=ended
+PASS  POST /matches + player Bearer
+PASS  G2 coexist hunt 5 marks rose (100→125)
+EVID  G2 coexist hunt 5 m_d4680221020b4bb2bf6757a7f4d20f86 marks=125 status=ended
+PASS  POST /matches + player Bearer
+PASS  G2 coexist hunt 6 marks rose (125→150)
+EVID  G2 coexist hunt 6 m_fbde3c0008814a2f8023a1fcd9e002c6 marks=150 status=ended
+PASS  POST /matches + player Bearer
+PASS  G2 coexist hunt 7 marks rose (150→175)
+EVID  G2 coexist hunt 7 m_f87de3104bb7487189f089f09cacb32e marks=175 status=ended
+PASS  POST /matches + player Bearer
+PASS  G2 coexist hunt 8 marks rose (175→200)
+EVID  G2 coexist hunt 8 m_9a7b397d8ff64c648a08db90a7c2d6ab marks=200 status=ended
+PASS  G2 coexist wallet >= ★200 (got 200)
+EVID  G2 buy poster 200 {"ok": true, "you": {"marks": 50, "equippedSkinId": null, "equippedDecorId": "decor_poster_stub", "equippedGunId": "gun_railframe"}, "purchaseId": "pur_6a80871daead428492692b014532488b", "item": {"id": "decor_poster_stub", "name": "HIDEOUT POSTER", "price": 150, "kind": "decor"}}
+PASS  G2 buy poster 200
+PASS  G2 poster auto-equip decor
+PASS  G2 poster buy leaves Railframe equipped
+EVID  G2 buy ghillie 200 {"ok": true, "you": {"marks": 0, "equippedSkinId": "skin_hideout_stub", "equippedDecorId": "decor_poster_stub", "equippedGunId": "gun_railframe"}, "purchaseId": "pur_9bbaf57b29f44b50a6380f088165e5d7", "item": {"id": "skin_hideout_stub", "name": "Hideout Skin (stub)", "price": 50, "kind": "skin"}}
+PASS  G2 buy ghillie 200
+PASS  G2 ghillie auto-equip skin
+PASS  G2 ghillie buy leaves poster
+PASS  G2 ghillie buy leaves Railframe
+
+== G2 equip / unequip gun slot ==
+EVID  G2 equip Fieldbolt 200 {"ok": true, "you": {"marks": 0, "equippedSkinId": "skin_hideout_stub", "equippedDecorId": "decor_poster_stub", "equippedGunId": "gun_fieldbolt"}, "item": {"id": "gun_fieldbolt", "name": "FIELDBOLT", "price": 0, "kind": "gun"}}
+PASS  G2 swap Fieldbolt 200 (got 200)
+PASS  G2 gun equip marks untouched
+PASS  G2 equippedGunId Fieldbolt (got gun_fieldbolt)
+PASS  G2 gun swap leaves ghillie
+PASS  G2 gun swap leaves poster
+EVID  G2 unequip gun 200 {"ok": true, "you": {"marks": 0, "equippedSkinId": "skin_hideout_stub", "equippedDecorId": "decor_poster_stub", "equippedGunId": null}}
+PASS  G2 equippedGunId null (got None)
+PASS  G2 unequip gun marks untouched
+
+== G5 worn Railframe miss/kill (+25) ==
+PASS  G5 re-equip Railframe marks untouched
+PASS  POST /matches + player Bearer
+PASS  G5 worn Railframe kill ended
+PASS  G5 worn kill +25 (0→25)
+EVID  G5 worn Railframe m_34763c81a1174520847ff006bb50f2ad marks=25 equippedGunId=gun_railframe
+NOTE  G5 combat math unchanged: PvP kill still ★25 with Railframe equipped. match m_34763c81a1174520847ff006bb50f2ad.
+EVID  G2 GET /shop/me after buy {"you": {"marks": 25, "equippedSkinId": "skin_hideout_stub", "equippedDecorId": "decor_poster_stub", "equippedGunId": "gun_railframe"}, "owned": ["decor_poster_stub", "gun_fieldbolt", "gun_railframe", "skin_hideout_stub"]}
+PASS  G2 /shop/me owns Railframe
+
+PLAYER p_37dfb06e591c48239a23a52315a967a1
+
+BASE https://glassline-api.vercel.app
+NOTES
+  - G5 combat math unchanged: PvP kill still ★25 with Railframe equipped. match m_34763c81a1174520847ff006bb50f2ad.
+EVIDENCE
+  - GET /shop 200 {"items": [{"id": "skin_hideout_stub", "name": "Hideout Skin (stub)", "price": 50, "kind": "skin"}, {"id": "skin_bandana_stub", "name": "BANDANA RECOLOR", "price": 100, "kind": "skin"}, {"id": "decor_poster_stub", "name": "HIDEOUT POSTER", "price": 150, "kind": "decor"}, {"id": "gun_fieldbolt", "name": "FIELDBOLT", "price": 0, "kind": "gun"}, {"id": "gun_railframe", "name": "RAILFRAME", "price": 125, "kind": "gun"}, {"id": "gun_crescent", "name": "CRESCENT", "price": 200, "kind": "gun"}]}
+  - G3 player p_66e26ea8baa84c2f859edd406f52bd67 marks=0
+  - G3 POST /shop/buy 402 {"error": "insufficient_marks", "code": "insufficient_marks", "you": {"marks": 0, "equippedSkinId": null, "equippedDecorId": null, "equippedGunId": "gun_fieldbolt"}} start=0 clientBuyId=79781e89-030d-4e5b-a388-392a5a5461bf
+  - G1 GET /shop/me {"you": {"marks": 0, "equippedSkinId": null, "equippedDecorId": null, "equippedGunId": "gun_fieldbolt"}, "owned": ["gun_fieldbolt"]}
+  - G1 Fieldbolt buy 200 {"ok": true, "you": {"marks": 0, "equippedSkinId": null, "equippedDecorId": null, "equippedGunId": "gun_fieldbolt"}, "purchaseId": "pur_f8dbd44e186441f1bbb532f514aa347e", "item": {"id": "gun_fieldbolt", "name": "FIELDBOLT", "price": 0, "kind": "gun"}}
+  - G2 player p_37dfb06e591c48239a23a52315a967a1
+  - G2 rail hunt 1 m_91990503dd49417390c5a3bc8a258037 marks=25 status=ended
+  - G2 rail hunt 2 m_79fed4096e8a4c23a86c82751aafd4d2 marks=50 status=ended
+  - G2 rail hunt 3 m_62fe7b18f84c48009c5591ab62f0eab9 marks=75 status=ended
+  - G2 rail hunt 4 m_c74fafa04a3f4663894e9544e004a382 marks=100 status=ended
+  - G2 rail hunt 5 m_7e151ce6aa3d4496a8224ab4a1e54ae0 marks=125 status=ended
+  - G2 buy Railframe 200 {"ok": true, "you": {"marks": 0, "equippedSkinId": null, "equippedDecorId": null, "equippedGunId": "gun_railframe"}, "purchaseId": "pur_d4a0cd4f963144b990cbf0b8a5443813", "item": {"id": "gun_railframe", "name": "RAILFRAME", "price": 125, "kind": "gun"}}
+  - G2 replay 200 {"ok": true, "you": {"marks": 0, "equippedSkinId": null, "equippedDecorId": null, "equippedGunId": "gun_railframe"}, "purchaseId": "pur_d4a0cd4f963144b990cbf0b8a5443813", "item": {"id": "gun_railframe", "name": "RAILFRAME", "price": 125, "kind": "gun"}}
+  - G2 coexist hunt 1 m_a783de5ea0d047449fdc256beeb38f91 marks=25 status=ended
+  - G2 coexist hunt 2 m_7f447a92080c405684ceebbf69669267 marks=50 status=ended
+  - G2 coexist hunt 3 m_f770c12525d14b39932762cd68b66bd3 marks=75 status=ended
+  - G2 coexist hunt 4 m_300ea90c9d2a4c4eab68699c01706e8e marks=100 status=ended
+  - G2 coexist hunt 5 m_d4680221020b4bb2bf6757a7f4d20f86 marks=125 status=ended
+  - G2 coexist hunt 6 m_fbde3c0008814a2f8023a1fcd9e002c6 marks=150 status=ended
+  - G2 coexist hunt 7 m_f87de3104bb7487189f089f09cacb32e marks=175 status=ended
+  - G2 coexist hunt 8 m_9a7b397d8ff64c648a08db90a7c2d6ab marks=200 status=ended
+  - G2 buy poster 200 {"ok": true, "you": {"marks": 50, "equippedSkinId": null, "equippedDecorId": "decor_poster_stub", "equippedGunId": "gun_railframe"}, "purchaseId": "pur_6a80871daead428492692b014532488b", "item": {"id": "decor_poster_stub", "name": "HIDEOUT POSTER", "price": 150, "kind": "decor"}}
+  - G2 buy ghillie 200 {"ok": true, "you": {"marks": 0, "equippedSkinId": "skin_hideout_stub", "equippedDecorId": "decor_poster_stub", "equippedGunId": "gun_railframe"}, "purchaseId": "pur_9bbaf57b29f44b50a6380f088165e5d7", "item": {"id": "skin_hideout_stub", "name": "Hideout Skin (stub)", "price": 50, "kind": "skin"}}
+  - G2 equip Fieldbolt 200 {"ok": true, "you": {"marks": 0, "equippedSkinId": "skin_hideout_stub", "equippedDecorId": "decor_poster_stub", "equippedGunId": "gun_fieldbolt"}, "item": {"id": "gun_fieldbolt", "name": "FIELDBOLT", "price": 0, "kind": "gun"}}
+  - G2 unequip gun 200 {"ok": true, "you": {"marks": 0, "equippedSkinId": "skin_hideout_stub", "equippedDecorId": "decor_poster_stub", "equippedGunId": null}}
+  - G5 worn Railframe m_34763c81a1174520847ff006bb50f2ad marks=25 equippedGunId=gun_railframe
+  - G2 GET /shop/me after buy {"you": {"marks": 25, "equippedSkinId": "skin_hideout_stub", "equippedDecorId": "decor_poster_stub", "equippedGunId": "gun_railframe"}, "owned": ["decor_poster_stub", "gun_fieldbolt", "gun_railframe", "skin_hideout_stub"]}
+
+LIVE_SHOP_GUN_OK

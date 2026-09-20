@@ -32,8 +32,15 @@ const MATCH_BOARD_FALLBACK := "res://assets/canon/hex-map.jpg"
 const RACK_POS := {
 	"gun_fieldbolt": Vector2(24, 192),
 	"gun_railframe": Vector2(24, 252),
-	"gun_crescent": Vector2(24, 318),
+	"gun_crescent": Vector2(24, 312),
 }
+const RACK_SIZE := {
+	"gun_fieldbolt": Vector2(268, 56),
+	"gun_railframe": Vector2(268, 56),
+	"gun_crescent": Vector2(268, 56),
+}
+const HELD_POS := Vector2(600, 320)
+const HELD_SIZE := Vector2(228, 88)
 
 
 static func tex(path: String) -> Texture2D:
@@ -119,6 +126,13 @@ static func rack_position(family: String) -> Vector2:
 	if RACK_POS.has(gid):
 		return RACK_POS[gid]
 	return Vector2(24, 192)
+
+
+static func rack_size(family: String) -> Vector2:
+	var gid := Contract.canonical_gun_id(family)
+	if RACK_SIZE.has(gid):
+		return RACK_SIZE[gid]
+	return Vector2(268, 56)
 
 
 static func optic_accent(family: String) -> Color:

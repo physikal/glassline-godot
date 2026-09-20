@@ -86,6 +86,8 @@ func _ready() -> void:
 		_capture_sp_end()
 	elif "--capture-equip-doll" in args:
 		_capture_equip_doll()
+	elif "--capture-gun-equipped-optic" in args:
+		_capture_gun_equipped_optic()
 	elif "--capture-art-hex" in args:
 		_capture_art_hex()
 	elif "--capture-art-operative-doll" in args:
@@ -269,6 +271,31 @@ func _capture_art_optic() -> void:
 	img.save_png(joy)
 	print("ART_05_ATTACK_OPTIC ", path)
 	print("ART_05_ATTACK_JOYSTICK ", joy)
+	get_tree().quit()
+
+
+func _capture_gun_equipped_optic() -> void:
+	## Equipped family stamp + visual-only copy on the locked optic plate.
+	if _coach:
+		_coach.dismiss()
+	await get_tree().process_frame
+	_submit(ActionIntent.select_hex(2, 2))
+	await get_tree().process_frame
+	if ClientSession.dummy_player_id != "":
+		MatchAPI.apply_action(ClientSession.match_id, ClientSession.dummy_player_id, ActionIntent.select_hex(7, 5))
+		await get_tree().process_frame
+	_submit(ActionIntent.start())
+	await get_tree().process_frame
+	_optic.open_for(Contract.hex_dict(4, 3), Contract.TYPE_BRUSH, true, ClientSession.equipped_gun_id())
+	if _optic.has_method("pose_joystick_for_capture"):
+		_optic.pose_joystick_for_capture()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	var path := ProjectSettings.globalize_path("res://artifacts/ux/gun_equipped_optic.png")
+	img.save_png(path)
+	print("GUN_EQUIPPED_OPTIC ", path)
 	get_tree().quit()
 
 

@@ -60,17 +60,25 @@ static func from_any(payload: Variant):
 		if parsed.ok and bought_id != "":
 			if not parsed.owned_present:
 				parsed.owned = [bought_id]
-			## Decor buy auto-equips equippedDecorId only. Never overwrite skin.
-			## Gun ids are visual rack slots — never a skin / catalog SKU this pass.
+			## Last buy auto-equips that slot only. Skin / decor / gun coexist.
 			if Contract.is_decor_chrome(bought_id):
 				if not parsed.equipped_decor_present:
 					parsed.equipped_decor = bought_id
 					parsed.equipped_decor_present = true
 			elif Contract.is_gun_chrome(bought_id):
-				pass
+				var gid := Contract.canonical_gun_id(bought_id)
+				if gid != "" and not parsed.owned_guns.has(gid):
+					parsed.owned_guns.append(gid)
+				if not parsed.equipped_gun_present and gid != "":
+					parsed.equipped_gun = gid
+					parsed.equipped_gun_present = true
 			elif not parsed.equipped_present:
 				parsed.equipped = bought_id
 				parsed.equipped_present = true
+	for owned_id in parsed.owned:
+		var harvested := Contract.canonical_gun_id(str(owned_id))
+		if harvested != "" and not parsed.owned_guns.has(harvested):
+			parsed.owned_guns.append(harvested)
 	return parsed
 
 
@@ -414,6 +422,8 @@ func name_of(item_id: String) -> String:
 		fallback = Contract.SHOP_BANDANA_ITEM_NAME
 	elif want == Contract.SHOP_POSTER_ITEM_ID:
 		fallback = Contract.SHOP_POSTER_ITEM_NAME
+	elif Contract.is_gun_chrome(want):
+		fallback = Contract.gun_family_name(want)
 	return str(item.get("name", fallback))
 
 

@@ -23,6 +23,8 @@ var account_marks: int = Contract.MOCK_WALLET_STUB
 var owned_cosmetics: Array = []
 var equipped_cosmetic: String = ""
 var equipped_decor: String = ""
+var owned_guns: Array = [Contract.GUN_FIELDBOLT]
+var equipped_gun: String = Contract.GUN_FIELDBOLT
 var _shop_receipts: Dictionary = {}
 ## POST /jobs complete receipts keyed by clientJobId — replay does not grant again.
 var _job_receipts: Dictionary = {}
@@ -91,6 +93,9 @@ func reset_wallet(value: int = Contract.MOCK_WALLET_STUB) -> void:
 	owned_cosmetics.clear()
 	equipped_cosmetic = ""
 	equipped_decor = ""
+	owned_guns = [Contract.GUN_FIELDBOLT]
+	equipped_gun = Contract.GUN_FIELDBOLT
+	owned_cosmetics.append(Contract.GUN_FIELDBOLT)
 	_shop_receipts.clear()
 	_job_receipts.clear()
 
@@ -107,7 +112,24 @@ func buy_shop(item_id: String, client_buy_id: String = "") -> Dictionary:
 	var listed: Dictionary = Contract.shop_item_by_id(item_id)
 	if listed.is_empty():
 		return _shop_reject(Contract.SHOP_ERR_UNKNOWN_ITEM)
-	if owned_cosmetics.has(item_id):
+	## Coder: Fieldbolt is owned-by-default / not sold. Buy is 200 no-op —
+	## no ledger, no auto-equip (explicit unequip stays empty).
+	if item_id == Contract.GUN_FIELDBOLT:
+		if not owned_guns.has(item_id):
+			owned_guns.append(item_id)
+		if not owned_cosmetics.has(item_id):
+			owned_cosmetics.append(item_id)
+		var starter := _shop_ok({
+			"type": "buy",
+			"itemId": item_id,
+			"clientBuyId": client_buy_id,
+			"starterNoop": true,
+		})
+		starter["item"] = listed.duplicate(true)
+		if client_buy_id != "":
+			_shop_receipts[client_buy_id] = starter.duplicate(true)
+		return starter
+	if owned_cosmetics.has(item_id) or (Contract.is_gun_chrome(item_id) and owned_guns.has(item_id)):
 		return _shop_reject(Contract.SHOP_ERR_ALREADY_OWNED)
 	var price := int(listed.get("price", Contract.shop_item_price(item_id)))
 	if account_marks < price:
@@ -115,8 +137,12 @@ func buy_shop(item_id: String, client_buy_id: String = "") -> Dictionary:
 	account_marks -= price
 	if not owned_cosmetics.has(item_id):
 		owned_cosmetics.append(item_id)
-	## Last buy auto-equips the matching slot only. Skin and decor coexist.
-	if Contract.is_decor_chrome(item_id):
+	## Last *paid* buy auto-equips that slot only. Skin, decor, and gun coexist.
+	if Contract.is_gun_chrome(item_id):
+		if not owned_guns.has(item_id):
+			owned_guns.append(item_id)
+		equipped_gun = item_id
+	elif Contract.is_decor_chrome(item_id):
 		equipped_decor = item_id
 	else:
 		equipped_cosmetic = item_id
@@ -128,8 +154,17 @@ func buy_shop(item_id: String, client_buy_id: String = "") -> Dictionary:
 
 func equip_cosmetic(item_id: String, slot: String = "") -> Dictionary:
 	## Visual only. Empty / null item_id unequips that slot. Unknown / unowned → reject.
-	## Same id is a no-op (idempotent). Marks untouched. Decor never overwrites skin.
+	## Same id is a no-op (idempotent). Marks untouched. Slots never clobber each other.
+	var use_gun := slot == Contract.GUN_SLOT or Contract.is_gun_chrome(item_id)
 	var use_decor := slot == "decor" or Contract.is_decor_chrome(item_id)
+	if item_id == "" and use_gun:
+		equipped_gun = ""
+		return _shop_ok({
+			"type": "equip",
+			"itemId": null,
+			"slot": Contract.GUN_SLOT,
+			"equippedGunId": null,
+		})
 	if item_id == "" and use_decor:
 		equipped_decor = ""
 		return _shop_ok({
@@ -151,8 +186,20 @@ func equip_cosmetic(item_id: String, slot: String = "") -> Dictionary:
 	var listed: Dictionary = Contract.shop_item_by_id(item_id)
 	if listed.is_empty():
 		return _shop_reject(Contract.SHOP_ERR_UNKNOWN_ITEM)
-	if not owned_cosmetics.has(item_id):
+	var owned_ok := owned_cosmetics.has(item_id) \
+			or (use_gun and (owned_guns.has(item_id) or item_id == Contract.GUN_FIELDBOLT))
+	if not owned_ok:
 		return _shop_reject(Contract.SHOP_ERR_NOT_OWNED)
+	if use_gun:
+		equipped_gun = item_id
+		if not owned_guns.has(item_id):
+			owned_guns.append(item_id)
+		return _shop_ok({
+			"type": "equip",
+			"itemId": item_id,
+			"slot": Contract.GUN_SLOT,
+			"equippedGunId": item_id,
+		})
 	if use_decor:
 		equipped_decor = item_id
 		return _shop_ok({
@@ -173,7 +220,7 @@ func equip_cosmetic(item_id: String, slot: String = "") -> Dictionary:
 
 func _shop_snapshot() -> Dictionary:
 	var bag: Dictionary = Contract.shop_catalog_stub(
-		account_marks, owned_cosmetics, equipped_cosmetic, equipped_decor
+		account_marks, owned_cosmetics, equipped_cosmetic, equipped_decor, equipped_gun
 	)
 	bag["source"] = "mock"
 	bag["wallet"] = {"marks": account_marks}
@@ -184,15 +231,18 @@ func _shop_ok(result: Dictionary = {}) -> Dictionary:
 	var snap := _shop_snapshot()
 	var skin: Variant = equipped_cosmetic if equipped_cosmetic != "" else null
 	var decor: Variant = equipped_decor if equipped_decor != "" else null
+	var gun: Variant = equipped_gun if equipped_gun != "" else null
 	return {
 		"ok": true,
 		"error": "",
 		"snapshot": snap,
 		"you": snap.get("you", {}),
 		"owned": owned_cosmetics.duplicate(),
+		"ownedGuns": owned_guns.duplicate(),
 		"equipped": skin,
 		"equippedSkinId": skin,
 		"equippedDecorId": decor,
+		"equippedGunId": gun,
 		"marks": account_marks,
 		"result": result,
 	}
@@ -207,9 +257,11 @@ func _shop_reject(reason: String) -> Dictionary:
 		"snapshot": snap,
 		"you": snap.get("you", {}),
 		"owned": owned_cosmetics.duplicate(),
+		"ownedGuns": owned_guns.duplicate(),
 		"equipped": equipped_cosmetic if equipped_cosmetic != "" else null,
 		"equippedSkinId": equipped_cosmetic if equipped_cosmetic != "" else null,
 		"equippedDecorId": equipped_decor if equipped_decor != "" else null,
+		"equippedGunId": equipped_gun if equipped_gun != "" else null,
 		"marks": account_marks,
 		"result": {"type": Contract.ACT_REJECT, "reason": reason},
 	}
@@ -1553,6 +1605,8 @@ func _snapshot_for_seat(match_state: Dictionary, seat: String) -> Dictionary:
 			"equippedSkinId": equipped_cosmetic if equipped_cosmetic != "" else null,
 			"equipped": equipped_cosmetic if equipped_cosmetic != "" else null,
 			"equippedDecorId": equipped_decor if equipped_decor != "" else null,
+			"equippedGunId": equipped_gun if equipped_gun != "" else null,
+			"ownedGuns": owned_guns.duplicate(),
 			"decoyAvailable": bool(you.get("decoyAvailable", false)),
 			"decoyRemaining": 1 if bool(you.get("decoyAvailable", false)) else 0,
 			"decoyHex": _decoy_hex_for_snap(you, match_state),

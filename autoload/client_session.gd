@@ -135,6 +135,11 @@ func apply_shop(bag: Dictionary) -> void:
 		equipped_decor = str(shop.equipped_decor)
 	if shop.owned_guns_present:
 		owned_guns = shop.owned_guns.duplicate()
+	else:
+		for gid in shop.owned_guns:
+			var gun_id := str(gid)
+			if gun_id != "" and not owned_guns.has(gun_id):
+				owned_guns.append(gun_id)
 	if shop.equipped_gun_present:
 		equipped_gun = str(shop.equipped_gun)
 	_sync_cosmetic_flags()
@@ -142,10 +147,15 @@ func apply_shop(bag: Dictionary) -> void:
 
 
 func owns_cosmetic(item_id: String) -> bool:
+	if Contract.is_gun_chrome(item_id):
+		return owns_gun(item_id)
 	return owned_cosmetics.has(item_id)
 
 
 func is_equipped(item_id: String) -> bool:
+	if Contract.is_gun_chrome(item_id):
+		var gid := Contract.canonical_gun_id(item_id)
+		return gid != "" and Contract.canonical_gun_id(equipped_gun) == gid and owns_gun(gid)
 	if Contract.is_decor_chrome(item_id):
 		return equipped_decor == item_id
 	return equipped_cosmetic == item_id
@@ -153,8 +163,13 @@ func is_equipped(item_id: String) -> bool:
 
 func bind_equip_local(item_id: String, slot: String = "") -> void:
 	## Visual toggle after a successful mock persist / LIVE local-only equip.
+	var use_gun := slot == Contract.GUN_SLOT or Contract.is_gun_chrome(item_id)
 	var use_decor := slot == "decor" or Contract.is_decor_chrome(item_id)
 	if item_id != "" and not owns_cosmetic(item_id):
+		return
+	if use_gun:
+		equipped_gun = Contract.canonical_gun_id(item_id)
+		_sync_gun_stub()
 		return
 	if use_decor:
 		equipped_decor = item_id
@@ -171,13 +186,18 @@ func _sync_cosmetic_flags() -> void:
 
 
 func _sync_gun_stub() -> void:
-	## Chrome-only. Starter bolt is always owned. Unknown / unowned equip falls back.
+	## Starter bolt is always owned. Harvest gun ids from the shop owned bag.
+	for item_id in owned_cosmetics:
+		var harvested := Contract.canonical_gun_id(str(item_id))
+		if harvested != "" and not owned_guns.has(harvested):
+			owned_guns.append(harvested)
 	if not owned_guns.has(Contract.GUN_FIELDBOLT):
 		owned_guns.append(Contract.GUN_FIELDBOLT)
 	var gid := Contract.canonical_gun_id(equipped_gun)
-	if gid == "" or not owns_gun(gid):
+	if gid != "" and not owns_gun(gid):
+		## Unowned id falls back to starter. Empty unequip stays empty.
 		equipped_gun = Contract.GUN_FIELDBOLT
-	else:
+	elif gid != "":
 		equipped_gun = gid
 
 
@@ -196,10 +216,12 @@ func equipped_gun_id() -> String:
 
 
 func gun_slot_state(item_id: String) -> String:
+	## Highlight uses the worn id. Hands / optic still fall back via equipped_gun_id().
 	var gid := Contract.canonical_gun_id(item_id)
 	if gid == "":
 		return "empty"
-	if equipped_gun_id() == gid:
+	var worn := Contract.canonical_gun_id(equipped_gun)
+	if worn == gid and owns_gun(gid):
 		return "equipped"
 	if owns_gun(gid):
 		return "owned"
