@@ -96,15 +96,21 @@ const SHOP_EQUIP_COPY := "Tap to wear  ·  visual only"
 const SHOP_EQUIPPED_COPY := "Wearing this  ·  visual only"
 const SHOP_INSUFFICIENT_COPY := "Not enough Marks."
 
-## Visual gun families — hideout rack + optic chrome only. Not shop SKUs.
-## In-fiction names. No OEM / mil-sim copy. No Marks prices.
+## Gun SKUs — same /shop spine as skins / poster. Chrome only, zero combat.
+## Fieldbolt owned-by-default. Railframe ★125 · Crescent ★200 Marks sinks.
 const GUN_FIELDBOLT := "gun_fieldbolt"
 const GUN_RAILFRAME := "gun_railframe"
 const GUN_CRESCENT := "gun_crescent"
 const GUN_FIELDBOLT_NAME := "FIELDBOLT"
 const GUN_RAILFRAME_NAME := "RAILFRAME"
 const GUN_CRESCENT_NAME := "CRESCENT"
+const GUN_KIND := "gun"
 const GUN_SLOT := "gun"
+const GUN_FIELDBOLT_PRICE := 0
+const GUN_RAILFRAME_PRICE := 125
+const GUN_CRESCENT_PRICE := 200
+const GUN_STARTER_COPY := "STARTER"
+const GUN_VISUAL_COPY := "visual only"
 
 ## Locked GD earn table (2026-09-18). Mock display grants only; LIVE ledger is Coder.
 const MARKS_PVP_WIN := 25
@@ -300,6 +306,18 @@ static func shop_poster_item() -> Dictionary:
 	return _shop_item(SHOP_POSTER_ITEM_ID, SHOP_POSTER_ITEM_NAME, SHOP_POSTER_KIND, SHOP_POSTER_PRICE)
 
 
+static func shop_gun_fieldbolt_item() -> Dictionary:
+	return _shop_item(GUN_FIELDBOLT, GUN_FIELDBOLT_NAME, GUN_KIND, GUN_FIELDBOLT_PRICE)
+
+
+static func shop_gun_railframe_item() -> Dictionary:
+	return _shop_item(GUN_RAILFRAME, GUN_RAILFRAME_NAME, GUN_KIND, GUN_RAILFRAME_PRICE)
+
+
+static func shop_gun_crescent_item() -> Dictionary:
+	return _shop_item(GUN_CRESCENT, GUN_CRESCENT_NAME, GUN_KIND, GUN_CRESCENT_PRICE)
+
+
 static func _shop_item(item_id: String, item_name: String, kind: String, price: int) -> Dictionary:
 	return {
 		"id": item_id,
@@ -314,8 +332,15 @@ static func _shop_item(item_id: String, item_name: String, kind: String, price: 
 
 
 static func shop_catalog_items() -> Array:
-	## Mock + LIVE-lag fallback. Prefer LIVE items when Coder lists poster.
-	return [shop_stub_item(), shop_bandana_item(), shop_poster_item()]
+	## Mock + LIVE-lag fallback. Prefer LIVE items when Coder lists guns.
+	return [
+		shop_stub_item(),
+		shop_bandana_item(),
+		shop_poster_item(),
+		shop_gun_fieldbolt_item(),
+		shop_gun_railframe_item(),
+		shop_gun_crescent_item(),
+	]
 
 
 static func shop_item_by_id(item_id: String) -> Dictionary:
@@ -340,6 +365,9 @@ static func _canonical_shop_id(item_id: String) -> String:
 		return SHOP_BANDANA_ITEM_ID
 	if item_id in ["hideout_poster", "poster_stub"]:
 		return SHOP_POSTER_ITEM_ID
+	var gun := canonical_gun_id(item_id)
+	if gun != "":
+		return gun
 	return item_id
 
 
@@ -366,7 +394,7 @@ static func is_gun_chrome(item_id: String) -> bool:
 
 
 static func canonical_gun_id(item_id: String) -> String:
-	## Visual slot ids only. Never a shop catalog row.
+	## Catalog + rack ids. kind: gun. Never a skin / decor slot.
 	match str(item_id):
 		GUN_FIELDBOLT, "fieldbolt", "starter_bolt", "bolt_classic":
 			return GUN_FIELDBOLT
@@ -390,30 +418,51 @@ static func gun_family_name(item_id: String) -> String:
 			return ""
 
 
-static func shop_catalog_stub(marks: int = 0, owned: Array = [], equipped: String = "", equipped_decor: String = "") -> Dictionary:
+static func shop_catalog_stub(
+	marks: int = 0,
+	owned: Array = [],
+	equipped: String = "",
+	equipped_decor: String = "",
+	equipped_gun: String = GUN_FIELDBOLT
+) -> Dictionary:
 	var owned_ids: Array = owned.duplicate()
+	if not owned_ids.has(GUN_FIELDBOLT):
+		owned_ids.append(GUN_FIELDBOLT)
 	var skin: Variant = equipped if equipped != "" else null
 	var decor: Variant = equipped_decor if equipped_decor != "" else null
+	var gun_id := canonical_gun_id(equipped_gun)
+	var gun: Variant = gun_id if gun_id != "" else null
+	var owned_gun_ids: Array = []
+	for item_id in owned_ids:
+		var gid := canonical_gun_id(str(item_id))
+		if gid != "" and not owned_gun_ids.has(gid):
+			owned_gun_ids.append(gid)
+	if not owned_gun_ids.has(GUN_FIELDBOLT):
+		owned_gun_ids.append(GUN_FIELDBOLT)
 	return {
 		"items": shop_catalog_items(),
 		"you": {
 			"marks": marks,
 			"owned": owned_ids,
+			"ownedGuns": owned_gun_ids,
 			"equipped": skin,
 			"equippedSkinId": skin,
 			"equippedDecorId": decor,
+			"equippedGunId": gun,
 		},
 		"owned": owned_ids,
+		"ownedGuns": owned_gun_ids,
 		"equipped": skin,
 		"equippedSkinId": skin,
 		"equippedDecorId": decor,
+		"equippedGunId": gun,
 		"marks": marks,
 	}
 
 
 static func merge_live_shop_catalog(live: Dictionary) -> Dictionary:
 	## Prefer LIVE names/prices when Coder lists a SKU. Append any missing
-	## mock row so ARMORY still shows three chrome sinks (ghillie / bandana / poster).
+	## mock row so ARMORY still shows skins / poster / gun SKUs.
 	var out: Dictionary = live.duplicate(true)
 	var items: Variant = out.get("items", [])
 	if not (items is Array):
@@ -427,8 +476,6 @@ static func merge_live_shop_catalog(live: Dictionary) -> Dictionary:
 		var iid := str(entry.get("id", entry.get("itemId", "")))
 		if iid != "" and not ids.has(iid):
 			ids.append(iid)
-	if ids.has(SHOP_POSTER_ITEM_ID) and ids.has(SHOP_BANDANA_ITEM_ID) and merged.size() >= 3:
-		return out
 	for stub in shop_catalog_items():
 		var sid := str(stub.get("id", ""))
 		if sid != "" and not ids.has(sid):

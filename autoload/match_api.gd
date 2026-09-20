@@ -72,8 +72,14 @@ func get_shop() -> Dictionary:
 					body["equipped"] = you.get("equippedSkinId")
 				if you.has("equippedDecorId"):
 					body["equippedDecorId"] = you.get("equippedDecorId")
+				if you.has("equippedGunId"):
+					body["equippedGunId"] = you.get("equippedGunId")
+				if you.has("ownedGuns"):
+					body["ownedGuns"] = you.get("ownedGuns")
 			if me.has("owned"):
 				body["owned"] = me.get("owned")
+			if me.has("ownedGuns"):
+				body["ownedGuns"] = me.get("ownedGuns")
 		return body
 	return MockMatchServer.get_shop()
 

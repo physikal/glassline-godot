@@ -1254,7 +1254,8 @@ func _shop_sink2_case(failed: PackedStringArray) -> void:
 	}))
 	_expect(failed, live_two.name_of(Contract.SHOP_BANDANA_ITEM_ID) == "Bandana Skin (stub)", "prefer LIVE bandana name")
 	_expect(failed, live_two.has_item(Contract.SHOP_POSTER_ITEM_ID), "LIVE two-SKU merge appends poster")
-	_expect(failed, live_two.items.size() == 3, "LIVE two-SKU merge is three ARMORY rows")
+	_expect(failed, live_two.has_item(Contract.GUN_RAILFRAME), "LIVE two-SKU merge appends gun SKUs")
+	_expect(failed, live_two.items.size() == 6, "LIVE two-SKU merge is six ARMORY rows")
 
 	var session = SessionScript.new()
 	session.apply_shop(catalog)
@@ -1339,7 +1340,8 @@ func _shop_sink3_case(failed: PackedStringArray) -> void:
 	_expect(failed, listed.has_item(Contract.SHOP_POSTER_ITEM_ID), "S3.1 catalog has poster")
 	_expect(failed, listed.price_of(Contract.SHOP_POSTER_ITEM_ID) == 150, "S3.1 GD price 150")
 	_expect(failed, listed.name_of(Contract.SHOP_POSTER_ITEM_ID) == Contract.SHOP_POSTER_ITEM_NAME, "S3.1 name HIDEOUT POSTER")
-	_expect(failed, listed.items.size() == 3, "S3.6 three catalog rows")
+	_expect(failed, listed.items.size() == 6, "S3.6 six catalog rows (skins + poster + guns)")
+	_expect(failed, listed.has_item(Contract.GUN_FIELDBOLT), "S3.6 Fieldbolt catalog row")
 	_expect(failed, listed.balance() < 150, "S3.3 ★24 cannot afford ★150")
 	_expect(failed, not Shop.row_buy_enabled(false, listed.balance() >= 150), "S3.3 BUY disabled when Marks < 150")
 	_expect(failed, Contract.RECON_BASE == 0.35 and Contract.MARKS_PVP_WIN == 25, "S3.5 combat table unchanged")
@@ -1360,7 +1362,8 @@ func _shop_sink3_case(failed: PackedStringArray) -> void:
 		],
 	}))
 	_expect(failed, live_three.name_of(Contract.SHOP_POSTER_ITEM_ID) == "Hideout Poster (stub)", "prefer LIVE poster name")
-	_expect(failed, live_three.items.size() == 3, "prefer LIVE catalog size when +1 poster SKU")
+	_expect(failed, live_three.has_item(Contract.GUN_CRESCENT), "LIVE three-SKU merge appends gun SKUs")
+	_expect(failed, live_three.items.size() == 6, "prefer LIVE names; append missing gun SKUs")
 
 	var session = SessionScript.new()
 	session.apply_shop(catalog)
@@ -1475,40 +1478,121 @@ func _shop_sink3_case(failed: PackedStringArray) -> void:
 
 
 func _gun_chrome_case(failed: PackedStringArray) -> void:
-	## Visual gun rack only. No catalog SKUs, Marks, or combat.
+	## kind: gun SKUs on the same /shop spine. Chrome only — zero combat.
 	server.clear_all()
 	server.reset_wallet(80)
 	var catalog: Dictionary = server.get_shop()
 	var listed = Shop.from_any(catalog)
-	_expect(failed, listed.items.size() == 3, "gun chrome does not add shop SKUs")
-	_expect(failed, not listed.has_item(Contract.GUN_FIELDBOLT), "Fieldbolt is not a catalog row")
-	_expect(failed, not listed.has_item(Contract.GUN_RAILFRAME), "Railframe is not a catalog row")
-	_expect(failed, not listed.has_item(Contract.GUN_CRESCENT), "Crescent is not a catalog row")
+	_expect(failed, listed.items.size() == 6, "G1 six catalog rows (skins + poster + guns)")
+	_expect(failed, listed.has_item(Contract.GUN_FIELDBOLT), "G1 Fieldbolt catalog row")
+	_expect(failed, listed.has_item(Contract.GUN_RAILFRAME), "G1 Railframe catalog row")
+	_expect(failed, listed.has_item(Contract.GUN_CRESCENT), "G1 Crescent catalog row")
+	_expect(failed, listed.price_of(Contract.GUN_FIELDBOLT) == 0, "G1 Fieldbolt STARTER ★0")
+	_expect(failed, listed.price_of(Contract.GUN_RAILFRAME) == 125, "G1 Railframe ★125")
+	_expect(failed, listed.price_of(Contract.GUN_CRESCENT) == 200, "G1 Crescent ★200")
+	_expect(failed, listed.name_of(Contract.GUN_FIELDBOLT) == Contract.GUN_FIELDBOLT_NAME, "G1 name FIELDBOLT")
 	_expect(failed, Contract.gun_family_name(Contract.GUN_FIELDBOLT) == "FIELDBOLT", "in-fiction Fieldbolt")
 	_expect(failed, Contract.gun_family_name("railframe") == "RAILFRAME", "alias Railframe")
 	_expect(failed, Contract.is_gun_chrome(Contract.GUN_CRESCENT), "Crescent is gun chrome")
 	_expect(failed, not Contract.is_suit_chrome(Contract.GUN_FIELDBOLT), "gun is not suit chrome")
 	_expect(failed, not Contract.is_decor_chrome(Contract.GUN_RAILFRAME), "gun is not decor chrome")
+	_expect(failed, Contract.GUN_VISUAL_COPY.find("visual") >= 0, "G6 zero-combat copy")
+	_expect(failed, Shop.row_status_text(true, true, true).find("visual") >= 0, "G6 EQUIPPED copy visual only")
 
 	var session = SessionScript.new()
 	session.apply_shop(catalog)
-	_expect(failed, session.owns_gun(Contract.GUN_FIELDBOLT), "starter bolt owned by default")
-	_expect(failed, session.equipped_gun_id() == Contract.GUN_FIELDBOLT, "starter bolt default equipped")
-	_expect(failed, not session.owns_gun(Contract.GUN_RAILFRAME), "Railframe locked until SKU")
-	_expect(failed, not session.owns_gun(Contract.GUN_CRESCENT), "Crescent locked until SKU")
-	_expect(failed, session.gun_slot_state(Contract.GUN_FIELDBOLT) == "equipped", "Fieldbolt slot equipped")
-	_expect(failed, session.gun_slot_state(Contract.GUN_RAILFRAME) == "locked", "Railframe slot locked")
-	_expect(failed, session.marks == 80, "gun stub does not touch Marks")
+	_expect(failed, session.owns_gun(Contract.GUN_FIELDBOLT), "G1 starter bolt owned by default")
+	_expect(failed, session.equipped_gun_id() == Contract.GUN_FIELDBOLT, "G1 starter bolt default equipped")
+	_expect(failed, session.is_equipped(Contract.GUN_FIELDBOLT), "G1 Fieldbolt wearing")
+	_expect(failed, not session.owns_gun(Contract.GUN_RAILFRAME), "G1 Railframe locked until buy")
+	_expect(failed, not session.owns_gun(Contract.GUN_CRESCENT), "G1 Crescent locked until buy")
+	_expect(failed, session.gun_slot_state(Contract.GUN_FIELDBOLT) == "equipped", "G4 Fieldbolt slot equipped")
+	_expect(failed, session.gun_slot_state(Contract.GUN_RAILFRAME) == "locked", "G4 Railframe slot locked")
+	_expect(failed, session.marks == 80, "G1 stub binds you.marks 80")
 
+	## G3 — 402 insufficient (Crescent ★200 vs ★80). Never marks -=.
+	var before: int = session.marks
+	var poor: Dictionary = server.buy_shop(Contract.GUN_CRESCENT, Contract.new_client_buy_id())
+	var poor_shop = Shop.from_any(poor)
+	_expect(failed, not bool(poor.get("ok", true)), "G3 Crescent buy rejected")
+	_expect(failed, poor_shop.is_insufficient(), "G3 insufficient_marks")
+	_expect(failed, server.account_marks == before, "G3 mock ledger unchanged")
+	session.bind_marks(999)
+	session.apply_shop(poor)
+	_expect(failed, session.marks == before, "G3 apply_shop replaces 999 with snapshot 80")
+	_expect(failed, session.marks == server.account_marks, "G3 never marks -= on client")
+	_expect(failed, not session.owns_gun(Contract.GUN_CRESCENT), "G3 402 does not grant Crescent")
+
+	## G2 — buy Railframe ★125, clientBuyId idempotent, auto-equip gun slot only.
+	var buy_id := "00000000-0000-4000-8000-0000000000gg"
+	server.reset_wallet(200)
+	session.apply_shop(server.get_shop())
+	_expect(failed, session.marks == 200, "G2 seeded wallet from snapshot")
+	var bought: Dictionary = server.buy_shop(Contract.GUN_RAILFRAME, buy_id)
+	_expect(failed, bool(bought.get("ok", false)), "G2 Railframe buy ok")
+	session.bind_marks(200)
+	session.apply_shop(bought)
+	_expect(failed, session.marks == 75, "G2 you.marks 200-125 from snapshot")
+	_expect(failed, server.account_marks == 75, "G2 mock ledger debited once")
+	_expect(failed, session.owns_gun(Contract.GUN_RAILFRAME), "G2 owned Railframe")
+	_expect(failed, session.is_equipped(Contract.GUN_RAILFRAME), "G2 last-buy auto-equip gun")
+	_expect(failed, session.equipped_gun_id() == Contract.GUN_RAILFRAME, "G2 equippedGunId railframe")
+	_expect(failed, session.owns_gun(Contract.GUN_FIELDBOLT), "G2 starter still owned")
+	_expect(failed, session.equipped_cosmetic == "", "G2 gun buy does not write skin slot")
+	_expect(failed, session.equipped_decor == "", "G2 gun buy does not write decor slot")
+	var replay: Dictionary = server.buy_shop(Contract.GUN_RAILFRAME, buy_id)
+	_expect(failed, bool(replay.get("ok", false)), "G2 clientBuyId idempotent ok")
+	_expect(failed, server.account_marks == 75, "G2 replay does not debit again")
+	session.apply_shop(replay)
+	_expect(failed, session.marks == 75, "G2 replay snapshot still 75")
+	var second: Dictionary = server.buy_shop(Contract.GUN_RAILFRAME, Contract.new_client_buy_id())
+	_expect(failed, str(second.get("error", "")) == Contract.SHOP_ERR_ALREADY_OWNED, "G2 second id already_owned")
+	_expect(failed, server.account_marks == 75, "G2 already_owned no debit")
+	session.free()
+
+	## G2 — coexist: buy Railframe + poster + ghillie; slots never clobber.
+	server.reset_wallet(400)
+	session = SessionScript.new()
+	session.apply_shop(server.get_shop())
+	session.apply_shop(server.buy_shop(Contract.GUN_RAILFRAME, "gun-coexist-r"))
+	session.apply_shop(server.buy_shop(Contract.SHOP_POSTER_ITEM_ID, "gun-coexist-p"))
+	session.apply_shop(server.buy_shop(Contract.SHOP_STUB_ITEM_ID, "gun-coexist-g"))
+	_expect(failed, session.marks == 75, "G2 400-125-150-50 from snapshot")
+	_expect(failed, session.is_equipped(Contract.GUN_RAILFRAME), "G2 gun slot after skin/decor buys")
+	_expect(failed, session.is_equipped(Contract.SHOP_POSTER_ITEM_ID), "G2 decor slot after gun")
+	_expect(failed, session.is_equipped(Contract.SHOP_STUB_ITEM_ID), "G2 skin slot after gun")
+	_expect(failed, session.ghillie and session.poster, "G2 three slots coexist")
+
+	## G2 — equip / unequip gun without clobber.
+	var swap: Dictionary = server.equip_cosmetic(Contract.GUN_FIELDBOLT, Contract.GUN_SLOT)
+	session.apply_shop(swap)
+	_expect(failed, session.is_equipped(Contract.GUN_FIELDBOLT), "G2 swap Fieldbolt")
+	_expect(failed, session.gun_slot_state(Contract.GUN_RAILFRAME) == "owned", "G4 Railframe owned painted")
+	_expect(failed, session.ghillie and session.poster, "G2 gun swap leaves skin + poster")
+	_expect(failed, session.marks == 75, "G2 gun equip does not touch marks")
+	var unequip: Dictionary = server.equip_cosmetic("", Contract.GUN_SLOT)
+	session.apply_shop(unequip)
+	_expect(failed, session.equipped_gun == "", "G2 unequip gun stays empty")
+	_expect(failed, not session.is_equipped(Contract.GUN_FIELDBOLT), "G2 unequip clears wearing")
+	_expect(failed, session.gun_slot_state(Contract.GUN_FIELDBOLT) == "owned", "G4 unequip Fieldbolt owned, not highlighted")
+	_expect(failed, session.equipped_gun_id() == Contract.GUN_FIELDBOLT, "G5 hands/optic fall back to Fieldbolt")
+	_expect(failed, session.ghillie and session.poster, "G2 unequip gun leaves skin + poster")
+	_expect(failed, session.marks == 75, "G2 unequip gun marks unchanged")
+	var refuse: Dictionary = server.equip_cosmetic(Contract.GUN_CRESCENT, Contract.GUN_SLOT)
+	_expect(failed, str(refuse.get("error", "")) == Contract.SHOP_ERR_NOT_OWNED, "G2 unowned Crescent rejected")
+	session.apply_shop(refuse)
+	_expect(failed, session.equipped_gun == "", "G2 reject keeps empty gun slot")
+
+	## LIVE /shop/me parser + unowned fallback.
 	var me = Shop.from_any({
 		"you": {
-			"marks": 80,
-			"equippedSkinId": null,
-			"equippedDecorId": null,
+			"marks": 75,
+			"equippedSkinId": Contract.SHOP_STUB_ITEM_ID,
+			"equippedDecorId": Contract.SHOP_POSTER_ITEM_ID,
 			"equippedGunId": "gun_railframe",
 			"ownedGuns": ["gun_fieldbolt", "gun_railframe"],
 		},
-		"owned": [],
+		"owned": [Contract.SHOP_STUB_ITEM_ID, Contract.SHOP_POSTER_ITEM_ID],
 	})
 	_expect(failed, me.equipped_gun_present, "/shop/me equippedGunId present")
 	_expect(failed, me.owned_guns_present, "/shop/me ownedGuns present")
@@ -1516,24 +1600,99 @@ func _gun_chrome_case(failed: PackedStringArray) -> void:
 	_expect(failed, me.owned_guns.has(Contract.GUN_RAILFRAME), "parser reads ownedGuns")
 	session.apply_shop({
 		"you": {
-			"marks": 80,
-			"equippedGunId": "gun_railframe",
-			"ownedGuns": ["gun_fieldbolt", "gun_railframe"],
+			"marks": 75,
+			"equippedGunId": "gun_crescent",
 		},
 	})
-	_expect(failed, session.owns_gun(Contract.GUN_RAILFRAME), "LIVE ownedGuns binds Railframe")
-	_expect(failed, session.equipped_gun_id() == Contract.GUN_RAILFRAME, "LIVE equippedGunId binds")
-	_expect(failed, session.gun_slot_state(Contract.GUN_CRESCENT) == "locked", "Crescent still locked")
-	_expect(failed, session.marks == 80, "gun bind does not debit Marks")
-
-	session.apply_shop({
-		"you": {"marks": 80, "equippedGunId": "gun_crescent"},
-	})
 	_expect(failed, session.equipped_gun_id() == Contract.GUN_FIELDBOLT, "unowned Crescent falls back to starter")
-
 	var unknown = Shop.from_any({"you": {"equippedGunId": "not_a_gun"}})
 	_expect(failed, unknown.equipped_gun == "", "unknown equippedGunId is empty")
+
+	var snap: Snapshot = Snapshot.from_dict({
+		"you": {
+			"seat": "a",
+			"marks": 75,
+			"equippedSkinId": Contract.SHOP_STUB_ITEM_ID,
+			"equippedDecorId": Contract.SHOP_POSTER_ITEM_ID,
+			"equippedGunId": Contract.GUN_RAILFRAME,
+		},
+	})
+	_expect(failed, snap.you_equipped_gun_id() == Contract.GUN_RAILFRAME, "G2 snapshot equippedGunId")
+	_expect(failed, snap.you_equipped_skin_id() == Contract.SHOP_STUB_ITEM_ID, "G2 snapshot skin untouched")
+	_expect(failed, snap.you_equipped_decor_id() == Contract.SHOP_POSTER_ITEM_ID, "G2 snapshot decor untouched")
+
+	## LIVE buy 200 infers item.id — merge ownedGuns, gun slot only.
+	session.apply_shop({
+		"ok": true,
+		"you": {"marks": 50, "equippedSkinId": Contract.SHOP_STUB_ITEM_ID},
+		"purchaseId": "pur_rail",
+		"item": {"id": "gun_railframe", "name": "RAILFRAME", "price": 125, "kind": "gun"},
+		"status": 200,
+	})
+	_expect(failed, session.marks == 50, "G2 LIVE buy binds you.marks")
+	_expect(failed, session.owns_gun(Contract.GUN_RAILFRAME), "G2 LIVE owned from item.id")
+	_expect(failed, session.is_equipped(Contract.GUN_RAILFRAME), "G2 LIVE infer equips gun slot")
+	_expect(failed, session.ghillie, "G2 LIVE gun buy keeps equippedSkinId")
 	session.free()
+	_gun_combat_parity_case(failed)
+
+
+func _gun_combat_parity_case(failed: PackedStringArray) -> void:
+	## G5: Attack miss/kill path identical across Fieldbolt / Railframe / Crescent.
+	var bolt: Dictionary = _gun_combat_run(Contract.GUN_FIELDBOLT)
+	var rail: Dictionary = _gun_combat_run(Contract.GUN_RAILFRAME)
+	var cres: Dictionary = _gun_combat_run(Contract.GUN_CRESCENT)
+	_expect(failed, bool(bolt.get("ok", false)) and bool(rail.get("ok", false)) and bool(cres.get("ok", false)), "G5 three loops ok")
+	for key in ["miss_hit", "miss_kill", "miss_phase", "miss_hot", "miss_exposure", "kill_hit", "kill_kill", "kill_delta", "recon_base", "pvp_win"]:
+		_expect(failed, bolt.get(key) == rail.get(key), "G5 Fieldbolt vs Railframe %s identical" % key)
+		_expect(failed, bolt.get(key) == cres.get(key), "G5 Fieldbolt vs Crescent %s identical" % key)
+	_expect(failed, Contract.RECON_BASE == 0.35, "G5 RECON_BASE 0.35")
+	_expect(failed, Contract.MARKS_PVP_WIN == 25, "G5 PvP kill ★25")
+	_expect(failed, int(bolt.get("kill_delta", -1)) == Contract.MARKS_PVP_WIN, "G5 kill marksDelta +25")
+	_expect(failed, str(bolt.get("snap_gun", "")) == Contract.GUN_FIELDBOLT, "G5 snapshot names Fieldbolt")
+	_expect(failed, str(rail.get("snap_gun", "")) == Contract.GUN_RAILFRAME, "G5 snapshot names Railframe")
+	_expect(failed, str(cres.get("snap_gun", "")) == Contract.GUN_CRESCENT, "G5 snapshot names Crescent")
+
+
+func _gun_combat_run(gun_id: String) -> Dictionary:
+	server.clear_all()
+	server.reset_wallet(400)
+	if gun_id != Contract.GUN_FIELDBOLT:
+		server.buy_shop(gun_id, "gun-e5-%s" % gun_id)
+		server.equip_cosmetic(gun_id, Contract.GUN_SLOT)
+	var created: Dictionary = server.create_match()
+	var mid := str(created["matchId"])
+	var a: Dictionary = server.join(mid, created["joinTokens"]["a"])
+	var b: Dictionary = server.join(mid, created["joinTokens"]["b"])
+	server.apply_action(mid, a["playerId"], ActionIntent.select_hex(2, 2))
+	server.apply_action(mid, b["playerId"], ActionIntent.select_hex(7, 5))
+	server.apply_action(mid, a["playerId"], ActionIntent.start())
+	var miss: ActionResult = server.apply_action(mid, a["playerId"], ActionIntent.attack(0, 0))
+	var miss_snap: Snapshot = Snapshot.from_dict(miss.snapshot)
+	var miss_last: Variant = miss_snap.last_action()
+	server.apply_action(mid, a["playerId"], ActionIntent.end_turn(50))
+	server.apply_action(mid, b["playerId"], ActionIntent.recon(4, 3))
+	server.apply_action(mid, b["playerId"], ActionIntent.end_turn(40))
+	var kill: ActionResult = server.apply_action(mid, a["playerId"], ActionIntent.attack(7, 5))
+	var kill_snap: Snapshot = Snapshot.from_dict(kill.snapshot)
+	var kill_last: Variant = kill_snap.last_action()
+	var last_clean := true
+	if miss_last is Dictionary:
+		last_clean = (not miss_last.has("gunId")) and (not miss_last.has("equippedGunId"))
+	return {
+		"ok": bool(miss.ok) and bool(kill.ok) and last_clean,
+		"miss_hit": miss_last is Dictionary and miss_last.get("hit") == false,
+		"miss_kill": miss_last is Dictionary and miss_last.get("kill") == false,
+		"miss_phase": str(miss_snap.phase()),
+		"miss_hot": miss_snap.enemy_visible_hex() == null,
+		"miss_exposure": int(miss_snap.you_exposure()),
+		"kill_hit": kill_last is Dictionary and kill_last.get("hit") == true,
+		"kill_kill": kill_last is Dictionary and kill_last.get("kill") == true,
+		"kill_delta": kill_snap.marks_delta(),
+		"recon_base": Contract.RECON_BASE,
+		"pvp_win": Contract.MARKS_PVP_WIN,
+		"snap_gun": miss_snap.you_equipped_gun_id(),
+	}
 
 
 func _optic_joystick_case(failed: PackedStringArray) -> void:

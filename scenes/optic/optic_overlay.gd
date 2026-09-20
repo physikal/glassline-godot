@@ -24,6 +24,8 @@ var _figure: Control
 var _note: Label
 var _area: Label
 var _joystick: Control
+var _family_stamp: TextureRect
+var _family_lbl: Label
 
 
 func _ready() -> void:
@@ -46,6 +48,7 @@ func open_for(hex: Dictionary, terrain: String, show_figure: bool, family: Strin
 		gun_family = ClientSession.equipped_gun_id() if ClientSession else Contract.GUN_FIELDBOLT
 	if _note:
 		_note.text = ""
+	_refresh_family()
 	_refresh_area()
 	visible = true
 
@@ -161,7 +164,33 @@ func _build() -> void:
 	Chrome.apply_label(_note, 16, Color("f0f4c0"), true)
 	add_child(_note)
 
+	_family_stamp = TextureRect.new()
+	_family_stamp.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_family_stamp.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_family_stamp.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_family_stamp.position = Vector2(980, 16)
+	_family_stamp.size = Vector2(220, 48)
+	_family_stamp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_family_stamp)
+
+	_family_lbl = Label.new()
+	_family_lbl.position = Vector2(980, 64)
+	_family_lbl.size = Vector2(260, 28)
+	_family_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	Chrome.apply_label(_family_lbl, 8, Chrome.HIGH_GOLD, true)
+	add_child(_family_lbl)
+
+	_refresh_family()
 	_refresh_area()
+
+
+func _refresh_family() -> void:
+	var family := gun_family if gun_family != "" else Contract.GUN_FIELDBOLT
+	if _family_stamp:
+		_family_stamp.texture = ArtPack.rifle_texture(family, "owned")
+		_family_stamp.modulate = ArtPack.optic_accent(family)
+	if _family_lbl:
+		_family_lbl.text = "%s  ·  %s" % [Contract.gun_family_name(family), Contract.GUN_VISUAL_COPY]
 
 
 func _refresh_area() -> void:
