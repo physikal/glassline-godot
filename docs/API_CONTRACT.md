@@ -111,8 +111,20 @@ POST shapes (Coder PR #9 / LIVE):
 - Already `ended` → 409 `match_already_ended` (idempotent: no second grant). Client GET-replays.
 - Rematch still ended-only (409 `match_not_ended` while `active`).
 
+## Private lobby (Coder pending 2026-09-20)
+`POST /lobbies` Bearer **player** → `{ lobbyId, code, snapshot }` status `waiting`.
+
+Code: **6** uppercase alphanumeric, exclude `0O1I`. TTL **10 min**. No ranked.
+
+`POST /lobbies/join` `{ code }` → seat B; both seated → `{ status: "ready", matchId, joinToken, snapshot }`.
+
+`GET /lobbies/:id` host poll. `POST /lobbies/:id/cancel` → hideout, **no** forfeit Marks.
+
+Curl LIVE first. `404` → mock. Prefer LIVE smoke once 200.
+
 ## Other REST
 - `GET /health` → `{ ok: true }`
 - `GET /matches/:id` → caller-scoped snapshot (reconnect)
 - `POST /matches/:id/abandon` → join Bearer, no body
 - `POST /matches/:id/rematch` → `{ accept }` + join-token Bearer (player token fallback)
+- `POST /lobbies` · `POST /lobbies/join` · `GET /lobbies/:id` · `POST /lobbies/:id/cancel`

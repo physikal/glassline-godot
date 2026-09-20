@@ -118,6 +118,78 @@ func heartbeat() -> Dictionary:
 	return {"ok": true, "mock": true}
 
 
+func create_lobby() -> Dictionary:
+	if using_live():
+		return LiveMatchClient.create_lobby()
+	var pid := ClientSession.durable_player_id
+	if pid == "":
+		pid = "p_mock"
+	return MockMatchServer.create_lobby(pid)
+
+
+func join_lobby(code: String) -> Dictionary:
+	if using_live():
+		return LiveMatchClient.join_lobby(code)
+	var pid := ClientSession.durable_player_id
+	if pid == "" or pid == "p_mock":
+		pid = "p_guest"
+	return MockMatchServer.join_lobby(code, pid)
+
+
+func get_lobby(lobby_id: String) -> Dictionary:
+	if using_live():
+		return LiveMatchClient.get_lobby(lobby_id)
+	var pid := ClientSession.durable_player_id
+	if pid == "":
+		pid = "p_mock"
+	return MockMatchServer.get_lobby(lobby_id, pid)
+
+
+func cancel_lobby(lobby_id: String) -> Dictionary:
+	if using_live():
+		return LiveMatchClient.cancel_lobby(lobby_id)
+	var pid := ClientSession.durable_player_id
+	if pid == "":
+		pid = "p_mock"
+	return MockMatchServer.cancel_lobby(lobby_id, pid)
+
+
+func bind_lobby_match(body: Dictionary) -> Dictionary:
+	## Prefer posted matchId + joinToken. Client never invents seats.
+	var mid := str(body.get("matchId", body.get("newMatchId", "")))
+	var tok := str(body.get("joinToken", ""))
+	if mid == "":
+		return {}
+	stop_events()
+	ClientSession.reset_match()
+	ClientSession.match_mode = Contract.MODE_PVP
+	ClientSession.match_id = mid
+	if tok != "":
+		ClientSession.join_token = tok
+	var pid := str(body.get("playerId", ""))
+	if pid != "":
+		ClientSession.player_id = pid
+	var seat := str(body.get("seat", ""))
+	if seat != "":
+		ClientSession.seat = seat
+	var snap: Dictionary = {}
+	var posted: Variant = body.get("snapshot", {})
+	if posted is Dictionary and str(posted.get("matchId", "")) == mid:
+		snap = posted
+	if snap.is_empty():
+		snap = get_snapshot(mid, ClientSession.player_id)
+	if not snap.is_empty():
+		ClientSession.apply_snapshot(snap)
+		if ClientSession.player_id == "" and str(snap.get("you", {}).get("playerId", "")) != "":
+			ClientSession.player_id = str(snap.get("you", {}).get("playerId", ""))
+		if ClientSession.seat == "":
+			var you: Variant = snap.get("you", {})
+			if you is Dictionary:
+				ClientSession.seat = str(you.get("seat", Contract.SEAT_A))
+	start_events()
+	return snap
+
+
 func join(match_id: String, token: String) -> Dictionary:
 	if using_live():
 		return LiveMatchClient.join(match_id, token)

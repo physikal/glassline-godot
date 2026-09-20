@@ -190,6 +190,8 @@ static func make_icon(kind: String, color: Color, px: int = 28) -> Texture2D:
 			_icon_play(img, color)
 		"jobs":
 			_icon_clipboard(img, color)
+		"invite":
+			_icon_ticket(img, color)
 		"coin":
 			_icon_coin(img, color)
 		"gem":
@@ -315,6 +317,16 @@ static func _icon_gem(img: Image, color: Color) -> void:
 	_fill_rect(img, 8, 8, 13, 12, color)
 	_fill_rect(img, 10, 6, 9, 16, color)
 	_fill_rect(img, 12, 10, 5, 5, Color(1, 1, 1, 0.45))
+
+
+static func _icon_ticket(img: Image, color: Color) -> void:
+	## Wartable invite slip — cozy, not ranked queue chrome.
+	_fill_rect(img, 4, 8, 20, 13, color)
+	_fill_rect(img, 6, 10, 16, 9, Color(0, 0, 0, 0.28))
+	_fill_rect(img, 8, 12, 8, 2, color)
+	_fill_rect(img, 8, 16, 5, 2, color)
+	_fill_circle(img, 20, 14, 3, color)
+	_fill_circle(img, 20, 14, 1, INK)
 
 
 static func _icon_clipboard(img: Image, color: Color) -> void:

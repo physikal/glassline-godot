@@ -4,6 +4,7 @@ const Chrome := preload("res://scripts/chrome.gd")
 const Contract := preload("res://types/contract.gd")
 const MarksPayout := preload("res://types/marks_payout.gd")
 const Shop := preload("res://types/shop.gd")
+const Lobby := preload("res://types/lobby.gd")
 
 var _bg: TextureRect
 var _wood_covers: Array[ColorRect] = []
@@ -13,6 +14,14 @@ var _last_pay: Label
 var _mode_lbl: Label
 var _mode_btn: Button
 var _jobs_panel: PanelContainer
+var _invite_panel: PanelContainer
+var _invite_home: VBoxContainer
+var _invite_wait: VBoxContainer
+var _invite_code_lbl: Label
+var _invite_reject: Label
+var _join_edit: LineEdit
+var _lobby_poll: float = 0.0
+var _lobby_waiting: bool = false
 var _shop_row: PanelContainer
 var _shop_lines: Dictionary = {}
 var _bandana_wash: ColorRect
@@ -67,6 +76,22 @@ func _ready() -> void:
 	elif "--capture-sp-end" in args:
 		await get_tree().process_frame
 		_on_start_job()
+	elif "--capture-lobby-create-wait" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await _capture_lobby_create_wait()
+	elif "--capture-lobby-join" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await _capture_lobby_join()
+	elif "--capture-lobby-bad-code" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await _capture_lobby_bad_code()
+	elif "--capture-lobby-cancel-hideout" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await _capture_lobby_cancel_hideout()
 	elif "--capture-sp-jobs-ladder" in args:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 		DisplayServer.window_set_size(Vector2i(1280, 720))
@@ -177,6 +202,36 @@ func _capture_equip_then_play() -> void:
 	_start_match(Contract.MODE_PVP)
 
 
+func _capture_lobby_create_wait() -> void:
+	_open_invite()
+	_on_create_lobby()
+	await _capture_named("res://artifacts/ux/lobby_create_wait.png", "P6_LOBBY_CREATE_WAIT")
+
+
+func _capture_lobby_join() -> void:
+	_open_invite()
+	if _join_edit:
+		_join_edit.text = ""
+		_join_edit.grab_focus()
+	await _capture_named("res://artifacts/ux/lobby_join.png", "P6_LOBBY_JOIN")
+
+
+func _capture_lobby_bad_code() -> void:
+	_open_invite()
+	if _join_edit:
+		_join_edit.text = "ABCDEF"
+	_on_join_lobby()
+	await _capture_named("res://artifacts/ux/lobby_bad_code.png", "P6_LOBBY_BAD_CODE")
+
+
+func _capture_lobby_cancel_hideout() -> void:
+	_open_invite()
+	_on_create_lobby()
+	await get_tree().process_frame
+	_on_cancel_lobby()
+	await _capture_named("res://artifacts/ux/lobby_cancel_hideout.png", "P6_LOBBY_CANCEL_HIDEOUT")
+
+
 func _capture_jobs_ladder() -> void:
 	if not _jobs_panel.visible:
 		_toggle_jobs()
@@ -275,18 +330,22 @@ func _build() -> void:
 	row.offset_left = 72
 	row.offset_right = -72
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 22)
+	row.add_theme_constant_override("separation", 16)
 	add_child(row)
 
-	var loadout := Chrome.dock_button("LOADOUT", Chrome.LOADOUT_BLUE, Color.WHITE, Vector2(268, 68), "loadout")
+	var loadout := Chrome.dock_button("LOADOUT", Chrome.LOADOUT_BLUE, Color.WHITE, Vector2(210, 68), "loadout")
 	loadout.pressed.connect(_focus_shop)
 	row.add_child(loadout)
 
-	var play := Chrome.dock_button("PLAY", Chrome.PLAY_GREEN, Color.WHITE, Vector2(380, 78), "play")
+	var play := Chrome.dock_button("PLAY", Chrome.PLAY_GREEN, Color.WHITE, Vector2(300, 78), "play")
 	play.pressed.connect(_on_play)
 	row.add_child(play)
 
-	var jobs := Chrome.dock_button("JOBS", Chrome.JOBS_ORANGE, Color.WHITE, Vector2(268, 68), "jobs")
+	var invite := Chrome.dock_button("INVITE", Chrome.HIGH_GOLD, Chrome.INK, Vector2(210, 68), "invite")
+	invite.pressed.connect(_toggle_invite)
+	row.add_child(invite)
+
+	var jobs := Chrome.dock_button("JOBS", Chrome.JOBS_ORANGE, Color.WHITE, Vector2(210, 68), "jobs")
 	jobs.pressed.connect(_toggle_jobs)
 	row.add_child(jobs)
 
@@ -303,6 +362,7 @@ func _build() -> void:
 	add_child(_toast)
 
 	_build_jobs_panel()
+	_build_invite_panel()
 
 
 func _build_top_bar() -> void:
@@ -554,6 +614,128 @@ func _make_job_row(tier: int) -> PanelContainer:
 	return row
 
 
+func _build_invite_panel() -> void:
+	## Wartable / ARMORY language. No ranked queue chrome. No countdown.
+	_invite_panel = PanelContainer.new()
+	_invite_panel.visible = false
+	_invite_panel.set_anchors_preset(PRESET_CENTER)
+	_invite_panel.offset_left = -360
+	_invite_panel.offset_right = 360
+	_invite_panel.offset_top = -230
+	_invite_panel.offset_bottom = 230
+	var box := Chrome.flat(Color(0.10, 0.08, 0.06, 0.96), 20, Chrome.HIGH_GOLD, 3)
+	box.content_margin_left = 22
+	box.content_margin_right = 22
+	box.content_margin_top = 16
+	box.content_margin_bottom = 16
+	_invite_panel.add_theme_stylebox_override("panel", box)
+	add_child(_invite_panel)
+
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 10)
+	_invite_panel.add_child(col)
+
+	_invite_home = VBoxContainer.new()
+	_invite_home.add_theme_constant_override("separation", 10)
+	col.add_child(_invite_home)
+
+	var kicker := Label.new()
+	kicker.text = Contract.LOBBY_KICKER
+	Chrome.apply_label(kicker, 8, Chrome.HIGH_GOLD, true)
+	_invite_home.add_child(kicker)
+
+	var heading := Label.new()
+	heading.text = Contract.LOBBY_HEADING
+	Chrome.apply_label(heading, 16, Chrome.CREAM, true)
+	_invite_home.add_child(heading)
+
+	var blurb := Label.new()
+	blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	blurb.text = Contract.LOBBY_BLURB
+	Chrome.apply_label(blurb, 8, Chrome.CREAM)
+	_invite_home.add_child(blurb)
+
+	var create := Chrome.chunk_button(Contract.LOBBY_CREATE_COPY, Chrome.HIGH_GOLD, Chrome.INK, Vector2(420, 52))
+	create.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	create.pressed.connect(_on_create_lobby)
+	_invite_home.add_child(create)
+
+	var join_row := HBoxContainer.new()
+	join_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	join_row.add_theme_constant_override("separation", 12)
+	_invite_home.add_child(join_row)
+
+	_join_edit = LineEdit.new()
+	_join_edit.placeholder_text = "CODE"
+	_join_edit.max_length = 8
+	_join_edit.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_join_edit.custom_minimum_size = Vector2(240, 48)
+	_join_edit.add_theme_font_override("font", Chrome.pixel_font())
+	_join_edit.add_theme_font_size_override("font_size", 14)
+	_join_edit.add_theme_color_override("font_color", Chrome.CREAM)
+	_join_edit.add_theme_color_override("font_placeholder_color", Color(0.72, 0.68, 0.58, 0.70))
+	var field_box := Chrome.flat(Color(0.12, 0.09, 0.07, 0.94), 16, Chrome.HIGH_GOLD, 2)
+	_join_edit.add_theme_stylebox_override("normal", field_box)
+	_join_edit.add_theme_stylebox_override("focus", Chrome.flat(Color(0.14, 0.10, 0.08, 0.96), 16, Chrome.HIGH_GOLD, 3))
+	_join_edit.text_changed.connect(_on_join_code_changed)
+	_join_edit.text_submitted.connect(func(_t: String) -> void: _on_join_lobby())
+	join_row.add_child(_join_edit)
+
+	var join_btn := Chrome.chunk_button(Contract.LOBBY_JOIN_COPY, Chrome.TEAL, Color.WHITE, Vector2(148, 48))
+	join_btn.pressed.connect(_on_join_lobby)
+	join_row.add_child(join_btn)
+
+	_invite_reject = Label.new()
+	_invite_reject.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_invite_reject.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	Chrome.apply_label(_invite_reject, 8, Color("f0e3b0"), true)
+	_invite_home.add_child(_invite_reject)
+
+	var back := Chrome.chunk_button(Contract.LOBBY_BACK_COPY, Chrome.INK, Chrome.CREAM, Vector2(160, 40))
+	back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	back.pressed.connect(_close_invite)
+	_invite_home.add_child(back)
+
+	_invite_wait = VBoxContainer.new()
+	_invite_wait.visible = false
+	_invite_wait.add_theme_constant_override("separation", 12)
+	col.add_child(_invite_wait)
+
+	var wait_kicker := Label.new()
+	wait_kicker.text = Contract.LOBBY_KICKER
+	Chrome.apply_label(wait_kicker, 8, Chrome.HIGH_GOLD, true)
+	_invite_wait.add_child(wait_kicker)
+
+	var wait_head := Label.new()
+	wait_head.text = Contract.LOBBY_CODE_HINT
+	Chrome.apply_label(wait_head, 10, Chrome.CREAM, true)
+	_invite_wait.add_child(wait_head)
+
+	_invite_code_lbl = Label.new()
+	_invite_code_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	Chrome.apply_label(_invite_code_lbl, 28, Chrome.HIGH_GOLD, true)
+	_invite_wait.add_child(_invite_code_lbl)
+
+	var wait_line := Label.new()
+	wait_line.text = Contract.LOBBY_WAIT_COPY
+	wait_line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	Chrome.apply_label(wait_line, 8, Chrome.CREAM, true)
+	_invite_wait.add_child(wait_line)
+
+	var wait_actions := HBoxContainer.new()
+	wait_actions.alignment = BoxContainer.ALIGNMENT_CENTER
+	wait_actions.add_theme_constant_override("separation", 16)
+	_invite_wait.add_child(wait_actions)
+
+	var wait_copy := Chrome.chunk_button(Contract.LOBBY_COPY_CODE, Chrome.TEAL, Color.WHITE, Vector2(200, 44))
+	wait_copy.pressed.connect(_on_copy_lobby_code)
+	wait_actions.add_child(wait_copy)
+
+	var cancel := Chrome.chunk_button(Contract.LOBBY_CANCEL_COPY, Chrome.INK, Chrome.CREAM, Vector2(160, 40))
+	cancel.pressed.connect(_on_cancel_lobby)
+	wait_actions.add_child(cancel)
+
+
 func _bind_wallet() -> void:
 	var wallet: Dictionary = MatchAPI.wallet()
 	if wallet.has("marks"):
@@ -778,11 +960,205 @@ func _toast_msg(text: String) -> void:
 
 
 func _toggle_jobs() -> void:
+	if _invite_panel and _invite_panel.visible and _lobby_waiting:
+		return
+	if _invite_panel:
+		_invite_panel.visible = false
 	_jobs_panel.visible = not _jobs_panel.visible
 	if _shop_row:
 		_shop_row.visible = not _jobs_panel.visible
 	if _jobs_panel.visible:
 		_toast_msg("T1 ★10   ·   T2 ★15   ·   T3 ★20")
+
+
+func _toggle_invite() -> void:
+	if _lobby_waiting and _invite_panel and _invite_panel.visible:
+		return
+	if _invite_panel and _invite_panel.visible:
+		_close_invite()
+		return
+	_open_invite()
+
+
+func _open_invite() -> void:
+	if _jobs_panel:
+		_jobs_panel.visible = false
+	if _shop_row:
+		_shop_row.visible = false
+	if _invite_panel:
+		_invite_panel.visible = true
+	_show_invite_home()
+	if _invite_reject:
+		_invite_reject.text = ""
+	_toast_msg("")
+
+
+func _close_invite() -> void:
+	_lobby_waiting = false
+	_lobby_poll = 0.0
+	if _invite_panel:
+		_invite_panel.visible = false
+	_show_invite_home()
+	if _shop_row:
+		_shop_row.visible = true
+	if _jobs_panel:
+		_jobs_panel.visible = false
+
+
+func _show_invite_home() -> void:
+	if _invite_home:
+		_invite_home.visible = true
+	if _invite_wait:
+		_invite_wait.visible = false
+	if _invite_reject:
+		_invite_reject.text = ""
+
+
+func _show_invite_wait() -> void:
+	if _invite_home:
+		_invite_home.visible = false
+	if _invite_wait:
+		_invite_wait.visible = true
+	if _invite_code_lbl:
+		_invite_code_lbl.text = Contract.lobby_code_display(ClientSession.lobby_code)
+	_lobby_waiting = true
+	_lobby_poll = 0.0
+
+
+func _on_join_code_changed(text: String) -> void:
+	var norm := Contract.normalize_lobby_code(text)
+	if _join_edit and _join_edit.text != norm:
+		_join_edit.text = norm
+		_join_edit.caret_column = norm.length()
+	if _invite_reject and _invite_reject.text != "":
+		_invite_reject.text = ""
+
+
+func _on_create_lobby() -> void:
+	if ClientSession.use_live_api():
+		var health: Dictionary = MatchAPI.health()
+		if not bool(health.get("ok", false)):
+			_toast_msg("Live API down at %s  (GET /health)" % ClientSession.api_base_url())
+			return
+		MatchAPI.ensure_player()
+	var body: Dictionary = MatchAPI.create_lobby()
+	var lobby = Lobby.from_any(body)
+	if lobby.has_marks:
+		ClientSession.bind_marks(lobby.marks)
+		_refresh_marks()
+	if lobby.is_unavailable():
+		if _invite_reject:
+			_invite_reject.text = Contract.LOBBY_UNAVAILABLE_COPY
+		_toast_msg("LIVE /lobbies pending Coder  ·  mock INVITE on F2")
+		return
+	if not lobby.is_waiting() or str(lobby.lobby_id) == "" or str(lobby.code) == "":
+		if _invite_reject:
+			_invite_reject.text = lobby.reject_copy()
+		_toast_msg("Invite failed  ·  %s" % lobby.error)
+		return
+	ClientSession.lobby_id = lobby.lobby_id
+	ClientSession.lobby_code = lobby.code
+	ClientSession.lobby_seat = lobby.seat if lobby.seat != "" else Contract.SEAT_A
+	_show_invite_wait()
+	_toast_msg("")
+
+
+func _on_join_lobby() -> void:
+	var typed := ""
+	if _join_edit:
+		typed = _join_edit.text
+	if ClientSession.use_live_api():
+		var health: Dictionary = MatchAPI.health()
+		if not bool(health.get("ok", false)):
+			_toast_msg("Live API down at %s  (GET /health)" % ClientSession.api_base_url())
+			return
+		MatchAPI.ensure_player()
+	var body: Dictionary = MatchAPI.join_lobby(typed)
+	var lobby = Lobby.from_any(body)
+	if lobby.has_marks:
+		ClientSession.bind_marks(lobby.marks)
+		_refresh_marks()
+	if lobby.is_ready():
+		_enter_lobby_match(body)
+		return
+	## Plain reject. Field stays editable — no soft lock.
+	if _invite_reject:
+		_invite_reject.text = lobby.reject_copy()
+	_toast_msg("")
+	if _join_edit:
+		_join_edit.editable = true
+		_join_edit.grab_focus()
+
+
+func _on_copy_lobby_code() -> void:
+	var code := ClientSession.lobby_code
+	if code == "":
+		return
+	DisplayServer.clipboard_set(code)
+	_toast_msg(Contract.LOBBY_COPIED_COPY)
+
+
+func _on_cancel_lobby() -> void:
+	var lid := ClientSession.lobby_id
+	var marks_before := int(ClientSession.marks)
+	if lid != "":
+		var body: Dictionary = MatchAPI.cancel_lobby(lid)
+		var lobby = Lobby.from_any(body)
+		if lobby.has_marks:
+			ClientSession.bind_marks(lobby.marks)
+	ClientSession.lobby_id = ""
+	ClientSession.lobby_code = ""
+	ClientSession.lobby_seat = ""
+	_lobby_waiting = false
+	_close_invite()
+	_refresh_marks()
+	if int(ClientSession.marks) != marks_before:
+		_toast_msg("Marks chip rebound from snapshot")
+	else:
+		_toast_msg(Contract.LOBBY_HIDEOUT_COPY)
+
+
+func _poll_lobby() -> void:
+	if ClientSession.lobby_id == "":
+		return
+	var body: Dictionary = MatchAPI.get_lobby(ClientSession.lobby_id)
+	var lobby = Lobby.from_any(body)
+	if lobby.has_marks:
+		ClientSession.bind_marks(lobby.marks)
+		_refresh_marks()
+	if lobby.is_ready():
+		_enter_lobby_match(body)
+		return
+	if lobby.is_expired() or lobby.is_reject():
+		_lobby_waiting = false
+		_show_invite_home()
+		if _invite_reject:
+			_invite_reject.text = lobby.reject_copy()
+		_toast_msg(lobby.reject_copy())
+		ClientSession.lobby_id = ""
+		ClientSession.lobby_code = ""
+
+
+func _enter_lobby_match(body: Dictionary) -> void:
+	_lobby_waiting = false
+	var snap: Dictionary = MatchAPI.bind_lobby_match(body)
+	if ClientSession.match_id == "" or snap.is_empty():
+		_toast_msg("Invite ready but bind failed")
+		_show_invite_home()
+		return
+	if _invite_panel:
+		_invite_panel.visible = false
+	get_tree().change_scene_to_file("res://scenes/match/match_screen.tscn")
+
+
+func _process(delta: float) -> void:
+	if not _lobby_waiting:
+		return
+	_lobby_poll += delta
+	if _lobby_poll < 1.0:
+		return
+	_lobby_poll = 0.0
+	_poll_lobby()
 
 
 func _unhandled_input(event: InputEvent) -> void:
