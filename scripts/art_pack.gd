@@ -35,6 +35,11 @@ const RACK_POS := {
 
 
 static func tex(path: String) -> Texture2D:
+	## Prefer the PNG pixels. ResourceLoader placeholders have come back white.
+	if FileAccess.file_exists(path):
+		var img := Image.new()
+		if img.load(path) == OK:
+			return ImageTexture.create_from_image(img)
 	var loaded = load(path)
 	if loaded is Texture2D:
 		return loaded
