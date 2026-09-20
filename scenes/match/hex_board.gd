@@ -11,7 +11,7 @@ const Snapshot := preload("res://types/snapshot.gd")
 signal hex_clicked(q: int, r: int)
 signal hex_hovered(q: int, r: int)
 
-const HEX_SIZE := 40.0
+const HEX_SIZE := 44.0
 const PREVIEW_YOU := Vector2i(2, 2)
 const PREVIEW_RIVAL := Vector2i(6, 4)
 

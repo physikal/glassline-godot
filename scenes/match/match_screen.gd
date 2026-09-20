@@ -786,9 +786,10 @@ func _build() -> void:
 	if _plate_hud:
 		## Cover the plate's printed map so only hash-revealed stamps show.
 		var cover := ColorRect.new()
-		cover.color = Color("1f150b")
-		cover.position = Vector2(288, 112)
-		cover.size = Vector2(840, 448)
+		## FoW fill — same UNKNOWN chrome as the plate rim, not a brown hole.
+		cover.color = Color("292d2e")
+		cover.position = Vector2(300, 118)
+		cover.size = Vector2(820, 430)
 		cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(cover)
 	else:
@@ -801,8 +802,8 @@ func _build() -> void:
 
 	_board_host = Control.new()
 	if _plate_hud:
-		_board_host.position = Vector2(300, 118)
-		_board_host.size = Vector2(820, 440)
+		_board_host.position = Vector2(300, 108)
+		_board_host.size = Vector2(820, 450)
 	else:
 		_board_host.position = Vector2(220, 132)
 		_board_host.size = Vector2(840, 470)
