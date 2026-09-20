@@ -20,29 +20,29 @@ Editor Play stays MOCK (`use_live_api=false`). Smoke path wires `LiveMatchClient
 
 Constants: `Contract.GUN_FIELDBOLT` / `GUN_RAILFRAME` / `GUN_CRESCENT`. Slots **coexist** with `equippedSkinId` + `equippedDecorId` — a gun buy / equip never clobbers skin or poster.
 
-## LIVE G1–G6 (2026-09-20) — **PENDING** Coder catalog
+## LIVE G1–G6 (2026-09-20) — **PASS** `LIVE_SHOP_GUN_OK`
 
 **Base:** `https://glassline-api.vercel.app`  
 **Contract:** `/docs/contract` · `POST /players` durable token · GET `/shop` public catalog · POST `/shop/buy` `{ itemId, clientBuyId }` + `Authorization: Bearer <playerToken>` · POST `/shop/equip` `{ itemId }` / `{ itemId: null, slot: "gun" }`
 
-Probed catalog (Coder guns **not** landed at smoke time):
+Probed catalog (Coder +3 gun SKUs landed):
 
 ```json
-{"items":[{"id":"skin_hideout_stub","name":"Hideout Skin (stub)","price":50,"kind":"skin"},{"id":"skin_bandana_stub","name":"BANDANA RECOLOR","price":100,"kind":"skin"},{"id":"decor_poster_stub","name":"HIDEOUT POSTER","price":150,"kind":"decor"}]}
+{"items":[{"id":"skin_hideout_stub","name":"Hideout Skin (stub)","price":50,"kind":"skin"},{"id":"skin_bandana_stub","name":"BANDANA RECOLOR","price":100,"kind":"skin"},{"id":"decor_poster_stub","name":"HIDEOUT POSTER","price":150,"kind":"decor"},{"id":"gun_fieldbolt","name":"FIELDBOLT","price":0,"kind":"gun"},{"id":"gun_railframe","name":"RAILFRAME","price":125,"kind":"gun"},{"id":"gun_crescent","name":"CRESCENT","price":200,"kind":"gun"}]}
 ```
 
-`GET /shop` is **catalog-only** (no `you.marks`). Client `merge_live_shop_catalog` appends the three gun stubs so ARMORY still shows Fieldbolt / Railframe / Crescent. Buy 200 is `{ ok, you: { marks, equippedSkinId, equippedDecorId, equippedGunId? }, purchaseId, item }`. 402 is `{ error, code: "insufficient_marks", you: { marks } }`. Client binds that `you.marks`. Hideout + smoke **never `marks -=`**.
+`GET /shop` is **catalog-only** (no `you.marks`). Buy 200 is `{ ok, you: { marks, equippedSkinId, equippedDecorId, equippedGunId }, purchaseId, item }`. 402 is `{ error, code: "insufficient_marks", you: { marks, equippedGunId } }`. Client binds that `you.marks`. Hideout + smoke **never `marks -=`**.
 
 | Gate | Result | Evidence |
 | --- | --- | --- |
-| **G1** catalog `kind: gun` · Fieldbolt owned-by-default | **PASS mock · PENDING LIVE** | Mock `GET /shop` lists six SKUs. Fieldbolt ★0 STARTER owned+equipped. LIVE catalog still three skins/poster — merge-appends guns. |
-| **G2** buy Railframe ★125 + `clientBuyId` idempotent + equip slot | **PASS mock · PENDING LIVE** | Mock `200→75`, replay same id stays ★75. Auto-equip `equippedGunId=gun_railframe`. Skin / decor untouched. Unequip `{ itemId: null, slot: "gun" }` clears highlight; hands/optic fall back to Fieldbolt. |
-| **G3** 402 insufficient in UI | **PASS mock · PENDING LIVE** | ★80 vs Crescent ★200 → `insufficient_marks`. Replay still 402. Chip unchanged. |
+| **G1** catalog `kind: gun` · Fieldbolt owned-by-default | **PASS mock · PASS LIVE** | LIVE `GET /shop` lists six SKUs. Fieldbolt ★0. `/shop/me` `{ owned: ["gun_fieldbolt"], equippedGunId: "gun_fieldbolt" }`. |
+| **G2** buy Railframe ★125 + `clientBuyId` idempotent + equip slot | **PASS mock · PASS LIVE** | Five PvP kills ★125. Buy `125→0`, `purchaseId=pur_fc1e367ee4f6457b9b477e1093490ec1`. Replay same id stays ★0. Auto-equip `equippedGunId=gun_railframe`. Swap Fieldbolt 200. Unequip `{ itemId: null, slot: "gun" }` → `equippedGunId: null`. Skin / decor null throughout. |
+| **G3** 402 insufficient in UI | **PASS mock · PASS LIVE** | Fresh player ★0 vs Crescent ★200 → HTTP 402 `insufficient_marks`. Replay still 402. Chip 0. `you.equippedGunId` stays Fieldbolt. |
 | **G4** dynamic rack | **PASS mock** | Owned painted plate-crop · locked wash silhouette · equipped gold underline. Still [`ux/gun_rack_dynamic.png`](ux/gun_rack_dynamic.png). |
-| **G5** zero combat delta | **PASS mock · PENDING LIVE** | Fieldbolt / Railframe / Crescent miss `hit=false` / no Hot / kill `hit=true` `marksDelta +25`. `RECON_BASE` 0.35. `lastAction` has no gun field. |
+| **G5** zero combat delta | **PASS mock · PASS LIVE** | Mock Fieldbolt / Railframe / Crescent miss `hit=false` / no Hot / kill `hit=true` `marksDelta +25`. LIVE worn Railframe kill `m_ebfd2cdb475b42808670a000bf2290fb` ★0→25. `RECON_BASE` 0.35. |
 | **G6** UX three gun rows + visual-only copy | **PASS mock** | [`ux/gun_armory_three_row.png`](ux/gun_armory_three_row.png) (Fieldbolt EQUIPPED · Railframe ★125 · Crescent ★200). [`ux/gun_equipped_optic.png`](ux/gun_equipped_optic.png) (`RAILFRAME · visual only`). |
 
-HTTP log: [`artifacts/live_shop_gun_smoke.txt`](live_shop_gun_smoke.txt) · `LIVE_SHOP_GUN_PENDING` until Coder lists `gun_*`.  
+HTTP log: [`artifacts/live_shop_gun_smoke.txt`](live_shop_gun_smoke.txt) · `LIVE_SHOP_GUN_OK` player `p_8ca1239f355142f29f1b822c9bcb816f`.  
 Mock: `HEADLESS_LOOP_OK` (`_gun_chrome_case`).
 
 Raw stills (this branch):

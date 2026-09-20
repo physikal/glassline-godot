@@ -1,0 +1,115 @@
+BASE https://glassline-api.vercel.app
+PASS  GET /health
+PASS  GET /shop 200
+EVID  GET /shop 200 {"items": [{"id": "skin_hideout_stub", "name": "Hideout Skin (stub)", "price": 50, "kind": "skin"}, {"id": "skin_bandana_stub", "name": "BANDANA RECOLOR", "price": 100, "kind": "skin"}, {"id": "decor_poster_stub", "name": "HIDEOUT POSTER", "price": 150, "kind": "decor"}, {"id": "gun_fieldbolt", "name": "FIELDBOLT", "price": 0, "kind": "gun"}, {"id": "gun_railframe", "name": "RAILFRAME", "price": 125, "kind": "gun"}, {"id": "gun_crescent", "name": "CRESCENT", "price": 200, "kind": "gun"}]}
+PASS  catalog Railframe ★125
+PASS  catalog Railframe kind gun
+PASS  catalog Crescent ★200
+PASS  catalog Crescent kind gun
+PASS  catalog Fieldbolt ★0 starter
+PASS  catalog Fieldbolt kind gun
+PASS  GET /shop is catalog-only (no you.marks)
+
+== G3 insufficient ==
+PASS  POST /players
+PASS  G3 POST /players marks == 0 (got 0)
+EVID  G3 player p_46cf5f88aeaa408cbbfdff650a09aecd marks=0
+PASS  G3 HTTP 402 (got 402)
+PASS  G3 code insufficient_marks
+PASS  G3 balance unchanged 0 → 0
+EVID  G3 POST /shop/buy 402 {"error": "insufficient_marks", "code": "insufficient_marks", "you": {"marks": 0, "equippedSkinId": null, "equippedDecorId": null, "equippedGunId": "gun_fieldbolt"}} start=0 clientBuyId=68290512-e422-44e5-8c16-d7c97bcd9851
+PASS  G3 replay same clientBuyId still 402 (got 402)
+PASS  G3 replay does not debit
+
+== G1 GET /shop/me starter ==
+PASS  GET /shop/me 200 (got 200)
+EVID  G1 GET /shop/me {"you": {"marks": 0, "equippedSkinId": null, "equippedDecorId": null, "equippedGunId": "gun_fieldbolt"}, "owned": ["gun_fieldbolt"]}
+PASS  G1 /shop/me starter Fieldbolt owned or equipped
+
+== G2 earn five PvP kills then buy Railframe ==
+PASS  POST /players
+PASS  G2 player minted at 0
+EVID  G2 player p_8ca1239f355142f29f1b822c9bcb816f
+PASS  POST /matches + player Bearer
+PASS  kill 1 join you.marks == 0 (got 0)
+PASS  kill 1 PvP ended
+PASS  kill 1 you.marks 0→25 (+25)
+PASS  kill 1 same playerId
+EVID  G2 kill 1 m_85a483a0909948d98e631b9f2a2bef52 marks=25
+PASS  POST /matches + player Bearer
+PASS  kill 2 join you.marks == 25 (got 25)
+PASS  kill 2 PvP ended
+PASS  kill 2 you.marks 25→50 (+25)
+PASS  kill 2 same playerId
+EVID  G2 kill 2 m_2a62f20a2b84419cb28fefbf575520dc marks=50
+PASS  POST /matches + player Bearer
+PASS  kill 3 join you.marks == 50 (got 50)
+PASS  kill 3 PvP ended
+PASS  kill 3 you.marks 50→75 (+25)
+PASS  kill 3 same playerId
+EVID  G2 kill 3 m_275d7794dc2f4caea9242a19f31936c1 marks=75
+PASS  POST /matches + player Bearer
+PASS  kill 4 join you.marks == 75 (got 75)
+PASS  kill 4 PvP ended
+PASS  kill 4 you.marks 75→100 (+25)
+PASS  kill 4 same playerId
+EVID  G2 kill 4 m_2aadd6c012b247e48a24aa663074a88d marks=100
+PASS  POST /matches + player Bearer
+PASS  kill 5 join you.marks == 100 (got 100)
+PASS  kill 5 PvP ended
+PASS  kill 5 you.marks 100→125 (+25)
+PASS  kill 5 same playerId
+EVID  G2 kill 5 m_648027731d4e450c8aff61b3102e87fb marks=125
+EVID  G2 buy Railframe 200 {"ok": true, "you": {"marks": 0, "equippedSkinId": null, "equippedDecorId": null, "equippedGunId": "gun_railframe"}, "purchaseId": "pur_fc1e367ee4f6457b9b477e1093490ec1", "item": {"id": "gun_railframe", "name": "RAILFRAME", "price": 125, "kind": "gun"}}
+PASS  G2 buy Railframe 200
+PASS  G2 buy debit 125→0
+PASS  G2 last-buy auto-equip Railframe (got gun_railframe)
+EVID  G2 replay 200 {"ok": true, "you": {"marks": 0, "equippedSkinId": null, "equippedDecorId": null, "equippedGunId": "gun_railframe"}, "purchaseId": "pur_fc1e367ee4f6457b9b477e1093490ec1", "item": {"id": "gun_railframe", "name": "RAILFRAME", "price": 125, "kind": "gun"}}
+PASS  G2 clientBuyId idempotent 200
+PASS  G2 replay does not debit again
+
+== G2 equip / unequip gun slot ==
+EVID  G2 equip Fieldbolt 200 {"ok": true, "you": {"marks": 0, "equippedSkinId": null, "equippedDecorId": null, "equippedGunId": "gun_fieldbolt"}, "item": {"id": "gun_fieldbolt", "name": "FIELDBOLT", "price": 0, "kind": "gun"}}
+PASS  G2 swap Fieldbolt 200 (got 200)
+PASS  G2 gun equip marks untouched
+PASS  G2 equippedGunId Fieldbolt (got gun_fieldbolt)
+NOTE  G2 coexist after gun swap skin=None decor=None
+EVID  G2 unequip gun 200 {"ok": true, "you": {"marks": 0, "equippedSkinId": null, "equippedDecorId": null, "equippedGunId": null}}
+PASS  G2 equippedGunId null (got None)
+PASS  G2 unequip gun marks untouched
+
+== G5 worn Railframe miss/kill (+25) ==
+PASS  G5 re-equip Railframe marks untouched
+PASS  POST /matches + player Bearer
+PASS  G5 worn Railframe kill ended
+PASS  G5 worn kill +25 (0→25)
+EVID  G5 worn Railframe m_ebfd2cdb475b42808670a000bf2290fb marks=25 equippedGunId=gun_railframe
+NOTE  G5 combat math unchanged: PvP kill still ★25 with Railframe equipped. match m_ebfd2cdb475b42808670a000bf2290fb.
+EVID  G2 GET /shop/me after buy {"you": {"marks": 25, "equippedSkinId": null, "equippedDecorId": null, "equippedGunId": "gun_railframe"}, "owned": ["gun_fieldbolt", "gun_railframe"]}
+PASS  G2 /shop/me owns Railframe
+
+PLAYER p_8ca1239f355142f29f1b822c9bcb816f
+
+BASE https://glassline-api.vercel.app
+NOTES
+  - G2 coexist after gun swap skin=None decor=None
+  - G5 combat math unchanged: PvP kill still ★25 with Railframe equipped. match m_ebfd2cdb475b42808670a000bf2290fb.
+EVIDENCE
+  - GET /shop 200 {"items": [{"id": "skin_hideout_stub", "name": "Hideout Skin (stub)", "price": 50, "kind": "skin"}, {"id": "skin_bandana_stub", "name": "BANDANA RECOLOR", "price": 100, "kind": "skin"}, {"id": "decor_poster_stub", "name": "HIDEOUT POSTER", "price": 150, "kind": "decor"}, {"id": "gun_fieldbolt", "name": "FIELDBOLT", "price": 0, "kind": "gun"}, {"id": "gun_railframe", "name": "RAILFRAME", "price": 125, "kind": "gun"}, {"id": "gun_crescent", "name": "CRESCENT", "price": 200, "kind": "gun"}]}
+  - G3 player p_46cf5f88aeaa408cbbfdff650a09aecd marks=0
+  - G3 POST /shop/buy 402 {"error": "insufficient_marks", "code": "insufficient_marks", "you": {"marks": 0, "equippedSkinId": null, "equippedDecorId": null, "equippedGunId": "gun_fieldbolt"}} start=0 clientBuyId=68290512-e422-44e5-8c16-d7c97bcd9851
+  - G1 GET /shop/me {"you": {"marks": 0, "equippedSkinId": null, "equippedDecorId": null, "equippedGunId": "gun_fieldbolt"}, "owned": ["gun_fieldbolt"]}
+  - G2 player p_8ca1239f355142f29f1b822c9bcb816f
+  - G2 kill 1 m_85a483a0909948d98e631b9f2a2bef52 marks=25
+  - G2 kill 2 m_2a62f20a2b84419cb28fefbf575520dc marks=50
+  - G2 kill 3 m_275d7794dc2f4caea9242a19f31936c1 marks=75
+  - G2 kill 4 m_2aadd6c012b247e48a24aa663074a88d marks=100
+  - G2 kill 5 m_648027731d4e450c8aff61b3102e87fb marks=125
+  - G2 buy Railframe 200 {"ok": true, "you": {"marks": 0, "equippedSkinId": null, "equippedDecorId": null, "equippedGunId": "gun_railframe"}, "purchaseId": "pur_fc1e367ee4f6457b9b477e1093490ec1", "item": {"id": "gun_railframe", "name": "RAILFRAME", "price": 125, "kind": "gun"}}
+  - G2 replay 200 {"ok": true, "you": {"marks": 0, "equippedSkinId": null, "equippedDecorId": null, "equippedGunId": "gun_railframe"}, "purchaseId": "pur_fc1e367ee4f6457b9b477e1093490ec1", "item": {"id": "gun_railframe", "name": "RAILFRAME", "price": 125, "kind": "gun"}}
+  - G2 equip Fieldbolt 200 {"ok": true, "you": {"marks": 0, "equippedSkinId": null, "equippedDecorId": null, "equippedGunId": "gun_fieldbolt"}, "item": {"id": "gun_fieldbolt", "name": "FIELDBOLT", "price": 0, "kind": "gun"}}
+  - G2 unequip gun 200 {"ok": true, "you": {"marks": 0, "equippedSkinId": null, "equippedDecorId": null, "equippedGunId": null}}
+  - G5 worn Railframe m_ebfd2cdb475b42808670a000bf2290fb marks=25 equippedGunId=gun_railframe
+  - G2 GET /shop/me after buy {"you": {"marks": 25, "equippedSkinId": null, "equippedDecorId": null, "equippedGunId": "gun_railframe"}, "owned": ["gun_fieldbolt", "gun_railframe"]}
+
+LIVE_SHOP_GUN_OK
