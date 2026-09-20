@@ -6,8 +6,8 @@ const Chrome := preload("res://scripts/chrome.gd")
 signal stick_changed(offset: Vector2)
 
 const WELL := 220.0
-const KNOB := 76.0
-const TRAVEL := 68.0
+const KNOB := 96.0
+const TRAVEL := 58.0
 
 var _well: TextureRect
 var _knob: TextureRect

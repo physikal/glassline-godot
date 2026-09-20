@@ -255,31 +255,34 @@ static func make_face(kind: String, px: int = 44) -> Texture2D:
 
 
 static func make_optic_stick_well(px: int = 220) -> Texture2D:
-	## Toy-optic thumb well — same black housing as the plate, not a web knob.
+	## Chunky toy well — same gray plastic weight as the plate plus-pad.
 	var img := Image.create(px, px, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
 	var c := px / 2
-	_fill_circle(img, c, c, c - 2, Color("06090e"))
-	_fill_circle(img, c, c, c - 8, Color("1c1e22"))
-	_stroke_circle(img, c, c, c - 10, Color("4a4c50"))
-	_stroke_circle(img, c, c, c - 16, Color("2a2c30"))
-	_fill_circle(img, c, c, c - 26, Color("0c1016"))
-	_stroke_circle(img, c, c, c - 28, Color("3a3c40"))
+	_fill_circle(img, c, c, c - 1, Color("06090e"))
+	_fill_circle(img, c, c, c - 6, Color("2a2c30"))
+	_fill_circle(img, c, c, c - 14, Color("3a3c40"))
+	_fill_circle(img, c, c, c - 22, Color("1c1e22"))
+	_stroke_circle(img, c, c, c - 8, Color("5a5c60"))
+	_stroke_circle(img, c, c, c - 20, Color("4a4c50"))
+	_fill_circle(img, c, c, c - 36, Color("0c1016"))
+	_stroke_circle(img, c, c, c - 38, Color("2a2c30"))
 	return ImageTexture.create_from_image(img)
 
 
-static func make_optic_stick_knob(px: int = 76) -> Texture2D:
+static func make_optic_stick_knob(px: int = 96) -> Texture2D:
 	## Raised plastic thumb — gold ring matches FAR/MID plate chips.
 	var img := Image.create(px, px, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
 	var c := px / 2
-	_fill_circle(img, c, c + 2, c - 2, Color("141618"))
+	_fill_circle(img, c, c + 3, c - 2, Color("141618"))
 	_fill_circle(img, c, c, c - 2, Color("2c2e32"))
-	_fill_circle(img, c, c - 1, c - 6, Color("4a4c50"))
-	_stroke_circle(img, c, c, c - 5, HIGH_GOLD)
-	_fill_circle(img, c - 4, c - 6, 8, Color("6a6c70"))
-	_fill_circle(img, c, c + 1, 7, Color("1a1c20"))
-	_stroke_circle(img, c, c + 1, 4, Color("c9a24a"))
+	_fill_circle(img, c, c - 2, c - 8, Color("4a4c50"))
+	_stroke_circle(img, c, c, c - 4, HIGH_GOLD)
+	_stroke_circle(img, c, c, c - 7, Color("e8c86a"))
+	_fill_circle(img, c - 8, c - 10, 12, Color("6a6c70"))
+	_fill_circle(img, c, c + 2, 10, Color("1a1c20"))
+	_stroke_circle(img, c, c + 2, 6, Color("c9a24a"))
 	return ImageTexture.create_from_image(img)
 
 
