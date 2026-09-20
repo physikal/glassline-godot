@@ -72,9 +72,9 @@ ActionResult =
 ## HIGH GROUND (attacker HARD)
 - Snapshot `you.highGroundActive: boolean` — true iff **your revealed cell** is `hard`. `open` / `brush` / unknown-to-self (FoW) → `false`.
 - Attack intent stays `{ type: "attack", hex }`. Client never sends a bonus.
-- Base hit chance when the target occupies the hex: **1.0** (`BASE_HIT_CHANCE`). Empty hex: **0**.
-- Attacker on HARD → **+0.10 absolute**, one stack, clamp `[0, 1]`. Defender terrain ignored.
-- Attack result (preferred): `highGroundApplied` + final `hitChance`.
+- Base hit chance when the target occupies the hex: **0.90** (LIVE `BASE_HIT`). Empty hex: **0**.
+- Attacker on HARD → **+0.10 absolute**, one stack, clamp `[0, 1]` → occupy `hitChance` **1.0**. Defender terrain ignored.
+- Attack result: `highGroundApplied` + final `hitChance`. Applied only on an occupy roll (empty miss stays 0).
 - Guns / Decoy / Marks are blind. Client chrome binds the snapshot flag only — never invents from a local hex.
 
 ## Realtime

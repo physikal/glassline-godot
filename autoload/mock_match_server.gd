@@ -1197,11 +1197,13 @@ func _act_attack(match_state: Dictionary, seat: String, action: Dictionary) -> A
 	_reveal(match_state, seat, int(hex["q"]), int(hex["r"]))
 	var enemy: Dictionary = match_state["seats"][Contract.other_seat(seat)]
 	var hit := bool(enemy["placed"]) and Contract.same_hex(hex, enemy["hex"])
-	var applied := _high_ground_active_for(match_state, seat)
+	## LIVE: bonus only on an occupy roll. Empty hex → hitChance 0, applied false.
+	## Chip still binds snapshot you.highGroundActive, not this result flag.
+	var footing := _high_ground_active_for(match_state, seat)
+	var applied := hit and footing
 	var base := Contract.BASE_HIT_CHANCE if hit else 0.0
 	var chance := clampf(base + (Contract.HIGH_GROUND_HIT if applied else 0.0), 0.0, 1.0)
-	# Real kill path unchanged. Decoy hex is never a secret position at place-time.
-	# v0 occupy-hex base is 1.0 so +0.10 clamps; chip still reports the applied flag.
+	# Occupy kill stays deterministic in mock so existing loop tests do not flake.
 	if hit:
 		match_state["status"] = Contract.STATUS_ENDED
 		match_state["whoseTurn"] = null

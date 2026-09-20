@@ -1,7 +1,37 @@
 SMOKE_BASE https://glassline-api.vercel.app
 PASS  GET /health
 PASS  POST /players
-PASS  join/drop
-SNAP_A_YOU {"seat": "a", "hex": {"q": 2, "r": 2}, "marks": 0, "exposurePct": 50, "movedLastTurn": false, "equippedSkinId": null, "equippedDecorId": null, "equippedGunId": "gun_fieldbolt", "decoyAvailable": true, "decoyRemaining": 1, "decoyHex": null}
-NOTE  LIVE snapshot omits you.highGroundActive. HTTP GET {"matchId":"m_d56a54c9236849c0961ea8f9a2c2ddc6","status":"active","turnIndex":0,"turnCap":16,"whoseTurn":"a","phase":"await_action","uavAvailable":true,"uavRema — Coder resolve not up. Client binds the flag only; mock stills cover H3 chrome.
-LIVE_HIGH_GROUND_PENDING
+HUNT  0,0 type=brush flag=False m_4036ebee212e4c85b16a8cdea9a40983
+HUNT  1,0 type=open flag=False m_c9b90d448ec04acfaa862a013e1c8b9f
+HUNT  2,0 type=open flag=False m_6248f16315694cb5beb778985c8e98d3
+HUNT  3,0 type=open flag=False m_b82f547b28a84a56ba1d3abc41ee42ff
+HUNT  4,0 type=open flag=False m_c044d1b3f3d948869451f41cd68e8a09
+HUNT  5,0 type=hard flag=True m_d0fbcf6723cc4e78976f45ce1c7b0cde
+HUNT  0,0 type=hard flag=True m_8a5e41e2c9a14880b5466b2bd8eae7c4
+HUNT  1,0 type=open flag=False m_69b3f4ff84a24abcb63a55ef1c075853
+PASS  H1 HARD you.highGroundActive true
+PASS  H1 drop terrain hard
+PASS  H2 OPEN/BRUSH you.highGroundActive false
+PASS  H2 drop terrain open/brush
+PASS  H5 attacker HARD ignores defender brush
+PASS  H5 attacker OPEN/BRUSH ignores defender terrain
+PASS  H6 attack intent { type, hex } accepted
+PASS  H6 result.type attack
+PASS  H6 no invented top-level highGround
+PASS  H1 miss keeps snapshot flag
+PASS  H1 empty miss highGroundApplied false
+PASS  H1 empty miss hitChance 0
+PASS  H1 empty miss hit false
+PASS  H4 no Marks on miss result
+PASS  H4 Marks unchanged on miss
+PASS  H4 decoy charge untouched
+HARD_OCCUPY {"type": "attack", "hit": true, "kill": true, "decoyCleared": false, "highGroundApplied": true, "hitChance": 1}
+PASS  H1 HARD occupy accepted
+PASS  H1 HARD occupy applied
+PASS  H1 HARD occupy hitChance 1.0
+OFF_OCCUPY {"type": "attack", "hit": true, "kill": true, "decoyCleared": false, "highGroundApplied": false, "hitChance": 0.9}
+PASS  H2 OPEN/BRUSH occupy accepted
+PASS  H2 OPEN/BRUSH occupy not applied
+PASS  H2 OPEN/BRUSH occupy hitChance 0.90
+PASS  H4 HARD kill table +25 not extra
+LIVE_HIGH_GROUND_OK

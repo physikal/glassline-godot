@@ -27,16 +27,16 @@ Arch stamp 2026-09-20. Client chrome on `you.highGroundActive`.
 
 | Gate | Mock | LIVE | Notes |
 | --- | --- | --- | --- |
-| **H1** HARD attacker +10% | **PASS** | **HOLD** | Mock: `you.highGroundActive` true. Miss reports `highGroundApplied` + `hitChance` 0.10. Occupy-hex kill still 1.0 (clamp). LIVE GET omits the flag (`LIVE_HIGH_GROUND_PENDING`). |
-| **H2** OPEN / BRUSH / FoW +0 | **PASS** | **HOLD** | Flag false. Miss `highGroundApplied` false, `hitChance` 0. Omitted flag stays false. |
+| **H1** HARD attacker +10% | **PASS** | **PASS** | Flag true on HARD. Empty miss `applied` false / `hitChance` 0. Occupy `applied` true / `hitChance` **1.0**. LIVE `m_d0fbcf6723cc4e78976f45ce1c7b0cde`. |
+| **H2** OPEN / BRUSH / FoW +0 | **PASS** | **PASS** | Flag false. Occupy `applied` false / `hitChance` **0.90** (LIVE `BASE_HIT`). `m_69b3f4ff84a24abcb63a55ef1c075853`. |
 | **H3** chip snapshot-only | **PASS** | n/a | Lit reads **+10%**. Muted does not. Missing flag never invents from local HARD terrain. |
-| **H4** guns / Decoy / Marks blind | **PASS** | **HOLD** | Miss on HARD does not change Marks. UAV / Decoy charges untouched. No gun field on attack. |
-| **H5** defender ignored | **PASS** | **HOLD** | A on HARD / B on OPEN → A lit. A on BRUSH / B on HARD → A muted. |
-| **H6** attack intent unchanged | **PASS** | **HOLD** | `{ type: "attack", hex }` only. No `highGround` / `hitChance` on the intent. |
+| **H4** guns / Decoy / Marks blind | **PASS** | **PASS** | Miss Marks Δ0. Decoy charge untouched. HARD kill table **+25** (no extra). |
+| **H5** defender ignored | **PASS** | **PASS** | A HARD / B brush → A lit. A OPEN / defender ignored → A muted. |
+| **H6** attack intent unchanged | **PASS** | **PASS** | `{ type: "attack", hex }` only. No `highGround` on the intent. |
 
 Headless: `godot --headless --path . -s res://tools/headless_loop_test.gd` → `HEADLESS_LOOP_OK`.
 
-LIVE: `python3 tools/live_high_ground_smoke.py`. Hold until Coder ships `you.highGroundActive` (bare missing field → `LIVE_HIGH_GROUND_PENDING`). Mock stills are enough to merge chrome.
+LIVE: `python3 tools/live_high_ground_smoke.py` → **`LIVE_HIGH_GROUND_OK`** (Coder `4720879`, occupy `BASE_HIT` 0.90). Missing flag still prints `LIVE_HIGH_GROUND_PENDING`.
 
 ## Client map
 

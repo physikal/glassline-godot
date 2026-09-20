@@ -1669,12 +1669,21 @@ func _high_ground_case(failed: PackedStringArray) -> void:
 	_expect(failed, r.ok, "H1 attack from HARD")
 	snap = Snapshot.from_dict(r.snapshot)
 	var last: Variant = snap.last_action()
-	_expect(failed, last is Dictionary and bool(last.get("highGroundApplied", false)), "H1 highGroundApplied")
-	_expect(failed, last is Dictionary and is_equal_approx(float(last.get("hitChance", -1)), 0.10), "H1 miss hitChance 0.10")
+	_expect(failed, snap.you_high_ground_active(), "H1 miss snapshot flag still true")
+	_expect(failed, last is Dictionary and last.get("highGroundApplied") == false, "H1 empty miss does not apply")
+	_expect(failed, last is Dictionary and is_equal_approx(float(last.get("hitChance", -1)), 0.0), "H1 empty miss hitChance 0")
 	_expect(failed, last is Dictionary and last.get("hit") == false, "H1 miss still miss")
 	_expect(failed, snap.you_marks() == marks_before, "H4 miss does not change Marks")
 	_expect(failed, snap.decoy_available(), "H4 decoy charge untouched")
 	_expect(failed, snap.uav_remaining() == 1, "H4 UAV charge untouched")
+	server.apply_action(mid, pid_a, ActionIntent.end_turn(50))
+	server.apply_action(mid, pid_b, ActionIntent.recon(4, 3))
+	server.apply_action(mid, pid_b, ActionIntent.end_turn(50))
+	r = server.apply_action(mid, pid_a, ActionIntent.attack(int(open_hex.get("q", 1)), int(open_hex.get("r", 0))))
+	last = Snapshot.from_dict(r.snapshot).last_action()
+	_expect(failed, last is Dictionary and last.get("hit") == true, "H1 HARD occupy hits")
+	_expect(failed, last is Dictionary and last.get("highGroundApplied") == true, "H1 HARD occupy applied")
+	_expect(failed, last is Dictionary and is_equal_approx(float(last.get("hitChance", -1)), 1.0), "H1 HARD occupy hitChance 1.0")
 
 	## Client never invents from a local HARD hex when the flag is omitted.
 	var invented: Snapshot = Snapshot.from_dict({
@@ -1712,9 +1721,16 @@ func _high_ground_case(failed: PackedStringArray) -> void:
 	last = Snapshot.from_dict(r.snapshot).last_action()
 	_expect(failed, last is Dictionary and last.get("highGroundApplied") == false, "H2 OPEN highGroundApplied false")
 	_expect(failed, last is Dictionary and is_equal_approx(float(last.get("hitChance", -1)), 0.0), "H2 OPEN miss hitChance 0")
-
 	server.apply_action(fid, pa, ActionIntent.end_turn(50))
-	## Brush drop via relocate? B is already HARD. Fresh match for BRUSH attacker.
+	server.apply_action(fid, pb, ActionIntent.recon(4, 3))
+	server.apply_action(fid, pb, ActionIntent.end_turn(50))
+	r = server.apply_action(fid, pa, ActionIntent.attack(int(hard2.get("q", 1)), int(hard2.get("r", 0))))
+	last = Snapshot.from_dict(r.snapshot).last_action()
+	_expect(failed, last is Dictionary and last.get("hit") == true, "H2 OPEN occupy still hits (mock deterministic)")
+	_expect(failed, last is Dictionary and last.get("highGroundApplied") == false, "H2 OPEN occupy not applied")
+	_expect(failed, last is Dictionary and is_equal_approx(float(last.get("hitChance", -1)), Contract.BASE_HIT_CHANCE), "H2 OPEN occupy hitChance 0.90")
+
+	## Brush drop. Fresh match for BRUSH attacker.
 	server.clear_all()
 	var third: Dictionary = server.create_match()
 	var tid := str(third.get("matchId", ""))

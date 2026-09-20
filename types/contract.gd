@@ -67,8 +67,8 @@ const HIGH_GROUND_LABEL := "HIGH GROUND"
 const HIGH_GROUND_SUB := "+10%"
 const HIGH_GROUND_COPY := "HARD footing. Server +10% hit."
 const HIGH_GROUND_MUTED_COPY := "Not on HARD. No hit bonus."
-## Occupy-hex base. HIGH GROUND is +0.10 absolute, one stack, clamp [0, 1].
-const BASE_HIT_CHANCE := 1.0
+## LIVE occupy-hex base (Coder 4720879). HARD adds +0.10, one stack, clamp [0, 1].
+const BASE_HIT_CHANCE := 0.90
 const HIGH_GROUND_HIT := 0.10
 
 ## Mock hideout stub until Coder's ledger / GET wallet exists.
