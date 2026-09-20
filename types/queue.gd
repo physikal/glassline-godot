@@ -13,6 +13,7 @@ var join_token: String = ""
 var seat: String = ""
 var player_id: String = ""
 var queued_at: String = ""
+var expires_at: String = ""
 var timeout_sec: int = Contract.QUEUE_TTL_SEC
 var seconds_left: int = -1
 var snapshot: Dictionary = {}
@@ -41,8 +42,11 @@ func _ingest(bag: Dictionary) -> void:
 	seat = str(bag.get("seat", ""))
 	player_id = str(bag.get("playerId", ""))
 	queued_at = str(bag.get("queuedAt", ""))
+	expires_at = str(bag.get("expiresAt", ""))
 	timeout_sec = int(bag.get("timeoutSec", Contract.QUEUE_TTL_SEC))
 	timed_out = bool(bag.get("timedOut", false))
+	if status == Contract.QUEUE_EXPIRED:
+		timed_out = true
 	var q: Variant = bag.get("queue", {})
 	if q is Dictionary:
 		if status == "":
@@ -120,7 +124,7 @@ func is_idle() -> bool:
 
 
 func is_timeout() -> bool:
-	if timed_out or status == Contract.QUEUE_TIMEOUT:
+	if timed_out or status in [Contract.QUEUE_TIMEOUT, Contract.QUEUE_EXPIRED]:
 		return true
 	if is_queued() and seconds_left == 0:
 		return true
@@ -139,6 +143,8 @@ func is_reject() -> bool:
 	return code_name in [
 		Contract.QUEUE_ERR_MATCHED,
 		Contract.QUEUE_ERR_FORBIDDEN,
+		Contract.QUEUE_ERR_IN_MATCH,
+		Contract.QUEUE_ERR_IN_LOBBY,
 		"already_in_queue",
 		"queue_full",
 	] or error != ""

@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """LIVE Q1–Q5 smoke for Quick Match queue.
 
-Coder contract (ticket 2026-09-20):
-  POST   /queue + player Bearer → { status: queued, queuedAt, timeoutSec: 60 }
-  GET    /queue → queue { status, secondsLeft } or matched { matchId, joinToken }
-  DELETE /queue → { status: idle }
-  60s TTL. Pair two waiting players → existing match path. No bot fill.
-  Cancel / timeout → hideout, Marks Δ0.
+Coder LIVE (glassline-api queue.ts, 2026-09-20):
+  POST   /queue Bearer player → 200 { status: queued, queuedAt, timeoutSec: 60, expiresAt }
+           or 200 { status: matched, matchId, joinToken, seat, snapshot }
+  GET    /queue → idle | queued+secondsLeft | matched | expired (once, then idle)
+  DELETE /queue → 200 { status: idle }  (waiting rows only; Marks Δ0)
+  60s TTL. Pair two humans → ready PvP. No bot fill.
+  409 already_in_match | in_lobby. 401 missing bearer.
 
-Curl LIVE first. Bare 404 (no queue_not_found) → LIVE_QUEUE_PENDING.
+Bare 404 → LIVE_QUEUE_PENDING.
 """
 
 from __future__ import annotations
@@ -16,10 +17,12 @@ from __future__ import annotations
 import json
 import os
 import sys
+import time
 import urllib.error
 import urllib.request
 
 BASE = os.environ.get("GLASSLINE_API_BASE", "https://glassline-api.vercel.app").rstrip("/")
+SKIP_TTL = os.environ.get("GLASSLINE_QUEUE_SKIP_TTL", "").lower() in ("1", "true", "yes")
 FAILS: list[str] = []
 NOTES: list[str] = []
 PASS_N = 0
@@ -85,9 +88,8 @@ def marks_of(body: dict) -> int | None:
 
 
 def mint_player() -> tuple[dict, str]:
-    status, body, raw = req("POST", "/players", {})
-    token = str(body.get("token", ""))
-    return body, token
+    status, body, _raw = req("POST", "/players", {})
+    return body, str(body.get("token", ""))
 
 
 def wallet_marks(token: str, fallback: int | None) -> int | None:
@@ -161,76 +163,105 @@ def main() -> int:
         return pending("POST /players failed")
     EVIDENCE["host"] = host.get("playerId")
     EVIDENCE["guest"] = guest.get("playerId")
-
     marks_before = wallet_marks(host_tok, marks_of(host) or 0)
+
+    idle_s, idle, _ = req("GET", "/queue", None, host_tok)
+    expect(idle_s == 200 and str(idle.get("status", "")) == "idle", "Q1 GET idle first", str(idle))
 
     q_s, queued, _ = req("POST", "/queue", {}, host_tok)
     if is_route_missing(q_s, queued):
         return pending(f"POST /queue + bearer {q_s}")
-    expect(q_s in (200, 201), "Q1 POST /queue", str(queued))
+    expect(q_s == 200, "Q1 POST /queue", str(queued))
     expect(str(queued.get("status", "")) == "queued", "Q1 status queued", str(queued))
     expect(int(queued.get("timeoutSec", 0)) == 60, "Q1 timeoutSec 60", str(queued))
+    expect(str(queued.get("expiresAt", "")) != "", "Q1 expiresAt")
     expect(str(queued.get("matchId", "")) == "", "Q1 no match yet")
     expect(marks_of(queued) in (None, marks_before), "Q1 enqueue Marks frozen")
     EVIDENCE["enqueue"] = queued
 
     poll_s, poll, _ = req("GET", "/queue", None, host_tok)
-    if poll_s == 404 and is_route_missing(poll_s, poll):
-        note("GET /queue 404 — poll via POST replay / events when Coder adds it")
-    elif poll_s == 200:
-        expect(str(poll.get("status", "")) in ("queued", "idle"), "Q1 GET still waiting", str(poll))
-        expect(str(poll.get("matchId", "")) == "", "Q5 GET no bot fill")
+    expect(poll_s == 200 and str(poll.get("status", "")) == "queued", "Q1 GET still queued", str(poll))
+    expect(int(poll.get("secondsLeft", -1)) > 0, "Q1 secondsLeft", str(poll))
+    expect(str(poll.get("matchId", "")) == "", "Q5 GET no bot fill")
+    expect(wallet_marks(host_tok, marks_before) == marks_before, "Q5 lonely Marks Δ0")
 
     g_s, guest_q, _ = req("POST", "/queue", {}, guest_tok)
-    expect(g_s in (200, 201), "Q2 guest POST /queue", str(guest_q))
-    match_id = str(guest_q.get("matchId", "") or queued.get("matchId", ""))
+    expect(g_s == 200, "Q2 guest POST /queue", str(guest_q))
+    expect(str(guest_q.get("status", "")) == "matched", "Q2 guest matched now", str(guest_q))
+    match_id = str(guest_q.get("matchId", ""))
     join_b = str(guest_q.get("joinToken", ""))
-    if str(guest_q.get("status", "")) == "queued":
-        for _i in range(8):
-            gs, gb, _ = req("GET", "/queue", None, guest_tok)
-            hs, hb, _ = req("GET", "/queue", None, host_tok)
-            if str(gb.get("status", "")) in ("matched", "ready") or str(gb.get("matchId", "")):
-                guest_q = gb
-                match_id = str(gb.get("matchId", match_id))
-                join_b = str(gb.get("joinToken", join_b))
-            if str(hb.get("status", "")) in ("matched", "ready") or str(hb.get("matchId", "")):
-                queued = hb
-                match_id = str(hb.get("matchId", match_id))
-            if match_id:
-                break
-    expect(match_id != "", "Q2 paired matchId", str(guest_q))
-    expect(join_b != "" or str(queued.get("joinToken", "")) != "", "Q2 joinToken")
-    EVIDENCE["matchId"] = match_id
+    expect(match_id.startswith("m_"), "Q2 matchId m_", match_id)
+    expect(join_b != "", "Q2 guest joinToken")
+    expect(str(guest_q.get("seat", "")) == "b", "Q2 guest seat B")
+    snap_b = guest_q.get("snapshot") if isinstance(guest_q.get("snapshot"), dict) else {}
+    expect(str(snap_b.get("status", "")) == "ready", "Q2 snapshot ready")
+    expect(str(snap_b.get("kind", "")) == "pvp", "Q2 kind pvp")
+    expect(marks_of(guest_q) in (None, 0), "Q2 pair Marks frozen")
 
-    if match_id:
-        tok_a = str(queued.get("joinToken", ""))
-        tok_b = join_b
-        if tok_a and tok_b:
-            a_s, a_body, _ = req(
-                "POST",
-                f"/matches/{match_id}/actions",
-                {"type": "select_hex", "hex": {"q": 2, "r": 2}},
-                tok_a,
-            )
-            expect(a_s == 200, "Q2 A select_hex", str(a_body))
-            b_s, b_body, _ = req(
-                "POST",
-                f"/matches/{match_id}/actions",
-                {"type": "select_hex", "hex": {"q": 7, "r": 5}},
-                tok_b,
-            )
-            expect(b_s == 200, "Q2 B select_hex", str(b_body))
+    h_s, host_q, _ = req("GET", "/queue", None, host_tok)
+    expect(h_s == 200 and str(host_q.get("status", "")) == "matched", "Q2 host GET matched", str(host_q))
+    expect(str(host_q.get("matchId", "")) == match_id, "Q2 same matchId")
+    join_a = str(host_q.get("joinToken", ""))
+    expect(join_a != "" and join_a != join_b, "Q2 host own joinToken")
+    expect(str(host_q.get("seat", "")) == "a", "Q2 host seat A")
+    EVIDENCE["matchId"] = match_id
+    EVIDENCE["seats"] = {"a": host_q.get("seat"), "b": guest_q.get("seat")}
+
+    if match_id and join_a and join_b:
+        a_s, a_body, _ = req(
+            "POST",
+            f"/matches/{match_id}/actions",
+            {"type": "select_hex", "hex": {"q": 2, "r": 2}},
+            join_a,
+        )
+        expect(a_s == 200, "Q2 A select_hex", str(a_body))
+        b_s, b_body, _ = req(
+            "POST",
+            f"/matches/{match_id}/actions",
+            {"type": "select_hex", "hex": {"q": 7, "r": 5}},
+            join_b,
+        )
+        expect(b_s == 200, "Q2 B select_hex", str(b_body))
+        snap = b_body.get("snapshot") if isinstance(b_body.get("snapshot"), dict) else {}
+        expect(str(snap.get("status", "")) in ("ready", "active"), "Q2 drop still match path", str(snap.get("status")))
+
+    leftover, leftover_tok = mint_player()
+    l_s, leftover_q, _ = req("POST", "/queue", {}, leftover_tok)
+    expect(l_s == 200 and str(leftover_q.get("status", "")) == "queued", "Q5 third player not bot-filled", str(leftover_q))
+    expect(str(leftover_q.get("matchId", "")) == "", "Q5 leftover no matchId")
+    req("DELETE", "/queue", None, leftover_tok)
 
     host2, host2_tok = mint_player()
     marks2 = wallet_marks(host2_tok, marks_of(host2) or 0)
     c_s, cancel_q, _ = req("POST", "/queue", {}, host2_tok)
-    expect(c_s in (200, 201), "Q3 enqueue for cancel", str(cancel_q))
+    expect(c_s == 200 and str(cancel_q.get("status", "")) == "queued", "Q3 enqueue for cancel", str(cancel_q))
     d_s, deleted, _ = req("DELETE", "/queue", None, host2_tok)
-    expect(d_s in (200, 204), "Q3 DELETE /queue", str(deleted))
-    expect(str(deleted.get("status", "idle")) in ("idle", ""), "Q3 idle", str(deleted))
+    expect(d_s == 200, "Q3 DELETE /queue", str(deleted))
+    expect(str(deleted.get("status", "")) == "idle", "Q3 idle", str(deleted))
+    d2_s, deleted2, _ = req("DELETE", "/queue", None, host2_tok)
+    expect(d2_s == 200 and str(deleted2.get("status", "")) == "idle", "Q3 re-DELETE idle")
     after = wallet_marks(host2_tok, marks2)
     expect(after == marks2, "Q3 cancel Marks Δ0", f"{marks2}->{after}")
     EVIDENCE["cancel_marks"] = {"before": marks2, "after": after}
+
+    ttl, ttl_tok = mint_player()
+    marks_ttl = wallet_marks(ttl_tok, marks_of(ttl) or 0)
+    t_s, ttl_q, _ = req("POST", "/queue", {}, ttl_tok)
+    expect(t_s == 200 and str(ttl_q.get("status", "")) == "queued", "Q4 enqueue for TTL", str(ttl_q))
+    if SKIP_TTL:
+        note("Q4 skip real 60s wait (GLASSLINE_QUEUE_SKIP_TTL)")
+    else:
+        note("Q4 waiting 61s for LIVE TTL")
+        time.sleep(61)
+        exp_s, expired, _ = req("GET", "/queue", None, ttl_tok)
+        expect(exp_s == 200, "Q4 GET after TTL", str(expired))
+        expect(str(expired.get("status", "")) in ("expired", "idle"), "Q4 expired or idle", str(expired))
+        expect(str(expired.get("matchId", "")) == "", "Q4 no match on timeout")
+        idle2_s, idle2, _ = req("GET", "/queue", None, ttl_tok)
+        expect(idle2_s == 200 and str(idle2.get("status", "")) == "idle", "Q4 next poll idle", str(idle2))
+        after_ttl = wallet_marks(ttl_tok, marks_ttl)
+        expect(after_ttl == marks_ttl, "Q4 timeout Marks Δ0", f"{marks_ttl}->{after_ttl}")
+        EVIDENCE["timeout_marks"] = {"before": marks_ttl, "after": after_ttl, "first": expired}
 
     if FAILS:
         print("LIVE_QUEUE_FAIL " + "; ".join(FAILS))
@@ -238,7 +269,8 @@ def main() -> int:
         return 1
     print(
         f"LIVE_QUEUE_OK host={host.get('playerId')} guest={guest.get('playerId')} "
-        f"match={match_id} cancel_marks={EVIDENCE.get('cancel_marks')}"
+        f"match={match_id} cancel_marks={EVIDENCE.get('cancel_marks')} "
+        f"timeout_marks={EVIDENCE.get('timeout_marks')}"
     )
     write_log(True)
     return 0

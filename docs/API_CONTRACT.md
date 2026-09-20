@@ -126,18 +126,17 @@ Errors: **400** `invalid_lobby_code` / `invalid_join_body` · **404** `lobby_not
 
 Bare `POST /lobbies` 404 (no `lobby_not_found`) → route missing; mock. Prefer LIVE smoke once 200/201.
 
-## Quick Match (client 2026-09-20; LIVE `/queue` pending Coder)
-`POST /queue` Bearer **player** → `{ status: "queued", queuedAt, timeoutSec: 60 }`.
+## Quick Match (LIVE 2026-09-20, Coder `queue.ts`)
+`POST /queue` Bearer **player** → **200** `{ status: queued, queuedAt, timeoutSec: 60, expiresAt }`
+or **200** `{ status: matched, matchId, joinToken, seat, snapshot }` (match snap, `ready`).
 
-`GET /queue` poll. Waiting keeps `queue: { status, secondsLeft }`. Found → `{ status: "matched", matchId, joinToken, snapshot }` (existing match path).
+`GET /queue` → `idle` | queued + `secondsLeft` | `matched` | **`expired`** (once, then idle).
 
-`DELETE /queue` → `{ status: "idle" }`. Hideout. **No** forfeit Marks.
+`DELETE /queue` → **200** `{ status: idle }`. Waiting rows only. **Marks Δ0**.
 
-TTL **60s** → dequeue + hideout signal. Marks Δ0. **No bot fill.** Idempotent re-queue while already queued **refreshes TTL** (mock pick; Coder may no-op — document).
+TTL **60s**. Re-POST while queued **refreshes `expiresAt`** (keeps `queuedAt`). **No bot fill.** Pair two humans → existing drop / rematch / A4.
 
-Errors: **401** · **409** `queue_already_matched` after handoff · bare `POST /queue` **404** → `queue_unavailable` (route missing). No MMR / party / paid skip.
-
-Prefer LIVE smoke once 200/201. Bare 404 → mock + stills.
+Errors: **401** · **409** `already_in_match` / `in_lobby`. Bare 404 → `queue_unavailable`.
 
 ## Other REST
 - `GET /health` → `{ ok: true }`
@@ -145,4 +144,4 @@ Prefer LIVE smoke once 200/201. Bare 404 → mock + stills.
 - `POST /matches/:id/abandon` → join Bearer, no body
 - `POST /matches/:id/rematch` → `{ accept }` + join-token Bearer (player token fallback)
 - `POST /lobbies` · `POST /lobbies/join` · `GET /lobbies/:id` · `POST /lobbies/:id/cancel`
-- `POST /queue` · `GET /queue` · `DELETE /queue` (LIVE pending Coder; mock implements)
+- `POST /queue` · `GET /queue` · `DELETE /queue`

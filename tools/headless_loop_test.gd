@@ -514,6 +514,7 @@ func _queue_case(failed: PackedStringArray) -> void:
 	_expect(failed, bool(one.get("ok", false)), "Q1 enqueue ok")
 	_expect(failed, str(one.get("status", "")) == Contract.QUEUE_QUEUED, "Q1 status queued")
 	_expect(failed, int(one.get("timeoutSec", 0)) == 60, "Q1 timeoutSec 60")
+	_expect(failed, str(one.get("expiresAt", "")) != "", "Q1 expiresAt")
 	_expect(failed, str(one.get("matchId", "")) == "", "Q1 no match yet")
 	_expect(failed, int(one.get("marks", -1)) == 24, "Q1 Marks unchanged")
 	_expect(failed, parsed.is_queued(), "Q1 parser queued")
@@ -555,7 +556,8 @@ func _queue_case(failed: PackedStringArray) -> void:
 	_expect(failed, Contract.is_match_snapshot(host_ready.get("snapshot", {}), str(host_ready.get("matchId", ""))), "Q2 match snap")
 	_expect(failed, server.account_marks == 24, "Q2 pair Marks frozen")
 	var started: Dictionary = server.dequeue("p_host")
-	_expect(failed, str(started.get("code", "")) == Contract.QUEUE_ERR_MATCHED, "Q2 dequeue after pair 409")
+	_expect(failed, str(started.get("status", "")) == Contract.QUEUE_IDLE, "Q2 DELETE after pair idle")
+	_expect(failed, str(server.get_queue("p_host").get("status", "")) == Contract.QUEUE_MATCHED, "Q2 matched row stays")
 	_expect(failed, server.account_marks == 24, "Q2 started-dequeue Marks frozen")
 	var mid := str(host_ready.get("matchId", ""))
 	var pid_a := "p_host"
@@ -603,7 +605,7 @@ func _queue_case(failed: PackedStringArray) -> void:
 	before_ids = server._matches.keys()
 	server.test_now_ms = 1000 + Contract.QUEUE_TTL_MS + 50
 	var aged: Dictionary = server.get_queue("p_host")
-	_expect(failed, str(aged.get("status", "")) == Contract.QUEUE_TIMEOUT, "Q4 TTL timeout")
+	_expect(failed, str(aged.get("status", "")) == Contract.QUEUE_EXPIRED, "Q4 TTL expired")
 	_expect(failed, bool(aged.get("timedOut", false)), "Q4 timedOut flag")
 	_expect(failed, server.account_marks == 18, "Q4 timeout Marks frozen")
 	_expect(failed, server._matches.keys() == before_ids, "Q4 timeout minted no match")

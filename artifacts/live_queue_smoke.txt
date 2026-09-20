@@ -1,7 +1,24 @@
 {
-  "pending": "POST /queue 404 404 Not Found",
+  "ok": true,
   "base": "https://glassline-api.vercel.app",
+  "pass": 14,
+  "fails": [],
+  "notes": [
+    "POST /queue no-auth 401 (route up)"
+  ],
   "evidence": {
-    "pending": "POST /queue 404 404 Not Found"
+    "host": "p_a1e50f3173c049669dd05c78b82d1194",
+    "guest": "p_5241bcefd9c14d018496fe4826fc5012",
+    "enqueue": {
+      "status": "queued",
+      "queuedAt": "2026-09-20T17:40:48.330Z",
+      "timeoutSec": 60,
+      "expiresAt": "2026-09-20T17:41:48.330Z"
+    },
+    "matchId": "m_5583a3e790ea4f31a9473a45d963964f",
+    "cancel_marks": {
+      "before": 0,
+      "after": 0
+    }
   }
 }

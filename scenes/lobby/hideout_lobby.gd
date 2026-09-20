@@ -1388,6 +1388,12 @@ func _on_quick_match() -> void:
 	if q.is_unavailable():
 		_toast_msg("LIVE /queue pending Coder  ·  mock QUICK MATCH on F2")
 		return
+	if q.code_name == Contract.QUEUE_ERR_IN_MATCH:
+		_toast_msg("Already in a hunt.")
+		return
+	if q.code_name == Contract.QUEUE_ERR_IN_LOBBY:
+		_toast_msg("Finish the invite first.")
+		return
 	if q.is_matched():
 		_enter_queue_match(body)
 		return

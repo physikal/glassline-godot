@@ -379,7 +379,8 @@ func enqueue(player_id: String = "") -> Dictionary:
 		var existing: Dictionary = _queue[player_id]
 		if str(existing.get("status", "")) == Contract.QUEUE_MATCHED:
 			return _queue_payload(player_id)
-		existing["queuedAtMs"] = _now_ms()
+		## LIVE: re-POST refreshes expiresAt, keeps queuedAt.
+		existing["expiresAtMs"] = _now_ms() + Contract.QUEUE_TTL_MS
 		_try_schedule_queue_pair()
 		_complete_queue_pairs()
 		return _queue_payload(player_id)
@@ -387,6 +388,7 @@ func enqueue(player_id: String = "") -> Dictionary:
 		"playerId": player_id,
 		"status": Contract.QUEUE_QUEUED,
 		"queuedAtMs": _now_ms(),
+		"expiresAtMs": _now_ms() + Contract.QUEUE_TTL_MS,
 		"matchId": "",
 		"seat": "",
 	}
@@ -410,13 +412,13 @@ func get_queue(player_id: String = "") -> Dictionary:
 
 
 func dequeue(player_id: String = "") -> Dictionary:
-	## DELETE /queue — hideout. Marks Δ0. Already paired → 409.
+	## LIVE DELETE /queue — idle. Waiting rows drop. Matched rows stay. Marks Δ0.
 	if player_id == "":
 		player_id = "p_mock"
 	_expire_queue()
 	_complete_queue_pairs()
 	if _queue.has(player_id) and str(_queue[player_id].get("status", "")) == Contract.QUEUE_MATCHED:
-		return _queue_reject(Contract.QUEUE_ERR_MATCHED, player_id)
+		return {"ok": true, "status": Contract.QUEUE_IDLE, "marks": account_marks}
 	_drop_queue_player(player_id)
 	_queue_timed_out.erase(player_id)
 	return _queue_idle(player_id, false)
@@ -503,7 +505,8 @@ func _expire_queue() -> void:
 		var row: Dictionary = _queue[pid]
 		if str(row.get("status", "")) != Contract.QUEUE_QUEUED:
 			continue
-		if now - int(row.get("queuedAtMs", 0)) >= Contract.QUEUE_TTL_MS:
+		var exp := int(row.get("expiresAtMs", int(row.get("queuedAtMs", 0)) + Contract.QUEUE_TTL_MS))
+		if now >= exp:
 			gone.append(str(pid))
 	for pid in gone:
 		_drop_queue_player(str(pid))
@@ -528,15 +531,23 @@ func _drop_queue_player(player_id: String) -> void:
 func _queue_seconds_left(row: Dictionary) -> int:
 	if str(row.get("status", "")) != Contract.QUEUE_QUEUED:
 		return 0
-	var age := _now_ms() - int(row.get("queuedAtMs", 0))
-	return maxi(0, int(ceili(float(Contract.QUEUE_TTL_MS - age) / 1000.0)))
+	var exp := int(row.get("expiresAtMs", int(row.get("queuedAtMs", 0)) + Contract.QUEUE_TTL_MS))
+	return maxi(0, int(ceili(float(exp - _now_ms()) / 1000.0)))
+
+
+func _queue_iso_from_ms(at_ms: int) -> String:
+	var delta := at_ms - _now_ms()
+	var unix := int(Time.get_unix_time_from_system()) + int(delta / 1000)
+	return Time.get_datetime_string_from_unix_time(unix, true) + "Z"
 
 
 func _queue_queued_iso(row: Dictionary) -> String:
-	var queued := int(row.get("queuedAtMs", _now_ms()))
-	var ago_ms := maxi(0, _now_ms() - queued)
-	var unix := int(Time.get_unix_time_from_system()) - int(ago_ms / 1000)
-	return Time.get_datetime_string_from_unix_time(unix, true) + "Z"
+	return _queue_iso_from_ms(int(row.get("queuedAtMs", _now_ms())))
+
+
+func _queue_expires_iso(row: Dictionary) -> String:
+	var exp := int(row.get("expiresAtMs", int(row.get("queuedAtMs", _now_ms())) + Contract.QUEUE_TTL_MS))
+	return _queue_iso_from_ms(exp)
 
 
 func _queue_payload(player_id: String) -> Dictionary:
@@ -556,6 +567,7 @@ func _queue_payload(player_id: String) -> Dictionary:
 		"error": "",
 		"status": st,
 		"queuedAt": _queue_queued_iso(row),
+		"expiresAt": _queue_expires_iso(row),
 		"timeoutSec": Contract.QUEUE_TTL_SEC,
 		"secondsLeft": left,
 		"queue": q,
@@ -588,7 +600,8 @@ func _queue_payload(player_id: String) -> Dictionary:
 
 
 func _queue_idle(player_id: String, timed_out: bool) -> Dictionary:
-	var st := Contract.QUEUE_TIMEOUT if timed_out else Contract.QUEUE_IDLE
+	## LIVE: TTL first poll is { status: expired }, then idle.
+	var st := Contract.QUEUE_EXPIRED if timed_out else Contract.QUEUE_IDLE
 	var q := {"status": st, "secondsLeft": 0, "timedOut": timed_out}
 	return {
 		"ok": true,

@@ -61,7 +61,7 @@ GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_shop_equi
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_decoy_smoke.py      # D1–D5 decoy LIVE_DECOY_OK
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_rematch_smoke.py    # R1–R5 rematch; curl first (404 → PENDING)
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_lobby_smoke.py      # P1–P5 private lobby LIVE; curl first (bare 404 → PENDING)
-GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_queue_smoke.py      # Q1–Q5 Quick Match; curl first (bare 404 → PENDING)
+GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_queue_smoke.py      # Q1–Q5 Quick Match LIVE_QUEUE_OK (61s Q4 TTL)
 GLASSLINE_USE_LIVE_API=1 godot --headless --path . res://tools/live_shop_test.tscn
 ```
 
@@ -86,6 +86,9 @@ Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` 
 | POST | `/lobbies/join` | `{ code }` + player Bearer → seat B; both seated → `ready { matchId, joinToken, snapshot }` |
 | GET | `/lobbies/:id` | Host poll. Ready returns this seat’s `joinToken`. |
 | POST | `/lobbies/:id/cancel` | Waiting → hideout, **no** forfeit Marks. After ready → 409 `lobby_already_started`. |
+| POST | `/queue` | Bearer **player** → **200** `{ status: queued, queuedAt, timeoutSec: 60, expiresAt }` or `{ status: matched, matchId, joinToken, seat, snapshot }`. Re-POST refreshes `expiresAt`. **409** `already_in_match` / `in_lobby`. |
+| GET | `/queue` | Bearer **player** → `idle` \| `queued` + `secondsLeft` \| `matched` \| `expired` (once, then idle). |
+| DELETE | `/queue` | Waiting → hideout, **Marks Δ0**. Always `{ status: idle }`. Matched row stays. |
 | GET | `/matches/:id` | caller-scoped snapshot (reconnect / dummy seat) |
 | GET | `/matches/:id/events` | SSE `{ event: snapshot\|your_turn, snapshot }` — on drop, poll `GET /matches/:id` |
 | POST | `/jobs` | `{ tier: 1\|2\|3, clientJobId? }` + Bearer player token reuses that `playerId`. Credit is job **end**, not this POST. |
@@ -120,7 +123,7 @@ Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` 
 7. ATTACK that hex → `hit` / `kill`. End overlay reads server `payout` (`marks`, `marksDelta`, `reason`) — never local `marks +=`.
 8. Ended PvP: **PLAY AGAIN** / **DECLINE**. Marks already settled. Both accept → new `matchId` + salt, drop again. Decline or 30s → hideout. Notes: `artifacts/REMATCH_NOTES.md`.
 
-Hideout **QUICK MATCH** is 1-tap `POST /queue` (60s TTL, no bot fill). Cozy “Finding a rival…” wartable — cancel or timeout returns hideout with Marks Δ0. Pair hands off the same drop / rematch / A4 path as private lobby. LIVE `/queue` 404 → mock. Notes: `QUICK_MATCH_NOTES.md`.
+Hideout **QUICK MATCH** is 1-tap `POST /queue` (60s TTL, no bot fill). Cozy “Finding a rival…” wartable — cancel or timeout returns hideout with Marks Δ0. Pair hands off the same drop / rematch / A4 path as private lobby. LIVE `https://glassline-api.vercel.app` (Coder `queue.ts`). Notes: `QUICK_MATCH_NOTES.md`.
 
 Hideout **INVITE** is the private lobby: **CREATE LOBBY** shows a chunky copy-able code; **JOIN** takes a 6-char code. Cancel/leave returns to the hideout (no A4 forfeit). Ready uses the existing drop. Notes: `artifacts/PRIVATE_LOBBY_NOTES.md`.
 
