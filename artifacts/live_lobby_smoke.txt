@@ -1,13 +1,62 @@
 {
-  "pending": "lobbies_404",
+  "ok": true,
   "base": "https://glassline-api.vercel.app",
+  "pass": 42,
+  "fails": [],
+  "notes": [],
   "evidence": {
-    "host": "p_c9e6f03c7918477c907b451e7dbc9c4e",
-    "guest": "p_6880fc8bfae947de87748260f5647e9e",
-    "create_status": 404,
-    "create_body": {
-      "error": "404 Not Found"
+    "probe_unauth": {
+      "status": 401,
+      "body": {
+        "error": "missing bearer token"
+      }
     },
-    "pending": "lobbies_404"
+    "host": "p_8260535092704737a47af9ced79adc01",
+    "guest": "p_50b7eb9321804fa79d3d418829192df5",
+    "host_marks_start": 0,
+    "guest_marks_start": 0,
+    "create_status": 201,
+    "create_body": {
+      "lobbyId": "lob_461e26857b6441b884ddc32acc625288",
+      "code": "V8VFY6",
+      "status": "waiting",
+      "expiresAt": "2026-09-20T06:13:23.938Z",
+      "snapshot": {
+        "lobbyId": "lob_461e26857b6441b884ddc32acc625288",
+        "code": "V8VFY6",
+        "status": "waiting",
+        "you": {
+          "playerId": "p_8260535092704737a47af9ced79adc01",
+          "seat": "a"
+        },
+        "opponent": null,
+        "matchId": null
+      }
+    },
+    "code": "V8VFY6",
+    "lobbyId": "lob_461e26857b6441b884ddc32acc625288",
+    "join_status": 200,
+    "join_body": {
+      "status": "ready",
+      "matchId": "m_5c0affb666df4e98863edda34dac60d3",
+      "joinToken": "eH0Xo7_vXLp-bCTncR53kb2c-AVe5rJi",
+      "seat": "b",
+      "lobbyId": "lob_461e26857b6441b884ddc32acc625288"
+    },
+    "matchId": "m_5c0affb666df4e98863edda34dac60d3",
+    "cancel_status": 200,
+    "cancel_body": {
+      "ok": true,
+      "status": "cancelled"
+    },
+    "cancel_marks": {
+      "before": 0,
+      "after": 0
+    },
+    "p3": {
+      "select_a": 200,
+      "select_b": 200,
+      "attack": 200
+    }
   }
 }

@@ -111,16 +111,20 @@ POST shapes (Coder PR #9 / LIVE):
 - Already `ended` → 409 `match_already_ended` (idempotent: no second grant). Client GET-replays.
 - Rematch still ended-only (409 `match_not_ended` while `active`).
 
-## Private lobby (Coder pending 2026-09-20)
-`POST /lobbies` Bearer **player** → `{ lobbyId, code, snapshot }` status `waiting`.
+## Private lobby (LIVE 2026-09-20, glassline-api #11)
+`POST /lobbies` Bearer **player** → **201** `{ lobbyId: lob_…, code, status: waiting, expiresAt, snapshot }`.
 
-Code: **6** uppercase alphanumeric, exclude `0O1I`. TTL **10 min**. No ranked.
+Code: **6** uppercase, alphabet `23456789ABCDEFGHJKLMNPQRSTUVWXYZ` (no `0O1I`). TTL **10 min**. No ranked.
 
-`POST /lobbies/join` `{ code }` → seat B; both seated → `{ status: "ready", matchId, joinToken, snapshot }`.
+`POST /lobbies/join` `{ code }` → seat B; both seated → **200** `{ status: ready, matchId, joinToken, seat: b, snapshot }` (match snap).
 
-`GET /lobbies/:id` host poll. `POST /lobbies/:id/cancel` → hideout, **no** forfeit Marks.
+`GET /lobbies/:id` host poll. Ready keeps a **lobby** snap + top-level `matchId` / `joinToken`.
 
-Curl LIVE first. `404` → mock. Prefer LIVE smoke once 200.
+`POST /lobbies/:id/cancel` waiting → **200** `{ ok, status: cancelled }`. After handoff → **409** `lobby_already_started`. **No** forfeit Marks.
+
+Errors: **400** `invalid_lobby_code` / `invalid_join_body` · **404** `lobby_not_found` · **409** `lobby_expired` / `lobby_full` / `already_in_lobby` / `lobby_cancelled` / `lobby_already_started` · **401** missing bearer · **403** `not_member`.
+
+Bare `POST /lobbies` 404 (no `lobby_not_found`) → route missing; mock. Prefer LIVE smoke once 200/201.
 
 ## Other REST
 - `GET /health` → `{ ok: true }`

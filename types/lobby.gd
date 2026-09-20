@@ -41,10 +41,19 @@ func _ingest(bag: Dictionary) -> void:
 		]:
 			http_status = int(bag.get("httpStatus", 0))
 	error = str(bag.get("error", ""))
-	code_name = str(bag.get("code", error))
+	var raw_code := str(bag.get("code", ""))
+	if error != "":
+		code_name = raw_code if raw_code != "" else error
+	elif raw_code != "" and not Contract.is_lobby_code(raw_code) and raw_code.find("_") >= 0:
+		code_name = raw_code
+	else:
+		code_name = error
 	status = str(bag.get("status", ""))
 	lobby_id = str(bag.get("lobbyId", bag.get("id", "")))
-	code = Contract.normalize_lobby_code(str(bag.get("code", bag.get("inviteCode", ""))))
+	var invite := str(bag.get("inviteCode", ""))
+	if invite == "" and Contract.is_lobby_code(raw_code):
+		invite = raw_code
+	code = Contract.normalize_lobby_code(invite)
 	match_id = str(bag.get("matchId", bag.get("newMatchId", "")))
 	join_token = str(bag.get("joinToken", ""))
 	seat = str(bag.get("seat", ""))
@@ -114,8 +123,8 @@ func is_expired() -> bool:
 
 
 func is_unavailable() -> bool:
-	return error == Contract.LOBBY_ERR_UNAVAILABLE or code_name == Contract.LOBBY_ERR_UNAVAILABLE \
-			or error == "http_404" or http_status == 404
+	## Route missing only. LIVE 404 lobby_not_found is a reject, not "invite not ready".
+	return error == Contract.LOBBY_ERR_UNAVAILABLE or code_name == Contract.LOBBY_ERR_UNAVAILABLE
 
 
 func is_reject() -> bool:
@@ -125,12 +134,19 @@ func is_reject() -> bool:
 		return false
 	return code_name in [
 		Contract.LOBBY_ERR_BAD_CODE,
+		Contract.LOBBY_ERR_NOT_FOUND,
 		Contract.LOBBY_ERR_EXPIRED,
 		Contract.LOBBY_ERR_CANCELLED,
 		Contract.LOBBY_ERR_FULL,
 		Contract.LOBBY_ERR_SELF,
 		Contract.LOBBY_ERR_INVALID,
+		Contract.LOBBY_ERR_INVALID_BODY,
+		Contract.LOBBY_ERR_STARTED,
+		Contract.LOBBY_ERR_FORBIDDEN,
 		"unknown_lobby",
+		"same_player",
+		"bad_code",
+		"lobby_already_ready",
 	] or error != ""
 
 

@@ -58,7 +58,7 @@ GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_shop_sink
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_shop_equip_smoke.py  # E1/E4 equip (pending if /shop/equip 404)
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_decoy_smoke.py      # D1–D5 decoy LIVE_DECOY_OK
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_rematch_smoke.py    # R1–R5 rematch; curl first (404 → PENDING)
-GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_lobby_smoke.py      # P1–P5 private lobby; curl first (404 → PENDING)
+GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_lobby_smoke.py      # P1–P5 private lobby LIVE; curl first (bare 404 → PENDING)
 GLASSLINE_USE_LIVE_API=1 godot --headless --path . res://tools/live_shop_test.tscn
 ```
 
@@ -79,10 +79,10 @@ Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` 
 | POST | `/matches/:id/actions` | intent → `{ ok, snapshot, result }` (Bearer = **join token**) |
 | POST | `/matches/:id/abandon` | mid-match leave + join Bearer, **no body** → same forfeit path as 30s silence (`endReason: forfeit`, Marks +12/0). `ready`/`waiting` → 409 `match_not_active`. Already `ended` → 409 `match_already_ended` (no second grant). |
 | POST | `/matches/:id/rematch` | `{ accept: true\|false }` + **join-token** Bearer (player token fallback). `waiting` / `ready { matchId, joinToken, snapshot }` / `declined` / `expired`. Ended snap `rematch: { status, youAccepted, opponentAccepted, expiresAt, newMatchId? }`. Curl first; 404 → mock. Prefer LIVE smoke once 200. |
-| POST | `/lobbies` | Bearer **player** → `{ lobbyId, code, snapshot }` status `waiting`. 6-char code, no `0O1I`. TTL ~10 min. |
+| POST | `/lobbies` | Bearer **player** → **201** `{ lobbyId: lob_…, code, snapshot }` status `waiting`. 6-char, no `0O1I`. TTL 10 min. |
 | POST | `/lobbies/join` | `{ code }` + player Bearer → seat B; both seated → `ready { matchId, joinToken, snapshot }` |
 | GET | `/lobbies/:id` | Host poll. Ready returns this seat’s `joinToken`. |
-| POST | `/lobbies/:id/cancel` | Leave → hideout. **No** forfeit Marks. `404` → mock. |
+| POST | `/lobbies/:id/cancel` | Waiting → hideout, **no** forfeit Marks. After ready → 409 `lobby_already_started`. |
 | GET | `/matches/:id` | caller-scoped snapshot (reconnect / dummy seat) |
 | GET | `/matches/:id/events` | SSE `{ event: snapshot\|your_turn, snapshot }` — on drop, poll `GET /matches/:id` |
 | POST | `/jobs` | `{ tier: 1\|2\|3, clientJobId? }` + Bearer player token reuses that `playerId`. Credit is job **end**, not this POST. |
