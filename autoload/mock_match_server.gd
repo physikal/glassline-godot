@@ -25,6 +25,10 @@ var equipped_cosmetic: String = ""
 var _shop_receipts: Dictionary = {}
 ## POST /jobs complete receipts keyed by clientJobId — replay does not grant again.
 var _job_receipts: Dictionary = {}
+## Private lobby invite. Cancel / expire never touches Marks.
+var _lobbies: Dictionary = {}
+var _lobby_by_code: Dictionary = {}
+var _next_lobby: int = 1
 
 var _matches: Dictionary = {}
 var _next_id: int = 1
@@ -250,6 +254,206 @@ func get_job(job_id: String) -> Dictionary:
 				"snapshot": _snapshot_for_seat(match_state, Contract.SEAT_A),
 			}
 	return {"error": "unknown_job"}
+
+
+func create_lobby(player_id: String = "") -> Dictionary:
+	## POST /lobbies → { lobbyId, code, snapshot } status waiting.
+	if player_id == "":
+		player_id = "p_mock"
+	var code := _mint_lobby_code()
+	var lobby_id := "lb_%d" % _next_lobby
+	_next_lobby += 1
+	var row := {
+		"lobbyId": lobby_id,
+		"code": code,
+		"status": Contract.LOBBY_WAITING,
+		"createdAtMs": _now_ms(),
+		"hostPlayerId": player_id,
+		"guestPlayerId": "",
+		"matchId": "",
+		"joinTokens": {},
+	}
+	_lobbies[lobby_id] = row
+	_lobby_by_code[code] = lobby_id
+	return _lobby_payload(row, player_id)
+
+
+func join_lobby(code: String, player_id: String = "") -> Dictionary:
+	## POST /lobbies/join { code } → seat B. Both seated → ready + matchId + joinToken.
+	if player_id == "":
+		player_id = "p_guest"
+	var norm := Contract.normalize_lobby_code(code)
+	if not Contract.is_lobby_code(norm):
+		return _lobby_reject(Contract.LOBBY_ERR_BAD_CODE)
+	var lobby_id := str(_lobby_by_code.get(norm, ""))
+	if lobby_id == "" or not _lobbies.has(lobby_id):
+		return _lobby_reject(Contract.LOBBY_ERR_BAD_CODE)
+	var row: Dictionary = _lobbies[lobby_id]
+	_touch_lobby(row)
+	var st := str(row.get("status", ""))
+	if st == Contract.LOBBY_EXPIRED:
+		return _lobby_reject(Contract.LOBBY_ERR_EXPIRED)
+	if st == Contract.LOBBY_CANCELLED:
+		return _lobby_reject(Contract.LOBBY_ERR_CANCELLED)
+	if player_id == str(row.get("hostPlayerId", "")):
+		if st == Contract.LOBBY_READY:
+			return _lobby_payload(row, player_id)
+		return _lobby_reject(Contract.LOBBY_ERR_SELF)
+	if st == Contract.LOBBY_READY:
+		if player_id == str(row.get("guestPlayerId", "")):
+			return _lobby_payload(row, player_id)
+		return _lobby_reject(Contract.LOBBY_ERR_FULL)
+	row["guestPlayerId"] = player_id
+	_promote_lobby(row)
+	return _lobby_payload(row, player_id)
+
+
+func get_lobby(lobby_id: String, player_id: String = "") -> Dictionary:
+	## GET /lobbies/:id — host poll. Ready returns this seat's joinToken.
+	if not _lobbies.has(lobby_id):
+		return _lobby_reject("unknown_lobby")
+	var row: Dictionary = _lobbies[lobby_id]
+	_touch_lobby(row)
+	if player_id == "":
+		player_id = str(row.get("hostPlayerId", "p_mock"))
+	var st := str(row.get("status", ""))
+	if st == Contract.LOBBY_EXPIRED:
+		return _lobby_reject(Contract.LOBBY_ERR_EXPIRED, row)
+	if st == Contract.LOBBY_CANCELLED:
+		return _lobby_payload(row, player_id)
+	return _lobby_payload(row, player_id)
+
+
+func cancel_lobby(lobby_id: String, player_id: String = "") -> Dictionary:
+	## POST /lobbies/:id/cancel — hideout. No forfeit Marks.
+	if not _lobbies.has(lobby_id):
+		return _lobby_reject("unknown_lobby")
+	var row: Dictionary = _lobbies[lobby_id]
+	_touch_lobby(row)
+	if player_id == "":
+		player_id = str(row.get("hostPlayerId", "p_mock"))
+	var st := str(row.get("status", ""))
+	if st == Contract.LOBBY_READY:
+		return {
+			"ok": false,
+			"error": "lobby_already_ready",
+			"code": "lobby_already_ready",
+			"status": st,
+			"lobbyId": lobby_id,
+			"you": {"marks": account_marks},
+			"marks": account_marks,
+			"snapshot": {},
+		}
+	if st == Contract.LOBBY_EXPIRED:
+		return _lobby_reject(Contract.LOBBY_ERR_EXPIRED, row)
+	row["status"] = Contract.LOBBY_CANCELLED
+	return _lobby_payload(row, player_id)
+
+
+func _mint_lobby_code() -> String:
+	for _try in 16:
+		var code := Contract.new_lobby_code()
+		if not _lobby_by_code.has(code):
+			return code
+	return "H7K3P2"
+
+
+func _touch_lobby(row: Dictionary) -> void:
+	if str(row.get("status", "")) != Contract.LOBBY_WAITING:
+		return
+	var age := _now_ms() - int(row.get("createdAtMs", 0))
+	if age >= Contract.LOBBY_TTL_MS:
+		row["status"] = Contract.LOBBY_EXPIRED
+
+
+func _promote_lobby(row: Dictionary) -> void:
+	## Reuse create+bind. Same PvP rules. No Marks grant.
+	var created: Dictionary = create_match({"mode": Contract.MODE_PVP, "lobbyId": str(row.get("lobbyId", ""))})
+	var match_id := str(created.get("matchId", ""))
+	if match_id == "" or not _matches.has(match_id):
+		return
+	var match_state: Dictionary = _matches[match_id]
+	match_state["seats"][Contract.SEAT_A]["playerId"] = str(row.get("hostPlayerId", ""))
+	match_state["seats"][Contract.SEAT_B]["playerId"] = str(row.get("guestPlayerId", ""))
+	if _both_joined(match_state):
+		match_state["status"] = Contract.STATUS_READY
+	row["matchId"] = match_id
+	row["joinTokens"] = match_state.get("tokens", {})
+	row["status"] = Contract.LOBBY_READY
+
+
+func _lobby_seat_for(row: Dictionary, player_id: String) -> String:
+	if player_id != "" and player_id == str(row.get("guestPlayerId", "")):
+		return Contract.SEAT_B
+	return Contract.SEAT_A
+
+
+func _lobby_payload(row: Dictionary, player_id: String) -> Dictionary:
+	var seat := _lobby_seat_for(row, player_id)
+	var st := str(row.get("status", Contract.LOBBY_WAITING))
+	var lobby_snap := {
+		"kind": "lobby",
+		"status": st,
+		"lobbyId": str(row.get("lobbyId", "")),
+		"code": str(row.get("code", "")),
+		"seat": seat,
+		"you": {"seat": seat, "marks": account_marks},
+		"expiresAt": _lobby_expires_iso(row),
+	}
+	var bag := {
+		"ok": true,
+		"error": "",
+		"status": st,
+		"lobbyId": str(row.get("lobbyId", "")),
+		"code": str(row.get("code", "")),
+		"seat": seat,
+		"playerId": player_id,
+		"you": {"seat": seat, "marks": account_marks},
+		"marks": account_marks,
+		"snapshot": lobby_snap,
+		"expiresAt": _lobby_expires_iso(row),
+	}
+	if st == Contract.LOBBY_READY:
+		var match_id := str(row.get("matchId", ""))
+		var tokens: Dictionary = row.get("joinTokens", {})
+		var join := str(tokens.get(seat, ""))
+		bag["matchId"] = match_id
+		bag["joinToken"] = join
+		bag["joinTokens"] = tokens.duplicate(true)
+		if match_id != "" and _matches.has(match_id):
+			bag["snapshot"] = _snapshot_for_seat(_matches[match_id], seat)
+	return bag
+
+
+func _lobby_reject(reason: String, row: Dictionary = {}) -> Dictionary:
+	var st := ""
+	if reason == Contract.LOBBY_ERR_EXPIRED:
+		st = Contract.LOBBY_EXPIRED
+	elif reason == Contract.LOBBY_ERR_CANCELLED:
+		st = Contract.LOBBY_CANCELLED
+	var snap := {
+		"you": {"marks": account_marks},
+	}
+	if not row.is_empty():
+		snap["lobbyId"] = str(row.get("lobbyId", ""))
+		snap["code"] = str(row.get("code", ""))
+		snap["status"] = st if st != "" else str(row.get("status", ""))
+	return {
+		"ok": false,
+		"error": reason,
+		"code": reason,
+		"status": st,
+		"you": {"marks": account_marks},
+		"marks": account_marks,
+		"snapshot": snap,
+	}
+
+
+func _lobby_expires_iso(row: Dictionary) -> String:
+	var created := int(row.get("createdAtMs", _now_ms()))
+	var left_ms := maxi(0, created + Contract.LOBBY_TTL_MS - _now_ms())
+	var exp_unix := int(Time.get_unix_time_from_system()) + int(left_ms / 1000)
+	return Time.get_datetime_string_from_unix_time(exp_unix, true) + "Z"
 
 
 func _read_mode(opts: Dictionary) -> String:
@@ -481,6 +685,8 @@ func apply_action(match_id: String, player_id: String, action: Dictionary) -> Ac
 
 func clear_all() -> void:
 	_matches.clear()
+	_lobbies.clear()
+	_lobby_by_code.clear()
 	test_recon_roll = -1.0
 	test_now_ms = -1
 	## Wallet stays — PLAY must not wipe hideout Marks. Tests call reset_wallet().

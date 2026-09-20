@@ -121,6 +121,37 @@ const REMATCH_HINT_COPY := "Play again for a fresh drop. Wallet stays put."
 const REMATCH_WAIT_COPY := "Waiting on your rival…"
 const REMATCH_TIMER_COPY := "Answer in %ds"
 
+## Private lobby invite — short code, seated PvP, no public queue / ranked.
+const LOBBY_CODE_LEN := 6
+const LOBBY_CODE_ALPHABET := "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
+const LOBBY_TTL_SEC := 600
+const LOBBY_TTL_MS := 600000
+const LOBBY_WAITING := "waiting"
+const LOBBY_READY := "ready"
+const LOBBY_CANCELLED := "cancelled"
+const LOBBY_EXPIRED := "expired"
+const LOBBY_ERR_UNAVAILABLE := "lobby_unavailable"
+const LOBBY_ERR_BAD_CODE := "bad_code"
+const LOBBY_ERR_EXPIRED := "lobby_expired"
+const LOBBY_ERR_CANCELLED := "lobby_cancelled"
+const LOBBY_ERR_FULL := "lobby_full"
+const LOBBY_ERR_SELF := "same_player"
+const LOBBY_ERR_INVALID := "invalid_lobby_code"
+const LOBBY_KICKER := "WARTABLE"
+const LOBBY_HEADING := "PRIVATE HUNT"
+const LOBBY_BLURB := "Invite a rival with a short code. Same hunt. No queue."
+const LOBBY_CREATE_COPY := "CREATE LOBBY"
+const LOBBY_JOIN_COPY := "JOIN"
+const LOBBY_WAIT_COPY := "Waiting on your rival…"
+const LOBBY_CODE_HINT := "Share this code."
+const LOBBY_REJECT_COPY := "That code is expired or wrong."
+const LOBBY_CANCEL_COPY := "CANCEL"
+const LOBBY_BACK_COPY := "BACK"
+const LOBBY_COPY_CODE := "COPY"
+const LOBBY_UNAVAILABLE_COPY := "LIVE invite not ready"
+const LOBBY_COPIED_COPY := "Code copied."
+const LOBBY_HIDEOUT_COPY := "Back at the hideout."
+
 ## Soft A4 gaps — abandon CTA + grace countdown. Duration stays 30s.
 const ABANDON_COPY := "ABANDON"
 const ABANDON_ERR_UNAVAILABLE := "abandon_unavailable"
@@ -297,6 +328,45 @@ static func merge_live_shop_catalog(live: Dictionary) -> Dictionary:
 static func new_client_job_id() -> String:
 	## UUID v4 for POST /jobs clientJobId. New id on every START click.
 	return new_client_buy_id()
+
+
+static func normalize_lobby_code(raw: String) -> String:
+	## Uppercase, strip spaces / dashes. Ambiguous 0O1I stay so join can reject.
+	var out := ""
+	for i in raw.length():
+		var ch := raw.substr(i, 1).to_upper()
+		if ch == " " or ch == "-" or ch == "_":
+			continue
+		out += ch
+	return out
+
+
+static func is_lobby_code(code: String) -> bool:
+	var norm := normalize_lobby_code(code)
+	if norm.length() != LOBBY_CODE_LEN:
+		return false
+	for i in norm.length():
+		if LOBBY_CODE_ALPHABET.find(norm.substr(i, 1)) < 0:
+			return false
+	return true
+
+
+static func lobby_code_display(code: String) -> String:
+	var norm := normalize_lobby_code(code)
+	if norm.length() == LOBBY_CODE_LEN:
+		return "%s %s" % [norm.substr(0, 3), norm.substr(3, 3)]
+	return norm
+
+
+static func new_lobby_code(rng: RandomNumberGenerator = null) -> String:
+	var gen: RandomNumberGenerator = rng
+	if gen == null:
+		gen = RandomNumberGenerator.new()
+		gen.randomize()
+	var out := ""
+	for _i in LOBBY_CODE_LEN:
+		out += LOBBY_CODE_ALPHABET.substr(gen.randi_range(0, LOBBY_CODE_ALPHABET.length() - 1), 1)
+	return out
 
 
 static func new_client_buy_id() -> String:

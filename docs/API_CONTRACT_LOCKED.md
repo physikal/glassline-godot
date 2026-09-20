@@ -53,3 +53,8 @@ Client spike types in `types/` and `MockMatchServer` follow this shape so a live
 ## Realtime
 SSE default GET /matches/:id/events → { event: snapshot|your_turn, snapshot }
 WS later same payload. Auth: Bearer from join.
+
+## Private lobby (2026-09-20)
+POST /lobbies → { lobbyId, code, snapshot } waiting. 6-char, no 0O1I. TTL 10 min.
+POST /lobbies/join { code } → seat B; ready { matchId, joinToken }.
+POST /lobbies/:id/cancel → hideout, no forfeit Marks. Curl LIVE first; 404 → mock.

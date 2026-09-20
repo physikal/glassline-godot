@@ -58,6 +58,7 @@ GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_shop_sink
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_shop_equip_smoke.py  # E1/E4 equip (pending if /shop/equip 404)
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_decoy_smoke.py      # D1–D5 decoy LIVE_DECOY_OK
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_rematch_smoke.py    # R1–R5 rematch; curl first (404 → PENDING)
+GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_lobby_smoke.py      # P1–P5 private lobby; curl first (404 → PENDING)
 GLASSLINE_USE_LIVE_API=1 godot --headless --path . res://tools/live_shop_test.tscn
 ```
 
@@ -78,6 +79,10 @@ Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` 
 | POST | `/matches/:id/actions` | intent → `{ ok, snapshot, result }` (Bearer = **join token**) |
 | POST | `/matches/:id/abandon` | mid-match leave + join Bearer, **no body** → same forfeit path as 30s silence (`endReason: forfeit`, Marks +12/0). `ready`/`waiting` → 409 `match_not_active`. Already `ended` → 409 `match_already_ended` (no second grant). |
 | POST | `/matches/:id/rematch` | `{ accept: true\|false }` + **join-token** Bearer (player token fallback). `waiting` / `ready { matchId, joinToken, snapshot }` / `declined` / `expired`. Ended snap `rematch: { status, youAccepted, opponentAccepted, expiresAt, newMatchId? }`. Curl first; 404 → mock. Prefer LIVE smoke once 200. |
+| POST | `/lobbies` | Bearer **player** → `{ lobbyId, code, snapshot }` status `waiting`. 6-char code, no `0O1I`. TTL ~10 min. |
+| POST | `/lobbies/join` | `{ code }` + player Bearer → seat B; both seated → `ready { matchId, joinToken, snapshot }` |
+| GET | `/lobbies/:id` | Host poll. Ready returns this seat’s `joinToken`. |
+| POST | `/lobbies/:id/cancel` | Leave → hideout. **No** forfeit Marks. `404` → mock. |
 | GET | `/matches/:id` | caller-scoped snapshot (reconnect / dummy seat) |
 | GET | `/matches/:id/events` | SSE `{ event: snapshot\|your_turn, snapshot }` — on drop, poll `GET /matches/:id` |
 | POST | `/jobs` | `{ tier: 1\|2\|3, clientJobId? }` + Bearer player token reuses that `playerId`. Credit is job **end**, not this POST. |
@@ -93,7 +98,7 @@ Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` 
 
 | Scene | Path | Role |
 | --- | --- | --- |
-| Hideout | `scenes/lobby/hideout_lobby.tscn` | Canon room, ARMORY two rows (ghillie ★50 + bandana ★100), PLAY, JOBS, Marks chip |
+| Hideout | `scenes/lobby/hideout_lobby.tscn` | Canon room, ARMORY two rows, PLAY, **INVITE** (private lobby), JOBS, Marks chip |
 | Match | `scenes/match/match_screen.tscn` | 9×7 axial, dummy `select_hex`, START, Attack/Recon/UAV/DECOY, END TURN |
 | Optic | `scenes/optic/optic_overlay.gd` | Zoom / wobble stub + FIRE |
 | Types | `types/` | Snapshot, ActionIntent, ActionResult (`{ ok, snapshot, result }`) |
@@ -111,6 +116,8 @@ Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` 
 6. UAV once → `enemy.visibleHex`. END TURN. **DECOY** once → server plants a toy doll on an adjacent empty hex (`you.decoyHex`); rival sees `enemy.decoySoftHex`. Attack on that hex is `hit:false` + `decoyCleared`. Expires next own `end_turn`. No Marks / no hit% buff.
 7. ATTACK that hex → `hit` / `kill`. End overlay reads server `payout` (`marks`, `marksDelta`, `reason`) — never local `marks +=`.
 8. Ended PvP: **PLAY AGAIN** / **DECLINE**. Marks already settled. Both accept → new `matchId` + salt, drop again. Decline or 30s → hideout. Notes: `artifacts/REMATCH_NOTES.md`.
+
+Hideout **INVITE** is the private lobby: **CREATE LOBBY** shows a chunky copy-able code; **JOIN** takes a 6-char code. Cancel/leave returns to the hideout (no A4 forfeit). Ready uses the existing drop. Notes: `artifacts/PRIVATE_LOBBY_NOTES.md`.
 
 Hideout **JOBS** opens three SP rows (T1 ★10 / T2 ★15 / T3 ★20). START posts `POST /jobs` `{ tier, clientJobId }` on LIVE (mock uses the same shape) then the board. Marks chip binds snapshot `you.marks` only. Ability chrome is labeled **UAV** and still posts `{ type: "uav" }`. **DECOY** sits beside it and posts `{ type: "decoy" }` (mock + LIVE D1–D5). Ended PvP offers **PLAY AGAIN** / **DECLINE** — Marks already settled; both accept joins a new `matchId`. Earn table: `artifacts/MARKS_SP_NOTES.md`. Decoy notes: `artifacts/DECOY_NOTES.md`. Rematch: `artifacts/REMATCH_NOTES.md`. Ladder gates: `artifacts/SP_JOB_LADDER_NOTES.md`. Hideout **ARMORY** is two chrome-only Marks sinks (`skin_hideout_stub` ★50 + `skin_bandana_stub` ★100, same `get_shop` / `buy_shop`, no combat / no IAP): `artifacts/MARKS_SINK_NOTES.md` · `artifacts/MARKS_SINK2_NOTES.md`. Owned rows **EQUIP / EQUIPPED** bind hideout + exposure doll to snapshot `you.equippedSkinId`: `artifacts/EQUIP_CHROME_NOTES.md`.
 

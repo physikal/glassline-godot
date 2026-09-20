@@ -239,6 +239,65 @@ func heartbeat() -> Dictionary:
 	return _json("POST", "/matches/%s/heartbeat" % ClientSession.match_id, {}, ClientSession.join_token)
 
 
+func create_lobby() -> Dictionary:
+	## LIVE POST /lobbies + player Bearer. 404 → lobby_unavailable (Coder pending).
+	var raw: Dictionary = _raw("POST", "/lobbies", {}, ClientSession.player_bearer())
+	return _lobby_from_raw(raw)
+
+
+func join_lobby(code: String) -> Dictionary:
+	## LIVE POST /lobbies/join { code } + player Bearer.
+	var payload := {"code": Contract.normalize_lobby_code(code)}
+	var raw: Dictionary = _raw("POST", "/lobbies/join", payload, ClientSession.player_bearer())
+	return _lobby_from_raw(raw)
+
+
+func get_lobby(lobby_id: String) -> Dictionary:
+	## LIVE GET /lobbies/:id — host poll until ready { matchId, joinToken }.
+	if lobby_id == "":
+		return {"ok": false, "error": "unknown_lobby", "code": "unknown_lobby"}
+	var raw: Dictionary = _raw("GET", "/lobbies/%s" % lobby_id, null, ClientSession.player_bearer())
+	return _lobby_from_raw(raw)
+
+
+func cancel_lobby(lobby_id: String) -> Dictionary:
+	## LIVE POST /lobbies/:id/cancel. Hideout; no forfeit Marks.
+	if lobby_id == "":
+		return {"ok": false, "error": "unknown_lobby", "code": "unknown_lobby"}
+	var raw: Dictionary = _raw("POST", "/lobbies/%s/cancel" % lobby_id, {}, ClientSession.player_bearer())
+	return _lobby_from_raw(raw)
+
+
+func _lobby_from_raw(raw: Dictionary) -> Dictionary:
+	var http_status := int(raw.get("status", 0))
+	var js: Variant = raw.get("json", {})
+	if not (js is Dictionary):
+		js = {}
+	var body: Dictionary = js
+	if http_status == 404:
+		return {
+			"ok": false,
+			"error": Contract.LOBBY_ERR_UNAVAILABLE,
+			"code": Contract.LOBBY_ERR_UNAVAILABLE,
+			"httpStatus": 404,
+			"status": "",
+			"snapshot": {},
+		}
+	if http_status >= 400:
+		var err := str(body.get("code", body.get("error", "")))
+		if err == "":
+			err = "http_%s" % str(http_status)
+		body["error"] = err
+		body["code"] = err
+		body["ok"] = false
+		body["httpStatus"] = http_status
+		return body
+	if not body.has("ok"):
+		body["ok"] = http_status >= 200 and http_status < 300 and str(body.get("error", "")) == ""
+	body["httpStatus"] = http_status
+	return body
+
+
 func join(match_id: String, token: String) -> Dictionary:
 	## Body token is the join token. Bearer player token binds an empty seat.
 	## Dummy seat B must not reuse player A's token (409 same player both seats).

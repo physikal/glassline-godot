@@ -27,6 +27,10 @@ var match_mode: String = Contract.MODE_PVP
 var job_id: String = ""
 var job_tier: int = 1
 var client_job_id: String = ""
+## Private lobby invite. Cleared on reset_match / cancel.
+var lobby_id: String = ""
+var lobby_code: String = ""
+var lobby_seat: String = ""
 var ghillie: bool = false
 var bandana: bool = false
 ## Cosmetic display cache from shop snapshot. Visual only — no combat.
@@ -48,6 +52,9 @@ func reset_match() -> void:
 	job_id = ""
 	job_tier = 1
 	client_job_id = ""
+	lobby_id = ""
+	lobby_code = ""
+	lobby_seat = ""
 	## player_token / durable_player_id / marks stay — LIVE wallet is per player.
 
 
