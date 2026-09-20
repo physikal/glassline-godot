@@ -44,6 +44,12 @@ Probed catalog (Coder still two SKUs at client land — mock + merge append post
 HTTP log: [`artifacts/live_shop_sink3_smoke.txt`](live_shop_sink3_smoke.txt) · `LIVE_SHOP_SINK3_PENDING` until Coder lands the SKU.  
 Mock: `HEADLESS_LOOP_OK` (`_shop_sink3_case`).
 
+Raw stills (this branch):
+
+- https://raw.githubusercontent.com/physikal/glassline-godot/cursor/marks-sink3-poster-ddd3/artifacts/ux/armory_three_row.png
+- https://raw.githubusercontent.com/physikal/glassline-godot/cursor/marks-sink3-poster-ddd3/artifacts/ux/armory_poster_post_buy.png
+- https://raw.githubusercontent.com/physikal/glassline-godot/cursor/marks-sink3-poster-ddd3/artifacts/ux/hideout_poster_equipped.png
+
 ```bash
 GLASSLINE_API_BASE=https://glassline-api.vercel.app python3 tools/live_shop_sink3_smoke.py
 godot --headless --path . -s res://tools/headless_loop_test.gd   # HEADLESS_LOOP_OK

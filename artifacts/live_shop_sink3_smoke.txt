@@ -1,0 +1,14 @@
+BASE https://glassline-api.vercel.app
+ITEM decor_poster_stub PRICE 150
+PASS  GET /health
+PASS  GET /shop 200
+EVID  GET /shop 200 {"items": [{"id": "skin_hideout_stub", "name": "Hideout Skin (stub)", "price": 50, "kind": "skin"}, {"id": "skin_bandana_stub", "name": "BANDANA RECOLOR", "price": 100, "kind": "skin"}]}
+NOTE  LIVE catalog has 2 SKU(s) and no decor_poster_stub. Client ships three-row ARMORY + mock catalog. Coder: add decor_poster_stub ★150.
+
+BASE https://glassline-api.vercel.app
+NOTES
+  - LIVE catalog has 2 SKU(s) and no decor_poster_stub. Client ships three-row ARMORY + mock catalog. Coder: add decor_poster_stub ★150.
+EVIDENCE
+  - GET /shop 200 {"items": [{"id": "skin_hideout_stub", "name": "Hideout Skin (stub)", "price": 50, "kind": "skin"}, {"id": "skin_bandana_stub", "name": "BANDANA RECOLOR", "price": 100, "kind": "skin"}]}
+
+LIVE_SHOP_SINK3_PENDING catalog missing decor_poster_stub

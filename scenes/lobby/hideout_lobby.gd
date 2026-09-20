@@ -216,6 +216,8 @@ func _capture_hideout_poster() -> void:
 	_refresh_shop()
 	await get_tree().process_frame
 	_on_shop_primary(Contract.SHOP_POSTER_ITEM_ID)
+	if _shop_row:
+		_shop_row.visible = false
 	await get_tree().process_frame
 	await get_tree().process_frame
 	await _capture_named("res://artifacts/ux/hideout_poster_equipped.png", "S34_HIDEOUT_POSTER")
@@ -331,15 +333,15 @@ func _build() -> void:
 
 	## Toy-spy hideout poster — on the wall beside the operative, above ARMORY.
 	_poster = TextureRect.new()
-	_poster.texture = Chrome.make_hideout_poster(72, 92)
+	_poster.texture = Chrome.make_hideout_poster(96, 128)
 	_poster.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_poster.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_poster.stretch_mode = TextureRect.STRETCH_SCALE
 	_poster.set_anchors_preset(PRESET_CENTER)
-	_poster.offset_left = -430
-	_poster.offset_right = -250
-	_poster.offset_top = -210
-	_poster.offset_bottom = 20
+	_poster.offset_left = -340
+	_poster.offset_right = -164
+	_poster.offset_top = -236
+	_poster.offset_bottom = -4
 	_poster.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_poster.visible = false
 	add_child(_poster)
