@@ -129,7 +129,7 @@ Hideout **QUICK MATCH** is 1-tap `POST /queue` (60s TTL, no bot fill). Cozy “F
 
 Hideout **PRACTICE** sits beside Quick Match. A paper confirm states **No Marks (Δ0)** before `POST /matches` `{ mode: "practice" }`. Seat A uses the create `joinToken`. The toy spy is seat B on the server (`enemy.isBot`) — this client does not script it. LIVE create omits `mode`; the client reads it from the snapshot and will not sit a match that is not practice + bot. Rematch stays practice. Notes: `PRACTICE_HUNT_NOTES.md`. LIVE: `python3 tools/live_practice_smoke.py`.
 
-Hideout **INVITE** is the private lobby: **CREATE LOBBY** shows a chunky copy-able code; **JOIN** takes a 6-char code. Cancel/leave returns to the hideout (no A4 forfeit). Ready uses the existing drop. Notes: `artifacts/PRIVATE_LOBBY_NOTES.md`.
+Hideout **INVITE** is the private lobby: **CREATE LOBBY** shows a chunky code with wood/gold **COPY** and **SHARE** chips; **JOIN** takes a 6-char code. Copy puts that same code on the clipboard. Share opens the OS share sheet with “Hunt with me — code XXXXXX” (Android `ACTION_SEND`). Desktop has no share sheet, so Share copies the blurb and toasts **Code copied.** No deep link, QR, or SMS. Cancel/leave returns to the hideout (no A4 forfeit). Ready uses the existing drop. Notes: `artifacts/PRIVATE_LOBBY_NOTES.md` · `artifacts/INVITE_SHARE_NOTES.md`.
 
 First live (or mock) PvP hunt can show **first-hunt coach** chips (Attack / Recon / Doll / Decoy) until **GOT IT**. Persist is local `user://glassline_coach.cfg`. SP jobs skip. Notes: `FIRST_HUNT_COACH_NOTES.md`.
 

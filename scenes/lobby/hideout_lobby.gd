@@ -10,6 +10,7 @@ const Queue := preload("res://types/queue.gd")
 const ExposureDoll := preload("res://scenes/match/exposure_doll.gd")
 const JournalPlate := preload("res://scenes/lobby/journal_plate.gd")
 const GearStrip := preload("res://scenes/lobby/gear_strip.gd")
+const InviteShare := preload("res://scripts/invite_share.gd")
 
 var _bg: TextureRect
 var _wood_covers: Array[ColorRect] = []
@@ -23,6 +24,8 @@ var _invite_panel: PanelContainer
 var _invite_home: VBoxContainer
 var _invite_wait: VBoxContainer
 var _invite_code_lbl: Label
+var _invite_copied_chip: PanelContainer
+var _invite_copied: Label
 var _invite_reject: Label
 var _join_edit: LineEdit
 var _lobby_poll: float = 0.0
@@ -380,7 +383,9 @@ func _capture_equip_then_play() -> void:
 func _capture_lobby_create_wait() -> void:
 	_open_invite()
 	_on_create_lobby()
-	await _capture_named("res://artifacts/ux/lobby_create_wait.png", "P6_LOBBY_CREATE_WAIT")
+	await _capture_named("res://artifacts/ux/lobby_create_wait.png", "P6_LOBBY_CREATE_WAIT", false)
+	_on_copy_lobby_code()
+	await _capture_named("res://artifacts/ux/lobby_invite_copied.png", "I6_LOBBY_COPIED")
 
 
 func _capture_lobby_join() -> void:
@@ -1059,8 +1064,8 @@ func _build_invite_panel() -> void:
 	_invite_panel = PanelContainer.new()
 	_invite_panel.visible = false
 	_invite_panel.set_anchors_preset(PRESET_CENTER)
-	_invite_panel.offset_left = -360
-	_invite_panel.offset_right = 360
+	_invite_panel.offset_left = -400
+	_invite_panel.offset_right = 400
 	_invite_panel.offset_top = -230
 	_invite_panel.offset_bottom = 230
 	var box := Chrome.flat(Color(0.10, 0.08, 0.06, 0.96), 20, Chrome.HIGH_GOLD, 3)
@@ -1151,10 +1156,33 @@ func _build_invite_panel() -> void:
 	Chrome.apply_label(wait_head, 10, Chrome.CREAM, true)
 	_invite_wait.add_child(wait_head)
 
+	var code_row := HBoxContainer.new()
+	code_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	code_row.add_theme_constant_override("separation", 12)
+	_invite_wait.add_child(code_row)
+
 	_invite_code_lbl = Label.new()
 	_invite_code_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	Chrome.apply_label(_invite_code_lbl, 28, Chrome.HIGH_GOLD, true)
-	_invite_wait.add_child(_invite_code_lbl)
+	_invite_code_lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	Chrome.apply_label(_invite_code_lbl, 26, Chrome.HIGH_GOLD, true)
+	code_row.add_child(_invite_code_lbl)
+
+	## Wood/gold chips — same family as the gear strip. Wait plate only.
+	var wait_copy := Chrome.chunk_button(Contract.LOBBY_COPY_CODE, Chrome.WOOD_DARK, Chrome.HIGH_GOLD, Vector2(148, 52))
+	wait_copy.icon = Chrome.make_icon("copy", Chrome.HIGH_GOLD, 28)
+	wait_copy.add_theme_constant_override("h_separation", 8)
+	wait_copy.add_theme_constant_override("icon_max_width", 22)
+	wait_copy.focus_mode = Control.FOCUS_NONE
+	wait_copy.pressed.connect(_on_copy_lobby_code)
+	code_row.add_child(wait_copy)
+
+	var wait_share := Chrome.chunk_button(Contract.LOBBY_SHARE_CODE, Chrome.HIGH_GOLD, Chrome.INK, Vector2(164, 52))
+	wait_share.icon = Chrome.make_icon("share", Chrome.INK, 28)
+	wait_share.add_theme_constant_override("h_separation", 8)
+	wait_share.add_theme_constant_override("icon_max_width", 22)
+	wait_share.focus_mode = Control.FOCUS_NONE
+	wait_share.pressed.connect(_on_share_lobby_code)
+	code_row.add_child(wait_share)
 
 	var wait_line := Label.new()
 	wait_line.text = Contract.LOBBY_WAIT_COPY
@@ -1162,14 +1190,19 @@ func _build_invite_panel() -> void:
 	Chrome.apply_label(wait_line, 8, Chrome.CREAM, true)
 	_invite_wait.add_child(wait_line)
 
+	_invite_copied_chip = Chrome.pill_chip(Chrome.WOOD_DARK, Chrome.HIGH_GOLD)
+	_invite_copied_chip.visible = false
+	_invite_copied_chip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_invite_wait.add_child(_invite_copied_chip)
+	_invite_copied = Label.new()
+	_invite_copied.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	Chrome.apply_label(_invite_copied, 10, Chrome.HIGH_GOLD, true)
+	_invite_copied_chip.add_child(_invite_copied)
+
 	var wait_actions := HBoxContainer.new()
 	wait_actions.alignment = BoxContainer.ALIGNMENT_CENTER
 	wait_actions.add_theme_constant_override("separation", 16)
 	_invite_wait.add_child(wait_actions)
-
-	var wait_copy := Chrome.chunk_button(Contract.LOBBY_COPY_CODE, Chrome.TEAL, Color.WHITE, Vector2(200, 44))
-	wait_copy.pressed.connect(_on_copy_lobby_code)
-	wait_actions.add_child(wait_copy)
 
 	var cancel := Chrome.chunk_button(Contract.LOBBY_CANCEL_COPY, Chrome.INK, Chrome.CREAM, Vector2(160, 40))
 	cancel.pressed.connect(_on_cancel_lobby)
@@ -1654,6 +1687,7 @@ func _show_invite_home() -> void:
 		_invite_wait.visible = false
 	if _invite_reject:
 		_invite_reject.text = ""
+	_clear_code_copied()
 
 
 func _show_invite_wait() -> void:
@@ -1663,8 +1697,24 @@ func _show_invite_wait() -> void:
 		_invite_wait.visible = true
 	if _invite_code_lbl:
 		_invite_code_lbl.text = Contract.lobby_code_display(ClientSession.lobby_code)
+	_clear_code_copied()
 	_lobby_waiting = true
 	_lobby_poll = 0.0
+
+
+func _clear_code_copied() -> void:
+	if _invite_copied:
+		_invite_copied.text = ""
+	if _invite_copied_chip:
+		_invite_copied_chip.visible = false
+
+
+func _show_code_copied() -> void:
+	if _invite_copied:
+		_invite_copied.text = Contract.LOBBY_COPIED_COPY
+	if _invite_copied_chip:
+		_invite_copied_chip.visible = true
+	_toast_msg(Contract.LOBBY_COPIED_COPY)
 
 
 func _on_join_code_changed(text: String) -> void:
@@ -1733,11 +1783,19 @@ func _on_join_lobby() -> void:
 
 
 func _on_copy_lobby_code() -> void:
-	var code := ClientSession.lobby_code
-	if code == "":
+	## Same lobby code already on the plate. Clipboard gets the 6-char form.
+	if not InviteShare.copy_code(ClientSession.lobby_code):
 		return
-	DisplayServer.clipboard_set(code)
-	_toast_msg(Contract.LOBBY_COPIED_COPY)
+	_show_code_copied()
+
+
+func _on_share_lobby_code() -> void:
+	## OS share sheet with the short blurb. Desktop copies that blurb and toasts.
+	var mode := InviteShare.share_code(ClientSession.lobby_code)
+	if mode == InviteShare.RESULT_NONE:
+		return
+	if mode == InviteShare.RESULT_CLIPBOARD:
+		_show_code_copied()
 
 
 func _on_cancel_lobby() -> void:

@@ -65,7 +65,7 @@ Headless: `godot --headless --path . -s res://tools/headless_loop_test.gd` → *
 | Surface | Behavior |
 | --- | --- |
 | Hideout **INVITE** | Wartable panel (JOBS / ARMORY language). CREATE LOBBY + JOIN code. PLAY stays dummy both-seats. |
-| Host wait | Chunky `ABC DEF` code, COPY, “Waiting on your rival…”. Poll `GET /lobbies/:id`. No TTL clock. |
+| Host wait | Chunky `ABC DEF` code, wood/gold COPY + SHARE, “Waiting on your rival…”. Poll `GET /lobbies/:id`. No TTL clock. Share notes: `INVITE_SHARE_NOTES.md`. |
 | Join | 6-char field. Bad/expired/`lobby_not_found` → “That code is expired or wrong.” No soft lock. Route-missing only → “LIVE invite not ready”. |
 | Cancel | Hideout. Toast “Back at the hideout.” Marks chip rebound from snapshot only. Never abandon / A4. |
 | Ready | `MatchAPI.bind_lobby_match` — `matchId` + `joinToken`. Skips lobby snap; GETs the match. |
