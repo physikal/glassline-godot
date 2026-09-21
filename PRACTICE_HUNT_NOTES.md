@@ -12,6 +12,7 @@ Hideout **PRACTICE** opens a cozy confirm (“No Marks… Δ0”), then `POST /m
 | P4 | Mock bot is server-internal, soft script (recon / decoy / UAV / a fixed hex). Not a Marks farm, not ranked |
 | P5 | End can return to hideout. **PLAY AGAIN** stays `mode: practice` (still Δ0) |
 | P6 | Paper Practice CTA, no-Marks copy before start, same hunt HUD plus a toy-spy chip |
+| Soft P2 | PRACTICE dock icon matches Quick Match / Invite. Match toast does not print `lastAction start…` |
 
 ## Mock
 
