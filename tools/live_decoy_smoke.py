@@ -15,6 +15,9 @@ import time
 import urllib.error
 import urllib.request
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from live_join import sit_created_pvp
+
 BASE = os.environ.get("GLASSLINE_API_BASE", "https://glassline-api.vercel.app").rstrip("/")
 FAILS: list[str] = []
 NOTES: list[str] = []
@@ -89,15 +92,15 @@ def is_unknown_decoy(status: int, body: dict) -> bool:
 
 
 def open_active_match(player_token: str):
-    status, created, _ = req("POST", "/matches", {}, player_token)
-    if status not in (200, 201) or "matchId" not in created:
-        return status, created, "", "", "", {}, {}
-    match_id = str(created.get("matchId", ""))
-    tokens = created.get("joinTokens") or {}
-    token_a = str(tokens.get("a") or "")
-    token_b = str(tokens.get("b") or "")
-    _, join_a, _ = req("POST", f"/matches/{match_id}/join", {"token": token_a}, player_token)
-    _, join_b, _ = req("POST", f"/matches/{match_id}/join", {"token": token_b})
+    seated = sit_created_pvp(req, player_token)
+    created = seated.get("created") or {}
+    if not seated.get("ok"):
+        return int(seated.get("status") or 0), created, "", "", "", {}, {}
+    match_id = str(seated.get("matchId", ""))
+    token_a = str(seated.get("token_a") or "")
+    token_b = str(seated.get("token_b") or "")
+    join_a = seated.get("join_a") or {}
+    join_b = seated.get("join_b") or {}
     req("POST", f"/matches/{match_id}/actions", {"type": "select_hex", "hex": {"q": 2, "r": 2}}, token_a)
     status_b, drop_b, _ = req(
         "POST",

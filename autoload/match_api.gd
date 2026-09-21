@@ -237,6 +237,62 @@ func join(match_id: String, token: String) -> Dictionary:
 	return MockMatchServer.join(match_id, token)
 
 
+func claim_open_seat(match_id: String, bearer: String = "") -> Dictionary:
+	if using_live():
+		return LiveMatchClient.claim_open_seat(match_id, bearer)
+	return {"error": "claim_not_on_mock"}
+
+
+func sit_created_pvp(created: Dictionary, sit_dummy: bool = true) -> Dictionary:
+	## Seat A uses create joinToken. LIVE never sits B from create.
+	## Editor dummy: mock uses joinTokens.b; LIVE mints a second /players + claim.
+	var match_id := str(created.get("matchId", ""))
+	var tok := Contract.create_join_token(created)
+	if match_id == "" or tok == "" or created.has("error"):
+		return {"error": created.get("error", "no matchId")}
+	ClientSession.match_id = match_id
+	ClientSession.join_token = tok
+	ClientSession.seat = Contract.create_seat(created)
+	var human: Dictionary = join(match_id, tok)
+	if human.has("error"):
+		return human
+	ClientSession.player_id = str(human.get("playerId", ""))
+	ClientSession.seat = str(human.get("seat", ClientSession.seat))
+	var dummy: Dictionary = {}
+	if sit_dummy:
+		dummy = sit_dummy_seat(match_id, created)
+		if dummy.has("error"):
+			return dummy
+	return {
+		"ok": true,
+		"matchId": match_id,
+		"human": human,
+		"dummy": dummy,
+		"snapshot": human.get("snapshot", {}),
+	}
+
+
+func sit_dummy_seat(match_id: String, created: Dictionary = {}) -> Dictionary:
+	if using_live():
+		var guest: Dictionary = LiveMatchClient.create_player()
+		var bearer := str(guest.get("token", ""))
+		if bearer == "":
+			return {"error": guest.get("error", "dummy_player_failed")}
+		var claimed: Dictionary = LiveMatchClient.claim_open_seat(match_id, bearer)
+		if claimed.has("error"):
+			return claimed
+		ClientSession.dummy_token = str(claimed.get("joinToken", ""))
+		ClientSession.dummy_player_id = str(claimed.get("playerId", ""))
+		return claimed
+	var dummy_tok := Contract.create_dummy_token(created)
+	ClientSession.dummy_token = dummy_tok
+	var dummy: Dictionary = join(match_id, dummy_tok)
+	if dummy.has("error"):
+		return dummy
+	ClientSession.dummy_player_id = str(dummy.get("playerId", ""))
+	return dummy
+
+
 func get_snapshot(match_id: String, player_id: String) -> Dictionary:
 	if using_live():
 		return LiveMatchClient.get_snapshot(match_id, player_id)

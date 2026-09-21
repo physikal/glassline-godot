@@ -44,7 +44,7 @@ LIVE: `python3 tools/live_brush_cover_smoke.py` → **`LIVE_BRUSH_COVER_OK`** (C
 | Surface | Behavior |
 | --- | --- |
 | `Snapshot.last_cover_applied()` | Reads `lastAction.coverApplied` only. Missing → null |
-| `Chrome.describe_attack_result` | Plate toast: chance + cover / high-ground when the server named them |
+| `Chrome.describe_attack_result` | Plate toast: chance + cover / high-ground when the server named them. Soft P2: no `(server)` suffix. |
 | `MockMatchServer` | Occupy formula `clamp(0.90 + HARD?0.10 − BRUSH?0.10, 0, 1)` |
 | `LiveMatchClient` poll fp | Includes `coverApplied` / `hitChance` so the toast refreshes |
 | Match HUD | Result line only. HIGH GROUND chip unchanged. No IN COVER chip |

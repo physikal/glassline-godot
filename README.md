@@ -79,8 +79,8 @@ Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` 
 | --- | --- | --- |
 | GET | `/health` | `{ ok: true }` — lobby Play pings this first |
 | POST | `/players` | → `{ playerId, token, marks }` — durable identity. **Keep `token`.** |
-| POST | `/matches` | Bearer **player** token binds seat A (else anonymous mint at 0) |
-| POST | `/matches/:id/join` | `{ token }` + optional Bearer player token → `{ playerId, seat, snapshot }` |
+| POST | `/matches` | Bearer **player** token binds seat A → `{ matchId, joinToken, seat: "a" }` (never both seat tokens) |
+| POST | `/matches/:id/join` | `{ token }` + optional Bearer player token → `{ playerId, seat, snapshot }`. Empty `{}` + Bearer claims seat B and returns that `joinToken`. |
 | POST | `/matches/:id/actions` | intent → `{ ok, snapshot, result }` (Bearer = **join token**) |
 | POST | `/matches/:id/abandon` | mid-match leave + join Bearer, **no body** → same forfeit path as 30s silence (`endReason: forfeit`, Marks +12/0). `ready`/`waiting` → 409 `match_not_active`. Already `ended` → 409 `match_already_ended` (no second grant). |
 | POST | `/matches/:id/rematch` | `{ accept: true\|false }` + **join-token** Bearer (player token fallback). `waiting` / `ready { matchId, joinToken, snapshot }` / `declined` / `expired`. Ended snap `rematch: { status, youAccepted, opponentAccepted, expiresAt, newMatchId? }`. Curl first; 404 → mock. Prefer LIVE smoke once 200. |
@@ -100,7 +100,7 @@ Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` 
 | POST | `/shop/equip` | `{ itemId }` or `{ itemId: null, slot?: "skin"\|"decor" }` + Bearer **player** token → `{ ok, you: { marks, equippedSkinId, equippedDecorId } }`. **403** `not_owned`. Decor never overwrites skin. Marks untouched. |
 | Auth | | Durable `POST /players` Bearer on create / join / jobs / shop. Match actions / snapshot / SSE use the join token. Dummy seat B stays anonymous. |
 
-`PLAY` still joins **both** seats (you = `a`, local dummy = `b`) against the same server so the offline dummy loop works on live HTTPS. Dummy actions use token `b`; the UI SSE stream uses token `a`.
+`PLAY` sits **seat A** with the create `joinToken`. LIVE create never returns seat B. Editor dummy B is a second `POST /players` + empty-body join claim. Mock still keeps `joinTokens.b` for the offline dummy loop. Queue / INVITE sit B on their own Bearer.
 
 ## Scene map
 
@@ -116,7 +116,7 @@ Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` 
 
 ## Offline / live loop
 
-1. PLAY → `POST /matches` + join `a` and `b`.
+1. PLAY → `POST /matches` `{ joinToken, seat: a }` then sit A. Seat B is a second Bearer claim (mock still uses `joinTokens.b`).
 2. Click hex → `select_hex`. Dummy also `select_hex`. Re-drop until START.
 3. START → `active`, `whoseTurn: a`, exposure 50.
 4. ATTACK miss → optic FIRE → server `result.hit == false`. END TURN.
@@ -131,12 +131,14 @@ Hideout **INVITE** is the private lobby: **CREATE LOBBY** shows a chunky copy-ab
 
 First live (or mock) PvP hunt can show **first-hunt coach** chips (Attack / Recon / Doll / Decoy) until **GOT IT**. Persist is local `user://glassline_coach.cfg`. SP jobs skip. Notes: `FIRST_HUNT_COACH_NOTES.md`.
 
+Attack result toasts drop the `(server)` suffix (Soft P2). Toy-spy stingers (`glass_click` / `glass_ping` / `high_chime` / `brush_hush`) bind those same flags. Hideout + match **SOUND / MUTE**. Notes: `AUDIO_JUICE_NOTES.md`.
+
 Hideout **JOBS** opens three SP rows (T1 ★10 / T2 ★15 / T3 ★20). START posts `POST /jobs` `{ tier, clientJobId }` on LIVE (mock uses the same shape) then the board. Marks chip binds snapshot `you.marks` only. Ability chrome is labeled **UAV** and still posts `{ type: "uav" }`. **DECOY** sits beside it and posts `{ type: "decoy" }` (mock + LIVE D1–D5). Ended PvP offers **PLAY AGAIN** / **DECLINE** — Marks already settled; both accept joins a new `matchId`. Earn table: `artifacts/MARKS_SP_NOTES.md`. Decoy notes: `artifacts/DECOY_NOTES.md`. Rematch: `artifacts/REMATCH_NOTES.md`. Ladder gates: `artifacts/SP_JOB_LADDER_NOTES.md`. Hideout **ARMORY** is three chrome-only Marks sinks (`skin_hideout_stub` ★50 + `skin_bandana_stub` ★100 + `decor_poster_stub` ★150, same `get_shop` / `buy_shop`, no combat / no IAP): `artifacts/MARKS_SINK_NOTES.md` · `artifacts/MARKS_SINK2_NOTES.md` · `artifacts/MARKS_SINK3_NOTES.md`. Owned rows **EQUIP / EQUIPPED** bind hideout + exposure doll to snapshot `you.equippedSkinId`. Poster binds `you.equippedDecorId` and can hang while a skin is worn. Notes: `artifacts/EQUIP_CHROME_NOTES.md`.
 
 ## Layout
 
 ```
-autoload/     ClientSession, MockMatchServer, LiveMatchClient, MatchAPI
+autoload/     ClientSession, MockMatchServer, LiveMatchClient, MatchAPI, AudioJuice
 types/        contract-facing classes
 docs/         API_CONTRACT.md (locked Notion)
 assets/canon/ four plates

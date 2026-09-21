@@ -15,6 +15,9 @@ import sys
 import urllib.error
 import urllib.request
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from live_join import sit_created_pvp
+
 BASE = os.environ.get("GLASSLINE_API_BASE", "https://glassline-api.vercel.app").rstrip("/")
 FAILS: list[str] = []
 NOTES: list[str] = []
@@ -62,20 +65,23 @@ def main() -> int:
     status, health, _ = req("GET", "/health")
     expect(status == 200 and health.get("ok") is True, "GET /health", str(health))
 
-    status, created, _ = req("POST", "/matches", {})
-    expect(status in (200, 201) and "matchId" in created, "POST /matches", f"{status} {created}")
-    if status == 201:
+    seated = sit_created_pvp(req)
+    created = seated.get("created") or {}
+    expect(seated.get("ok") is True, "POST /matches", str(created))
+    if int(seated.get("status") or 0) == 201:
         note("POST /matches returns HTTP 201 (client also accepts 200 JSON).")
-    match_id = created.get("matchId", "")
-    tokens = created.get("joinTokens") or {}
-    token_a = tokens.get("a", "")
-    token_b = tokens.get("b", "")
-    expect(bool(token_a and token_b), "joinTokens.a/b present")
+    match_id = seated.get("matchId", "")
+    token_a = seated.get("token_a", "")
+    token_b = seated.get("token_b", "")
+    expect(bool(token_a), "create joinToken")
+    expect(str(created.get("seat", "a")) == "a", "create seat a")
+    expect("joinTokens" not in created, "create never dual-seat")
+    expect(bool(token_b), "claim seat B joinToken")
 
-    status, join_a, _ = req("POST", f"/matches/{match_id}/join", {"token": token_a})
-    status_b, join_b, _ = req("POST", f"/matches/{match_id}/join", {"token": token_b})
-    expect(status == 200 and join_a.get("seat") == "a", "join seat a", str(join_a.get("error", join_a.get("seat"))))
-    expect(status_b == 200 and join_b.get("seat") == "b", "join seat b")
+    join_a = seated.get("join_a") or {}
+    join_b = seated.get("join_b") or {}
+    expect(join_a.get("seat") == "a", "join seat a", str(join_a.get("error", join_a.get("seat"))))
+    expect(join_b.get("seat") == "b", "join seat b")
     snap_b = join_b.get("snapshot") or {}
     expect(snap_b.get("status") == "ready", "both joined → ready", str(snap_b.get("status")))
     you = (join_a.get("snapshot") or {}).get("you") or {}

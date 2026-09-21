@@ -21,6 +21,9 @@ import uuid
 import urllib.error
 import urllib.request
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from live_join import sit_created_pvp
+
 BASE = os.environ.get("GLASSLINE_API_BASE", "https://glassline-api.vercel.app").rstrip("/")
 FIELDBOLT = "gun_fieldbolt"
 RAILFRAME = "gun_railframe"
@@ -144,20 +147,16 @@ def shop_me(player_token: str):
 
 
 def create_and_join(player_token: str):
-    code, created, raw = req("POST", "/matches", {}, token=player_token)
-    expect(code in (200, 201) and "matchId" in created, "POST /matches + player Bearer", raw[:200])
-    mid = created.get("matchId", "")
-    tokens = created.get("joinTokens") or {}
-    token_a = tokens.get("a", "")
-    token_b = tokens.get("b", "")
-    _, join_a, _ = req(
-        "POST",
-        f"/matches/{mid}/join",
-        {"token": token_a},
-        token=player_token,
+    seated = sit_created_pvp(req, player_token)
+    created = seated.get("created") or {}
+    expect(seated.get("ok") is True, "POST /matches + player Bearer", str(created)[:200])
+    return (
+        seated.get("matchId", ""),
+        seated.get("token_a", ""),
+        seated.get("token_b", ""),
+        seated.get("join_a") or {},
+        seated.get("join_b") or {},
     )
-    _, join_b, _ = req("POST", f"/matches/{mid}/join", {"token": token_b})
-    return mid, token_a, token_b, join_a, join_b
 
 
 def earn_until(player_token: str, need: int, earned: int, label: str) -> int:

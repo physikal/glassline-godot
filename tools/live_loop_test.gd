@@ -23,19 +23,16 @@ func _run() -> int:
 
 	var created: Dictionary = MatchAPI.create_match()
 	_expect(failed, created.has("matchId"), "create_match.matchId")
+	_expect(failed, not created.has("joinTokens"), "create never dual-seat")
+	_expect(failed, str(created.get("joinToken", "")) != "", "create joinToken")
+	_expect(failed, str(created.get("seat", "")) == "a", "create seat a")
 	var match_id := str(created.get("matchId", ""))
-	var tokens: Dictionary = created.get("joinTokens", {})
-	ClientSession.join_token = str(tokens.get("a", ""))
-	ClientSession.dummy_token = str(tokens.get("b", ""))
-
-	var join_a: Dictionary = MatchAPI.join(match_id, ClientSession.join_token)
-	var join_b: Dictionary = MatchAPI.join(match_id, ClientSession.dummy_token)
+	var seated: Dictionary = MatchAPI.sit_created_pvp(created)
+	_expect(failed, not seated.has("error"), "sit created pvp")
+	var join_a: Dictionary = seated.get("human", {})
+	var join_b: Dictionary = seated.get("dummy", {})
 	_expect(failed, str(join_a.get("seat", "")) == "a", "join a")
 	_expect(failed, str(join_b.get("seat", "")) == "b", "join b")
-	ClientSession.match_id = match_id
-	ClientSession.player_id = str(join_a.get("playerId", ""))
-	ClientSession.dummy_player_id = str(join_b.get("playerId", ""))
-	ClientSession.seat = "a"
 
 	var r: ActionResult = MatchAPI.apply_action(match_id, ClientSession.player_id, ActionIntent.select_hex(2, 2))
 	_expect(failed, r.ok, "a select_hex")

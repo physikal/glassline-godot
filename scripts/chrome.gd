@@ -218,8 +218,51 @@ static func _attack_result_line(head: String, last: Dictionary) -> String:
 			mods.append(Contract.COVER_SKIPPED_COPY)
 	if not mods.is_empty():
 		bits.append("%s." % " · ".join(mods))
-	bits.append("(server)")
+	## Soft P2: server fields stay the source of truth — do not stamp "(server)".
 	return " ".join(bits)
+
+
+static func describe_last_action(last: Dictionary) -> String:
+	## Player-facing result toast. Server flags only; no debug suffix.
+	var kind := str(last.get("type", ""))
+	match kind:
+		Contract.ACT_ATTACK:
+			return describe_attack_result(last)
+		Contract.ACT_RECON:
+			var spotted: Variant = last.get("spotted", last.get("found", false))
+			return "lastAction recon  spotted=%s" % str(spotted)
+		Contract.ACT_REJECT:
+			return "lastAction reject  %s" % str(last.get("reason", ""))
+		Contract.ACT_UAV:
+			return "lastAction uav  revealed=%s" % str(last.get("revealed", false))
+		Contract.ACT_DECOY:
+			var planted: Variant = last.get("hex", null)
+			if planted is Dictionary:
+				return "lastAction decoy  planted Q%d R%d  (toy doll)" % [
+					int(planted.get("q", 0)),
+					int(planted.get("r", 0)),
+				]
+			return "lastAction decoy  planted  (toy doll)"
+		Contract.ACT_FORFEIT:
+			return "lastAction forfeit  winner=%s" % str(last.get("winner", ""))
+		Contract.ACT_END_TURN:
+			return "lastAction end_turn  moved=%s" % str(last.get("moved", false))
+		Contract.ACT_SELECT_HEX:
+			return "lastAction select_hex  seat %s" % str(last.get("seat", ""))
+		Contract.ACT_START:
+			return "lastAction start — seat A shoots first"
+		_:
+			return ""
+
+
+static func mute_button_text(muted: bool) -> String:
+	return "MUTE" if muted else "SOUND"
+
+
+static func mute_button_tip(muted: bool) -> String:
+	if muted:
+		return "Sound off. Hunt stays readable."
+	return "Toy clicks. Mute anytime."
 
 
 static func paint_high_ground_chip(panel: Control, active: bool) -> void:

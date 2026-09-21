@@ -104,18 +104,20 @@ def create_match(token_a: str):
     status, created, raw = req("POST", "/matches", {}, token_a)
     if status not in (200, 201) or "matchId" not in created:
         return {"ok": False, "error": raw, "created": created}
-    tokens = created.get("joinTokens") or {}
     return {
         "ok": True,
         "matchId": str(created["matchId"]),
-        "ja": str(tokens.get("a") or ""),
-        "jb": str(tokens.get("b") or ""),
+        "ja": str(created.get("joinToken") or ""),
         "created": created,
     }
 
 
 def join_seat(match_id: str, join_token: str, player_token: str | None):
     return req("POST", f"/matches/{match_id}/join", {"token": join_token}, player_token)
+
+
+def claim_seat_b(match_id: str, player_token: str):
+    return req("POST", f"/matches/{match_id}/join", {}, player_token)
 
 
 def drop_both(match_id: str, ja: str, jb: str):
@@ -150,7 +152,7 @@ def main() -> int:
     wait = create_match(token_a)
     expect(wait.get("ok") is True, "waiting match create")
     mid_w = wait.get("matchId", "")
-    ja_w, jb_w = wait.get("ja", ""), wait.get("jb", "")
+    ja_w = wait.get("ja", "")
     join_seat(mid_w, ja_w, token_a)
     st_w, snap_w, _ = req("GET", f"/matches/{mid_w}", None, ja_w)
     expect(st_w == 200 and snap_w.get("status") == "waiting", f"waiting status ({snap_w.get('status')})")
@@ -167,9 +169,9 @@ def main() -> int:
     ready = create_match(token_a)
     expect(ready.get("ok") is True, "ready match create")
     mid_r = ready.get("matchId", "")
-    ja_r, jb_r = ready.get("ja", ""), ready.get("jb", "")
+    ja_r = ready.get("ja", "")
     join_seat(mid_r, ja_r, token_a)
-    join_seat(mid_r, jb_r, token_b)
+    claim_seat_b(mid_r, token_b)
     st_r, snap_r, _ = req("GET", f"/matches/{mid_r}", None, ja_r)
     expect(st_r == 200 and snap_r.get("status") == "ready", f"ready status ({snap_r.get('status')})")
     st_ar, body_ar, raw_ar = abandon(mid_r, ja_r)
@@ -185,9 +187,10 @@ def main() -> int:
     hunt = create_match(token_a)
     expect(hunt.get("ok") is True, "active match create")
     mid = hunt.get("matchId", "")
-    ja, jb = hunt.get("ja", ""), hunt.get("jb", "")
+    ja = hunt.get("ja", "")
     join_a = join_seat(mid, ja, token_a)[1]
-    join_b = join_seat(mid, jb, token_b)[1]
+    join_b = claim_seat_b(mid, token_b)[1]
+    jb = str(join_b.get("joinToken") or "")
     expect(str(join_a.get("playerId") or "") == pid_a, "seat A binds durable player")
     expect(str(join_b.get("playerId") or "") == pid_b, "seat B binds durable player")
     st_drop, drop_b, _ = drop_both(mid, ja, jb)

@@ -13,8 +13,8 @@ Client spike types in `types/` and `MockMatchServer` follow this shape so a live
 - Terrain on first select: open | brush | hard via hash(match_id,q,r,salt)
 
 ## Lifecycle
-1. POST /matches → { matchId, joinTokens: { a, b } }
-2. POST /matches/:id/join { token } → { playerId, seat, snapshot }
+1. POST /matches → { matchId, joinToken, seat: "a" } (never both seat tokens)
+2. POST /matches/:id/join { token } sits that token; {} + Bearer claims empty seat B
 3. Drop: both select_hex while ready; re-drop OK until start
 4. start once both placed → active, whoseTurn a, turnIndex 0, exposurePct 50
 5. Turns: exactly one of attack|recon|uav|decoy, then required end_turn

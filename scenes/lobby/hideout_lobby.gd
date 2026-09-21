@@ -42,6 +42,7 @@ var _wallet_row: HBoxContainer
 var _taste_doll: ExposureDoll
 var _dock_quick: Button
 var _dock_invite: Button
+var _mute_btn: Button
 
 
 func _ready() -> void:
@@ -713,6 +714,11 @@ func _build_top_bar() -> void:
 	_marks.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	Chrome.apply_label(_marks, 12, Chrome.HIGH_GOLD, true)
 	marks_chip.add_child(_marks)
+
+	_mute_btn = Chrome.dock_button(Chrome.mute_button_text(AudioJuice.muted), Chrome.INK, Chrome.CREAM, Vector2(118, 36))
+	_mute_btn.tooltip_text = Chrome.mute_button_tip(AudioJuice.muted)
+	_mute_btn.pressed.connect(_toggle_mute)
+	left.add_child(_mute_btn)
 
 	var wallet := HBoxContainer.new()
 	wallet.set_anchors_preset(PRESET_TOP_RIGHT)
@@ -1777,6 +1783,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		_toggle_live()
 
 
+func _toggle_mute() -> void:
+	AudioJuice.toggle_mute()
+	if _mute_btn:
+		_mute_btn.text = Chrome.mute_button_text(AudioJuice.muted)
+		_mute_btn.tooltip_text = Chrome.mute_button_tip(AudioJuice.muted)
+
+
 func _toggle_live() -> void:
 	ClientSession.live_override = 0 if ClientSession.use_live_api() else 1
 	if ClientSession.use_live_api():
@@ -1826,21 +1839,17 @@ func _start_match(mode: String) -> void:
 		"jobTier": 1,
 	})
 	var match_id := str(created.get("matchId", ""))
-	var tokens: Dictionary = created.get("joinTokens", {})
-	if match_id == "" or tokens.is_empty():
+	var join_tok := Contract.create_join_token(created)
+	if match_id == "" or join_tok == "":
 		_toast_msg("Create failed: %s" % str(created.get("error", "no matchId")))
 		return
-	ClientSession.join_token = str(tokens.get("a", ""))
-	ClientSession.dummy_token = str(tokens.get("b", ""))
-	var human: Dictionary = MatchAPI.join(match_id, ClientSession.join_token)
-	var dummy: Dictionary = MatchAPI.join(match_id, ClientSession.dummy_token)
-	if human.has("error") or dummy.has("error"):
-		_toast_msg("Join failed: %s" % str(human.get("error", dummy.get("error", ""))))
+	var seated: Dictionary = MatchAPI.sit_created_pvp(created)
+	if seated.has("error"):
+		_toast_msg("Join failed: %s" % str(seated.get("error", "")))
 		return
-	ClientSession.match_id = match_id
-	ClientSession.player_id = str(human.get("playerId", ""))
-	ClientSession.seat = str(human.get("seat", "a"))
-	ClientSession.dummy_player_id = str(dummy.get("playerId", ""))
+	var human: Dictionary = seated.get("human", {})
+	if not (human is Dictionary):
+		human = {}
 	var ready_snap: Dictionary = MatchAPI.get_snapshot(match_id, ClientSession.player_id)
 	if ready_snap.is_empty():
 		ready_snap = human.get("snapshot", {})

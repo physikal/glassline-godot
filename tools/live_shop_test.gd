@@ -142,17 +142,12 @@ func _pvp_kill(failed: PackedStringArray, idx: int) -> Dictionary:
 	ClientSession.reset_match()
 	var created: Dictionary = MatchAPI.create_match()
 	_expect(failed, created.has("matchId"), "S1 create_match %d" % idx)
+	_expect(failed, not created.has("joinTokens"), "S1 create never dual-seat %d" % idx)
 	var match_id := str(created.get("matchId", ""))
-	var tokens: Dictionary = created.get("joinTokens", {})
-	ClientSession.join_token = str(tokens.get("a", ""))
-	ClientSession.dummy_token = str(tokens.get("b", ""))
-	var join_a: Dictionary = MatchAPI.join(match_id, ClientSession.join_token)
-	var join_b: Dictionary = MatchAPI.join(match_id, ClientSession.dummy_token)
+	var seated: Dictionary = MatchAPI.sit_created_pvp(created)
+	_expect(failed, not seated.has("error"), "S1 sit created %d" % idx)
+	var join_a: Dictionary = seated.get("human", {})
 	_expect(failed, str(join_a.get("playerId", "")) == ClientSession.durable_player_id, "S1 join A same player %d" % idx)
-	ClientSession.match_id = match_id
-	ClientSession.player_id = str(join_a.get("playerId", ""))
-	ClientSession.dummy_player_id = str(join_b.get("playerId", ""))
-	ClientSession.seat = "a"
 	var pid := ClientSession.player_id
 	var dummy := ClientSession.dummy_player_id
 	MatchAPI.apply_action(match_id, pid, ActionIntent.select_hex(2, 2))
