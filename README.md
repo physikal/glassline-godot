@@ -127,7 +127,7 @@ Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` 
 
 Hideout **QUICK MATCH** is 1-tap `POST /queue` (60s TTL, no bot fill). Cozy “Finding a rival…” wartable — cancel or timeout returns hideout with Marks Δ0. Pair hands off the same drop / rematch / A4 path as private lobby. LIVE `https://glassline-api.vercel.app` (Coder `queue.ts`). Notes: `QUICK_MATCH_NOTES.md`.
 
-Hideout **PRACTICE** sits beside Quick Match. A paper confirm states **No Marks (Δ0)** before `POST /matches` `{ mode: "practice" }`. Seat A uses the create `joinToken`. The toy spy is seat B on the server (`enemy.isBot`) — this client does not script it. Rematch stays practice. Notes: `PRACTICE_HUNT_NOTES.md`. LIVE: `python3 tools/live_practice_smoke.py` (`LIVE_PRACTICE_PENDING` until Coder ships the mode).
+Hideout **PRACTICE** sits beside Quick Match. A paper confirm states **No Marks (Δ0)** before `POST /matches` `{ mode: "practice" }`. Seat A uses the create `joinToken`. The toy spy is seat B on the server (`enemy.isBot`) — this client does not script it. LIVE create omits `mode`; the client reads it from the snapshot and will not sit a match that is not practice + bot. Rematch stays practice. Notes: `PRACTICE_HUNT_NOTES.md`. LIVE: `python3 tools/live_practice_smoke.py`.
 
 Hideout **INVITE** is the private lobby: **CREATE LOBBY** shows a chunky copy-able code; **JOIN** takes a 6-char code. Cancel/leave returns to the hideout (no A4 forfeit). Ready uses the existing drop. Notes: `artifacts/PRIVATE_LOBBY_NOTES.md`.
 

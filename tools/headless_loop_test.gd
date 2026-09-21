@@ -2584,9 +2584,22 @@ func _practice_case(failed: PackedStringArray) -> void:
 	var hud_src := FileAccess.get_file_as_string("res://scenes/match/match_screen.gd")
 	_expect(failed, hideout_src.find("MODE_PRACTICE") >= 0, "hideout posts practice mode")
 	_expect(failed, hideout_src.find("sit_created_pvp(created, false)") >= 0, "practice sits seat A only")
+	_expect(failed, hideout_src.find("practice_snapshot_ok") >= 0, "hideout confirms snapshot before the hunt")
 	_expect(failed, hideout_src.find("PRACTICE_NO_MARKS") >= 0, "hideout shows no-marks copy")
 	_expect(failed, hud_src.find("PRACTICE_CHIP") >= 0, "match HUD practice chip")
 	_expect(failed, hud_src.find("PRACTICE_SETTLED_COPY") >= 0, "practice end says Δ0")
+	var live_body := {"matchId": "m_live", "joinToken": "tok_live", "seat": "a"}
+	_expect(failed, Contract.practice_envelope_ok(live_body), "LIVE envelope is seat A only")
+	_expect(failed, not Contract.practice_create_ok(live_body), "LIVE envelope without snapshot is not sit-ok")
+	var live_snap := {"kind": "practice", "mode": "practice", "enemy": {"isBot": true}}
+	_expect(failed, Contract.practice_snapshot_ok(live_snap), "LIVE snapshot practice + bot")
+	_expect(failed, not Contract.practice_snapshot_ok({"kind": "pvp", "mode": "pvp", "enemy": {"isBot": false}}), "pvp snapshot refused")
+	_expect(failed, not Contract.practice_snapshot_ok({"kind": "practice", "mode": "practice", "enemy": {}}), "missing isBot refused")
+	_expect(failed, not Contract.practice_snapshot_ok({"kind": "practice", "mode": "pvp", "enemy": {"isBot": true}}), "kind/mode clash refused")
+	var kind_only: Snapshot = Snapshot.from_dict({"kind": "practice", "you": {"seat": "a"}, "enemy": {"isBot": true}})
+	_expect(failed, kind_only.is_practice(), "kind practice does not fall through to pvp")
+	var clash: Snapshot = Snapshot.from_dict({"kind": "practice", "mode": "pvp", "enemy": {"isBot": true}})
+	_expect(failed, not clash.is_practice(), "kind/mode clash is not practice")
 
 
 func _expect(failed: PackedStringArray, cond: bool, label: String) -> void:

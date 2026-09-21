@@ -1845,7 +1845,8 @@ func _enter_rematch(body: Dictionary) -> void:
 	_rematch_left = -1.0
 	body = _ensure_ready_body(body)
 	var snap_dict: Dictionary = MatchAPI.bind_new_match(body)
-	if keep_practice and not ClientSession.is_practice():
+	var neu := ClientSession.typed_snapshot()
+	if keep_practice and (not ClientSession.is_practice() or not neu.is_practice() or not neu.enemy_is_bot()):
 		_rematch_busy = false
 		_toast.text = Contract.PRACTICE_UNAVAILABLE_COPY
 		_go_hideout()

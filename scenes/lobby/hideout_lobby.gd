@@ -1954,10 +1954,23 @@ func _start_practice() -> void:
 			return
 		MatchAPI.ensure_player()
 	var created: Dictionary = MatchAPI.create_match({"mode": Contract.MODE_PRACTICE})
-	if not Contract.practice_create_ok(created):
+	if not Contract.practice_envelope_ok(created):
 		ClientSession.reset_match()
 		_toast_msg(Contract.PRACTICE_UNAVAILABLE_COPY)
 		return
+	## LIVE create is { matchId, joinToken, seat } — mode and isBot live on the snapshot.
+	## Peek before join. A PvP snap, or a missing bot, never enters the hunt.
+	var named := str(created.get("mode", created.get("kind", "")))
+	if named != Contract.MODE_PRACTICE:
+		ClientSession.match_id = str(created.get("matchId", ""))
+		ClientSession.join_token = Contract.create_join_token(created)
+		ClientSession.seat = Contract.create_seat(created)
+		var peek: Dictionary = MatchAPI.get_snapshot(ClientSession.match_id, "")
+		if not Contract.practice_snapshot_ok(peek):
+			ClientSession.reset_match()
+			MatchAPI.clear_all()
+			_toast_msg(Contract.PRACTICE_UNAVAILABLE_COPY)
+			return
 	var seated: Dictionary = MatchAPI.sit_created_pvp(created, false)
 	if seated.has("error"):
 		ClientSession.reset_match()
@@ -1971,8 +1984,7 @@ func _start_practice() -> void:
 	var ready_snap: Dictionary = MatchAPI.get_snapshot(ClientSession.match_id, ClientSession.player_id)
 	if ready_snap.is_empty():
 		ready_snap = human.get("snapshot", {})
-	var kind := str(ready_snap.get("kind", ready_snap.get("mode", "")))
-	if kind != Contract.MODE_PRACTICE:
+	if not Contract.practice_snapshot_ok(ready_snap):
 		ClientSession.reset_match()
 		MatchAPI.clear_all()
 		_toast_msg(Contract.PRACTICE_UNAVAILABLE_COPY)
