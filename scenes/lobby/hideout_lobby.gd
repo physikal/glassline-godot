@@ -8,6 +8,7 @@ const Shop := preload("res://types/shop.gd")
 const Lobby := preload("res://types/lobby.gd")
 const Queue := preload("res://types/queue.gd")
 const ExposureDoll := preload("res://scenes/match/exposure_doll.gd")
+const JournalPlate := preload("res://scenes/lobby/journal_plate.gd")
 
 var _bg: TextureRect
 var _wood_covers: Array[ColorRect] = []
@@ -44,6 +45,8 @@ var _dock_quick: Button
 var _dock_invite: Button
 var _dock_practice: Button
 var _practice_panel: PanelContainer
+var _journal_plate: JournalPlate
+var _dock: HBoxContainer
 var _mute_btn: Button
 
 
@@ -214,6 +217,18 @@ func _ready() -> void:
 		DisplayServer.window_set_size(Vector2i(1280, 720))
 		await get_tree().process_frame
 		_start_practice()
+	elif "--capture-journal-empty" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await _capture_journal_empty()
+	elif "--capture-journal-rows" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await _capture_journal_rows()
+	elif "--capture-journal-muted" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await _capture_journal_muted()
 	elif "--capture-abandon-cta" in args or "--capture-grace-countdown" in args \
 			or "--capture-forfeit-overlay" in args \
 			or "--capture-end-summary-kill" in args \
@@ -628,6 +643,7 @@ func _build() -> void:
 	_refresh_mode()
 
 	var row := HBoxContainer.new()
+	_dock = row
 	row.set_anchors_preset(PRESET_BOTTOM_WIDE)
 	row.offset_top = -108
 	row.offset_bottom = -22
@@ -681,6 +697,7 @@ func _build() -> void:
 	_build_invite_panel()
 	_build_queue_panel()
 	_build_practice_panel()
+	_build_journal_plate()
 
 
 func _build_top_bar() -> void:
@@ -743,6 +760,11 @@ func _build_top_bar() -> void:
 	_mute_btn.tooltip_text = Chrome.mute_button_tip(AudioJuice.muted)
 	_mute_btn.pressed.connect(_toggle_mute)
 	left.add_child(_mute_btn)
+
+	var journal := Chrome.dock_button(Contract.JOURNAL_CTA, Chrome.WOOD, Chrome.CREAM, Vector2(150, 36))
+	journal.tooltip_text = "Last hunts from the ledger."
+	journal.pressed.connect(_open_journal)
+	left.add_child(journal)
 
 	var wallet := HBoxContainer.new()
 	wallet.set_anchors_preset(PRESET_TOP_RIGHT)
@@ -1252,6 +1274,16 @@ func _build_practice_panel() -> void:
 	actions.add_child(back)
 
 
+func _build_journal_plate() -> void:
+	_journal_plate = JournalPlate.new()
+	_journal_plate.visible = false
+	_journal_plate.z_index = 40
+	_journal_plate.practice_again.connect(_start_practice)
+	_journal_plate.rematch_match.connect(_journal_rematch)
+	_journal_plate.closed.connect(_on_journal_closed)
+	add_child(_journal_plate)
+
+
 func _bind_wallet() -> void:
 	var wallet: Dictionary = MatchAPI.wallet()
 	if wallet.has("marks"):
@@ -1522,6 +1554,7 @@ func _debug_status_toast(text: String) -> void:
 func _toggle_jobs() -> void:
 	if _queue_waiting:
 		return
+	_close_journal()
 	if _invite_panel and _invite_panel.visible and _lobby_waiting:
 		return
 	if _invite_panel:
@@ -1547,6 +1580,7 @@ func _toggle_invite() -> void:
 
 
 func _open_invite() -> void:
+	_close_journal()
 	if _jobs_panel:
 		_jobs_panel.visible = false
 	if _practice_panel:
@@ -1724,6 +1758,7 @@ func _on_quick_match() -> void:
 		return
 	if _lobby_waiting:
 		return
+	_close_journal()
 	if ClientSession.use_live_api():
 		var health: Dictionary = MatchAPI.health()
 		if not bool(health.get("ok", false)):
@@ -1906,6 +1941,7 @@ func _on_play() -> void:
 func _open_practice() -> void:
 	if _queue_waiting or _lobby_waiting:
 		return
+	_close_journal()
 	if _jobs_panel:
 		_jobs_panel.visible = false
 	if _invite_panel:
@@ -1936,11 +1972,149 @@ func _capture_practice_no_marks() -> void:
 	await _capture_named("res://artifacts/ux/practice_no_marks.png", "P6_PRACTICE_NO_MARKS")
 
 
+func _open_journal() -> void:
+	if _queue_waiting or _lobby_waiting:
+		return
+	if _jobs_panel:
+		_jobs_panel.visible = false
+	if _invite_panel and not _lobby_waiting:
+		_invite_panel.visible = false
+	if _practice_panel:
+		_practice_panel.visible = false
+	if _queue_panel:
+		_queue_panel.visible = false
+	if _shop_row:
+		_shop_row.visible = false
+	if _journal_plate == null:
+		return
+	if _dock:
+		_dock.visible = false
+	_journal_plate.open()
+	_journal_plate.bind(MatchAPI.get_journal())
+	_toast_msg("")
+
+
+func _close_journal() -> void:
+	if _journal_plate and _journal_plate.visible:
+		_journal_plate.close()
+
+
+func _on_journal_closed() -> void:
+	if _dock and not _queue_waiting:
+		_dock.visible = true
+	if _shop_row and not _queue_waiting and not _lobby_waiting:
+		if _jobs_panel == null or not _jobs_panel.visible:
+			if _invite_panel == null or not _invite_panel.visible:
+				if _practice_panel == null or not _practice_panel.visible:
+					_shop_row.visible = true
+
+
+func _journal_rematch(match_id: String) -> void:
+	## Same rematch POST as the end overlay. Practice rows never land here.
+	if match_id == "":
+		return
+	_close_journal()
+	var body: Dictionary = MatchAPI.rematch_match(match_id, true)
+	if not ClientSession.use_live_api():
+		var st := _journal_rematch_status(body)
+		if st == Contract.REMATCH_WAITING:
+			var other := MockMatchServer.other_player_id(match_id, ClientSession.player_id)
+			if other != "":
+				ClientSession.dummy_player_id = other
+				var dummy_body: Dictionary = MatchAPI.rematch_as(other, true)
+				var dummy_join := str(dummy_body.get("joinToken", ""))
+				if dummy_join != "":
+					ClientSession.dummy_token = dummy_join
+				body = MatchAPI.rematch(true)
+	var status := _journal_rematch_status(body)
+	if status == Contract.REMATCH_READY:
+		MatchAPI.bind_new_match(body)
+		get_tree().change_scene_to_file("res://scenes/match/match_screen.tscn")
+		return
+	_open_journal()
+	if status == Contract.REMATCH_WAITING:
+		_toast_msg(Contract.JOURNAL_WAIT_COPY)
+	elif str(body.get("error", "")) != "" or status in [Contract.REMATCH_DECLINED, Contract.REMATCH_EXPIRED]:
+		_toast_msg(Contract.JOURNAL_CLOSED_COPY)
+
+
+func _journal_rematch_status(body: Dictionary) -> String:
+	var st := str(body.get("status", ""))
+	if st == "" or st.is_valid_int():
+		var rem: Variant = body.get("rematch", {})
+		if rem is Dictionary:
+			st = str(rem.get("status", ""))
+	return st
+
+
+func _capture_journal_empty() -> void:
+	if not ClientSession.use_live_api():
+		MockMatchServer.clear_all()
+	if _shop_row:
+		_shop_row.visible = false
+	_open_journal()
+	await _capture_named("res://artifacts/ux/journal_empty.png", "J5_JOURNAL_EMPTY")
+
+
+func _capture_journal_rows() -> void:
+	if not ClientSession.use_live_api():
+		_seed_journal_rows()
+	if _shop_row:
+		_shop_row.visible = false
+	_open_journal()
+	await _capture_named("res://artifacts/ux/journal_rows.png", "J1_JOURNAL_ROWS")
+
+
+func _capture_journal_muted() -> void:
+	if not ClientSession.use_live_api():
+		_seed_journal_muted()
+	if _shop_row:
+		_shop_row.visible = false
+	_open_journal()
+	await _capture_named("res://artifacts/ux/journal_muted.png", "J3_JOURNAL_MUTED")
+
+
+func _seed_journal_rows() -> void:
+	## Three ledger rows for the still. Practice Δ0, a quick win, a quick loss.
+	MockMatchServer.clear_all()
+	MockMatchServer.reset_wallet(24)
+	MockMatchServer.test_now_ms = 1000
+	_end_seed_match(Contract.MODE_PVP, Contract.SEAT_B, Contract.END_KILL)
+	MockMatchServer.test_now_ms = 2000
+	_end_seed_match(Contract.MODE_PVP, Contract.SEAT_A, Contract.END_KILL)
+	MockMatchServer.test_now_ms = 3000
+	_end_seed_match(Contract.MODE_PRACTICE, Contract.SEAT_A, Contract.END_KILL)
+	MockMatchServer.test_now_ms = 3000
+
+
+func _seed_journal_muted() -> void:
+	## Older PvP rematch window is closed. Practice again on the new row stays live.
+	MockMatchServer.clear_all()
+	MockMatchServer.reset_wallet(24)
+	MockMatchServer.test_now_ms = 1000
+	_end_seed_match(Contract.MODE_PVP, Contract.SEAT_A, Contract.END_KILL)
+	MockMatchServer.test_now_ms = 1000 + Contract.REMATCH_TIMEOUT_MS + 50
+	_end_seed_match(Contract.MODE_PRACTICE, Contract.SEAT_B, Contract.END_FORFEIT)
+
+
+func _end_seed_match(mode: String, winner: String, reason: String) -> void:
+	var created: Dictionary = MockMatchServer.create_match({"mode": mode})
+	var mid := str(created.get("matchId", ""))
+	if mode == Contract.MODE_PRACTICE:
+		MockMatchServer.join(mid, Contract.create_join_token(created))
+	else:
+		var tokens: Dictionary = created.get("joinTokens", {})
+		MockMatchServer.join(mid, str(tokens.get("a", "")))
+		MockMatchServer.join(mid, str(tokens.get("b", "")))
+	MockMatchServer.force_end(mid, winner, reason)
+
+
 func _start_practice() -> void:
 	## POST /matches { mode: practice } then sit seat A with the create joinToken.
 	## Seat B is the server bot — this client never claims it.
 	if _queue_waiting or _lobby_waiting:
 		return
+	_close_journal()
 	if _practice_panel:
 		_practice_panel.visible = false
 	MatchAPI.clear_all()

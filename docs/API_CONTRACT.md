@@ -155,8 +155,19 @@ TTL **60s**. Re-POST while queued **refreshes `expiresAt`** (keeps `queuedAt`). 
 
 Errors: **401** · **409** `already_in_match` / `in_lobby`. Bare 404 → `queue_unavailable`.
 
+## Match journal (client, 2026-09-21)
+`GET /journal` Bearer **player** → `{ entries: [...] }` newest first, max **10**.
+
+```
+entry: { matchId, mode, result: win|loss|forfeit|draw,
+         rival: { displayName, isBot }, marksDelta, endedAt, rematchAvailable }
+```
+
+Practice rows: `marksDelta` **0**. PvP `rematchAvailable` → existing `POST /matches/:id/rematch`. Practice again is `POST /matches` `{ mode: "practice" }`, not a replay. 404 → `journal_unavailable` (client mock until the route is live). No local history.
+
 ## Other REST
 - `GET /health` → `{ ok: true }`
+- `GET /journal` → last 10 ended matches for the Bearer player
 - `GET /matches/:id` → caller-scoped snapshot (reconnect)
 - `POST /matches/:id/abandon` → join Bearer, no body
 - `POST /matches/:id/rematch` → `{ accept }` + join-token Bearer (player token fallback)
