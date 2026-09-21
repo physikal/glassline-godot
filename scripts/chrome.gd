@@ -587,10 +587,10 @@ static func _icon_high_ground(img: Image, color: Color) -> void:
 
 
 static func _icon_leaf(img: Image, color: Color) -> void:
-	## Toy leaf for the brush tip. Not a cover badge.
+	## Toy leaf on the wood plate. Stem stays wood, not the legend green swatch.
 	_fill_circle(img, 16, 16, 7, color)
 	_fill_circle(img, 10, 12, 5, color)
-	_fill_rect(img, 13, 16, 3, 9, Color("3d6b28"))
+	_fill_rect(img, 13, 16, 3, 9, WOOD)
 
 
 static func _icon_clock(img: Image, color: Color) -> void:
