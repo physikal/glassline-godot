@@ -52,7 +52,18 @@ static func mark_seen() -> void:
 
 static func clear_seen() -> void:
 	var cfg := ConfigFile.new()
+	cfg.load(store_path)
 	cfg.set_value(Contract.COACH_SECTION, Contract.COACH_SEEN_KEY, false)
+	cfg.save(store_path)
+
+
+static func reset_tips() -> void:
+	## Local only. Clears first-hunt and the terrain kind list. No API.
+	## coachTerrainSeen is a comma list (high,brush), so clear it to empty.
+	var cfg := ConfigFile.new()
+	cfg.load(store_path)
+	cfg.set_value(Contract.COACH_SECTION, Contract.COACH_SEEN_KEY, false)
+	cfg.set_value(Contract.COACH_SECTION, Contract.COACH_TERRAIN_SEEN_KEY, "")
 	cfg.save(store_path)
 
 

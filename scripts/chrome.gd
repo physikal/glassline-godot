@@ -392,6 +392,10 @@ static func make_icon(kind: String, color: Color, px: int = 28) -> Texture2D:
 			_icon_coin(img, color)
 		"gem":
 			_icon_gem(img, color)
+		"speaker", "sound":
+			_icon_speaker(img, color, false)
+		"speaker_off", "mute":
+			_icon_speaker(img, color, true)
 		_:
 			_icon_star(img, color)
 	return ImageTexture.create_from_image(img)
@@ -641,6 +645,25 @@ static func _icon_ticket(img: Image, color: Color) -> void:
 	_fill_rect(img, 8, 16, 5, 2, color)
 	_fill_circle(img, 20, 14, 3, color)
 	_fill_circle(img, 20, 14, 1, INK)
+
+
+static func _icon_speaker(img: Image, color: Color, off: bool) -> void:
+	## Toy speaker. Live draws two sound bars. Muted draws a slash. No mic / radio kit.
+	var s := mini(img.get_width(), img.get_height())
+	var body_w := maxi(4, int(float(s) * 0.26))
+	var body_h := maxi(5, int(float(s) * 0.34))
+	var body_x := int(float(s) * 0.08)
+	var body_y := int(float(s) * 0.33)
+	_fill_rect(img, body_x, body_y, body_w, body_h, color)
+	var cone_x := body_x + body_w - 1
+	_fill_rect(img, cone_x, int(float(s) * 0.24), maxi(3, int(float(s) * 0.16)), int(float(s) * 0.52), color)
+	_fill_rect(img, cone_x + int(float(s) * 0.12), int(float(s) * 0.14), maxi(2, int(float(s) * 0.12)), int(float(s) * 0.72), color)
+	if off:
+		_line(img, float(s) * 0.62, float(s) * 0.18, float(s) * 0.92, float(s) * 0.82, color)
+		_line(img, float(s) * 0.68, float(s) * 0.16, float(s) * 0.98, float(s) * 0.80, color)
+	else:
+		_fill_rect(img, int(float(s) * 0.68), int(float(s) * 0.36), maxi(2, int(float(s) * 0.08)), int(float(s) * 0.28), color)
+		_fill_rect(img, int(float(s) * 0.82), int(float(s) * 0.22), maxi(2, int(float(s) * 0.08)), int(float(s) * 0.56), color)
 
 
 static func _icon_clipboard(img: Image, color: Color) -> void:
