@@ -250,7 +250,8 @@ static func describe_last_action(last: Dictionary) -> String:
 		Contract.ACT_SELECT_HEX:
 			return "lastAction select_hex  seat %s" % str(last.get("seat", ""))
 		Contract.ACT_START:
-			return "lastAction start — seat A shoots first"
+			## Soft P2: seat-order dump is not player-facing board chrome.
+			return ""
 		_:
 			return ""
 
@@ -381,6 +382,8 @@ static func make_icon(kind: String, color: Color, px: int = 28) -> Texture2D:
 			_icon_clipboard(img, color)
 		"invite":
 			_icon_ticket(img, color)
+		"practice":
+			_icon_practice(img, color)
 		"quick", "queue":
 			_icon_binoculars(img, color)
 		"coin":
@@ -606,6 +609,19 @@ static func _icon_gem(img: Image, color: Color) -> void:
 	_fill_rect(img, 8, 8, 13, 12, color)
 	_fill_rect(img, 10, 6, 9, 16, color)
 	_fill_rect(img, 12, 10, 5, 5, Color(1, 1, 1, 0.45))
+
+
+static func _icon_practice(img: Image, color: Color) -> void:
+	## Quiet-hunt toy spy — beanie and round goggles. Not a sight, badge, or kit.
+	_fill_rect(img, 6, 3, 14, 5, color)
+	_fill_rect(img, 4, 7, 18, 3, color)
+	_fill_circle(img, 13, 15, 8, color)
+	_fill_rect(img, 5, 12, 16, 4, color)
+	var lens := Color("f4efe4")
+	_fill_circle(img, 9, 14, 3, lens)
+	_fill_circle(img, 17, 14, 3, lens)
+	_fill_circle(img, 9, 14, 1, color)
+	_fill_circle(img, 17, 14, 1, color)
 
 
 static func _icon_ticket(img: Image, color: Color) -> void:

@@ -650,8 +650,8 @@ func _build() -> void:
 	_dock_quick.pressed.connect(_on_quick_match)
 	row.add_child(_dock_quick)
 
-	## Cozy paper chip — not the teal queue or gold invite.
-	_dock_practice = Chrome.dock_button(Contract.PRACTICE_CTA, Chrome.POSTER_PAPER, Chrome.INK, Vector2(190, 64))
+	## Cozy paper chip — toy-spy icon, same dock weight as Quick Match / Invite.
+	_dock_practice = Chrome.dock_button(Contract.PRACTICE_CTA, Chrome.POSTER_PAPER, Chrome.INK, Vector2(210, 64), "practice")
 	_dock_practice.tooltip_text = Contract.PRACTICE_NO_MARKS
 	_dock_practice.pressed.connect(_open_practice)
 	row.add_child(_dock_practice)

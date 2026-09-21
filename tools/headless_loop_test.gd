@@ -2588,6 +2588,12 @@ func _practice_case(failed: PackedStringArray) -> void:
 	_expect(failed, hideout_src.find("PRACTICE_NO_MARKS") >= 0, "hideout shows no-marks copy")
 	_expect(failed, hud_src.find("PRACTICE_CHIP") >= 0, "match HUD practice chip")
 	_expect(failed, hud_src.find("PRACTICE_SETTLED_COPY") >= 0, "practice end says Δ0")
+	var start_line := Chrome.describe_last_action({"type": Contract.ACT_START})
+	_expect(failed, start_line == "", "P2 start debug line scrubbed")
+	_expect(failed, start_line.find("lastAction") < 0, "P2 start toast is not a debug line")
+	var chrome_src := FileAccess.get_file_as_string("res://scripts/chrome.gd")
+	_expect(failed, chrome_src.find("lastAction start") < 0, "P2 chrome has no lastAction start copy")
+	_expect(failed, hideout_src.find("\"practice\"") >= 0, "P2 practice dock icon")
 	var live_body := {"matchId": "m_live", "joinToken": "tok_live", "seat": "a"}
 	_expect(failed, Contract.practice_envelope_ok(live_body), "LIVE envelope is seat A only")
 	_expect(failed, not Contract.practice_create_ok(live_body), "LIVE envelope without snapshot is not sit-ok")
