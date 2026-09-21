@@ -22,6 +22,7 @@ ClientSession="*res://autoload/client_session.gd"
 MockMatchServer="*res://autoload/mock_match_server.gd"
 LiveMatchClient="*res://autoload/live_match_client.gd"
 MatchAPI="*res://autoload/match_api.gd"
+AudioJuice="*res://autoload/audio_juice.gd"
 
 [glassline]
 

@@ -1,0 +1,6 @@
+godot --headless --path . -s res://tools/headless_loop_test.gd
+HEADLESS_LOOP_OK
+
+A1–A5 locked. LIVE POST /matches (c71f113) keys: joinToken, matchId, seat — no joinTokens.
+Join path needed a client fix: hideout PLAY + LiveMatchClient + live smokes no longer expect dual-seat create.
+Seat A uses create joinToken. Seat B claims via POST /players + empty-body join.

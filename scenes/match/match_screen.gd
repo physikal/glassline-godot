@@ -68,6 +68,7 @@ var _abandon_busy: bool = false
 var _going_hideout: bool = false
 var _art_lock_end_panel: bool = false
 var _plate_hud: bool = false
+var _mute_btn: Button
 
 
 func _ready() -> void:
@@ -1110,6 +1111,11 @@ func _build() -> void:
 	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	Chrome.apply_label(_toast, 10, Color("f7e7a8"), true)
 	add_child(_toast)
+	_mute_btn = Chrome.dock_button(Chrome.mute_button_text(AudioJuice.muted), Chrome.INK, Chrome.CREAM, Vector2(108, 32))
+	_mute_btn.position = Vector2(1156, 12)
+	_mute_btn.tooltip_text = Chrome.mute_button_tip(AudioJuice.muted)
+	_mute_btn.pressed.connect(_toggle_mute)
+	add_child(_mute_btn)
 
 	_coach = FirstHuntCoach.new()
 	_coach.set_anchors_preset(PRESET_FULL_RECT)
@@ -1310,7 +1316,8 @@ func _refresh(snap: Snapshot) -> void:
 
 	var last: Variant = snap.last_action()
 	if last is Dictionary and snap.status() != Contract.STATUS_READY:
-		_toast.text = _describe_last(last)
+		_toast.text = Chrome.describe_last_action(last)
+		AudioJuice.notice_last_action(last)
 	_btn_uav.disabled = _btn_uav.disabled or snap.uav_remaining() <= 0
 	if snap.uav_remaining() <= 0:
 		_btn_uav.text = "%s SPENT" % Contract.ABILITY_SLOT
@@ -1443,6 +1450,13 @@ func _on_uav() -> void:
 
 func _on_decoy() -> void:
 	_submit(ActionIntent.decoy())
+
+
+func _toggle_mute() -> void:
+	AudioJuice.toggle_mute()
+	if _mute_btn:
+		_mute_btn.text = Chrome.mute_button_text(AudioJuice.muted)
+		_mute_btn.tooltip_text = Chrome.mute_button_tip(AudioJuice.muted)
 
 
 func _on_optic_fire() -> void:
@@ -1769,33 +1783,4 @@ func _go_hideout() -> void:
 
 
 func _describe_last(last: Dictionary) -> String:
-	var kind := str(last.get("type", ""))
-	match kind:
-		Contract.ACT_ATTACK:
-			## Server result only. Never invent cover / high-ground / chance.
-			return Chrome.describe_attack_result(last)
-		Contract.ACT_RECON:
-			var spotted: Variant = last.get("spotted", last.get("found", false))
-			return "lastAction recon  spotted=%s  (server)" % str(spotted)
-		Contract.ACT_REJECT:
-			return "lastAction reject  %s" % str(last.get("reason", ""))
-		Contract.ACT_UAV:
-			return "lastAction uav  revealed=%s  (server)" % str(last.get("revealed", false))
-		Contract.ACT_DECOY:
-			var planted: Variant = last.get("hex", null)
-			if planted is Dictionary:
-				return "lastAction decoy  planted Q%d R%d  (toy doll · server)" % [
-					int(planted.get("q", 0)),
-					int(planted.get("r", 0)),
-				]
-			return "lastAction decoy  planted  (toy doll · server)"
-		Contract.ACT_FORFEIT:
-			return "lastAction forfeit  winner=%s  (server)" % str(last.get("winner", ""))
-		Contract.ACT_END_TURN:
-			return "lastAction end_turn  moved=%s" % str(last.get("moved", false))
-		Contract.ACT_SELECT_HEX:
-			return "lastAction select_hex  seat %s" % str(last.get("seat", ""))
-		Contract.ACT_START:
-			return "lastAction start — seat A shoots first"
-		_:
-			return ""
+	return Chrome.describe_last_action(last)

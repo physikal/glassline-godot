@@ -1,7 +1,7 @@
 extends Node
 ## Local implementation of the locked Glassline match lifecycle.
 ## Live client should keep these method names and payload shapes:
-##   create_match() -> { matchId, joinTokens }
+##   create_match() -> { matchId, joinToken, seat: a, joinTokens }  (LIVE create is joinToken only)
 ##   join(match_id, token) -> { playerId, seat, snapshot }
 ##   post_action(match_id, player_id, action) -> ActionResult
 ##   get_snapshot(match_id, player_id) -> Dictionary
@@ -80,6 +80,8 @@ func create_match(opts: Dictionary = {}) -> Dictionary:
 	}
 	return {
 		"matchId": match_id,
+		"joinToken": token_a,
+		"seat": Contract.SEAT_A,
 		"joinTokens": {Contract.SEAT_A: token_a, Contract.SEAT_B: token_b},
 		"mode": mode,
 		"wallet": {"marks": account_marks},

@@ -78,11 +78,22 @@ func ensure_player(force_new: bool = false) -> Dictionary:
 
 
 func create_match(opts: Dictionary = {}) -> Dictionary:
+	## LIVE spine: { matchId, joinToken, seat: "a" }. Never both seat tokens.
 	## Bearer player token binds seat A to that playerId (no fresh mint at 0).
 	var payload: Dictionary = opts.duplicate(true)
 	var body: Dictionary = _json("POST", "/matches", payload, ClientSession.player_bearer())
 	if body.has("error") and not body.has("matchId"):
 		last_error = str(body.get("error", "create_failed"))
+		return body
+	if str(body.get("joinToken", "")) == "":
+		var tokens: Variant = body.get("joinTokens", {})
+		if tokens is Dictionary:
+			body["joinToken"] = str(tokens.get("a", tokens.get(Contract.SEAT_A, "")))
+	if str(body.get("seat", "")) == "":
+		body["seat"] = Contract.SEAT_A
+	## Dual-seat create is not on the LIVE spine. Seat B claims with its own Bearer.
+	if body.has("joinTokens"):
+		body.erase("joinTokens")
 	return body
 
 
@@ -379,6 +390,8 @@ func _lobby_from_raw(raw: Dictionary) -> Dictionary:
 func join(match_id: String, token: String) -> Dictionary:
 	## Body token is the join token. Bearer player token binds an empty seat.
 	## Dummy seat B must not reuse player A's token (409 same player both seats).
+	if token == "":
+		return claim_open_seat(match_id)
 	var bearer := _join_bearer(token)
 	var body: Dictionary = _json("POST", "/matches/%s/join" % match_id, {"token": token}, bearer)
 	if body.has("playerId") and body.has("snapshot"):
@@ -386,6 +399,18 @@ func join(match_id: String, token: String) -> Dictionary:
 	if body.has("error"):
 		return body
 	return {"error": str(body.get("error", "join_failed"))}
+
+
+func claim_open_seat(match_id: String, bearer: String = "") -> Dictionary:
+	## POST /matches/:id/join {} — claims empty seat B. Returns that seat's joinToken.
+	if bearer == "":
+		bearer = ClientSession.player_bearer()
+	var body: Dictionary = _json("POST", "/matches/%s/join" % match_id, {}, bearer)
+	if body.has("playerId") and (body.has("snapshot") or str(body.get("joinToken", "")) != ""):
+		return body
+	if body.has("error"):
+		return body
+	return {"error": str(body.get("error", "claim_failed"))}
 
 
 func _join_bearer(join_token: String) -> String:

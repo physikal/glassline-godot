@@ -13,6 +13,9 @@ import sys
 import urllib.error
 import urllib.request
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from live_join import sit_created_pvp
+
 BASE = os.environ.get("GLASSLINE_API_BASE", "https://glassline-api.vercel.app").rstrip("/")
 FAILS: list[str] = []
 NOTES: list[str] = []
@@ -82,15 +85,14 @@ def close(val: float, want: float) -> bool:
 
 
 def open_match(player_token: str, aq: int, ar: int, bq: int, br: int):
-    status, created, _ = req("POST", "/matches", {}, player_token)
-    if status not in (200, 201) or "matchId" not in created:
+    seated = sit_created_pvp(req, player_token)
+    if not seated.get("ok"):
         return None
-    match_id = str(created.get("matchId", ""))
-    tokens = created.get("joinTokens") or {}
-    token_a = str(tokens.get("a") or "")
-    token_b = str(tokens.get("b") or "")
-    req("POST", f"/matches/{match_id}/join", {"token": token_a}, player_token)
-    req("POST", f"/matches/{match_id}/join", {"token": token_b})
+    match_id = str(seated.get("matchId", ""))
+    token_a = str(seated.get("token_a") or "")
+    token_b = str(seated.get("token_b") or "")
+    if not token_a or not token_b:
+        return None
     req("POST", f"/matches/{match_id}/actions", {"type": "select_hex", "hex": {"q": aq, "r": ar}}, token_a)
     req("POST", f"/matches/{match_id}/actions", {"type": "select_hex", "hex": {"q": bq, "r": br}}, token_b)
     _, snap, _ = req("GET", f"/matches/{match_id}", None, token_a)

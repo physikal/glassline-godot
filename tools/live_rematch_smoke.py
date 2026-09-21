@@ -18,6 +18,9 @@ import time
 import urllib.error
 import urllib.request
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from live_join import sit_created_pvp
+
 BASE = os.environ.get("GLASSLINE_API_BASE", "https://glassline-api.vercel.app").rstrip("/")
 FAILS: list[str] = []
 NOTES: list[str] = []
@@ -153,11 +156,12 @@ def sample_board(match_id: str, ja: str, _jb: str = "") -> dict[str, str]:
 
 
 def end_pvp(token_a: str, token_b: str | None = None, sample: bool = False):
-    status, created, _ = req("POST", "/matches", {}, token_a)
-    if status not in (200, 201) or "matchId" not in created:
+    seated = sit_created_pvp(req, token_a, token_b)
+    created = seated.get("created") or {}
+    if not seated.get("ok"):
         return {
             "ok": False,
-            "status": status,
+            "status": seated.get("status") or 0,
             "killed": created,
             "matchId": "",
             "ja": "",
@@ -167,12 +171,11 @@ def end_pvp(token_a: str, token_b: str | None = None, sample: bool = False):
             "created": created,
             "sample": {},
         }
-    match_id = str(created.get("matchId", ""))
-    tokens = created.get("joinTokens") or {}
-    ja = str(tokens.get("a") or "")
-    jb = str(tokens.get("b") or "")
-    _, join_a, _ = req("POST", f"/matches/{match_id}/join", {"token": ja}, token_a)
-    _, join_b, _ = req("POST", f"/matches/{match_id}/join", {"token": jb}, token_b)
+    match_id = str(seated.get("matchId", ""))
+    ja = str(seated.get("token_a") or "")
+    jb = str(seated.get("token_b") or "")
+    join_a = seated.get("join_a") or {}
+    join_b = seated.get("join_b") or {}
     sampled = sample_board(match_id, ja, jb) if sample else {}
     req("POST", f"/matches/{match_id}/actions", {"type": "select_hex", "hex": {"q": 2, "r": 2}}, ja)
     req("POST", f"/matches/{match_id}/actions", {"type": "select_hex", "hex": {"q": 7, "r": 5}}, jb)
@@ -237,7 +240,7 @@ def main() -> int:
     # Route-up proof: rematch on a live (non-ended) match.
     st, created, _ = req("POST", "/matches", {}, token_a)
     live_mid = str(created.get("matchId") or "")
-    live_ja = str((created.get("joinTokens") or {}).get("a") or "")
+    live_ja = str(created.get("joinToken") or "")
     if live_mid and live_ja:
         st409, body409, raw409 = probe_rematch(live_mid, live_ja, True)
         print("NON_ENDED_REMATCH", st409, (raw409 or "")[:400])

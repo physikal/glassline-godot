@@ -304,6 +304,38 @@ static func other_seat(seat: String) -> String:
 	return SEAT_B if seat == SEAT_A else SEAT_A
 
 
+## LIVE POST /matches → { matchId, joinToken, seat: "a" }. Never both seats.
+## Mock still also returns joinTokens for the local dummy loop.
+static func create_join_token(created: Dictionary) -> String:
+	var tok := str(created.get("joinToken", ""))
+	if tok != "":
+		return tok
+	var tokens: Variant = created.get("joinTokens", {})
+	if tokens is Dictionary:
+		return str(tokens.get(SEAT_A, tokens.get("a", "")))
+	return ""
+
+
+static func create_seat(created: Dictionary) -> String:
+	var seat := str(created.get("seat", ""))
+	return seat if seat != "" else SEAT_A
+
+
+static func create_dummy_token(created: Dictionary) -> String:
+	## Mock / editor only. LIVE create never ships seat B.
+	var tokens: Variant = created.get("joinTokens", {})
+	if tokens is Dictionary:
+		return str(tokens.get(SEAT_B, tokens.get("b", "")))
+	return ""
+
+
+## Toy-spy attack stingers. Names stay cozy — not gunshot / killstreak.
+const CUE_MISS := "glass_click"
+const CUE_HIT := "glass_ping"
+const CUE_HIGH := "high_chime"
+const CUE_BRUSH := "brush_hush"
+
+
 static func shop_stub_item() -> Dictionary:
 	return _shop_item(SHOP_STUB_ITEM_ID, SHOP_STUB_ITEM_NAME, SHOP_STUB_KIND, SHOP_STUB_PRICE)
 

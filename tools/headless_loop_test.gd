@@ -12,6 +12,7 @@ const HexMath := preload("res://scripts/hex_math.gd")
 const Chrome := preload("res://scripts/chrome.gd")
 const MockScript := preload("res://autoload/mock_match_server.gd")
 const SessionScript := preload("res://autoload/client_session.gd")
+const JuiceScript := preload("res://autoload/audio_juice.gd")
 
 var server
 
@@ -145,6 +146,8 @@ func _run() -> int:
 	_match_board_chrome_case(failed)
 	_high_ground_case(failed)
 	_brush_cover_case(failed)
+	_audio_juice_case(failed)
+	_join_spine_case(failed)
 	_equip_chrome_case(failed)
 	_player_persist_case(failed)
 	_first_hunt_coach_case(failed)
@@ -1997,6 +2000,7 @@ func _brush_cover_case(failed: PackedStringArray) -> void:
 	var fog_line := Chrome.describe_attack_result({"type": Contract.ACT_ATTACK, "hit": true})
 	_expect(failed, fog_line.find("Brush cover") < 0, "B2 FoW toast does not invent cover")
 	_expect(failed, fog_line.find("IN COVER") < 0, "B5 toast never says IN COVER")
+	_expect(failed, fog_line.find("(server)") < 0, "A5 hit toast has no (server)")
 	var named: Snapshot = Snapshot.from_dict({
 		"lastAction": {
 			"type": Contract.ACT_ATTACK,
@@ -2015,6 +2019,7 @@ func _brush_cover_case(failed: PackedStringArray) -> void:
 	_expect(failed, plate.find(Contract.HIGH_GROUND_SKIPPED_COPY) >= 0, "B5 toast names no high ground")
 	_expect(failed, plate.find("IN COVER") < 0, "B5 plate copy is not IN COVER")
 	_expect(failed, plate.find("defilade") < 0 and plate.find("concealment") < 0, "B5 plate language not mil-sim")
+	_expect(failed, plate.find("(server)") < 0, "A5 plate toast has no (server)")
 	var invented: Snapshot = Snapshot.from_dict({
 		"you": {"hex": {"q": 1, "r": 0}, "seat": "a"},
 		"enemy": {"visibleHex": {"q": 0, "r": 0}},
@@ -2403,6 +2408,82 @@ func _draw_case(failed: PackedStringArray) -> void:
 	_expect(failed, snap.marks_delta() == Contract.MARKS_STANDOFF, "standoff marksDelta +8")
 	_expect(failed, snap.end_reason() == Contract.END_STANDOFF, "standoff reason")
 	_expect(failed, server.account_marks == 4 + Contract.MARKS_STANDOFF, "standoff uses GD table")
+
+
+func _audio_juice_case(failed: PackedStringArray) -> void:
+	## A1–A4: toy-spy stingers from attack flags. Mute is silent. No combat delta.
+	var juice = JuiceScript.new()
+	juice.muted = true
+	var miss := juice.cues_for({"type": Contract.ACT_ATTACK, "hit": false})
+	_expect(failed, miss.size() == 1 and miss[0] == Contract.CUE_MISS, "A1 miss → glass_click")
+	var hit := juice.cues_for({"type": Contract.ACT_ATTACK, "hit": true})
+	_expect(failed, hit.size() == 1 and hit[0] == Contract.CUE_HIT, "A1 hit → glass_ping")
+	var stacked := juice.cues_for({
+		"type": Contract.ACT_ATTACK,
+		"hit": true,
+		"highGroundApplied": true,
+		"coverApplied": true,
+	})
+	_expect(failed, stacked.has(Contract.CUE_HIT), "A1 stacked includes hit")
+	_expect(failed, stacked.has(Contract.CUE_HIGH), "A1 HG flag → high_chime")
+	_expect(failed, stacked.has(Contract.CUE_BRUSH), "A1 brush flag → brush_hush")
+	var doll := juice.cues_for({"type": Contract.ACT_ATTACK, "hit": false, "decoyCleared": true})
+	_expect(failed, doll.has(Contract.CUE_MISS) and not doll.has(Contract.CUE_HIT), "A1 doll miss click")
+	var recon := juice.cues_for({"type": Contract.ACT_RECON, "spotted": true})
+	_expect(failed, recon.is_empty(), "A1 recon is not an attack stinger")
+	var skipped := juice.cues_for({
+		"type": Contract.ACT_ATTACK,
+		"hit": true,
+		"highGroundApplied": false,
+		"coverApplied": false,
+	})
+	_expect(failed, not skipped.has(Contract.CUE_HIGH), "A1 skipped HG is not a chime")
+	_expect(failed, not skipped.has(Contract.CUE_BRUSH), "A1 skipped cover is not a hush")
+	juice.notice_last_action({"type": Contract.ACT_ATTACK, "hit": true, "highGroundApplied": true})
+	_expect(failed, juice.last_played.is_empty(), "A3 muted plays nothing")
+	_expect(failed, juice.last_cues.has(Contract.CUE_HIT), "A3 mute still names the cue")
+	juice.free()
+
+	var juice_src := FileAccess.get_file_as_string("res://autoload/audio_juice.gd")
+	var chrome_src := FileAccess.get_file_as_string("res://scripts/chrome.gd")
+	var hud_src := FileAccess.get_file_as_string("res://scenes/match/match_screen.gd")
+	_expect(failed, juice_src.find("gunshot") < 0 and juice_src.find("killstreak") < 0, "A2 no mil-sim gunshot/killstreak")
+	_expect(failed, chrome_src.find("gunshot") < 0 and hud_src.find("killstreak") < 0, "A2 chrome/hud not mil-sim")
+	_expect(failed, juice_src.find("marks") < 0 and juice_src.find("MatchAPI") < 0, "A4 juice has no Marks / API")
+	_expect(failed, juice_src.find("hitChance") >= 0 or juice_src.find("coverApplied") >= 0, "A4 juice reads result flags")
+	_expect(failed, Chrome.mute_button_text(true) == "MUTE", "A3 mute label")
+	_expect(failed, Chrome.mute_button_text(false) == "SOUND", "A3 sound label")
+	var recon_line := Chrome.describe_last_action({"type": Contract.ACT_RECON, "spotted": true})
+	var uav_line := Chrome.describe_last_action({"type": Contract.ACT_UAV, "revealed": true})
+	var decoy_line := Chrome.describe_last_action({"type": Contract.ACT_DECOY, "hex": {"q": 2, "r": 3}})
+	_expect(failed, recon_line.find("(server)") < 0, "A5 recon toast has no (server)")
+	_expect(failed, uav_line.find("(server)") < 0, "A5 uav toast has no (server)")
+	_expect(failed, decoy_line.find("(server)") < 0, "A5 decoy toast has no (server)")
+	_expect(failed, decoy_line.find("toy doll") >= 0, "A5 decoy keeps toy-doll copy")
+
+
+func _join_spine_case(failed: PackedStringArray) -> void:
+	## LIVE create is one joinToken + seat a. Seat B is never on the create bag.
+	var live_shape := {"matchId": "m_live", "joinToken": "tok_a_only", "seat": "a"}
+	_expect(failed, not live_shape.has("joinTokens"), "spine create has no joinTokens")
+	_expect(failed, Contract.create_join_token(live_shape) == "tok_a_only", "spine A uses joinToken")
+	_expect(failed, Contract.create_seat(live_shape) == "a", "spine seat a")
+	_expect(failed, Contract.create_dummy_token(live_shape) == "", "spine create has no seat B token")
+	var fallback := Contract.create_join_token({"joinTokens": {"a": "tok_legacy_a", "b": "tok_legacy_b"}})
+	_expect(failed, fallback == "tok_legacy_a", "mock fallback still reads joinTokens.a")
+	_expect(failed, Contract.create_dummy_token({"joinTokens": {"a": "tok_legacy_a", "b": "tok_legacy_b"}}) == "tok_legacy_b", "mock dummy still reads joinTokens.b")
+	server.clear_all()
+	var created: Dictionary = server.create_match()
+	_expect(failed, str(created.get("joinToken", "")) != "", "mock also stamps caller joinToken")
+	_expect(failed, str(created.get("seat", "")) == "a", "mock seat a")
+	_expect(failed, created.has("joinTokens"), "mock keeps dummy joinTokens for editor")
+	_expect(failed, Contract.create_join_token(created) == str(created.get("joinToken", "")), "caller helper prefers joinToken")
+	var hideout_src := FileAccess.get_file_as_string("res://scenes/lobby/hideout_lobby.gd")
+	var live_src := FileAccess.get_file_as_string("res://autoload/live_match_client.gd")
+	_expect(failed, hideout_src.find("sit_created_pvp") >= 0, "hideout sits via spine helper")
+	_expect(failed, hideout_src.find("tokens.is_empty()") < 0, "hideout PLAY does not require joinTokens")
+	_expect(failed, live_src.find("body.erase(\"joinTokens\")") >= 0, "LIVE create strips dual tokens")
+	_expect(failed, live_src.find("func claim_open_seat") >= 0, "LIVE claim empty seat B")
 
 
 func _expect(failed: PackedStringArray, cond: bool, label: String) -> void:
