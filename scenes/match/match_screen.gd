@@ -127,6 +127,8 @@ func _ready() -> void:
 		_capture_high_ground(true)
 	elif "--capture-high-ground-muted" in args:
 		_capture_high_ground(false)
+	elif "--capture-brush-cover-toast" in args:
+		_capture_brush_cover_toast()
 
 
 func _capture_high_ground(lit: bool) -> void:
@@ -162,6 +164,66 @@ func _capture_high_ground(lit: bool) -> void:
 	img.save_png(path)
 	print("HIGH_GROUND_%s " % ("LIT" if lit else "MUTED"), path)
 	get_tree().quit()
+
+
+func _capture_brush_cover_toast() -> void:
+	## Optional still: occupy a BRUSH target and keep the server toast. No chip.
+	if _coach:
+		_coach.dismiss()
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+	DisplayServer.window_set_size(Vector2i(1280, 720))
+	_dummy_busy = true
+	_dummy_delay = 0.0
+	await get_tree().process_frame
+	var snap := _setup_brush_cover_occupy()
+	_refresh(snap)
+	if _over:
+		_over.visible = false
+	if _btn_decoy:
+		_btn_decoy.visible = false
+	if _btn_abandon:
+		_btn_abandon.visible = false
+	_status.text = ""
+	_phase.text = ""
+	if _toast:
+		_toast.position = Vector2(200, 136)
+		_toast.size = Vector2(880, 36)
+		Chrome.apply_label(_toast, 12, Color("f7e7a8"), true)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	var path := ProjectSettings.globalize_path("res://artifacts/ux/brush_cover_toast.png")
+	img.save_png(path)
+	print("BRUSH_COVER_TOAST ", path)
+	get_tree().quit()
+
+
+func _setup_brush_cover_occupy() -> Snapshot:
+	## Mock: OPEN attacker vs BRUSH target. Display lastAction.coverApplied only.
+	var snap: Snapshot = ClientSession.typed_snapshot()
+	if ClientSession.use_live_api() or ClientSession.match_id == "":
+		return _ensure_active_for_decoy()
+	var mid := ClientSession.match_id
+	var open_hex: Dictionary = MockMatchServer.find_hex_of_type(mid, Contract.TYPE_OPEN)
+	var brush_hex: Dictionary = MockMatchServer.find_hex_of_type(mid, Contract.TYPE_BRUSH)
+	if open_hex.is_empty() or brush_hex.is_empty():
+		return _ensure_active_for_decoy()
+	if snap.status() == Contract.STATUS_READY or snap.status() == Contract.STATUS_WAITING:
+		_submit(ActionIntent.select_hex(int(open_hex.get("q", 0)), int(open_hex.get("r", 0))))
+		if ClientSession.dummy_player_id != "":
+			_submit_as(
+				ClientSession.dummy_player_id,
+				ActionIntent.select_hex(int(brush_hex.get("q", 1)), int(brush_hex.get("r", 0)))
+			)
+		snap = ClientSession.typed_snapshot()
+	if snap.status() == Contract.STATUS_READY:
+		_submit(ActionIntent.start())
+		snap = ClientSession.typed_snapshot()
+	if snap.status() == Contract.STATUS_ACTIVE and str(snap.phase()) == Contract.PHASE_ACTION:
+		_submit(ActionIntent.attack(int(brush_hex.get("q", 1)), int(brush_hex.get("r", 0))))
+		snap = ClientSession.typed_snapshot()
+	return snap
 
 
 func _capture_queue_matched_board() -> void:
@@ -1699,15 +1761,8 @@ func _describe_last(last: Dictionary) -> String:
 	var kind := str(last.get("type", ""))
 	match kind:
 		Contract.ACT_ATTACK:
-			if bool(last.get("decoyCleared", false)):
-				return "lastAction attack  hit=false  decoyCleared=true  (toy doll gone)"
-			var line := "lastAction attack  hit=%s  (server)" % str(last.get("hit", false))
-			## Server result only. Never invent hitChance / highGroundApplied.
-			if last.has("highGroundApplied"):
-				line += "  highGroundApplied=%s" % str(last.get("highGroundApplied"))
-			if last.has("hitChance"):
-				line += "  hitChance=%s" % str(last.get("hitChance"))
-			return line
+			## Server result only. Never invent cover / high-ground / chance.
+			return Chrome.describe_attack_result(last)
 		Contract.ACT_RECON:
 			var spotted: Variant = last.get("spotted", last.get("found", false))
 			return "lastAction recon  spotted=%s  (server)" % str(spotted)
