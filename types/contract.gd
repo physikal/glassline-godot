@@ -284,12 +284,12 @@ static func format_grace_clock(sec: float) -> String:
 
 
 static func format_marks_delta(n: int) -> String:
-	## One plate chip for every Marks Δ: `0`, `+N`, or `-N`.
-	## The wood font draws the hyphen. Never glue a prefix (`Δ+25`, `0+25`, `+0`).
+	## One plate chip for every Marks Δ: `0`, `+N`, or `−N` (U+2212).
+	## Never glue a prefix (`Δ+25`, `0+25`, `+0`) and never an ASCII hyphen.
 	if n > 0:
 		return "+%d" % n
 	if n < 0:
-		return "-%d" % absi(n)
+		return "−%d" % absi(n)
 	return "0"
 
 
@@ -626,7 +626,7 @@ static func is_match_snapshot(snap: Dictionary, match_id: String = "") -> bool:
 
 static func practice_envelope_ok(body: Dictionary) -> bool:
 	## Seat A + one joinToken. A leaked seat-B token, or a named non-practice mode, is not a hunt.
-	## LIVE create omits mode (keys are matchId, joinToken, seat). Confirm the snapshot before sitting.
+	## LIVE practice create echoes `mode: "practice"` (API 0d30bd7). PvP create still omits mode.
 	if body.is_empty():
 		return false
 	if str(body.get("matchId", "")) == "" or create_join_token(body) == "":
@@ -663,8 +663,8 @@ static func practice_snapshot_ok(snap: Dictionary) -> bool:
 
 
 static func practice_create_ok(body: Dictionary) -> bool:
-	## Mock names mode on the create body. LIVE does not — that path uses the snapshot.
-	## A body that never names practice is not ok to sit until practice_snapshot_ok.
+	## Echoed `mode: "practice"` is enough. A body that omits mode still needs the snapshot.
+	## PvP create does not echo mode.
 	if not practice_envelope_ok(body):
 		return false
 	var named := str(body.get("mode", body.get("kind", "")))

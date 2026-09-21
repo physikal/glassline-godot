@@ -2602,7 +2602,10 @@ func _practice_case(failed: PackedStringArray) -> void:
 	_expect(failed, hideout_src.find("\"practice\"") >= 0, "P2 practice dock icon")
 	var live_body := {"matchId": "m_live", "joinToken": "tok_live", "seat": "a"}
 	_expect(failed, Contract.practice_envelope_ok(live_body), "LIVE envelope is seat A only")
-	_expect(failed, not Contract.practice_create_ok(live_body), "LIVE envelope without snapshot is not sit-ok")
+	_expect(failed, not Contract.practice_create_ok(live_body), "omitted mode is not sit-ok")
+	var echoed := {"matchId": "m_live", "joinToken": "tok_live", "seat": "a", "mode": "practice"}
+	_expect(failed, Contract.practice_create_ok(echoed), "LIVE practice echoes mode")
+	_expect(failed, not Contract.practice_create_ok({"matchId": "m_live", "joinToken": "tok_live", "seat": "a", "mode": "pvp"}), "echoed pvp is not practice")
 	var live_snap := {"kind": "practice", "mode": "practice", "enemy": {"isBot": true}}
 	_expect(failed, Contract.practice_snapshot_ok(live_snap), "LIVE snapshot practice + bot")
 	_expect(failed, not Contract.practice_snapshot_ok({"kind": "pvp", "mode": "pvp", "enemy": {"isBot": false}}), "pvp snapshot refused")
@@ -2648,14 +2651,15 @@ func _journal_case(failed: PackedStringArray) -> void:
 	})) == "0", "J2 poisoned practice still 0")
 	_expect(failed, Contract.format_marks_delta(0) == "0", "P2 delta chip 0")
 	_expect(failed, Contract.format_marks_delta(25) == "+25", "P2 delta chip +N")
-	_expect(failed, Contract.format_marks_delta(-4) == "-4", "P2 delta chip -N")
+	_expect(failed, Contract.format_marks_delta(-4) == "−4", "P2 delta chip −N")
+	_expect(failed, Contract.format_marks_delta(-4) != "-4", "P2 minus is not a hyphen")
 	_expect(failed, Contract.format_marks_delta(25) != "0+25" and Contract.format_marks_delta(25) != "Δ+25", "P2 no glued delta")
 	_expect(failed, Journal.marks_text(Journal.normalize({
 		"matchId": "m_neg",
 		"mode": Contract.MODE_PVP,
 		"marksDelta": -4,
 		"result": "loss",
-	})) == "-4", "journal negative is -N")
+	})) == "−4", "journal negative is −N")
 
 	server.clear_all()
 	server.reset_wallet(0)

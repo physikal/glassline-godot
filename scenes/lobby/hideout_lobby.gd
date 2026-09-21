@@ -2132,8 +2132,8 @@ func _start_practice() -> void:
 		ClientSession.reset_match()
 		_toast_msg(Contract.PRACTICE_UNAVAILABLE_COPY)
 		return
-	## LIVE create is { matchId, joinToken, seat } — mode and isBot live on the snapshot.
-	## Peek before join. A PvP snap, or a missing bot, never enters the hunt.
+	## LIVE practice create echoes mode. Older bodies omit it — peek the snapshot then.
+	## A PvP snap, or a missing bot, never enters the hunt.
 	var named := str(created.get("mode", created.get("kind", "")))
 	if named != Contract.MODE_PRACTICE:
 		ClientSession.match_id = str(created.get("matchId", ""))
