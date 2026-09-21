@@ -42,6 +42,8 @@ var _wallet_row: HBoxContainer
 var _taste_doll: ExposureDoll
 var _dock_quick: Button
 var _dock_invite: Button
+var _dock_practice: Button
+var _practice_panel: PanelContainer
 var _mute_btn: Button
 
 
@@ -199,6 +201,19 @@ func _ready() -> void:
 	elif "--capture-rematch-ended" in args or "--capture-rematch-ready" in args:
 		await get_tree().process_frame
 		_on_play()
+	elif "--capture-practice-cta" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await _capture_practice_cta()
+	elif "--capture-practice-no-marks" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await _capture_practice_no_marks()
+	elif "--capture-practice-bot" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await get_tree().process_frame
+		_start_practice()
 	elif "--capture-abandon-cta" in args or "--capture-grace-countdown" in args \
 			or "--capture-forfeit-overlay" in args \
 			or "--capture-end-summary-kill" in args \
@@ -410,6 +425,8 @@ func _prep_art_hideout_chrome() -> void:
 		_shop_row.visible = false
 	if _dock_quick:
 		_dock_quick.visible = true
+	if _dock_practice:
+		_dock_practice.visible = true
 	if _dock_invite:
 		_dock_invite.visible = true
 	_refresh_gun_rack()
@@ -614,30 +631,36 @@ func _build() -> void:
 	row.set_anchors_preset(PRESET_BOTTOM_WIDE)
 	row.offset_top = -108
 	row.offset_bottom = -22
-	row.offset_left = 72
-	row.offset_right = -72
+	row.offset_left = 28
+	row.offset_right = -28
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 16)
+	row.add_theme_constant_override("separation", 8)
 	add_child(row)
 
-	var loadout := Chrome.dock_button("LOADOUT", Chrome.LOADOUT_BLUE, Color.WHITE, Vector2(210, 68), "loadout")
+	var loadout := Chrome.dock_button("LOADOUT", Chrome.LOADOUT_BLUE, Color.WHITE, Vector2(200, 64), "loadout")
 	loadout.pressed.connect(_focus_shop)
 	row.add_child(loadout)
 
-	var play := Chrome.dock_button("PLAY", Chrome.PLAY_GREEN, Color.WHITE, Vector2(240, 78), "play")
+	var play := Chrome.dock_button("PLAY", Chrome.PLAY_GREEN, Color.WHITE, Vector2(210, 72), "play")
 	play.pressed.connect(_on_play)
 	row.add_child(play)
 
-	_dock_quick = Chrome.dock_button(Contract.QUEUE_CTA, Chrome.TEAL, Color.WHITE, Vector2(240, 68), "quick")
+	_dock_quick = Chrome.dock_button(Contract.QUEUE_CTA, Chrome.TEAL, Color.WHITE, Vector2(230, 64), "quick")
 	_dock_quick.tooltip_text = "Find a rival. Same hunt. No ranked."
 	_dock_quick.pressed.connect(_on_quick_match)
 	row.add_child(_dock_quick)
 
-	_dock_invite = Chrome.dock_button("INVITE", Chrome.HIGH_GOLD, Chrome.INK, Vector2(180, 68), "invite")
+	## Cozy paper chip — not the teal queue or gold invite.
+	_dock_practice = Chrome.dock_button(Contract.PRACTICE_CTA, Chrome.POSTER_PAPER, Chrome.INK, Vector2(190, 64))
+	_dock_practice.tooltip_text = Contract.PRACTICE_NO_MARKS
+	_dock_practice.pressed.connect(_open_practice)
+	row.add_child(_dock_practice)
+
+	_dock_invite = Chrome.dock_button("INVITE", Chrome.HIGH_GOLD, Chrome.INK, Vector2(170, 64), "invite")
 	_dock_invite.pressed.connect(_toggle_invite)
 	row.add_child(_dock_invite)
 
-	var jobs := Chrome.dock_button("JOBS", Chrome.JOBS_ORANGE, Color.WHITE, Vector2(180, 68), "jobs")
+	var jobs := Chrome.dock_button("JOBS", Chrome.JOBS_ORANGE, Color.WHITE, Vector2(160, 64), "jobs")
 	jobs.pressed.connect(_toggle_jobs)
 	row.add_child(jobs)
 
@@ -657,6 +680,7 @@ func _build() -> void:
 	_build_jobs_panel()
 	_build_invite_panel()
 	_build_queue_panel()
+	_build_practice_panel()
 
 
 func _build_top_bar() -> void:
@@ -1171,6 +1195,63 @@ func _build_queue_panel() -> void:
 	col.add_child(cancel)
 
 
+func _build_practice_panel() -> void:
+	## Cozy confirm — paper and ink, not queue chrome. No Marks is on the panel before start.
+	_practice_panel = PanelContainer.new()
+	_practice_panel.visible = false
+	_practice_panel.set_anchors_preset(PRESET_CENTER)
+	_practice_panel.offset_left = -340
+	_practice_panel.offset_right = 340
+	_practice_panel.offset_top = -200
+	_practice_panel.offset_bottom = 200
+	var box := Chrome.flat(Color(0.95, 0.90, 0.78, 0.97), 20, Chrome.INK, 3)
+	box.content_margin_left = 22
+	box.content_margin_right = 22
+	box.content_margin_top = 16
+	box.content_margin_bottom = 16
+	_practice_panel.add_theme_stylebox_override("panel", box)
+	add_child(_practice_panel)
+
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 12)
+	_practice_panel.add_child(col)
+
+	var kicker := Label.new()
+	kicker.text = Contract.PRACTICE_KICKER
+	Chrome.apply_label(kicker, 8, Chrome.INK, true)
+	col.add_child(kicker)
+
+	var heading := Label.new()
+	heading.text = Contract.PRACTICE_HEADING
+	Chrome.apply_label(heading, 16, Chrome.INK, true)
+	col.add_child(heading)
+
+	var blurb := Label.new()
+	blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	blurb.text = Contract.PRACTICE_BLURB
+	Chrome.apply_label(blurb, 8, Chrome.INK)
+	col.add_child(blurb)
+
+	var no_marks := Label.new()
+	no_marks.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	no_marks.text = Contract.PRACTICE_NO_MARKS
+	Chrome.apply_label(no_marks, 10, Chrome.INK, true)
+	col.add_child(no_marks)
+
+	var actions := HBoxContainer.new()
+	actions.alignment = BoxContainer.ALIGNMENT_CENTER
+	actions.add_theme_constant_override("separation", 16)
+	col.add_child(actions)
+
+	var start := Chrome.chunk_button(Contract.PRACTICE_START, Chrome.PLAY_GREEN, Color.WHITE, Vector2(280, 52))
+	start.pressed.connect(_start_practice)
+	actions.add_child(start)
+
+	var back := Chrome.chunk_button(Contract.PRACTICE_BACK, Chrome.INK, Chrome.CREAM, Vector2(180, 52))
+	back.pressed.connect(_close_practice)
+	actions.add_child(back)
+
+
 func _bind_wallet() -> void:
 	var wallet: Dictionary = MatchAPI.wallet()
 	if wallet.has("marks"):
@@ -1445,6 +1526,8 @@ func _toggle_jobs() -> void:
 		return
 	if _invite_panel:
 		_invite_panel.visible = false
+	if _practice_panel:
+		_practice_panel.visible = false
 	_jobs_panel.visible = not _jobs_panel.visible
 	if _shop_row:
 		_shop_row.visible = not _jobs_panel.visible
@@ -1466,6 +1549,8 @@ func _toggle_invite() -> void:
 func _open_invite() -> void:
 	if _jobs_panel:
 		_jobs_panel.visible = false
+	if _practice_panel:
+		_practice_panel.visible = false
 	if _shop_row:
 		_shop_row.visible = false
 	if _invite_panel:
@@ -1816,6 +1901,85 @@ func _on_play() -> void:
 	if _queue_waiting:
 		return
 	_start_match(Contract.MODE_PVP)
+
+
+func _open_practice() -> void:
+	if _queue_waiting or _lobby_waiting:
+		return
+	if _jobs_panel:
+		_jobs_panel.visible = false
+	if _invite_panel:
+		_invite_panel.visible = false
+	if _shop_row:
+		_shop_row.visible = false
+	if _practice_panel:
+		_practice_panel.visible = true
+	_toast_msg("")
+
+
+func _close_practice() -> void:
+	if _practice_panel:
+		_practice_panel.visible = false
+	if _shop_row and not _queue_waiting and not _lobby_waiting:
+		_shop_row.visible = true
+
+
+func _capture_practice_cta() -> void:
+	_close_practice()
+	if _shop_row:
+		_shop_row.visible = false
+	await _capture_named("res://artifacts/ux/practice_cta.png", "P6_PRACTICE_CTA")
+
+
+func _capture_practice_no_marks() -> void:
+	_open_practice()
+	await _capture_named("res://artifacts/ux/practice_no_marks.png", "P6_PRACTICE_NO_MARKS")
+
+
+func _start_practice() -> void:
+	## POST /matches { mode: practice } then sit seat A with the create joinToken.
+	## Seat B is the server bot — this client never claims it.
+	if _queue_waiting or _lobby_waiting:
+		return
+	if _practice_panel:
+		_practice_panel.visible = false
+	MatchAPI.clear_all()
+	ClientSession.reset_match()
+	ClientSession.match_mode = Contract.MODE_PRACTICE
+	if ClientSession.use_live_api():
+		var health: Dictionary = MatchAPI.health()
+		if not bool(health.get("ok", false)):
+			ClientSession.reset_match()
+			_toast_msg("Live API down at %s  (GET /health)" % ClientSession.api_base_url())
+			return
+		MatchAPI.ensure_player()
+	var created: Dictionary = MatchAPI.create_match({"mode": Contract.MODE_PRACTICE})
+	if not Contract.practice_create_ok(created):
+		ClientSession.reset_match()
+		_toast_msg(Contract.PRACTICE_UNAVAILABLE_COPY)
+		return
+	var seated: Dictionary = MatchAPI.sit_created_pvp(created, false)
+	if seated.has("error"):
+		ClientSession.reset_match()
+		_toast_msg("Join failed: %s" % str(seated.get("error", "")))
+		return
+	ClientSession.dummy_player_id = ""
+	ClientSession.dummy_token = ""
+	var human: Dictionary = seated.get("human", {})
+	if not (human is Dictionary):
+		human = {}
+	var ready_snap: Dictionary = MatchAPI.get_snapshot(ClientSession.match_id, ClientSession.player_id)
+	if ready_snap.is_empty():
+		ready_snap = human.get("snapshot", {})
+	var kind := str(ready_snap.get("kind", ready_snap.get("mode", "")))
+	if kind != Contract.MODE_PRACTICE:
+		ClientSession.reset_match()
+		MatchAPI.clear_all()
+		_toast_msg(Contract.PRACTICE_UNAVAILABLE_COPY)
+		return
+	ClientSession.apply_snapshot(ready_snap)
+	MatchAPI.start_events()
+	get_tree().change_scene_to_file("res://scenes/match/match_screen.tscn")
 
 
 func _on_start_job() -> void:

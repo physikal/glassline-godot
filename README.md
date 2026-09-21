@@ -106,7 +106,7 @@ Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` 
 
 | Scene | Path | Role |
 | --- | --- | --- |
-| Hideout | `scenes/lobby/hideout_lobby.tscn` | Canon room, ARMORY three rows, PLAY, **QUICK MATCH**, **INVITE** (private lobby), JOBS, Marks chip |
+| Hideout | `scenes/lobby/hideout_lobby.tscn` | Canon room, ARMORY three rows, PLAY, **QUICK MATCH**, **PRACTICE**, **INVITE** (private lobby), JOBS, Marks chip |
 | Match | `scenes/match/match_screen.tscn` | 9×7 axial, dummy `select_hex`, START, Attack/Recon/UAV/DECOY, END TURN, first-hunt coach chips |
 | Optic | `scenes/optic/optic_overlay.gd` | Zoom / wobble stub + FIRE |
 | Types | `types/` | Snapshot, ActionIntent, ActionResult (`{ ok, snapshot, result }`) |
@@ -126,6 +126,8 @@ Live contract deltas vs the older mock draft: **no `start`** (both `select_hex` 
 8. Ended PvP: **PLAY AGAIN** / **DECLINE**. Marks already settled. Both accept → new `matchId` + salt, drop again. Decline or 30s → hideout. Notes: `artifacts/REMATCH_NOTES.md`.
 
 Hideout **QUICK MATCH** is 1-tap `POST /queue` (60s TTL, no bot fill). Cozy “Finding a rival…” wartable — cancel or timeout returns hideout with Marks Δ0. Pair hands off the same drop / rematch / A4 path as private lobby. LIVE `https://glassline-api.vercel.app` (Coder `queue.ts`). Notes: `QUICK_MATCH_NOTES.md`.
+
+Hideout **PRACTICE** sits beside Quick Match. A paper confirm states **No Marks (Δ0)** before `POST /matches` `{ mode: "practice" }`. Seat A uses the create `joinToken`. The toy spy is seat B on the server (`enemy.isBot`) — this client does not script it. Rematch stays practice. Notes: `PRACTICE_HUNT_NOTES.md`. LIVE: `python3 tools/live_practice_smoke.py` (`LIVE_PRACTICE_PENDING` until Coder ships the mode).
 
 Hideout **INVITE** is the private lobby: **CREATE LOBBY** shows a chunky copy-able code; **JOIN** takes a 6-char code. Cancel/leave returns to the hideout (no A4 forfeit). Ready uses the existing drop. Notes: `artifacts/PRIVATE_LOBBY_NOTES.md`.
 
