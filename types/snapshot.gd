@@ -108,6 +108,27 @@ func is_job() -> bool:
 	return mode() == Contract.MODE_SP_JOB
 
 
+func is_practice() -> bool:
+	return mode() == Contract.MODE_PRACTICE
+
+
+func enemy_is_bot() -> bool:
+	## Chrome only. Absent means a human rival — never invent a bot.
+	var bag := enemy()
+	if bag.has("isBot"):
+		return bool(bag.get("isBot", false))
+	if bag.has("bot"):
+		return bool(bag.get("bot", false))
+	return false
+
+
+func enemy_placed() -> bool:
+	var bag := enemy()
+	if bag.has("placed"):
+		return bool(bag.get("placed", false))
+	return false
+
+
 func job() -> Dictionary:
 	var value: Variant = raw.get("job", {})
 	return value if value is Dictionary else {}
@@ -131,7 +152,8 @@ func marks_delta() -> Variant:
 
 func table_marks_delta() -> int:
 	## Earn-table Δ from endReason + winner vs seat. Display only.
-	return MarksPayout.table_delta(raw, you_seat(), is_job())
+	## Practice is blind to that table — always Δ0.
+	return MarksPayout.table_delta(raw, you_seat(), is_job(), is_practice())
 
 
 func end_reason() -> String:

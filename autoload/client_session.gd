@@ -274,6 +274,10 @@ func is_job() -> bool:
 	return match_mode == Contract.MODE_SP_JOB
 
 
+func is_practice() -> bool:
+	return match_mode == Contract.MODE_PRACTICE
+
+
 func typed_snapshot() -> Snapshot:
 	return Snapshot.from_dict(last_snapshot) as Snapshot
 

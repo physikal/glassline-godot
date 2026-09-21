@@ -69,6 +69,7 @@ var _going_hideout: bool = false
 var _art_lock_end_panel: bool = false
 var _plate_hud: bool = false
 var _mute_btn: Button
+var _practice_chip: Label
 
 
 func _ready() -> void:
@@ -76,7 +77,7 @@ func _ready() -> void:
 	set_process(true)
 	_build()
 	MatchAPI.match_event.connect(_on_match_event)
-	if ClientSession.dummy_player_id == "" and ClientSession.is_job():
+	if ClientSession.dummy_player_id == "" and (ClientSession.is_job() or ClientSession.is_practice()):
 		_dummy_placed = true
 	_apply_server_reconnect()
 	var args := OS.get_cmdline_user_args()
@@ -130,6 +131,8 @@ func _ready() -> void:
 		_capture_high_ground(false)
 	elif "--capture-brush-cover-toast" in args:
 		_capture_brush_cover_toast()
+	elif "--capture-practice-bot" in args:
+		_capture_practice_bot()
 
 
 func _capture_high_ground(lit: bool) -> void:
@@ -866,7 +869,12 @@ func _build() -> void:
 		reticle.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(reticle)
 		var title := Label.new()
-		title.text = "SP JOB" if ClientSession.is_job() else "Glassline"
+		if ClientSession.is_practice():
+			title.text = "PRACTICE"
+		elif ClientSession.is_job():
+			title.text = "SP JOB"
+		else:
+			title.text = "Glassline"
 		title.position = Vector2(0, 10)
 		title.size = Vector2(1280, 36)
 		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1117,6 +1125,16 @@ func _build() -> void:
 	_mute_btn.pressed.connect(_toggle_mute)
 	add_child(_mute_btn)
 
+	_practice_chip = Label.new()
+	_practice_chip.text = Contract.PRACTICE_CHIP
+	_practice_chip.position = Vector2(360, 8)
+	_practice_chip.size = Vector2(560, 28)
+	_practice_chip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_practice_chip.z_index = 30
+	_practice_chip.visible = false
+	Chrome.apply_label(_practice_chip, 10, Chrome.HIGH_GOLD, true)
+	add_child(_practice_chip)
+
 	_coach = FirstHuntCoach.new()
 	_coach.set_anchors_preset(PRESET_FULL_RECT)
 	_coach.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1248,9 +1266,23 @@ func _on_match_event(player_id: String, _event_name: String, snapshot: Dictionar
 
 func _refresh(snap: Snapshot) -> void:
 	_bind_server_exposure(snap)
+	_sync_practice_bot(snap)
 	_board.apply_snapshot(snap, _selected, _highlights(snap))
 	_you_chip.text = "%s\n%s" % [ClientSession.HANDLE, Chrome.marks_star_text(snap.you_marks())]
-	_rival_chip.text = "BOT" if ClientSession.is_job() or snap.is_job() else ClientSession.RIVAL
+	if _practice_rival(snap):
+		_rival_chip.text = Contract.PRACTICE_RIVAL
+	elif ClientSession.is_job() or snap.is_job():
+		_rival_chip.text = "BOT"
+	else:
+		_rival_chip.text = ClientSession.RIVAL
+	if _practice_chip:
+		_practice_chip.visible = _practice_rival(snap)
+		_practice_chip.text = Contract.PRACTICE_CHIP
+	if _btn_abandon:
+		if snap.is_practice() or ClientSession.is_practice():
+			_btn_abandon.tooltip_text = Contract.PRACTICE_ABANDON_TIP
+		else:
+			_btn_abandon.tooltip_text = "Leave the hunt. Rival keeps the Marks table (+12 / 0)."
 	var turn_n := snap.turn_index()
 	if turn_n < 1:
 		turn_n = 1
@@ -1262,7 +1294,7 @@ func _refresh(snap: Snapshot) -> void:
 			_status.text = ""
 			_phase.text = ""
 			_toast.text = ""
-			var both_dropped := snap.you_placed() and _dummy_placed
+			var both_dropped := snap.you_placed() and (_dummy_placed or snap.enemy_placed())
 			_btn_start.text = "START" if both_dropped else "DROP"
 			_btn_start.disabled = not both_dropped
 			_btn_start.visible = true
@@ -1480,9 +1512,14 @@ func _on_end_turn() -> void:
 	var body := ActionIntent.end_turn(_exposure.value, _relocate_hex)
 	_relocate_hex = null
 	_selected = null
-	_dummy_delay = 1.4
-	_dummy_busy = true
-	_status.text = "Rival is lining up…  1.4s"
+	## Practice bot already moved inside the server response. No local dummy wait.
+	if ClientSession.is_practice() and ClientSession.dummy_player_id == "":
+		_dummy_delay = 0.0
+		_dummy_busy = false
+	else:
+		_dummy_delay = 1.4
+		_dummy_busy = true
+		_status.text = "Rival is lining up…  1.4s"
 	_set_actions(false)
 	_end_panel.visible = false
 	_submit(body)
@@ -1621,7 +1658,8 @@ func _show_ended(snap: Snapshot) -> void:
 		return
 	_over.visible = true
 	var job := ClientSession.is_job() or snap.is_job()
-	var parts: Dictionary = MarksPayout.overlay_parts(snap.raw, snap.you_seat(), job)
+	var practice := snap.is_practice() or ClientSession.is_practice()
+	var parts: Dictionary = MarksPayout.overlay_parts(snap.raw, snap.you_seat(), job, practice)
 	_over_lbl.text = str(parts.get("headline", ""))
 	if _over_marks:
 		_over_marks.text = str(parts.get("marks", ""))
@@ -1634,10 +1672,13 @@ func _show_ended(snap: Snapshot) -> void:
 	if foil and not offered and snap.status() == Contract.STATUS_ENDED:
 		offered = true
 	var you_waiting := offered and snap.rematch_you_accepted() and not snap.rematch_opponent_accepted()
-	_over_settle.visible = offered or snap.is_forfeit()
-	_over_settle.text = Contract.REMATCH_SETTLED_COPY
+	_over_settle.visible = offered or snap.is_forfeit() or practice
+	_over_settle.text = Contract.PRACTICE_SETTLED_COPY if practice else Contract.REMATCH_SETTLED_COPY
 	_over_hint.visible = offered
-	_over_hint.text = Contract.REMATCH_WAIT_COPY if you_waiting else Contract.REMATCH_HINT_COPY
+	if practice:
+		_over_hint.text = Contract.PRACTICE_WAIT_COPY if you_waiting else Contract.PRACTICE_REMATCH_HINT
+	else:
+		_over_hint.text = Contract.REMATCH_WAIT_COPY if you_waiting else Contract.REMATCH_HINT_COPY
 	_btn_play_again.visible = offered
 	_btn_play_again.disabled = you_waiting
 	_btn_decline.visible = offered
@@ -1751,14 +1792,64 @@ func _apply_rematch_body(body: Dictionary) -> void:
 	_refresh(ClientSession.typed_snapshot())
 
 
+func _capture_practice_bot() -> void:
+	## In-match still: same HUD, toy-spy chip, server bot already seated.
+	if _coach:
+		_coach.dismiss()
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+	DisplayServer.window_set_size(Vector2i(1280, 720))
+	_dummy_busy = true
+	_dummy_placed = true
+	_dummy_delay = 0.0
+	await get_tree().process_frame
+	var snap := ClientSession.typed_snapshot()
+	if snap.status() == Contract.STATUS_READY and not snap.you_placed():
+		_submit(ActionIntent.select_hex(2, 2))
+		snap = ClientSession.typed_snapshot()
+	if snap.status() == Contract.STATUS_READY:
+		_submit(ActionIntent.start())
+		snap = ClientSession.typed_snapshot()
+	_refresh(snap)
+	if _over:
+		_over.visible = false
+	if _coach:
+		_coach.dismiss()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	var path := ProjectSettings.globalize_path("res://artifacts/ux/practice_vs_bot.png")
+	img.save_png(path)
+	print("P6_PRACTICE_VS_BOT ", path)
+	get_tree().quit()
+
+
+func _sync_practice_bot(snap: Snapshot) -> void:
+	## Server already seated the toy spy. Do not invent a client-side dummy.
+	if ClientSession.dummy_player_id != "":
+		return
+	if (snap.is_practice() or ClientSession.is_practice()) and snap.enemy_is_bot():
+		_dummy_placed = true
+
+
+func _practice_rival(snap: Snapshot) -> bool:
+	return (snap.is_practice() or ClientSession.is_practice()) and (snap.enemy_is_bot() or ClientSession.dummy_player_id == "")
+
+
 func _enter_rematch(body: Dictionary) -> void:
 	if _rematch_busy or _going_hideout:
 		return
+	var keep_practice := ClientSession.is_practice() or ClientSession.typed_snapshot().is_practice()
 	_rematch_busy = true
 	_over.visible = false
 	_rematch_left = -1.0
 	body = _ensure_ready_body(body)
 	var snap_dict: Dictionary = MatchAPI.bind_new_match(body)
+	if keep_practice and not ClientSession.is_practice():
+		_rematch_busy = false
+		_toast.text = Contract.PRACTICE_UNAVAILABLE_COPY
+		_go_hideout()
+		return
 	_dummy_placed = false
 	_dummy_busy = false
 	_dummy_delay = 0.0

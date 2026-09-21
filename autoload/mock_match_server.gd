@@ -77,15 +77,21 @@ func create_match(opts: Dictionary = {}) -> Dictionary:
 			Contract.SEAT_A: {"hex": null, "softHotTurnsLeft": 0},
 			Contract.SEAT_B: {"hex": null, "softHotTurnsLeft": 0},
 		},
+		"botStep": 0,
 	}
-	return {
+	if mode == Contract.MODE_PRACTICE:
+		_seat_practice_bot(_matches[match_id])
+	var bag := {
 		"matchId": match_id,
 		"joinToken": token_a,
 		"seat": Contract.SEAT_A,
-		"joinTokens": {Contract.SEAT_A: token_a, Contract.SEAT_B: token_b},
 		"mode": mode,
 		"wallet": {"marks": account_marks},
 	}
+	## Practice bot is seat B with no client join token. PvP still exposes joinTokens for the editor dummy.
+	if mode != Contract.MODE_PRACTICE:
+		bag["joinTokens"] = {Contract.SEAT_A: token_a, Contract.SEAT_B: token_b}
+	return bag
 
 
 func wallet() -> Dictionary:
@@ -839,9 +845,28 @@ func _read_mode(opts: Dictionary) -> String:
 		return Contract.MODE_SP_JOB
 	if str(opts.get("jobId", "")) != "":
 		return Contract.MODE_SP_JOB
+	if mode == Contract.MODE_PRACTICE:
+		return Contract.MODE_PRACTICE
 	if mode != "":
 		return mode
 	return Contract.MODE_PVP
+
+
+func _is_practice(match_state: Dictionary) -> bool:
+	return str(match_state.get("mode", "")) == Contract.MODE_PRACTICE
+
+
+func _seat_practice_bot(match_state: Dictionary) -> void:
+	## Server-internal seat B. No join token is handed to the client.
+	var seat_state: Dictionary = match_state["seats"][Contract.SEAT_B]
+	var match_id := str(match_state.get("matchId", ""))
+	seat_state["playerId"] = "bot_%s" % match_id
+	seat_state["isBot"] = true
+	var hex := Contract.hex_dict(6, 1)
+	seat_state["hex"] = hex
+	seat_state["placed"] = true
+	_reveal(match_state, Contract.SEAT_B, int(hex["q"]), int(hex["r"]))
+	match_state["botStep"] = 0
 
 
 func join(match_id: String, token: String) -> Dictionary:
@@ -856,6 +881,8 @@ func join(match_id: String, token: String) -> Dictionary:
 	if seat == "":
 		return {"error": "bad_token"}
 	var seat_state: Dictionary = match_state["seats"][seat]
+	if bool(seat_state.get("isBot", false)):
+		return {"error": "bot_seat", "code": "bot_seat"}
 	if str(seat_state["playerId"]) == "":
 		seat_state["playerId"] = "p_%s_%s" % [match_id, seat]
 	if _both_joined(match_state) and match_state["status"] == Contract.STATUS_WAITING:
@@ -989,6 +1016,10 @@ func rematch(match_id: String, player_id: String, accept: bool) -> Dictionary:
 	accepted[seat] = true
 	rem["accepted"] = accepted
 	var other := Contract.other_seat(seat)
+	## Practice bot is not a second client. One accept starts the next quiet hunt.
+	if bool(match_state["seats"][other].get("isBot", false)):
+		accepted[other] = true
+		rem["accepted"] = accepted
 	if bool(accepted.get(other, false)):
 		var spawned: Dictionary = _spawn_rematch(match_state)
 		rem["status"] = Contract.REMATCH_READY
@@ -1065,6 +1096,7 @@ func apply_action(match_id: String, player_id: String, action: Dictionary) -> Ac
 		_:
 			applied = ActionResult.fail("unknown_action", snap)
 	if applied.ok:
+		applied = _finish_practice_bot(match_state, seat, applied)
 		_broadcast(match_state)
 	return applied
 
@@ -1553,6 +1585,9 @@ func _settle_payout(match_state: Dictionary, end_reason: String) -> void:
 		else:
 			delta = Contract.MARKS_JOB_FAIL if job else Contract.MARKS_PVP_LOSS
 			reason = Contract.END_JOB_FAIL if job else Contract.END_LOSS
+		## Practice earn table is blind. Win, loss, forfeit, and standoff are all Δ0.
+		if _is_practice(match_state):
+			delta = Contract.MARKS_PRACTICE
 		var balance := account_marks
 		if seat == Contract.SEAT_A:
 			account_marks += delta
@@ -1686,6 +1721,11 @@ func _snapshot_for_seat(match_state: Dictionary, seat: String) -> Dictionary:
 		"lastAction": last,
 		"winner": match_state["winner"],
 	}
+	var other_state: Dictionary = match_state["seats"][other]
+	if bool(other_state.get("isBot", false)):
+		var enemy_bag: Dictionary = snap["enemy"]
+		enemy_bag["isBot"] = true
+		enemy_bag["placed"] = bool(other_state.get("placed", false))
 	if str(match_state.get("mode", "")) == Contract.MODE_SP_JOB:
 		snap["job"] = {
 			"jobId": str(match_state.get("jobId", match_state.get("matchId", ""))),
@@ -1816,7 +1856,11 @@ func _rematch_public(match_state: Dictionary, seat: String = Contract.SEAT_A) ->
 
 func _spawn_rematch(old: Dictionary) -> Dictionary:
 	## New matchId + salt. Same two playerIds. No Marks grant/spend.
-	var created: Dictionary = create_match({"mode": Contract.MODE_PVP})
+	## Practice rematch stays practice (still Δ0). It does not fall through to PvP.
+	var mode := str(old.get("mode", Contract.MODE_PVP))
+	if mode == Contract.MODE_SP_JOB:
+		mode = Contract.MODE_PVP
+	var created: Dictionary = create_match({"mode": mode})
 	var new_id := str(created.get("matchId", ""))
 	if new_id == "" or not _matches.has(new_id):
 		return created
@@ -1848,23 +1892,31 @@ func _rematch_payload(match_state: Dictionary, seat: String) -> Dictionary:
 			var tokens: Dictionary = neu.get("tokens", {})
 			var join := str(tokens.get(seat, ""))
 			var neu_snap := _snapshot_for_seat(neu, seat)
-			return {
+			## Practice keeps seat B server-side. The client only receives its own joinToken.
+			var public_tokens: Dictionary = {}
+			if not _is_practice(neu):
+				public_tokens = tokens.duplicate(true)
+			var ready := {
 				"ok": true,
 				"error": "",
 				"status": Contract.REMATCH_READY,
 				"matchId": new_id,
 				"joinToken": join,
 				"seat": seat,
+				"mode": str(neu.get("mode", Contract.MODE_PVP)),
 				"snapshot": neu_snap,
 				"rematch": rem,
 				"newMatchId": new_id,
-				"joinTokens": tokens.duplicate(true),
 				"newMatch": {
 					"matchId": new_id,
-					"joinTokens": tokens.duplicate(true),
+					"mode": str(neu.get("mode", Contract.MODE_PVP)),
 					"snapshot": neu_snap,
 				},
 			}
+			if not public_tokens.is_empty():
+				ready["joinTokens"] = public_tokens
+				(ready["newMatch"] as Dictionary)["joinTokens"] = public_tokens.duplicate(true)
+			return ready
 	if st in [Contract.REMATCH_DECLINED, Contract.REMATCH_EXPIRED]:
 		return {
 			"ok": true,
@@ -1883,6 +1935,86 @@ func _rematch_payload(match_state: Dictionary, seat: String) -> Dictionary:
 		"rematch": rem,
 		"snapshot": _snapshot_for_seat(match_state, seat),
 	}
+
+
+func _finish_practice_bot(match_state: Dictionary, seat: String, applied: ActionResult) -> ActionResult:
+	## After the human passes the turn, the server plays one soft bot turn
+	## before the response. The client never drives seat B.
+	if not applied.ok or not _is_practice(match_state):
+		return applied
+	if str(match_state.get("status", "")) != Contract.STATUS_ACTIVE:
+		return applied
+	if str(match_state.get("whoseTurn", "")) != Contract.SEAT_B:
+		return applied
+	if not bool(match_state["seats"][Contract.SEAT_B].get("isBot", false)):
+		return applied
+	var saved: Variant = null
+	var last: Variant = match_state.get("lastAction", null)
+	if last is Dictionary:
+		saved = (last as Dictionary).duplicate(true)
+	_play_practice_bot(match_state)
+	if str(match_state.get("status", "")) != Contract.STATUS_ENDED and saved is Dictionary:
+		match_state["lastAction"] = saved
+	var snap := _snapshot_for_seat(match_state, seat)
+	return ActionResult.ok_result(snap, _event_name(match_state, seat))
+
+
+func _play_practice_bot(match_state: Dictionary) -> void:
+	if not _is_practice(match_state):
+		return
+	if not bool(match_state["seats"][Contract.SEAT_B].get("isBot", false)):
+		return
+	var guard := 0
+	while (
+		str(match_state.get("status", "")) == Contract.STATUS_ACTIVE
+		and str(match_state.get("whoseTurn", "")) == Contract.SEAT_B
+		and guard < 4
+	):
+		guard += 1
+		var phase := str(match_state.get("phase", ""))
+		if phase == Contract.PHASE_ACTION:
+			var step := int(match_state.get("botStep", 0))
+			var acted := _practice_bot_act(match_state)
+			if not acted.ok:
+				break
+			match_state["botStep"] = step + 1
+		elif phase == Contract.PHASE_END_TURN:
+			var ended := _act_end_turn(match_state, Contract.SEAT_B, {
+				"type": Contract.ACT_END_TURN,
+				"exposurePct": Contract.DEFAULT_EXPOSURE,
+			})
+			if not ended.ok:
+				break
+		else:
+			break
+
+
+func _practice_bot_act(match_state: Dictionary) -> ActionResult:
+	## Fixed soft policy. Never aims at the human hex, so this is not a Marks farm.
+	var seat := Contract.SEAT_B
+	var step := int(match_state.get("botStep", 0))
+	var seat_state: Dictionary = match_state["seats"][seat]
+	var result: ActionResult
+	if step == 1 and bool(seat_state.get("decoyAvailable", false)):
+		result = _act_decoy(match_state, seat)
+	elif step == 2 and int(seat_state.get("uavRemaining", 0)) > 0:
+		result = _act_uav(match_state, seat)
+	elif step >= 3:
+		result = _act_attack(match_state, seat, {
+			"type": Contract.ACT_ATTACK,
+			"hex": Contract.hex_dict(0, 0),
+		})
+	else:
+		result = _act_recon(match_state, seat, {
+			"type": Contract.ACT_RECON,
+			"hex": Contract.hex_dict(3, 3),
+		})
+	if result == null or not result.ok:
+		result = _act_recon(match_state, seat, {
+			"type": Contract.ACT_RECON,
+			"hex": Contract.hex_dict(3, 3),
+		})
+	return result
 
 
 func _emit_for_player(player_id: String, event_name: String, snapshot: Dictionary) -> void:

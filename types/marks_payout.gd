@@ -131,7 +131,19 @@ static func is_forfeit_payload(payload: Dictionary) -> bool:
 	return false
 
 
-static func end_headline(payload: Dictionary, you_seat: String, job: bool) -> String:
+static func end_headline(payload: Dictionary, you_seat: String, job: bool, practice: bool = false) -> String:
+	if practice or payload_is_practice(payload):
+		if is_forfeit_payload(payload):
+			var fwin: Variant = payload.get("winner", null)
+			if fwin != null and str(fwin) == you_seat:
+				return Contract.PRACTICE_SPY_LEFT
+			return Contract.PRACTICE_LEFT
+		var pwin: Variant = payload.get("winner", null)
+		if pwin == Contract.WIN_DRAW or str(pwin) == Contract.WIN_DRAW:
+			return "STANDOFF"
+		if pwin != null and str(pwin) == you_seat:
+			return Contract.PRACTICE_CLEAR
+		return Contract.PRACTICE_OVER
 	if is_forfeit_payload(payload):
 		var win: Variant = payload.get("winner", null)
 		if win != null and str(win) == you_seat:
@@ -143,6 +155,13 @@ static func end_headline(payload: Dictionary, you_seat: String, job: bool) -> St
 	if win2 != null and str(win2) == you_seat:
 		return "JOB COMPLETE" if job else "MARK CONFIRMED"
 	return "JOB FAILED" if job else "ELIMINATED"
+
+
+static func payload_is_practice(payload: Dictionary, practice_hint: bool = false) -> bool:
+	if practice_hint:
+		return true
+	var kind := str(payload.get("kind", payload.get("mode", payload.get("matchMode", "")))).to_lower()
+	return kind == Contract.MODE_PRACTICE
 
 
 static func payload_is_job(payload: Dictionary, job_hint: bool = false) -> bool:
@@ -169,6 +188,8 @@ static func display_reason(payload: Dictionary, job_hint: bool = false) -> Strin
 		why = str(payload.get("endReason", payload.get("reason", ""))).to_lower()
 	if why == "":
 		return ""
+	if payload_is_practice(payload):
+		return "no marks"
 	if not payload_is_job(payload, job_hint):
 		return why
 	## LIVE still sends endReason=kill (and sometimes payout.reason=kill) for SP bot elimination.
@@ -182,8 +203,11 @@ static func display_reason(payload: Dictionary, job_hint: bool = false) -> Strin
 	return why
 
 
-static func table_reason(payload: Dictionary, job: bool = false) -> String:
+static func table_reason(payload: Dictionary, job: bool = false, practice: bool = false) -> String:
 	## Earn-table token from snapshot endReason + winner. Not payout.reason=loss.
+	## Practice has no earn line — the overlay says so instead of kill / +25.
+	if practice or payload_is_practice(payload):
+		return "no marks"
 	if payload_is_job(payload, job):
 		return display_reason(payload, true)
 	if is_forfeit_payload(payload):
@@ -203,9 +227,12 @@ static func table_reason(payload: Dictionary, job: bool = false) -> String:
 	return display_reason(payload, job)
 
 
-static func table_delta(payload: Dictionary, you_seat: String, job: bool = false) -> int:
+static func table_delta(payload: Dictionary, you_seat: String, job: bool = false, practice: bool = false) -> int:
 	## Locked earn table. Display only — never `marks +=`.
-	var why := table_reason(payload, job)
+	## Practice is Δ0 on every ending. The earn table does not apply.
+	if practice or payload_is_practice(payload):
+		return Contract.MARKS_PRACTICE
+	var why := table_reason(payload, job, false)
 	var win: Variant = payload.get("winner", null)
 	var you_won := win != null and str(win) == you_seat
 	var job_obj: Variant = payload.get("job", {})
@@ -247,16 +274,16 @@ static func table_copy(end_reason: String, you_won: bool, job_tier: int = 1) -> 
 	return ""
 
 
-static func live_delta_drifts(payload: Dictionary, you_seat: String, job: bool = false) -> bool:
+static func live_delta_drifts(payload: Dictionary, you_seat: String, job: bool = false, practice: bool = false) -> bool:
 	## True only when a payload marksDelta exists and disagrees with the table.
 	var payout = from_any(payload)
 	if not payout.has_delta():
 		return false
-	return payout.delta() != table_delta(payload, you_seat, job)
+	return payout.delta() != table_delta(payload, you_seat, job, practice)
 
 
-static func marks_line(payload: Dictionary, you_seat: String, job: bool = false) -> String:
-	var n := table_delta(payload, you_seat, job)
+static func marks_line(payload: Dictionary, you_seat: String, job: bool = false, practice: bool = false) -> String:
+	var n := table_delta(payload, you_seat, job, practice)
 	var d := "+%d MARK" % n if n >= 0 else "%d MARK" % n
 	var payout = from_any(payload)
 	if payout.has_marks():
@@ -264,13 +291,14 @@ static func marks_line(payload: Dictionary, you_seat: String, job: bool = false)
 	return d
 
 
-static func overlay_parts(payload: Dictionary, you_seat: String, job: bool = false) -> Dictionary:
+static func overlay_parts(payload: Dictionary, you_seat: String, job: bool = false, practice: bool = false) -> Dictionary:
+	var quiet := practice or payload_is_practice(payload)
 	return {
-		"headline": end_headline(payload, you_seat, job),
-		"marks": marks_line(payload, you_seat, job),
-		"reason": table_reason(payload, job),
-		"delta": table_delta(payload, you_seat, job),
-		"drift": live_delta_drifts(payload, you_seat, job),
+		"headline": end_headline(payload, you_seat, job, quiet),
+		"marks": marks_line(payload, you_seat, job, quiet),
+		"reason": table_reason(payload, job, quiet),
+		"delta": table_delta(payload, you_seat, job, quiet),
+		"drift": live_delta_drifts(payload, you_seat, job, quiet),
 	}
 
 

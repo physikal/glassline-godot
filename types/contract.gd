@@ -43,6 +43,9 @@ const DEFAULT_API_BASE := "https://glassline-api.vercel.app"
 
 const MODE_PVP := "pvp"
 const MODE_SP_JOB := "sp_job"
+## Practice hunt — full rules, server bot, Marks always Δ0. Not ranked / not a job.
+const MODE_PRACTICE := "practice"
+const MARKS_PRACTICE := 0
 
 const END_KILL := "kill"
 const END_STANDOFF := "standoff"
@@ -212,6 +215,26 @@ const QUEUE_CTA := "QUICK MATCH"
 const QUEUE_HIDEOUT_COPY := "Back at the hideout."
 const QUEUE_TIMEOUT_COPY := "No rival yet. Back at the hideout."
 const QUEUE_UNAVAILABLE_COPY := "LIVE queue not ready"
+
+## Practice hunt — cozy hideout CTA. Same rules, toy spy, no Marks, not a queue.
+const PRACTICE_CTA := "PRACTICE"
+const PRACTICE_KICKER := "HIDEOUT"
+const PRACTICE_HEADING := "QUIET HUNT"
+const PRACTICE_BLURB := "Same hunt — terrain, optic, decoy, exposure. A toy spy sits across the table."
+const PRACTICE_NO_MARKS := "No Marks. Win, lose, or leave — your wallet stays put (Δ0)."
+const PRACTICE_START := "START PRACTICE"
+const PRACTICE_BACK := "NOT NOW"
+const PRACTICE_UNAVAILABLE_COPY := "LIVE practice not ready"
+const PRACTICE_RIVAL := "TOY SPY"
+const PRACTICE_CHIP := "PRACTICE  ·  TOY SPY  ·  NO MARKS"
+const PRACTICE_SETTLED_COPY := "No Marks  ·  Δ0"
+const PRACTICE_REMATCH_HINT := "Another practice drop. Still no Marks."
+const PRACTICE_WAIT_COPY := "Toy spy is shuffling the board…"
+const PRACTICE_ABANDON_TIP := "Leave the table. No Marks."
+const PRACTICE_CLEAR := "PRACTICE CLEAR"
+const PRACTICE_OVER := "PRACTICE OVER"
+const PRACTICE_LEFT := "LEFT THE TABLE"
+const PRACTICE_SPY_LEFT := "TOY SPY LEFT"
 
 ## Soft A4 gaps — abandon CTA + grace countdown. Duration stays 30s.
 const ABANDON_COPY := "ABANDON"
@@ -565,7 +588,19 @@ static func is_match_snapshot(snap: Dictionary, match_id: String = "") -> bool:
 		return false
 	return snap.has("terrain") or snap.has("turnIndex") or snap.has("phase") \
 			or snap.has("whoseTurn") \
-			or str(snap.get("kind", "")) in [MODE_PVP, MODE_SP_JOB, "job"]
+			or str(snap.get("kind", "")) in [MODE_PVP, MODE_SP_JOB, MODE_PRACTICE, "job"]
+
+
+static func practice_create_ok(body: Dictionary) -> bool:
+	## Create must name mode practice and hand back seat A's joinToken.
+	## A PvP create that ignored `mode` is not a practice hunt.
+	if body.is_empty():
+		return false
+	if str(body.get("matchId", "")) == "" or create_join_token(body) == "":
+		return false
+	if str(body.get("error", "")) != "" and not body.has("mode"):
+		return false
+	return str(body.get("mode", body.get("kind", ""))) == MODE_PRACTICE
 
 
 static func lobby_code_display(code: String) -> String:

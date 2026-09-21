@@ -1,0 +1,16 @@
+{
+  "pending": "create ignored mode (not practice) — refusing to sit a Marks match. status 201 keys ['joinToken', 'matchId', 'seat']",
+  "base": "https://glassline-api.vercel.app",
+  "notes": [
+    "player minted marks 0"
+  ],
+  "evidence": {
+    "create_status": 201,
+    "create_mode": "",
+    "create_keys": [
+      "joinToken",
+      "matchId",
+      "seat"
+    ]
+  }
+}
