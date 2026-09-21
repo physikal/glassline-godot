@@ -190,10 +190,12 @@ const LOBBY_CANCEL_COPY := "CANCEL"
 const LOBBY_BACK_COPY := "BACK"
 const LOBBY_COPY_CODE := "COPY"
 const LOBBY_SHARE_CODE := "SHARE"
+const LOBBY_PASTE_CODE := "PASTE"
 ## Short cozy note. The %s is the existing 6-char code — no link, no new code.
 const LOBBY_SHARE_BLURB := "Hunt with me — code %s"
 const LOBBY_UNAVAILABLE_COPY := "LIVE invite not ready"
 const LOBBY_COPIED_COPY := "Code copied."
+const LOBBY_PASTED_COPY := "Pasted."
 const LOBBY_HIDEOUT_COPY := "Back at the hideout."
 
 ## Quick Match — 1-tap hideout queue. No bot fill / MMR / ranked.

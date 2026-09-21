@@ -11,6 +11,7 @@ const ExposureDoll := preload("res://scenes/match/exposure_doll.gd")
 const JournalPlate := preload("res://scenes/lobby/journal_plate.gd")
 const GearStrip := preload("res://scenes/lobby/gear_strip.gd")
 const InviteShare := preload("res://scripts/invite_share.gd")
+const LobbyPaste := preload("res://scripts/lobby_paste.gd")
 
 var _bg: TextureRect
 var _wood_covers: Array[ColorRect] = []
@@ -28,6 +29,9 @@ var _invite_copied_chip: PanelContainer
 var _invite_copied: Label
 var _invite_reject: Label
 var _join_edit: LineEdit
+var _join_paste: Button
+var _join_paste_code: String = ""
+var _join_pasted: Label
 var _lobby_poll: float = 0.0
 var _lobby_waiting: bool = false
 var _queue_panel: PanelContainer
@@ -122,6 +126,10 @@ func _ready() -> void:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 		DisplayServer.window_set_size(Vector2i(1280, 720))
 		await _capture_lobby_join()
+	elif "--capture-lobby-paste" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await _capture_lobby_paste()
 	elif "--capture-lobby-bad-code" in args:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 		DisplayServer.window_set_size(Vector2i(1280, 720))
@@ -389,11 +397,31 @@ func _capture_lobby_create_wait() -> void:
 
 
 func _capture_lobby_join() -> void:
+	DisplayServer.clipboard_set("")
 	_open_invite()
 	if _join_edit:
 		_join_edit.text = ""
 		_join_edit.grab_focus()
 	await _capture_named("res://artifacts/ux/lobby_join.png", "P6_LOBBY_JOIN")
+
+
+func _capture_lobby_paste() -> void:
+	## C6 / C2 / C3: chip when the clipboard is a code, fill on tap, hidden when empty.
+	DisplayServer.clipboard_set("H7K3P2")
+	_open_invite()
+	if _join_edit:
+		_join_edit.text = ""
+		_join_edit.caret_column = 0
+	await _capture_named("res://artifacts/ux/lobby_paste.png", "C6_LOBBY_PASTE", false)
+	_on_paste_lobby_code()
+	await _capture_named("res://artifacts/ux/lobby_pasted.png", "C2_LOBBY_PASTED", false)
+	DisplayServer.clipboard_set("")
+	_peek_join_clipboard()
+	if _join_edit:
+		_join_edit.text = ""
+		_join_edit.caret_column = 0
+	_toast_msg("")
+	await _capture_named("res://artifacts/ux/lobby_paste_empty.png", "C3_LOBBY_PASTE_EMPTY")
 
 
 func _capture_lobby_bad_code() -> void:
@@ -1124,11 +1152,29 @@ func _build_invite_panel() -> void:
 	_join_edit.add_theme_stylebox_override("focus", Chrome.flat(Color(0.14, 0.10, 0.08, 0.96), 16, Chrome.HIGH_GOLD, 3))
 	_join_edit.text_changed.connect(_on_join_code_changed)
 	_join_edit.text_submitted.connect(func(_t: String) -> void: _on_join_lobby())
+	_join_edit.focus_entered.connect(_peek_join_clipboard)
 	join_row.add_child(_join_edit)
+
+	## Same wood/gold family as COPY on the wait plate. Hidden until a code is on the clipboard.
+	_join_paste = Chrome.chunk_button(Contract.LOBBY_PASTE_CODE, Chrome.WOOD_DARK, Chrome.HIGH_GOLD, Vector2(168, 48))
+	_join_paste.icon = Chrome.make_icon("clipboard", Chrome.HIGH_GOLD, 28)
+	_join_paste.add_theme_constant_override("h_separation", 8)
+	_join_paste.add_theme_constant_override("icon_max_width", 22)
+	_join_paste.focus_mode = Control.FOCUS_NONE
+	_join_paste.visible = false
+	_join_paste.disabled = true
+	_join_paste.pressed.connect(_on_paste_lobby_code)
+	join_row.add_child(_join_paste)
 
 	var join_btn := Chrome.chunk_button(Contract.LOBBY_JOIN_COPY, Chrome.TEAL, Color.WHITE, Vector2(148, 48))
 	join_btn.pressed.connect(_on_join_lobby)
 	join_row.add_child(join_btn)
+
+	_join_pasted = Label.new()
+	_join_pasted.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_join_pasted.visible = false
+	Chrome.apply_label(_join_pasted, 10, Chrome.HIGH_GOLD, true)
+	_invite_home.add_child(_join_pasted)
 
 	_invite_reject = Label.new()
 	_invite_reject.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1688,6 +1734,8 @@ func _show_invite_home() -> void:
 	if _invite_reject:
 		_invite_reject.text = ""
 	_clear_code_copied()
+	_set_pasted_note(false)
+	_peek_join_clipboard()
 
 
 func _show_invite_wait() -> void:
@@ -1724,6 +1772,7 @@ func _on_join_code_changed(text: String) -> void:
 		_join_edit.caret_column = norm.length()
 	if _invite_reject and _invite_reject.text != "":
 		_invite_reject.text = ""
+	_set_pasted_note(false)
 
 
 func _on_create_lobby() -> void:
@@ -1753,6 +1802,47 @@ func _on_create_lobby() -> void:
 	ClientSession.lobby_seat = lobby.seat if lobby.seat != "" else Contract.SEAT_A
 	_show_invite_wait()
 	_toast_msg("")
+
+
+func _join_form_open() -> bool:
+	return _invite_panel != null and _invite_panel.visible \
+			and _invite_home != null and _invite_home.visible
+
+
+func _peek_join_clipboard() -> void:
+	## One read when the join form is open. Does not write the field or call join.
+	if not _join_form_open():
+		_set_paste_offer("")
+		return
+	_set_paste_offer(LobbyPaste.peek_code())
+
+
+func _set_pasted_note(on: bool) -> void:
+	if _join_pasted == null:
+		return
+	_join_pasted.text = Contract.LOBBY_PASTED_COPY if on else ""
+	_join_pasted.visible = on
+
+
+func _set_paste_offer(code: String) -> void:
+	_join_paste_code = code if Contract.is_lobby_code(code) else ""
+	if _join_paste == null:
+		return
+	var offered := _join_paste_code != ""
+	_join_paste.visible = offered
+	_join_paste.disabled = not offered
+
+
+func _on_paste_lobby_code() -> void:
+	## Chip tap fills the field. Join stays on the JOIN button.
+	if not Contract.is_lobby_code(_join_paste_code) or _join_edit == null:
+		_set_paste_offer("")
+		return
+	var filled := LobbyPaste.fill_text(_join_edit.text, _join_paste_code)
+	_join_edit.text = filled
+	_join_edit.caret_column = filled.length()
+	_set_pasted_note(true)
+	_toast_msg(Contract.LOBBY_PASTED_COPY)
 
 
 func _on_join_lobby() -> void:
@@ -1974,6 +2064,14 @@ func _enter_queue_match(body: Dictionary) -> void:
 	if _queue_panel:
 		_queue_panel.visible = false
 	get_tree().change_scene_to_file.call_deferred("res://scenes/match/match_screen.tscn")
+
+
+func _notification(what: int) -> void:
+	if what != NOTIFICATION_WM_WINDOW_FOCUS_IN and what != NOTIFICATION_APPLICATION_FOCUS_IN:
+		return
+	if not _join_form_open():
+		return
+	_peek_join_clipboard()
 
 
 func _process(delta: float) -> void:
