@@ -10,6 +10,8 @@ const MarksPayout := preload("res://types/marks_payout.gd")
 const Shop := preload("res://types/shop.gd")
 const HexMath := preload("res://scripts/hex_math.gd")
 const Chrome := preload("res://scripts/chrome.gd")
+const Journal := preload("res://types/journal.gd")
+const JournalPlate := preload("res://scenes/lobby/journal_plate.gd")
 const MockScript := preload("res://autoload/mock_match_server.gd")
 const SessionScript := preload("res://autoload/client_session.gd")
 const JuiceScript := preload("res://autoload/audio_juice.gd")
@@ -152,6 +154,7 @@ func _run() -> int:
 	_player_persist_case(failed)
 	_first_hunt_coach_case(failed)
 	_practice_case(failed)
+	_journal_case(failed)
 
 	# Recon odds: in-sector + forced roll.
 	_recon_case(failed)
@@ -2606,6 +2609,188 @@ func _practice_case(failed: PackedStringArray) -> void:
 	_expect(failed, kind_only.is_practice(), "kind practice does not fall through to pvp")
 	var clash: Snapshot = Snapshot.from_dict({"kind": "practice", "mode": "pvp", "enemy": {"isBot": true}})
 	_expect(failed, not clash.is_practice(), "kind/mode clash is not practice")
+
+
+func _journal_case(failed: PackedStringArray) -> void:
+	## J1–J6: ledger rows only, practice Δ0, rematch gated, practice-again is a practice create.
+	server.clear_all()
+	server.reset_wallet(24)
+	server.test_now_ms = -1
+	var empty: Dictionary = server.get_journal("")
+	_expect(failed, Journal.is_empty(empty), "J5 empty ledger")
+	_expect(failed, (empty.get("entries", []) as Array).size() == 0, "J5 no invented rows")
+	var invented: Dictionary = Journal.payload({"marksDelta": 25, "result": "win"})
+	_expect(failed, Journal.is_empty(invented), "J1 payload without entries invents nothing")
+
+	var practice: Dictionary = _journal_end(Contract.MODE_PRACTICE, Contract.SEAT_A, Contract.END_KILL)
+	var pmid := str(practice.get("matchId", ""))
+	var pbag: Dictionary = server.get_journal("")
+	_expect(failed, (pbag.get("entries", []) as Array).size() == 1, "practice journal one row")
+	var prow: Dictionary = pbag["entries"][0]
+	_expect(failed, str(prow.get("matchId", "")) == pmid, "practice row matchId")
+	_expect(failed, str(prow.get("mode", "")) == Contract.MODE_PRACTICE, "practice row mode")
+	_expect(failed, int(prow.get("marksDelta", -1)) == 0, "J2 practice marks Δ0")
+	_expect(failed, str(prow.get("result", "")) == "win", "practice win result")
+	var prival: Dictionary = prow.get("rival", {})
+	_expect(failed, bool(prival.get("isBot", false)), "practice rival is bot")
+	_expect(failed, bool(prow.get("rematchAvailable", false)), "fresh practice rematch available")
+	_expect(failed, Journal.action_for(prow) == "practice", "J4 practice again is practice create")
+	_expect(failed, Journal.cta_text(prow) == Contract.JOURNAL_PRACTICE_AGAIN, "J4 practice CTA")
+	_expect(failed, Journal.marks_text(Journal.normalize({
+		"matchId": "m_poison",
+		"mode": Contract.MODE_PRACTICE,
+		"marksDelta": Contract.MARKS_PVP_WIN,
+		"result": "win",
+		"rematchAvailable": true,
+	})) == "Δ0", "J2 poisoned practice still Δ0")
+
+	server.clear_all()
+	server.reset_wallet(0)
+	var created: Dictionary = server.create_match()
+	var mid := str(created.get("matchId", ""))
+	var tokens: Dictionary = created.get("joinTokens", {})
+	var join_a: Dictionary = server.join(mid, str(tokens.get("a", "")))
+	var join_b: Dictionary = server.join(mid, str(tokens.get("b", "")))
+	server.force_end(mid, Contract.SEAT_A, Contract.END_KILL)
+	var pid_a := str(join_a.get("playerId", ""))
+	var pid_b := str(join_b.get("playerId", ""))
+	var win_row: Dictionary = server.get_journal(pid_a)["entries"][0]
+	var loss_row: Dictionary = server.get_journal(pid_b)["entries"][0]
+	_expect(failed, int(win_row.get("marksDelta", 0)) == Contract.MARKS_PVP_WIN, "pvp journal win Δ")
+	_expect(failed, str(win_row.get("result", "")) == "win", "pvp journal win")
+	_expect(failed, int(loss_row.get("marksDelta", -1)) == Contract.MARKS_PVP_LOSS, "pvp journal loss Δ")
+	_expect(failed, str(loss_row.get("result", "")) == "loss", "pvp journal loss")
+	_expect(failed, Journal.mode_tag(win_row) == Contract.JOURNAL_TAG_QUICK, "pvp tag QUICK")
+	_expect(failed, bool(win_row.get("rematchAvailable", false)), "J3 fresh pvp rematch available")
+	_expect(failed, Journal.action_for(win_row) == "rematch", "J3 rematch action")
+
+	server.test_now_ms = 1000 + Contract.REMATCH_TIMEOUT_MS + 20
+	var expired: Dictionary = server.get_journal(pid_a)["entries"][0]
+	_expect(failed, not bool(expired.get("rematchAvailable", true)), "J3 expired rematch unavailable")
+	_expect(failed, Journal.action_for(expired) == "", "J3 muted rematch has no action")
+	server.test_now_ms = -1
+
+	var job: Dictionary = server.create_job(2)
+	server.force_end(str(job.get("matchId", "")), Contract.SEAT_A, Contract.END_KILL)
+	var job_row: Dictionary = server.get_journal(str(job.get("playerId", "")))["entries"][0]
+	_expect(failed, str(job_row.get("mode", "")) == Contract.MODE_SP_JOB, "job row mode")
+	_expect(failed, not bool(job_row.get("rematchAvailable", true)), "job rematch unavailable")
+	_expect(failed, Journal.action_for(job_row) == "", "job is not a rematch")
+	_expect(failed, Journal.mode_tag(job_row) == Contract.JOURNAL_TAG_JOB, "job tag is not a quick hunt")
+	_expect(failed, not job_row.has("mmr") and not job_row.has("elo"), "journal row has no rating fields")
+
+	server.clear_all()
+	server.reset_wallet(0)
+	var ids: PackedStringArray = []
+	for _i in 11:
+		var ended: Dictionary = _journal_end(Contract.MODE_PVP, Contract.SEAT_A, Contract.END_KILL)
+		ids.append(str(ended.get("matchId", "")))
+	var capped: Array = server.get_journal("")["entries"]
+	_expect(failed, capped.size() == Contract.JOURNAL_LIMIT, "J1 ledger caps at 10")
+	_expect(failed, str(capped[0].get("matchId", "")) == ids[10], "J1 newest row first")
+	var seen := {}
+	for row in capped:
+		seen[str(row.get("matchId", ""))] = true
+	_expect(failed, not seen.has(ids[0]), "J1 oldest dropped")
+
+	var dozen: Array = []
+	for i in 12:
+		dozen.append({
+			"matchId": "m_%d" % i,
+			"mode": Contract.MODE_PVP,
+			"result": "win",
+			"marksDelta": 1,
+			"rematchAvailable": true,
+			"rival": {"displayName": "RIVAL", "isBot": false},
+		})
+	var trimmed: Dictionary = Journal.payload({"entries": dozen})
+	_expect(failed, (trimmed.get("entries", []) as Array).size() == 10, "J1 client trims to 10")
+	var missing: Dictionary = Journal.from_http(404, {"error": "not_found"})
+	_expect(failed, str(missing.get("error", "")) == Contract.JOURNAL_ERR_UNAVAILABLE, "404 journal unavailable")
+	_expect(failed, Journal.is_empty(missing), "404 does not invent rows")
+	var live_ok: Dictionary = Journal.from_http(200, {"entries": dozen})
+	_expect(failed, (Journal.payload(live_ok).get("entries", []) as Array).size() == 10, "200 still caps at 10")
+
+	var plate = JournalPlate.new()
+	plate._build()
+	plate.bind({})
+	_expect(failed, plate.row_count() == 0, "J5 plate has no rows")
+	_expect(failed, plate.empty_visible(), "J5 empty plate visible")
+	_expect(failed, plate.empty_headline() == Contract.JOURNAL_EMPTY, "J5 cozy empty copy")
+	_expect(failed, plate.uses_wood(), "J6 wood plate")
+	var shown: Array = []
+	shown.append({
+		"matchId": "m_prac",
+		"mode": Contract.MODE_PRACTICE,
+		"result": "win",
+		"marksDelta": 25,
+		"rematchAvailable": true,
+		"rival": {"displayName": Contract.PRACTICE_RIVAL, "isBot": true},
+	})
+	shown.append({
+		"matchId": "m_open",
+		"mode": Contract.MODE_PVP,
+		"result": "win",
+		"marksDelta": 25,
+		"rematchAvailable": true,
+		"rival": {"displayName": "RIVAL", "isBot": false},
+	})
+	shown.append({
+		"matchId": "m_shut",
+		"mode": Contract.MODE_PVP,
+		"result": "loss",
+		"marksDelta": 3,
+		"rematchAvailable": false,
+		"rival": {"displayName": "RIVAL", "isBot": false},
+	})
+	plate.bind({"entries": shown})
+	_expect(failed, plate.row_count() == 3, "J1 plate shows server rows")
+	_expect(failed, plate.row_marks(0) == "Δ0", "J2 plate practice Δ0")
+	_expect(failed, plate.row_tag(0) == Contract.JOURNAL_TAG_PRACTICE, "practice tag")
+	_expect(failed, plate.row_cta_text(0) == Contract.JOURNAL_PRACTICE_AGAIN, "practice again label")
+	_expect(failed, not plate.row_cta_disabled(0), "practice again enabled")
+	_expect(failed, plate.row_tag(1) == Contract.JOURNAL_TAG_QUICK, "quick tag")
+	_expect(failed, not plate.row_cta_disabled(1), "J3 rematch enabled")
+	_expect(failed, plate.row_cta_disabled(2), "J3 rematch muted")
+	plate.press_row(2)
+	_expect(failed, plate.rematch_presses == 0 and plate.practice_presses == 0, "J3 muted press does nothing")
+	plate.press_row(0)
+	_expect(failed, plate.practice_presses == 1 and plate.rematch_presses == 0, "J4 press is practice again")
+	plate.press_row(1)
+	_expect(failed, plate.rematch_presses == 1, "J3 press is rematch")
+	var copy := plate.plate_copy().to_lower()
+	_expect(failed, copy.find("mmr") < 0 and copy.find("elo") < 0, "J6 no rating chrome")
+	_expect(failed, copy.find("ranked") < 0 and copy.find("ladder") < 0 and copy.find("replay") < 0, "J6 no ladder or replay")
+	var plate_src := FileAccess.get_file_as_string("res://scenes/lobby/journal_plate.gd")
+	_expect(failed, plate_src.find("make_wood_texture") >= 0, "J6 wood grain helper")
+	_expect(failed, plate_src.find("chunk_button") >= 0, "J6 chunky CTA")
+	_expect(failed, plate_src.to_lower().find("replay") < 0, "J6 plate has no replay")
+	var hideout_src := FileAccess.get_file_as_string("res://scenes/lobby/hideout_lobby.gd")
+	_expect(failed, hideout_src.find("practice_again.connect(_start_practice)") >= 0, "J4 practice again uses practice create")
+	_expect(failed, hideout_src.find("rematch_match.connect(_journal_rematch)") >= 0, "J3 rematch uses rematch path")
+	_expect(failed, hideout_src.find("MatchAPI.get_journal()") >= 0, "hideout binds journal payload")
+	var live_src := FileAccess.get_file_as_string("res://autoload/live_match_client.gd")
+	_expect(failed, live_src.find("\"/journal\"") >= 0, "LIVE GET /journal")
+	_expect(failed, live_src.find("player_bearer") >= 0, "journal uses Bearer")
+	var api_src := FileAccess.get_file_as_string("res://autoload/match_api.gd")
+	_expect(failed, api_src.find("JOURNAL_ERR_UNAVAILABLE") >= 0, "404 falls back until the route lands")
+	_expect(failed, api_src.find("func rematch_match") >= 0, "rematch_match reuses rematch")
+	plate.free()
+	server.test_now_ms = -1
+
+
+func _journal_end(mode: String, winner: String, reason: String) -> Dictionary:
+	var created: Dictionary = server.create_match({"mode": mode})
+	var mid := str(created.get("matchId", ""))
+	if mode == Contract.MODE_PRACTICE:
+		server.join(mid, Contract.create_join_token(created))
+	else:
+		var tokens: Dictionary = created.get("joinTokens", {})
+		server.join(mid, str(tokens.get("a", "")))
+		server.join(mid, str(tokens.get("b", "")))
+	server.force_end(mid, winner, reason)
+	created["matchId"] = mid
+	return created
 
 
 func _expect(failed: PackedStringArray, cond: bool, label: String) -> void:

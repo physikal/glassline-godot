@@ -42,6 +42,8 @@ var queue_pair_delay_ms: int = 80
 
 var _matches: Dictionary = {}
 var _next_id: int = 1
+## Ended-hunt sequence so the journal stays newest-first when clocks tie.
+var _ended_seq: int = 0
 
 
 func create_match(opts: Dictionary = {}) -> Dictionary:
@@ -944,6 +946,83 @@ func mark_disconnected(match_id: String, player_id: String) -> Dictionary:
 	return {"ok": true, "snapshot": _snapshot_for_seat(match_state, found["seat"])}
 
 
+func get_journal(player_id: String = "") -> Dictionary:
+	## Ended matches only, newest first, max 10. Empty player → the local seat A ledger.
+	var rows: Array = []
+	for match_id in _matches.keys():
+		var match_state: Dictionary = _matches[match_id]
+		if str(match_state.get("status", "")) != Contract.STATUS_ENDED:
+			continue
+		var seat := ""
+		if player_id == "":
+			if str(match_state["seats"][Contract.SEAT_A].get("playerId", "")) == "":
+				continue
+			seat = Contract.SEAT_A
+		else:
+			var found := _find(str(match_id), player_id)
+			if found.is_empty():
+				continue
+			seat = str(found.get("seat", ""))
+		if seat == "":
+			continue
+		rows.append(_journal_entry(match_state, seat))
+	rows.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		var ae := int(a.get("endedAtMs", 0))
+		var be := int(b.get("endedAtMs", 0))
+		if ae == be:
+			return int(a.get("endedSeq", 0)) > int(b.get("endedSeq", 0))
+		return ae > be
+	)
+	var public_rows: Array = []
+	for row in rows:
+		if public_rows.size() >= Contract.JOURNAL_LIMIT:
+			break
+		public_rows.append(_journal_public(row))
+	return {"ok": true, "entries": public_rows}
+
+
+func account_player_id(match_id: String) -> String:
+	if not _matches.has(match_id):
+		return ""
+	return str(_matches[match_id]["seats"][Contract.SEAT_A].get("playerId", ""))
+
+
+func other_player_id(match_id: String, player_id: String) -> String:
+	var found := _find(match_id, player_id)
+	if found.is_empty():
+		return ""
+	var other: String = Contract.other_seat(str(found.get("seat", "")))
+	return str(found["match"]["seats"][other].get("playerId", ""))
+
+
+func seat_join_token(match_id: String, player_id: String) -> String:
+	var found := _find(match_id, player_id)
+	if found.is_empty():
+		return ""
+	return str(found["match"]["seats"][found["seat"]].get("token", ""))
+
+
+func force_end(match_id: String, winner: String = Contract.WIN_DRAW, reason: String = "") -> Dictionary:
+	## Capture / tests: settle an ended hunt without playing the board out.
+	if not _matches.has(match_id):
+		return {"ok": false, "error": "unknown_match"}
+	var match_state: Dictionary = _matches[match_id]
+	if match_state["status"] != Contract.STATUS_ENDED:
+		match_state["status"] = Contract.STATUS_ENDED
+		match_state["whoseTurn"] = null
+		match_state["phase"] = null
+		var win: Variant = winner
+		if winner == "" or winner == Contract.WIN_DRAW:
+			win = Contract.WIN_DRAW
+		match_state["winner"] = win
+		_clear_all_decoys(match_state)
+		var why := reason
+		if why == "":
+			why = Contract.END_STANDOFF if str(win) == Contract.WIN_DRAW else Contract.END_KILL
+		_settle_payout(match_state, why)
+	return {"ok": true, "snapshot": _snapshot_for_seat(match_state, Contract.SEAT_A)}
+
+
 func force_standoff(match_id: String, player_id: String = "") -> Dictionary:
 	## Capture / tests: settle turn-cap standoff without playing 16 turns.
 	if not _matches.has(match_id):
@@ -1601,6 +1680,12 @@ func _settle_payout(match_state: Dictionary, end_reason: String) -> void:
 			"marksDelta": delta,
 			"reason": reason,
 		}
+	if int(match_state.get("endedAtMs", -1)) < 0:
+		match_state["endedAtMs"] = _now_ms()
+		_ended_seq += 1
+		match_state["endedSeq"] = _ended_seq
+		var unix := int(Time.get_unix_time_from_system())
+		match_state["endedAt"] = Time.get_datetime_string_from_unix_time(unix, true) + "Z"
 	_open_rematch(match_state)
 
 
@@ -1873,6 +1958,77 @@ func _spawn_rematch(old: Dictionary) -> Dictionary:
 	if _both_joined(neu):
 		neu["status"] = Contract.STATUS_READY
 	return created
+
+
+func _journal_entry(match_state: Dictionary, seat: String) -> Dictionary:
+	var mode := str(match_state.get("mode", Contract.MODE_PVP))
+	var pay: Dictionary = {}
+	var payouts: Variant = match_state.get("payouts", {})
+	if payouts is Dictionary and payouts.get(seat, {}) is Dictionary:
+		pay = payouts[seat]
+	var delta := int(pay.get("marksDelta", 0))
+	if _is_practice(match_state):
+		delta = Contract.MARKS_PRACTICE
+	var other := Contract.other_seat(seat)
+	var other_state: Dictionary = match_state["seats"][other]
+	var bot := bool(other_state.get("isBot", false)) or _is_practice(match_state)
+	var name := str(other_state.get("displayName", ""))
+	if name == "":
+		if _is_practice(match_state):
+			name = Contract.PRACTICE_RIVAL
+		elif bot:
+			name = "BOT"
+		else:
+			name = "RIVAL"
+	return {
+		"matchId": str(match_state.get("matchId", "")),
+		"mode": mode,
+		"result": _journal_result(match_state, seat),
+		"rival": {"displayName": name, "isBot": bot},
+		"marksDelta": delta,
+		"endedAt": str(match_state.get("endedAt", "")),
+		"endedAtMs": int(match_state.get("endedAtMs", 0)),
+		"endedSeq": int(match_state.get("endedSeq", 0)),
+		"rematchAvailable": _journal_rematch_available(match_state),
+	}
+
+
+func _journal_public(row: Dictionary) -> Dictionary:
+	return {
+		"matchId": str(row.get("matchId", "")),
+		"mode": str(row.get("mode", "")),
+		"result": str(row.get("result", "")),
+		"rival": row.get("rival", {}),
+		"marksDelta": int(row.get("marksDelta", 0)),
+		"endedAt": str(row.get("endedAt", "")),
+		"rematchAvailable": bool(row.get("rematchAvailable", false)),
+	}
+
+
+func _journal_result(match_state: Dictionary, seat: String) -> String:
+	var winner := str(match_state.get("winner", ""))
+	var reason := str(match_state.get("endReason", ""))
+	var forfeited := reason in [Contract.END_FORFEIT, Contract.END_DISCONNECT]
+	if winner == Contract.WIN_DRAW:
+		return "draw"
+	if forfeited and winner != seat:
+		return "forfeit"
+	if winner == seat:
+		return "win"
+	return "loss"
+
+
+func _journal_rematch_available(match_state: Dictionary) -> bool:
+	if str(match_state.get("mode", Contract.MODE_PVP)) == Contract.MODE_SP_JOB:
+		return false
+	_touch_rematch(match_state)
+	var st := str(_rematch_state(match_state).get("status", Contract.REMATCH_NONE))
+	return st in [
+		Contract.REMATCH_WAITING,
+		Contract.REMATCH_PENDING,
+		Contract.REMATCH_ACCEPTED_A,
+		Contract.REMATCH_ACCEPTED_B,
+	]
 
 
 func _rematch_expires_iso(rem: Dictionary) -> String:

@@ -6,6 +6,7 @@ signal match_event(player_id: String, event_name: String, snapshot: Dictionary)
 
 const ActionResult := preload("res://types/action_result.gd")
 const Contract := preload("res://types/contract.gd")
+const Journal := preload("res://types/journal.gd")
 
 
 func _ready() -> void:
@@ -44,6 +45,40 @@ func wallet() -> Dictionary:
 	if using_live():
 		return LiveMatchClient.wallet()
 	return MockMatchServer.wallet()
+
+
+func get_journal() -> Dictionary:
+	## LIVE GET /journal when the route exists. 404 uses the mock ledger until then.
+	## The plate only renders the returned entries.
+	if using_live():
+		var body: Dictionary = LiveMatchClient.get_journal()
+		if _journal_live_missing(body):
+			body = MockMatchServer.get_journal(ClientSession.player_id)
+			body["mocked"] = true
+		return Journal.payload(body)
+	return Journal.payload(MockMatchServer.get_journal(ClientSession.player_id))
+
+
+func _journal_live_missing(body: Dictionary) -> bool:
+	return str(body.get("error", "")) == Contract.JOURNAL_ERR_UNAVAILABLE or int(body.get("status", 0)) == 404
+
+
+func rematch_match(match_id: String, accept: bool = true) -> Dictionary:
+	## Journal PvP row → the same POST /matches/:id/rematch as the end overlay.
+	ClientSession.match_id = match_id
+	if using_live():
+		var bearer := ClientSession.player_bearer()
+		if bearer == "":
+			bearer = ClientSession.join_token
+		return LiveMatchClient.rematch(match_id, accept, bearer)
+	var pid := MockMatchServer.account_player_id(match_id)
+	if pid != "":
+		ClientSession.player_id = pid
+		ClientSession.seat = Contract.SEAT_A
+		var token := MockMatchServer.seat_join_token(match_id, pid)
+		if token != "":
+			ClientSession.join_token = token
+	return rematch(accept)
 
 
 func get_shop_me() -> Dictionary:

@@ -5,6 +5,7 @@ extends Node
 ## Match actions / snapshot / heartbeat / SSE still use the per-match join token.
 
 const Contract := preload("res://types/contract.gd")
+const Journal := preload("res://types/journal.gd")
 const ActionResult := preload("res://types/action_result.gd")
 
 signal match_event(player_id: String, event_name: String, snapshot: Dictionary)
@@ -95,6 +96,16 @@ func create_match(opts: Dictionary = {}) -> Dictionary:
 	if body.has("joinTokens"):
 		body.erase("joinTokens")
 	return body
+
+
+func get_journal() -> Dictionary:
+	## GET /journal + durable Bearer. 404 → journal_unavailable (mock until Coder lands it).
+	## Never fills entries from a local hunt.
+	var bearer := ClientSession.player_bearer()
+	if bearer == "":
+		return Journal.from_http(401, {"error": Contract.JOURNAL_ERR_MISSING})
+	var raw: Dictionary = _raw("GET", "/journal", null, bearer)
+	return Journal.from_http(int(raw.get("status", 0)), raw.get("json", {}))
 
 
 func wallet() -> Dictionary:
