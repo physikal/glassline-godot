@@ -19,9 +19,20 @@ Hideout **PRACTICE** opens a cozy confirm (“No Marks… Δ0”), then `POST /m
 
 ## LIVE
 
-`python3 tools/live_practice_smoke.py`
+`python3 tools/live_practice_smoke.py` against `https://glassline-api.vercel.app`.
 
-If Coder has not shipped `mode: "practice"`, the script prints `LIVE_PRACTICE_PENDING` and the hideout toasts **LIVE practice not ready**. The client will not sit a create that comes back as PvP.
+Create envelope is `{ matchId, joinToken, seat: "a" }` — no `mode`. The snapshot carries `mode` / `kind: practice` and `enemy.isBot`. The hideout peeks that snapshot **before** join and refuses anything that is not practice + bot, so a PvP create cannot fall through to Marks.
+
+API tip `ca28069`. Client bind on this branch. Evidence: `artifacts/live_practice_smoke.txt`.
+
+| Gate | Result | Evidence |
+| --- | --- | --- |
+| P1 | PASS | `POST /matches` 201, join 200 seat A, snapshot `mode: practice` |
+| P2 | PASS | terrain open/brush/hard, recon, decoy, exposure 37, UAV, occupy `hitChance` 0.9 with `highGroundApplied` + `coverApplied`. Empty shot `hitChance` 0 |
+| P3 | PASS | kill `endReason: kill`, `you.marks` 0 and `GET /shop/me` 0 (PvP win would be +25) |
+| P4 | PASS | `enemy.isBot` true through the end. Empty-seat claim 409 |
+| P5 | PASS | Rematch 200 `ready` + new practice match + bot. Forfeit then decline `declined` (hideout), wallet still 0 |
+| P6 | PASS | Hideout Practice CTA and “No Marks… Δ0” confirm before start |
 
 ## Stills
 

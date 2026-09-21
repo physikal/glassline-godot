@@ -89,6 +89,12 @@ func mode() -> String:
 	var kind_value := str(raw.get("kind", ""))
 	if kind_value in ["sp_job", "job"]:
 		return Contract.MODE_SP_JOB
+	if kind_value == Contract.MODE_PRACTICE:
+		var named := str(raw.get("mode", raw.get("matchMode", "")))
+		## kind/mode disagreement is not a practice hunt — do not fall through to PvP chrome.
+		if named != "" and named != Contract.MODE_PRACTICE:
+			return Contract.MODE_PVP
+		return Contract.MODE_PRACTICE
 	if kind_value == Contract.MODE_PVP:
 		return Contract.MODE_PVP
 	var value := str(raw.get("mode", raw.get("matchMode", "")))

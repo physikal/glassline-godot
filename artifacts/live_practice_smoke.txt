@@ -1,16 +1,116 @@
 {
-  "pending": "create ignored mode (not practice) — refusing to sit a Marks match. status 201 keys ['joinToken', 'matchId', 'seat']",
+  "ok": true,
   "base": "https://glassline-api.vercel.app",
+  "gates": {
+    "P1": {
+      "ok": true,
+      "detail": "join 200 seat a mode practice isBot True"
+    },
+    "P2": {
+      "ok": true,
+      "detail": "terrain ['brush', 'hard', 'open'] decoy True optic True uav True exposure 37 hg True cover True chance 0.9 empty 0"
+    },
+    "P3": {
+      "ok": true,
+      "detail": "wallet 0 -> snap 0 shop 0 endReason kill"
+    },
+    "P4": {
+      "ok": true,
+      "detail": "mode practice isBot True claim 409"
+    },
+    "P5": {
+      "ok": true,
+      "detail": "decline {'abandon': 200, 'endReason': 'forfeit', 'winner': 'b', 'mode': 'practice', 'marks': 0, 'decline': 200, 'decline_status': 'declined', 'shop': 0} rematch {'http': 200, 'status': 'ready', 'mode': 'practice', 'kind': 'practice', 'isBot': True, 'marks': 0, 'newMatch': True}"
+    },
+    "P6": {
+      "ok": true,
+      "detail": "hideout Practice CTA + no-Marks confirm before start"
+    }
+  },
+  "fails": [],
   "notes": [
-    "player minted marks 0"
+    "player marks 0",
+    "attempt 1 bot (8, 6) terrain open",
+    "attempt 2 bot (8, 6) terrain open",
+    "attempt 3 bot (8, 6) terrain open",
+    "attempt 4 bot (8, 6) terrain hard",
+    "attempt 5 bot (8, 6) terrain hard",
+    "attempt 6 bot (8, 6) terrain hard",
+    "attempt 7 bot (8, 6) terrain brush"
   ],
   "evidence": {
+    "marks_before": 0,
     "create_status": 201,
-    "create_mode": "",
     "create_keys": [
       "joinToken",
       "matchId",
       "seat"
-    ]
+    ],
+    "create_mode": "",
+    "matchId": "m_ebaf1f414d5245279e9d5d519f177856",
+    "create_envelope_mode": "",
+    "snapshot_mode": "practice",
+    "snapshot_kind": "practice",
+    "enemy_isBot": true,
+    "bot_terrain": "brush",
+    "uav_hex": {
+      "q": 8,
+      "r": 6
+    },
+    "occupy": {
+      "hit": true,
+      "kill": true,
+      "hitChance": 0.9,
+      "highGroundApplied": true,
+      "coverApplied": true,
+      "status": "ended"
+    },
+    "rules": {
+      "terrain": [
+        "brush",
+        "hard",
+        "open"
+      ],
+      "decoy": true,
+      "recon": true,
+      "uav": true,
+      "exposure": 37,
+      "highGroundActive": true,
+      "highGroundApplied": true,
+      "coverApplied": true,
+      "hitChance": 0.9,
+      "emptyHitChance": 0,
+      "hit": true
+    },
+    "marks_snapshot": 0,
+    "marks_shop": 0,
+    "end": {
+      "status": "ended",
+      "winner": "a",
+      "endReason": "kill",
+      "mode": "practice",
+      "kind": "practice",
+      "isBot": true,
+      "rematch": "waiting"
+    },
+    "rematch": {
+      "http": 200,
+      "status": "ready",
+      "mode": "practice",
+      "kind": "practice",
+      "isBot": true,
+      "marks": 0,
+      "newMatch": true
+    },
+    "hideout": {
+      "abandon": 200,
+      "endReason": "forfeit",
+      "winner": "b",
+      "mode": "practice",
+      "marks": 0,
+      "decline": 200,
+      "decline_status": "declined",
+      "shop": 0
+    }
   }
 }

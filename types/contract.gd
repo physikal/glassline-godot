@@ -591,16 +591,56 @@ static func is_match_snapshot(snap: Dictionary, match_id: String = "") -> bool:
 			or str(snap.get("kind", "")) in [MODE_PVP, MODE_SP_JOB, MODE_PRACTICE, "job"]
 
 
-static func practice_create_ok(body: Dictionary) -> bool:
-	## Create must name mode practice and hand back seat A's joinToken.
-	## A PvP create that ignored `mode` is not a practice hunt.
+static func practice_envelope_ok(body: Dictionary) -> bool:
+	## Seat A + one joinToken. A leaked seat-B token, or a named non-practice mode, is not a hunt.
+	## LIVE create omits mode (keys are matchId, joinToken, seat). Confirm the snapshot before sitting.
 	if body.is_empty():
 		return false
 	if str(body.get("matchId", "")) == "" or create_join_token(body) == "":
 		return false
-	if str(body.get("error", "")) != "" and not body.has("mode"):
+	if body.has("joinTokens"):
 		return false
-	return str(body.get("mode", body.get("kind", ""))) == MODE_PRACTICE
+	var seat := str(body.get("seat", ""))
+	if seat != "" and seat != SEAT_A:
+		return false
+	var named := str(body.get("mode", body.get("kind", "")))
+	if named != "" and named != MODE_PRACTICE:
+		return false
+	return true
+
+
+static func practice_snapshot_ok(snap: Dictionary) -> bool:
+	## Fail closed unless the caller snapshot is practice and the rival is the server bot.
+	## A PvP snap, a missing flag, or kind/mode disagreement is not a practice hunt.
+	if snap.is_empty():
+		return false
+	var kind := str(snap.get("kind", ""))
+	var mode_name := str(snap.get("mode", snap.get("matchMode", "")))
+	if kind != "" and mode_name != "" and kind != mode_name:
+		return false
+	var named := kind if kind != "" else mode_name
+	if named != MODE_PRACTICE:
+		return false
+	var enemy: Variant = snap.get("enemy", {})
+	if not (enemy is Dictionary):
+		return false
+	if not enemy.has("isBot") and not enemy.has("bot"):
+		return false
+	return bool(enemy.get("isBot", enemy.get("bot", false)))
+
+
+static func practice_create_ok(body: Dictionary) -> bool:
+	## Mock names mode on the create body. LIVE does not — that path uses the snapshot.
+	## A body that never names practice is not ok to sit until practice_snapshot_ok.
+	if not practice_envelope_ok(body):
+		return false
+	var named := str(body.get("mode", body.get("kind", "")))
+	if named == MODE_PRACTICE:
+		return true
+	var posted: Variant = body.get("snapshot", {})
+	if posted is Dictionary and practice_snapshot_ok(posted):
+		return true
+	return false
 
 
 static func lobby_code_display(code: String) -> String:
