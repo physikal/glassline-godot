@@ -1,0 +1,35 @@
+SMOKE_BASE https://glassline-api.vercel.app
+Coder 948f04a
+PASS  GET /health
+PASS  POST /players
+PROBE_MISS {"type": "attack", "hit": false, "kill": false, "decoyCleared": false, "highGroundApplied": false, "coverApplied": false, "hitChance": 0}
+PASS  B intent { type, hex } accepted
+PASS  B result.type attack
+PASS  B no invented top-level cover
+PASS  B5 snapshot has no inCover chip
+PASS  B5 snapshot has no coverActive chip
+PASS  B4 empty miss coverApplied false
+PASS  B4 empty miss hitChance 0
+PASS  B4 empty miss hit false
+PASS  B6 Marks unchanged on miss
+HUNT  open_off A 0,0=brush B 1,0 hg=False chance=0.9 m_4b1307dbcd9643eb8e4d67a2bda0263c
+HUNT  open_brush A 0,0=brush B 2,0 hg=False chance=0.8 m_80475bb795064d9d8768fce45ad0fce6
+HUNT  hard_brush A 0,0=hard B 5,0 hg=True chance=0.9 m_4b64206528a94b13946848bab8b26841
+OPEN_BRUSH {"type": "attack", "hit": false, "kill": false, "decoyCleared": false, "highGroundApplied": false, "coverApplied": true, "hitChance": 0.8}
+HARD_BRUSH {"type": "attack", "hit": true, "kill": true, "decoyCleared": false, "highGroundApplied": true, "coverApplied": true, "hitChance": 0.9}
+OPEN_OFF {"type": "attack", "hit": true, "kill": true, "decoyCleared": false, "highGroundApplied": false, "coverApplied": false, "hitChance": 0.9}
+PASS  B1 OPEN→BRUSH coverApplied true
+PASS  B3 OPEN→BRUSH highGroundApplied false
+PASS  B3 OPEN→BRUSH hitChance 0.80
+PASS  B3 HARD→BRUSH coverApplied true
+PASS  B3 HARD→BRUSH highGroundApplied true
+PASS  B3 HARD→BRUSH hitChance 0.90
+PASS  B2 OPEN→OPEN/HARD coverApplied false
+PASS  B2 OPEN no high ground
+PASS  B2 OPEN off-brush hitChance 0.90
+PASS  B6 HARD→BRUSH kill table +25 not extra
+DECOY_SHOT {"type": "attack", "hit": false, "kill": false, "decoyCleared": true, "highGroundApplied": false, "coverApplied": false, "hitChance": 0}
+PASS  B4 decoy still miss
+PASS  B4 decoy coverApplied false
+PASS  B4 decoy hitChance 0
+LIVE_BRUSH_COVER_OK

@@ -28,16 +28,16 @@ Arch stamp 2026-09-20. Result chrome only — **no IN COVER chip**.
 
 | Gate | Mock | LIVE | Notes |
 | --- | --- | --- | --- |
-| **B1** target BRUSH −10% | **PASS** | pending Coder | Occupy `coverApplied` true / `hitChance` **0.80** from OPEN. |
-| **B2** OPEN / HARD / FoW +0 | **PASS** | pending Coder | Occupy off-brush `coverApplied` false / **0.90**. Omitted field stays null. |
-| **B3** stacks with HIGH GROUND | **PASS** | pending Coder | HARD→BRUSH **0.90**. OPEN→BRUSH **0.80**. |
-| **B4** wrong hex / decoy miss | **PASS** | pending Coder | Empty + doll: `hit` false, `coverApplied` false, `hitChance` **0**. |
-| **B5** no IN COVER chip | **PASS** | n/a | Toast reads server fields. Plate copy, not mil-sim. |
-| **B6** guns / Marks blind | **PASS** | pending Coder | Railframe / Crescent do not change chance. Kill table **+25**. |
+| **B1** target BRUSH −10% | **PASS** | **PASS** | Occupy `coverApplied` true / `hitChance` **0.80** from OPEN. LIVE `m_80475bb795064d9d8768fce45ad0fce6`. |
+| **B2** OPEN / HARD / FoW +0 | **PASS** | **PASS** | Occupy off-brush `coverApplied` false / **0.90**. Omitted field stays null. |
+| **B3** stacks with HIGH GROUND | **PASS** | **PASS** | HARD→BRUSH **0.90** (`m_4b64206528a94b13946848bab8b26841`). OPEN→BRUSH **0.80**. |
+| **B4** wrong hex / decoy miss | **PASS** | **PASS** | Empty + doll: `hit` false, `coverApplied` false, `hitChance` **0**. |
+| **B5** no IN COVER chip | **PASS** | **PASS** | Toast reads server fields. Snapshot has no `inCover` / `coverActive`. |
+| **B6** guns / Marks blind | **PASS** | **PASS** | Railframe / Crescent do not change chance. Kill table **+25**. |
 
 Headless: `godot --headless --path . -s res://tools/headless_loop_test.gd` → `HEADLESS_LOOP_OK`.
 
-LIVE: `python3 tools/live_brush_cover_smoke.py` → **`LIVE_BRUSH_COVER_OK`** once Coder ships `coverApplied`. Missing field prints `LIVE_BRUSH_COVER_PENDING`.
+LIVE: `python3 tools/live_brush_cover_smoke.py` → **`LIVE_BRUSH_COVER_OK`** (Coder `948f04a`). Missing field still prints `LIVE_BRUSH_COVER_PENDING`.
 
 ## Client map
 
