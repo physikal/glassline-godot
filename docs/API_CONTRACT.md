@@ -61,7 +61,7 @@ Source: Notion “Glassline API contract draft v0” (Godot stamp). Client types
 ActionResult =
   | { type: "select_hex", terrain: open|brush|hard }
   | { type: "start" }
-  | { type: "attack", hit: boolean, kill: boolean, decoyCleared?: boolean, highGroundApplied?: boolean, hitChance?: number }
+  | { type: "attack", hit: boolean, kill: boolean, decoyCleared?: boolean, highGroundApplied?: boolean, coverApplied?: boolean, hitChance?: number }
   | { type: "recon", spotted: boolean, hex?: {q,r} }
   | { type: "uav", revealed: boolean, hex?: {q,r} }
   | { type: "decoy", hex?: {q,r}, planted?: boolean }
@@ -76,6 +76,15 @@ ActionResult =
 - Attacker on HARD → **+0.10 absolute**, one stack, clamp `[0, 1]` → occupy `hitChance` **1.0**. Defender terrain ignored.
 - Attack result: `highGroundApplied` + final `hitChance`. Applied only on an occupy roll (empty miss stays 0).
 - Guns / Decoy / Marks are blind. Client chrome binds the snapshot flag only — never invents from a local hex.
+
+## BRUSH cover (target BRUSH)
+- Correct-hex chance: `clamp(0.90 + HARD?0.10 − BRUSH?0.10, 0, 1)`.
+- Target on BRUSH → **−0.10 absolute**, one stack, clamp `[0, 1]`. OPEN / HARD / unknown-to-self (FoW) → **−0**.
+- Stacks with HIGH GROUND: HARD→BRUSH **0.90** · OPEN→BRUSH **0.80** · HARD→OPEN/HARD **1.0** · OPEN→OPEN/HARD **0.90**.
+- Wrong hex / decoy: miss, `hitChance` **0**, `coverApplied` false.
+- Attack result: `coverApplied` + existing `highGroundApplied` / `hitChance`. Applied only on an occupy roll.
+- Intent stays `{ type: "attack", hex }`. No IN COVER chip this slice. Guns / Marks / Decoy stay blind.
+- Client displays server fields only — never subtracts cover from a local hex.
 
 ## Realtime
 `GET /matches/:id/events` SSE → `{ event: "snapshot"|"your_turn", snapshot }`

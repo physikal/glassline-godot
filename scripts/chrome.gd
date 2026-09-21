@@ -191,6 +191,37 @@ static func high_ground_chip(active: bool = false) -> Control:
 	return panel
 
 
+static func describe_attack_result(last: Dictionary) -> String:
+	## Plate toast from server result fields only. Never invent cover / chance.
+	## No IN COVER chip this slice — result chrome only.
+	if bool(last.get("decoyCleared", false)):
+		return _attack_result_line("Toy doll gone.", last)
+	var head := "Shot hit." if bool(last.get("hit", false)) else "Shot missed."
+	return _attack_result_line(head, last)
+
+
+static func _attack_result_line(head: String, last: Dictionary) -> String:
+	var bits: PackedStringArray = [head]
+	if last.has("hitChance"):
+		var pct := int(round(float(last.get("hitChance", 0.0)) * 100.0))
+		bits.append("Chance %d%%." % pct)
+	var mods: PackedStringArray = []
+	if last.has("highGroundApplied"):
+		if bool(last.get("highGroundApplied")):
+			mods.append(Contract.HIGH_GROUND_APPLIED_COPY)
+		else:
+			mods.append(Contract.HIGH_GROUND_SKIPPED_COPY)
+	if last.has("coverApplied"):
+		if bool(last.get("coverApplied")):
+			mods.append(Contract.COVER_APPLIED_COPY)
+		else:
+			mods.append(Contract.COVER_SKIPPED_COPY)
+	if not mods.is_empty():
+		bits.append("%s." % " · ".join(mods))
+	bits.append("(server)")
+	return " ".join(bits)
+
+
 static func paint_high_ground_chip(panel: Control, active: bool) -> void:
 	## Lit + “+10%” only while snapshot you.highGroundActive. Muted otherwise.
 	if panel == null:

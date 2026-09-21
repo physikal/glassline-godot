@@ -676,7 +676,13 @@ func _poll_once() -> void:
 	]
 	var last: Variant = snap.get("lastAction", {})
 	if last is Dictionary:
-		fp += "|%s|%s" % [str(last.get("type", "")), str(last.get("decoyCleared", ""))]
+		fp += "|%s|%s|c:%s|g:%s|h:%s" % [
+			str(last.get("type", "")),
+			str(last.get("decoyCleared", "")),
+			str(last.get("coverApplied", "")),
+			str(last.get("highGroundApplied", "")),
+			str(last.get("hitChance", "")),
+		]
 	var you_live: Variant = snap.get("you", {})
 	if you_live is Dictionary:
 		fp += "|d:%s|%s|%s|h:%s" % [

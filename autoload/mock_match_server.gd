@@ -1134,16 +1134,26 @@ func _read_hex(action: Dictionary) -> Variant:
 	return Contract.hex_dict(q, r)
 
 
-func find_hex_of_type(match_id: String, kind: String) -> Dictionary:
+func find_hex_of_type(match_id: String, kind: String, skip: Variant = null) -> Dictionary:
 	## First on-board hex whose hash type matches. Empty if none.
 	if not _matches.has(match_id):
 		return {}
 	var match_state: Dictionary = _matches[match_id]
 	for r in Contract.BOARD_R:
 		for q in Contract.BOARD_Q:
+			var cell := Contract.hex_dict(q, r)
+			if skip != null and Contract.same_hex(cell, skip):
+				continue
 			if _terrain_type(match_state, q, r) == kind:
-				return Contract.hex_dict(q, r)
+				return cell
 	return {}
+
+
+func _hex_is_brush(match_state: Dictionary, hex: Variant) -> bool:
+	## Server terrain of that cell. Never a client guess.
+	if hex == null or not (hex is Dictionary):
+		return false
+	return _terrain_type(match_state, int(hex.get("q", -1)), int(hex.get("r", -1))) == Contract.TYPE_BRUSH
 
 
 func _high_ground_active_for(match_state: Dictionary, seat: String) -> bool:
@@ -1249,12 +1259,20 @@ func _act_attack(match_state: Dictionary, seat: String, action: Dictionary) -> A
 	_reveal(match_state, seat, int(hex["q"]), int(hex["r"]))
 	var enemy: Dictionary = match_state["seats"][Contract.other_seat(seat)]
 	var hit := bool(enemy["placed"]) and Contract.same_hex(hex, enemy["hex"])
-	## LIVE: bonus only on an occupy roll. Empty hex → hitChance 0, applied false.
-	## Chip still binds snapshot you.highGroundActive, not this result flag.
+	## LIVE: mods only on an occupy roll. Empty / decoy → hitChance 0, flags false.
+	## HIGH GROUND = attacker HARD +0.10. BRUSH cover = target BRUSH −0.10.
+	## Client chrome never invents these — result fields only, no IN COVER chip.
 	var footing := _high_ground_active_for(match_state, seat)
 	var applied := hit and footing
+	var cover_applied := hit and _hex_is_brush(match_state, hex)
 	var base := Contract.BASE_HIT_CHANCE if hit else 0.0
-	var chance := clampf(base + (Contract.HIGH_GROUND_HIT if applied else 0.0), 0.0, 1.0)
+	var chance := clampf(
+		base
+		+ (Contract.HIGH_GROUND_HIT if applied else 0.0)
+		- (Contract.BRUSH_COVER_HIT if cover_applied else 0.0),
+		0.0,
+		1.0
+	)
 	# Occupy kill stays deterministic in mock so existing loop tests do not flake.
 	if hit:
 		match_state["status"] = Contract.STATUS_ENDED
@@ -1272,6 +1290,7 @@ func _act_attack(match_state: Dictionary, seat: String, action: Dictionary) -> A
 			"kill": true,
 			"decoyCleared": false,
 			"highGroundApplied": applied,
+			"coverApplied": cover_applied,
 			"hitChance": chance,
 			"marks": pay.get("marks", account_marks),
 			"marksDelta": pay.get("marksDelta", 0),
@@ -1290,6 +1309,7 @@ func _act_attack(match_state: Dictionary, seat: String, action: Dictionary) -> A
 			"kill": false,
 			"decoyCleared": decoy_cleared,
 			"highGroundApplied": applied,
+			"coverApplied": cover_applied,
 			"hitChance": chance,
 		})
 	return _ok(match_state, seat)

@@ -70,6 +70,12 @@ const HIGH_GROUND_MUTED_COPY := "Not on HARD. No hit bonus."
 ## LIVE occupy-hex base (Coder 4720879). HARD adds +0.10, one stack, clamp [0, 1].
 const BASE_HIT_CHANCE := 0.90
 const HIGH_GROUND_HIT := 0.10
+## BRUSH cover — target cell BRUSH → −0.10 abs on the occupy roll. No chip this slice.
+const BRUSH_COVER_HIT := 0.10
+const COVER_APPLIED_COPY := "Brush cover"
+const COVER_SKIPPED_COPY := "No cover"
+const HIGH_GROUND_APPLIED_COPY := "High ground"
+const HIGH_GROUND_SKIPPED_COPY := "No high ground"
 
 ## Mock hideout stub until Coder's ledger / GET wallet exists.
 const MOCK_WALLET_STUB := 24

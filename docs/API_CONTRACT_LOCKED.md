@@ -39,7 +39,7 @@ Client spike types in `types/` and `MockMatchServer` follow this shape so a live
 ## Actions POST /matches/:id/actions
 - { type: "select_hex", hex: {q,r} }
 - { type: "start" }
-- { type: "attack", hex: {q,r} }  // HIGH GROUND is snapshot-only; no extra field
+- { type: "attack", hex: {q,r} }  // HIGH GROUND / BRUSH cover are result-only; no extra field
 - { type: "recon", hex: {q,r} }  // sector = center + 6 neighbors
 - { type: "uav" }
 - { type: "decoy" }  // no hex; server picks adjacent empty. LIVE pending Coder.
