@@ -12,6 +12,7 @@ const HexMath := preload("res://scripts/hex_math.gd")
 const Chrome := preload("res://scripts/chrome.gd")
 const Journal := preload("res://types/journal.gd")
 const JournalPlate := preload("res://scenes/lobby/journal_plate.gd")
+const GearStrip := preload("res://scenes/lobby/gear_strip.gd")
 const MockScript := preload("res://autoload/mock_match_server.gd")
 const SessionScript := preload("res://autoload/client_session.gd")
 const JuiceScript := preload("res://autoload/audio_juice.gd")
@@ -154,6 +155,7 @@ func _run() -> int:
 	_player_persist_case(failed)
 	_first_hunt_coach_case(failed)
 	_terrain_coach_case(failed)
+	_gear_strip_case(failed)
 	_practice_case(failed)
 	_journal_case(failed)
 
@@ -2433,6 +2435,113 @@ func _terrain_coach_case(failed: PackedStringArray) -> void:
 	done.free()
 	held.free()
 	Coach.restore_store()
+
+
+func _gear_strip_case(failed: PackedStringArray) -> void:
+	## S1–S6: hideout gear strip. Mute persists and silences juice. Coach reset confirms first.
+	## Terrain seen is the landed comma list (high,brush), not a bool.
+	var Coach := load("res://scenes/match/first_hunt_coach.gd")
+	var Terrain := load("res://scenes/match/terrain_coach.gd")
+	var store := "user://glassline_coach_gear_test.cfg"
+	Coach.reset_store_for_test(store)
+	Terrain.store_path = store
+	Coach.mark_seen()
+	Terrain.mark_kind(Contract.COACH_TERRAIN_HIGH)
+	Terrain.mark_kind(Contract.COACH_TERRAIN_BRUSH)
+	_expect(failed, Coach.is_seen(), "S3 coachSeen starts dismissed")
+	_expect(failed, Terrain.is_kind_seen(Contract.COACH_TERRAIN_HIGH), "S3 high starts dismissed")
+	_expect(failed, Terrain.is_kind_seen(Contract.COACH_TERRAIN_BRUSH), "S3 brush starts dismissed")
+
+	var juice = JuiceScript.new()
+	juice.store_path = "user://glassline_settings_gear_test.json"
+	juice.set_muted(false)
+	var strip = GearStrip.new()
+	strip.audio = juice
+	strip._build()
+	_expect(failed, strip.uses_wood(), "S6 wood plate")
+	_expect(failed, strip.mute_text() == Contract.GEAR_MUTE_LIVE, "S1 live label")
+	_expect(failed, strip.mute_icon_kind() == "speaker", "S1 speaker icon")
+	_expect(failed, strip.mouse_filter == Control.MOUSE_FILTER_IGNORE, "S2 strip does not cover the room")
+	_expect(failed, not strip.is_confirming(), "S4 confirm starts closed")
+
+	strip.press_mute()
+	_expect(failed, juice.muted, "S1 mute toggles juice")
+	_expect(failed, strip.mute_text() == Contract.GEAR_MUTE_MUTED, "S1 muted label")
+	_expect(failed, strip.mute_icon_kind() == "speaker_off", "S1 muted speaker")
+	juice.notice_last_action({
+		"type": Contract.ACT_ATTACK,
+		"hit": true,
+		"highGroundApplied": true,
+		"coverApplied": true,
+	})
+	_expect(failed, juice.last_played.is_empty(), "S2 muted plays nothing")
+	_expect(failed, juice.last_cues.has(Contract.CUE_HIT), "S2 silent hunt still names the cue")
+	_expect(failed, juice.last_cues.has(Contract.CUE_HIGH) and juice.last_cues.has(Contract.CUE_BRUSH), "S2 mute kills every stinger")
+	var toast := Chrome.describe_attack_result({
+		"type": Contract.ACT_ATTACK,
+		"hit": true,
+		"hitChance": 0.9,
+	})
+	_expect(failed, toast.find("Shot hit") >= 0, "S2 result toast still readable")
+	var again = JuiceScript.new()
+	again.store_path = juice.store_path
+	again._load()
+	_expect(failed, again.muted, "S1 mute survives restart")
+	var raw := FileAccess.get_file_as_string(juice.store_path)
+	_expect(failed, raw.find("http") < 0 and raw.find("token") < 0, "S5 settings file is local mute only")
+
+	strip.press_confirm()
+	_expect(failed, Coach.is_seen(), "S4 confirm without ask keeps coachSeen")
+	_expect(failed, Terrain.is_kind_seen(Contract.COACH_TERRAIN_HIGH), "S4 confirm without ask keeps high")
+	_expect(failed, Terrain.is_kind_seen(Contract.COACH_TERRAIN_BRUSH), "S4 confirm without ask keeps brush")
+	strip.press_reset()
+	_expect(failed, strip.is_confirming(), "S4 confirm opens")
+	_expect(failed, strip.confirm_copy().to_lower().find("tips will show again") >= 0, "S4 tips will show again")
+	_expect(failed, Coach.is_seen(), "S4 opening confirm leaves coachSeen")
+	_expect(failed, Terrain.is_kind_seen(Contract.COACH_TERRAIN_HIGH) and Terrain.is_kind_seen(Contract.COACH_TERRAIN_BRUSH), "S4 opening confirm leaves terrain dismissed")
+	strip.press_cancel()
+	_expect(failed, not strip.is_confirming(), "S4 cancel closes")
+	_expect(failed, Coach.is_seen(), "S4 cancel leaves coachSeen")
+	_expect(failed, Terrain.is_kind_seen(Contract.COACH_TERRAIN_HIGH) and Terrain.is_kind_seen(Contract.COACH_TERRAIN_BRUSH), "S4 cancel leaves terrain dismissed")
+	strip.press_reset()
+	strip.press_confirm()
+	_expect(failed, not strip.is_confirming(), "S3 confirm closes after clear")
+	_expect(failed, not Coach.is_seen(), "S3 coachSeen cleared")
+	_expect(failed, not Terrain.is_kind_seen(Contract.COACH_TERRAIN_HIGH), "S3 high cleared")
+	_expect(failed, not Terrain.is_kind_seen(Contract.COACH_TERRAIN_BRUSH), "S3 brush cleared")
+	var cfg := ConfigFile.new()
+	_expect(failed, cfg.load(Coach.store_path) == OK, "S3 coach file saved")
+	_expect(failed, cfg.get_value(Contract.COACH_SECTION, Contract.COACH_SEEN_KEY, true) == false, "S3 coachSeen false")
+	_expect(failed, str(cfg.get_value(Contract.COACH_SECTION, Contract.COACH_TERRAIN_SEEN_KEY, "x")) == "", "S3 terrain list cleared")
+
+	var copy := strip.plate_copy().to_lower()
+	_expect(failed, copy.find("live") >= 0 or strip.mute_text() == Contract.GEAR_MUTE_MUTED, "S1 readable mute state")
+	strip.press_mute()
+	_expect(failed, not juice.muted, "S1 unmute restores juice")
+	_expect(failed, strip.mute_text() == Contract.GEAR_MUTE_LIVE, "S1 live again")
+	var gear_src := FileAccess.get_file_as_string("res://scenes/lobby/gear_strip.gd")
+	var coach_src := FileAccess.get_file_as_string("res://scenes/match/first_hunt_coach.gd")
+	_expect(failed, gear_src.find("make_wood_texture") >= 0, "S6 wood grain")
+	_expect(failed, gear_src.find("chunk_button") >= 0, "S6 chunky chips")
+	_expect(failed, gear_src.find("AudioJuice") >= 0, "S1 same mute as juice autoload")
+	_expect(failed, gear_src.find("reset_tips") >= 0, "S3 strip calls reset_tips")
+	_expect(failed, gear_src.find("MatchAPI") < 0 and gear_src.find("HTTPRequest") < 0, "S5 no API client")
+	_expect(failed, gear_src.to_lower().find("marks") < 0, "S5 no Marks")
+	_expect(failed, gear_src.find("GRAPHICS") < 0 and gear_src.to_lower().find("keybind") < 0, "S6 no graphics or keybinds")
+	_expect(failed, gear_src.find("ACCOUNT") < 0 and gear_src.find("OPTIONS") < 0, "S6 not an Options app")
+	_expect(failed, coach_src.find("func reset_tips") >= 0, "S3 reset_tips exists")
+	_expect(failed, coach_src.find("MatchAPI") < 0, "S5 coach reset has no API")
+	var hideout_src := FileAccess.get_file_as_string("res://scenes/lobby/hideout_lobby.gd")
+	_expect(failed, hideout_src.find("_build_gear_strip") >= 0, "S1 hideout builds the strip")
+	_expect(failed, hideout_src.find("tips_reset.connect") >= 0, "S3 hideout hears the reset")
+	var plate := strip.plate_copy().to_lower()
+	_expect(failed, plate.find("ranked") < 0 and plate.find("ladder") < 0, "S6 no ladder chrome")
+	_expect(failed, plate.find("account") < 0, "S6 no account chrome")
+	juice.free()
+	again.free()
+	strip.free()
+	Coach.restore_store()
+	Terrain.restore_store()
 
 
 func _recon_case(failed: PackedStringArray) -> void:

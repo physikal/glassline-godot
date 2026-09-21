@@ -9,6 +9,7 @@ const Lobby := preload("res://types/lobby.gd")
 const Queue := preload("res://types/queue.gd")
 const ExposureDoll := preload("res://scenes/match/exposure_doll.gd")
 const JournalPlate := preload("res://scenes/lobby/journal_plate.gd")
+const GearStrip := preload("res://scenes/lobby/gear_strip.gd")
 
 var _bg: TextureRect
 var _wood_covers: Array[ColorRect] = []
@@ -46,8 +47,8 @@ var _dock_invite: Button
 var _dock_practice: Button
 var _practice_panel: PanelContainer
 var _journal_plate: JournalPlate
+var _gear: GearStrip
 var _dock: HBoxContainer
-var _mute_btn: Button
 
 
 func _ready() -> void:
@@ -231,6 +232,18 @@ func _ready() -> void:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 		DisplayServer.window_set_size(Vector2i(1280, 720))
 		await _capture_journal_muted()
+	elif "--capture-gear-strip" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await _capture_gear(false, false)
+	elif "--capture-gear-muted" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await _capture_gear(true, false)
+	elif "--capture-gear-confirm" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await _capture_gear(false, true)
 	elif "--capture-abandon-cta" in args or "--capture-grace-countdown" in args \
 			or "--capture-forfeit-overlay" in args \
 			or "--capture-end-summary-kill" in args \
@@ -628,6 +641,7 @@ func _build() -> void:
 	add_child(operative)
 
 	_build_top_bar()
+	_build_gear_strip()
 
 	_last_pay = Label.new()
 	_last_pay.visible = false
@@ -757,11 +771,6 @@ func _build_top_bar() -> void:
 	_marks.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	Chrome.apply_label(_marks, 12, Chrome.HIGH_GOLD, true)
 	marks_chip.add_child(_marks)
-
-	_mute_btn = Chrome.dock_button(Chrome.mute_button_text(AudioJuice.muted), Chrome.INK, Chrome.CREAM, Vector2(118, 36))
-	_mute_btn.tooltip_text = Chrome.mute_button_tip(AudioJuice.muted)
-	_mute_btn.pressed.connect(_toggle_mute)
-	left.add_child(_mute_btn)
 
 	var journal := Chrome.dock_button(Contract.JOURNAL_CTA, Chrome.WOOD, Chrome.CREAM, Vector2(150, 36))
 	journal.tooltip_text = "Last hunts from the ledger."
@@ -1274,6 +1283,35 @@ func _build_practice_panel() -> void:
 	var back := Chrome.chunk_button(Contract.PRACTICE_BACK, Chrome.INK, Chrome.CREAM, Vector2(180, 52))
 	back.pressed.connect(_close_practice)
 	actions.add_child(back)
+
+
+func _build_gear_strip() -> void:
+	_gear = GearStrip.new()
+	_gear.tips_reset.connect(_on_tips_reset)
+	add_child(_gear)
+
+
+func _on_tips_reset() -> void:
+	_toast_msg(Contract.GEAR_CONFIRM_COPY)
+
+
+func _capture_gear(muted: bool, confirm: bool) -> void:
+	if _shop_row:
+		_shop_row.visible = false
+	AudioJuice.set_muted(muted)
+	if _gear:
+		_gear.refresh_mute()
+		if confirm:
+			_gear.press_reset()
+	var path := "res://artifacts/ux/gear_strip_live.png"
+	var tag := "S1_GEAR_LIVE"
+	if confirm:
+		path = "res://artifacts/ux/gear_strip_confirm.png"
+		tag = "S4_GEAR_CONFIRM"
+	elif muted:
+		path = "res://artifacts/ux/gear_strip_muted.png"
+		tag = "S2_GEAR_MUTED"
+	await _capture_named(path, tag)
 
 
 func _build_journal_plate() -> void:
@@ -1903,13 +1941,6 @@ func _process(delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F2:
 		_toggle_live()
-
-
-func _toggle_mute() -> void:
-	AudioJuice.toggle_mute()
-	if _mute_btn:
-		_mute_btn.text = Chrome.mute_button_text(AudioJuice.muted)
-		_mute_btn.tooltip_text = Chrome.mute_button_tip(AudioJuice.muted)
 
 
 func _toggle_live() -> void:

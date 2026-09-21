@@ -287,6 +287,15 @@ const COACH_TERRAIN_BRUSH_TITLE := "BRUSH"
 const COACH_TERRAIN_HIGH_COPY := "Hard hex lights the chip.\nYou shoot better from up there."
 const COACH_TERRAIN_BRUSH_COPY := "Leafy cover softens\nshots at you."
 
+## Hideout gear strip — local mute + coach reset. Not an Options app.
+const GEAR_KICKER := "GEAR"
+const GEAR_MUTE_LIVE := "LIVE"
+const GEAR_MUTE_MUTED := "MUTED"
+const GEAR_RESET := "RESET TIPS"
+const GEAR_CONFIRM_COPY := "Tips will show again."
+const GEAR_CONFIRM_YES := "RESET"
+const GEAR_CONFIRM_NO := "CANCEL"
+
 
 static func format_grace_clock(sec: float) -> String:
 	var n := maxi(0, ceili(sec))

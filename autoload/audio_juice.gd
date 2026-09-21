@@ -6,6 +6,7 @@ const Contract := preload("res://types/contract.gd")
 
 const STORE := "user://glassline_settings.json"
 
+var store_path: String = STORE
 var muted: bool = false
 var last_cues: PackedStringArray = PackedStringArray()
 var last_played: PackedStringArray = PackedStringArray()
@@ -139,9 +140,9 @@ func _sample(cue: String, t: float) -> float:
 
 
 func _load() -> void:
-	if not FileAccess.file_exists(STORE):
+	if not FileAccess.file_exists(store_path):
 		return
-	var file := FileAccess.open(STORE, FileAccess.READ)
+	var file := FileAccess.open(store_path, FileAccess.READ)
 	if file == null:
 		return
 	var parsed: Variant = JSON.parse_string(file.get_as_text())
@@ -151,7 +152,7 @@ func _load() -> void:
 
 
 func _save() -> void:
-	var file := FileAccess.open(STORE, FileAccess.WRITE)
+	var file := FileAccess.open(store_path, FileAccess.WRITE)
 	if file == null:
 		return
 	file.store_string(JSON.stringify({"muted": muted}))
