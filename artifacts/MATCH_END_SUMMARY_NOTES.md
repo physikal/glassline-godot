@@ -19,7 +19,7 @@ SP jobs keep the existing job / `job_fail` map (LIVE `endReason=kill` → displa
 ## Chrome (UX bar)
 
 1. **Headline** — outcome only (language above).
-2. **Marks line** — `0` / `+N` / `-N` · `★you.marks` from the table, not payload `marksDelta` and not `table +N`. Zero is `0`, never `+0` or `Δ+N`.
+2. **Marks line** — `0` / `+N` / `−N` · `★you.marks` from the table, not payload `marksDelta` and not `table +N`. Zero is `0`, never `+0` or `Δ+N`. The minus is U+2212.
 3. **Reason** — table token underneath (`kill` / `standoff` / `forfeit`). Kill loser stays `kill`, not invented `loss`.
 4. **Rematch CTA** — `PLAY AGAIN` / `DECLINE` + `Marks already settled.` (copy unchanged). Jobs still Hideout-only.
 
@@ -39,7 +39,7 @@ SP jobs keep the existing job / `job_fail` map (LIVE `endReason=kill` → displa
 | Surface | Behavior |
 | --- | --- |
 | `MarksPayout.table_delta` / `table_reason` | `endReason` + winner vs seat. Forfeit / draw short-circuit. |
-| `MarksPayout.overlay_parts` / `end_overlay` | Headline · `0`/`+N`/`-N` · `★balance` · reason. |
+| `MarksPayout.overlay_parts` / `end_overlay` | Headline · `0`/`+N`/`−N` · `★balance` · reason. |
 | `Snapshot.table_marks_delta` | Same table, display only. |
 | `MatchScreen._show_ended` | Split labels, then rematch buttons. Settled copy is always `Marks already settled.` |
 | `MockMatchServer.force_standoff` | Capture / tests: settle turn-cap without 16 turns. |

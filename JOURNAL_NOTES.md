@@ -10,7 +10,7 @@ Hideout **JOURNAL** opens a wood plate of the last **10** ended hunts. Rows come
 | --- | --- |
 | Result pill | WIN / LOSS / FORFEIT / DRAW |
 | Rival | Server `displayName`. Practice bot reads **TOY SPY** |
-| Marks | One chip: `0` / `+N` / `-N` (`Contract.format_marks_delta`). Practice is always **0**, even if a payload says +25 |
+| Marks | One chip: `0` / `+N` / `−N` (`Contract.format_marks_delta`). Practice is always **0**, even if a payload says +25 |
 | Tag | PRACTICE or QUICK. A job row is JOB — no tier, no rating |
 | CTA | PvP + `rematchAvailable` → existing `POST /matches/:id/rematch`. Practice → **PRACTICE AGAIN** (`mode: practice` create). Muted when the ledger says no |
 
@@ -31,9 +31,9 @@ Empty plate: **No hunts yet.** / **The table is quiet.**
 
 ## LIVE
 
-`GET /journal` with the durable Bearer. `{ entries: [...] }`.
+`GET /journal` is LIVE (`0d30bd7`) with the durable Bearer. `{ entries: [...] }`. Practice create echoes `mode: "practice"`.
 
-404 `journal_unavailable` keeps the mock ledger until Coder lands the route. A live 200 binds those entries and still caps at 10. Practice Δ is forced to 0 on the client too.
+A live 200 binds those entries and still caps at 10. 404 `journal_unavailable` still keeps the mock ledger. Practice chip is `0`.
 
 ## Stills
 

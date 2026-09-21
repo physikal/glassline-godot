@@ -163,7 +163,7 @@ entry: { matchId, mode, result: win|loss|forfeit|draw,
          rival: { displayName, isBot }, marksDelta, endedAt, rematchAvailable }
 ```
 
-Practice rows: `marksDelta` **0**. PvP `rematchAvailable` → existing `POST /matches/:id/rematch`. Practice again is `POST /matches` `{ mode: "practice" }`, not a replay. 404 → `journal_unavailable` (client mock until the route is live). No local history.
+Practice rows: `marksDelta` **0**, chip `0` / `+N` / `−N`. PvP `rematchAvailable` → existing `POST /matches/:id/rematch`. Practice again is `POST /matches` `{ mode: "practice" }`, not a replay. LIVE `GET /journal` is up (`0d30bd7`); practice create echoes `mode: "practice"`. 404 still falls back to the mock ledger. No local history.
 
 ## Other REST
 - `GET /health` → `{ ok: true }`
