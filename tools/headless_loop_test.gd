@@ -2494,6 +2494,8 @@ func _terrain_coach_case(failed: PackedStringArray) -> void:
 	_expect(failed, src.find("MOUSE_FILTER_IGNORE") >= 0, "terrain C3 mouse ignore")
 	_expect(failed, src.find("chunk_button") >= 0 and src.find("COACH_GOT_IT") >= 0, "terrain C5 same GOT IT chrome")
 	_expect(failed, src.find("Chrome.flat") >= 0, "terrain C5 wood plate")
+	_expect(failed, src.find("plate_accent := Chrome.HIGH_GOLD") >= 0, "terrain C5 shared gold wood plate")
+	_expect(failed, src.find("Chrome.BRUSH") < 0, "terrain C5 brush plate is not legend green")
 	_expect(failed, hud.find("_sync_terrain_coach") >= 0, "terrain C1 wired to the board")
 	_expect(failed, hud.find("last_cover_applied") >= 0, "terrain C1 reads coverApplied")
 	_expect(failed, hud.find("MOUSE_FILTER_IGNORE") >= 0, "terrain C3 HUD does not lock input")

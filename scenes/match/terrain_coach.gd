@@ -151,16 +151,18 @@ func _build() -> void:
 	_built = true
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_preset(PRESET_FULL_RECT)
+	## One wood-plate family. Legend green made the BRUSH tip read as a callout.
+	var plate_accent := Chrome.HIGH_GOLD
 	_chip_high = _make_chip(
 		Contract.COACH_TERRAIN_HIGH_TITLE,
 		Contract.COACH_TERRAIN_HIGH_COPY,
-		Chrome.HIGH_GOLD,
+		plate_accent,
 		"high"
 	)
 	_chip_brush = _make_chip(
 		Contract.COACH_TERRAIN_BRUSH_TITLE,
 		Contract.COACH_TERRAIN_BRUSH_COPY,
-		Chrome.BRUSH,
+		plate_accent,
 		"brush"
 	)
 	add_child(_chip_high)

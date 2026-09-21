@@ -1,6 +1,6 @@
 # Terrain coach — notes
 
-One-shot tip chips for **HIGH GROUND** and **BRUSH**. Same wood-plate chrome as the first-hunt coach. Client-only. No API, no Marks, no combat table change. The board stays live.
+One-shot tip chips for **HIGH GROUND** and **BRUSH**. Same gold wood plate and chunky **GOT IT** / **X** on both. Client-only. No API, no Marks, no combat table change. The board stays live.
 
 **Hard:** show once when that tip is relevant · dismiss forever · chip bodies ignore the mouse · never a cover badge · SP jobs skip.
 
@@ -39,5 +39,11 @@ Seeing one tip does not eat the other.
 | **C2** | Dismiss forever, per kind (`coachTerrainSeen`) | **PASS mock** |
 | **C3** | Board stays interactive. No modal lock. | **PASS mock** |
 | **C4** | No API / Marks / combat (`RECON_BASE` 0.35 · ★25 · high-ground +0.10) | **PASS mock** |
-| **C5** | Same wood plate, pixel labels, **GOT IT** | **PASS mock** |
+| **C5** | Same gold wood plate, pixel labels, **GOT IT** | **PASS mock** |
 | **C6** | Brush uses toast language. No cover badge. | **PASS mock** |
+
+## Chrome
+
+Both plates use `Chrome.HIGH_GOLD` on the wood fill, plus the same chunky **GOT IT** and **X**. The leaf is a toy mark in that gold.
+
+Stills (1280×720): `artifacts/ux/coach_terrain_brush.png` · `artifacts/ux/coach_terrain_high.png` · `artifacts/ux/coach_terrain_pair.png` (BRUSH tip beside HIGH GROUND).
