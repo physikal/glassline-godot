@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """LIVE B1–B6 smoke for BRUSH cover.
 
-Target BRUSH → occupy hit −0.10 abs, stacks with HIGH GROUND.
-Result fields: coverApplied + highGroundApplied + hitChance.
-Missing coverApplied → PENDING (mock covers the editor).
+Coder 948f04a: defender revealed BRUSH −0.10, stacks with HIGH GROUND.
+Result fields: coverApplied + highGroundApplied + hitChance. No chip.
 """
 
 from __future__ import annotations
@@ -190,6 +189,8 @@ def main() -> int:
     expect(status == 200 and miss_probe.get("ok") is True, "B intent { type, hex } accepted", str(miss_probe.get("error")))
     expect(miss_res.get("type") == "attack", "B result.type attack")
     expect("cover" not in (miss_probe.get("snapshot") or {}), "B no invented top-level cover")
+    expect("inCover" not in you_of(miss_probe), "B5 snapshot has no inCover chip")
+    expect("coverActive" not in you_of(miss_probe), "B5 snapshot has no coverActive chip")
     expect(miss_res.get("coverApplied") is False, "B4 empty miss coverApplied false")
     expect(close(float(miss_res.get("hitChance", -1)), 0.0), "B4 empty miss hitChance 0", str(miss_res))
     expect(miss_res.get("hit") is False, "B4 empty miss hit false")
@@ -238,32 +239,31 @@ def main() -> int:
             "B6 HARD→BRUSH kill table +25 not extra",
         )
 
-    # Decoy miss — optional if LIVE decoy is up.
-    decoy_bag = open_match(token, 1, 1, 7, 5)
-    if decoy_bag:
-        req("POST", f"/matches/{decoy_bag['matchId']}/actions", {"type": "end_turn", "exposurePct": 50}, decoy_bag["token_a"])
-        d_status, d_body, _ = req(
+    # B4 decoy: reuse the probe match (already an empty miss → await_end_turn).
+    req("POST", f"/matches/{probe['matchId']}/actions", {"type": "end_turn", "exposurePct": 50}, probe["token_a"])
+    d_status, d_body, _ = req(
+        "POST",
+        f"/matches/{probe['matchId']}/actions",
+        {"type": "decoy"},
+        probe["token_b"],
+    )
+    planted = (d_body.get("result") or {}).get("hex") or you_of(d_body).get("decoyHex")
+    if d_status == 200 and isinstance(planted, dict):
+        req("POST", f"/matches/{probe['matchId']}/actions", {"type": "end_turn", "exposurePct": 50}, probe["token_b"])
+        _, shot, _ = req(
             "POST",
-            f"/matches/{decoy_bag['matchId']}/actions",
-            {"type": "decoy"},
-            decoy_bag["token_b"],
+            f"/matches/{probe['matchId']}/actions",
+            {"type": "attack", "hex": {"q": int(planted.get("q", 0)), "r": int(planted.get("r", 0))}},
+            probe["token_a"],
         )
-        planted = (d_body.get("result") or {}).get("hex") or you_of(d_body).get("decoyHex")
-        if d_status == 200 and isinstance(planted, dict):
-            req("POST", f"/matches/{decoy_bag['matchId']}/actions", {"type": "end_turn", "exposurePct": 50}, decoy_bag["token_b"])
-            _, shot, _ = req(
-                "POST",
-                f"/matches/{decoy_bag['matchId']}/actions",
-                {"type": "attack", "hex": {"q": int(planted.get("q", 0)), "r": int(planted.get("r", 0))}},
-                decoy_bag["token_a"],
-            )
-            dres = shot.get("result") or {}
-            print("DECOY_SHOT", json.dumps(dres))
-            expect(dres.get("hit") is False, "B4 decoy still miss")
-            expect(dres.get("coverApplied") is False, "B4 decoy coverApplied false", str(dres))
-            expect(close(float(dres.get("hitChance", -1)), 0.0), "B4 decoy hitChance 0", str(dres))
-        else:
-            note("LIVE decoy not usable this pass — mock covers B4 doll miss.")
+        dres = shot.get("result") or {}
+        print("DECOY_SHOT", json.dumps(dres))
+        expect(dres.get("hit") is False, "B4 decoy still miss")
+        expect(dres.get("coverApplied") is False, "B4 decoy coverApplied false", str(dres))
+        expect(close(float(dres.get("hitChance", -1)), 0.0), "B4 decoy hitChance 0", str(dres))
+    else:
+        note("LIVE decoy not usable this pass — mock covers B4 doll miss.")
+        print("DECOY_PENDING", d_status, json.dumps(d_body.get("result") or d_body))
 
     if FAILS:
         print("LIVE_BRUSH_COVER_FAIL")

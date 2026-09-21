@@ -173,6 +173,7 @@ func _capture_brush_cover_toast() -> void:
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 	DisplayServer.window_set_size(Vector2i(1280, 720))
 	_dummy_busy = true
+	_dummy_placed = true
 	_dummy_delay = 0.0
 	await get_tree().process_frame
 	var snap := _setup_brush_cover_occupy()
@@ -185,10 +186,23 @@ func _capture_brush_cover_toast() -> void:
 		_btn_abandon.visible = false
 	_status.text = ""
 	_phase.text = ""
+	var last: Variant = snap.last_action()
+	var line := Chrome.describe_attack_result(last if last is Dictionary else {})
+	var plate := ColorRect.new()
+	plate.color = Color("1a1410")
+	plate.position = Vector2(200, 168)
+	plate.size = Vector2(880, 52)
+	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	plate.z_index = 20
+	add_child(plate)
 	if _toast:
-		_toast.position = Vector2(200, 136)
-		_toast.size = Vector2(880, 36)
+		_toast.position = Vector2(210, 176)
+		_toast.size = Vector2(860, 36)
 		Chrome.apply_label(_toast, 12, Color("f7e7a8"), true)
+		_toast.text = line
+		_toast.z_index = 21
+		_toast.move_to_front()
+	print("BRUSH_COVER_TOAST_TEXT ", line)
 	await get_tree().process_frame
 	await get_tree().process_frame
 	await RenderingServer.frame_post_draw
@@ -201,29 +215,26 @@ func _capture_brush_cover_toast() -> void:
 
 func _setup_brush_cover_occupy() -> Snapshot:
 	## Mock: OPEN attacker vs BRUSH target. Display lastAction.coverApplied only.
-	var snap: Snapshot = ClientSession.typed_snapshot()
 	if ClientSession.use_live_api() or ClientSession.match_id == "":
 		return _ensure_active_for_decoy()
 	var mid := ClientSession.match_id
+	var pid := ClientSession.player_id
+	var dummy := ClientSession.dummy_player_id
 	var open_hex: Dictionary = MockMatchServer.find_hex_of_type(mid, Contract.TYPE_OPEN)
 	var brush_hex: Dictionary = MockMatchServer.find_hex_of_type(mid, Contract.TYPE_BRUSH)
-	if open_hex.is_empty() or brush_hex.is_empty():
+	if open_hex.is_empty() or brush_hex.is_empty() or pid == "" or dummy == "":
 		return _ensure_active_for_decoy()
-	if snap.status() == Contract.STATUS_READY or snap.status() == Contract.STATUS_WAITING:
-		_submit(ActionIntent.select_hex(int(open_hex.get("q", 0)), int(open_hex.get("r", 0))))
-		if ClientSession.dummy_player_id != "":
-			_submit_as(
-				ClientSession.dummy_player_id,
-				ActionIntent.select_hex(int(brush_hex.get("q", 1)), int(brush_hex.get("r", 0)))
-			)
-		snap = ClientSession.typed_snapshot()
-	if snap.status() == Contract.STATUS_READY:
-		_submit(ActionIntent.start())
-		snap = ClientSession.typed_snapshot()
-	if snap.status() == Contract.STATUS_ACTIVE and str(snap.phase()) == Contract.PHASE_ACTION:
-		_submit(ActionIntent.attack(int(brush_hex.get("q", 1)), int(brush_hex.get("r", 0))))
-		snap = ClientSession.typed_snapshot()
-	return snap
+	MockMatchServer.apply_action(mid, pid, ActionIntent.select_hex(int(open_hex.get("q", 0)), int(open_hex.get("r", 0))))
+	MockMatchServer.apply_action(mid, dummy, ActionIntent.select_hex(int(brush_hex.get("q", 1)), int(brush_hex.get("r", 0))))
+	MockMatchServer.apply_action(mid, pid, ActionIntent.start())
+	var fired: ActionResult = MockMatchServer.apply_action(
+		mid,
+		pid,
+		ActionIntent.attack(int(brush_hex.get("q", 1)), int(brush_hex.get("r", 0)))
+	)
+	if not fired.snapshot.is_empty():
+		ClientSession.apply_snapshot(fired.snapshot)
+	return ClientSession.typed_snapshot()
 
 
 func _capture_queue_matched_board() -> void:
