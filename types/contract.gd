@@ -227,7 +227,7 @@ const PRACTICE_BACK := "NOT NOW"
 const PRACTICE_UNAVAILABLE_COPY := "LIVE practice not ready"
 const PRACTICE_RIVAL := "TOY SPY"
 const PRACTICE_CHIP := "PRACTICE  ·  TOY SPY  ·  NO MARKS"
-const PRACTICE_SETTLED_COPY := "No Marks  ·  Δ0"
+const PRACTICE_SETTLED_COPY := "No Marks  ·  0"
 const PRACTICE_REMATCH_HINT := "Another practice drop. Still no Marks."
 const PRACTICE_WAIT_COPY := "Toy spy is shuffling the board…"
 const PRACTICE_ABANDON_TIP := "Leave the table. No Marks."
@@ -281,6 +281,16 @@ const COACH_DECOY := "Once a hunt —\ndrop a fake blip."
 static func format_grace_clock(sec: float) -> String:
 	var n := maxi(0, ceili(sec))
 	return "%d:%02d" % [int(n / 60), n % 60]
+
+
+static func format_marks_delta(n: int) -> String:
+	## One plate chip for every Marks Δ: `0`, `+N`, or `-N`.
+	## The wood font draws the hyphen. Never glue a prefix (`Δ+25`, `0+25`, `+0`).
+	if n > 0:
+		return "+%d" % n
+	if n < 0:
+		return "-%d" % absi(n)
+	return "0"
 
 
 const JOB_NAME_T1 := "Rooftop Rookie"

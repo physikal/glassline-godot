@@ -84,12 +84,7 @@ func delta() -> int:
 func delta_line() -> String:
 	if not has_delta():
 		return ""
-	var n := delta()
-	if n > 0:
-		return "+%d MARK" % n
-	if n < 0:
-		return "%d MARK" % n
-	return "+0 MARK"
+	return Contract.format_marks_delta(delta())
 
 
 func balance_line() -> String:
@@ -258,19 +253,22 @@ static func table_delta(payload: Dictionary, you_seat: String, job: bool = false
 
 static func table_copy(end_reason: String, you_won: bool, job_tier: int = 1) -> String:
 	## Display chrome only — never apply these as a local grant.
+	## Not painted on the end plate. The number still uses the one Δ chip.
 	var why := end_reason.to_lower()
 	if why == Contract.END_KILL:
-		return "table  +%d" % (Contract.MARKS_PVP_WIN if you_won else Contract.MARKS_PVP_LOSS)
+		var kill_n := Contract.MARKS_PVP_WIN if you_won else Contract.MARKS_PVP_LOSS
+		return "table  %s" % Contract.format_marks_delta(kill_n)
 	if why == Contract.END_STANDOFF:
-		return "table  +%d" % Contract.MARKS_STANDOFF
+		return "table  %s" % Contract.format_marks_delta(Contract.MARKS_STANDOFF)
 	if why in Contract.FORFEIT_REASONS:
-		return "table  +%d" % (Contract.MARKS_FORFEIT_WIN if you_won else Contract.MARKS_FORFEIT_LOSS)
+		var foil_n := Contract.MARKS_FORFEIT_WIN if you_won else Contract.MARKS_FORFEIT_LOSS
+		return "table  %s" % Contract.format_marks_delta(foil_n)
 	if why in [Contract.END_JOB, Contract.END_JOB_FAIL]:
 		if you_won:
-			return "table  T%d +%d" % [job_tier, Contract.job_tier_delta(job_tier)]
-		return "table  +0"
+			return "table  T%d %s" % [job_tier, Contract.format_marks_delta(Contract.job_tier_delta(job_tier))]
+		return "table  %s" % Contract.format_marks_delta(0)
 	if why == Contract.END_LOSS:
-		return "table  +%d" % Contract.MARKS_PVP_LOSS
+		return "table  %s" % Contract.format_marks_delta(Contract.MARKS_PVP_LOSS)
 	return ""
 
 
@@ -284,7 +282,7 @@ static func live_delta_drifts(payload: Dictionary, you_seat: String, job: bool =
 
 static func marks_line(payload: Dictionary, you_seat: String, job: bool = false, practice: bool = false) -> String:
 	var n := table_delta(payload, you_seat, job, practice)
-	var d := "+%d MARK" % n if n >= 0 else "%d MARK" % n
+	var d := Contract.format_marks_delta(n)
 	var payout = from_any(payload)
 	if payout.has_marks():
 		return "%s  ·  ★%d" % [d, payout.balance()]
@@ -303,7 +301,7 @@ static func overlay_parts(payload: Dictionary, you_seat: String, job: bool = fal
 
 
 static func end_overlay(payload: Dictionary, you_seat: String, job: bool = false) -> String:
-	## Headline · +N MARK · ★you.marks · table reason. Δ is the earn table.
+	## Headline · 0/+N/-N · ★you.marks · table reason. Δ is the earn table.
 	var parts := overlay_parts(payload, you_seat, job)
 	var lines: PackedStringArray = [str(parts.get("headline", ""))]
 	var marks := str(parts.get("marks", ""))
