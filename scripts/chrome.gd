@@ -382,6 +382,10 @@ static func make_icon(kind: String, color: Color, px: int = 28) -> Texture2D:
 			_icon_play(img, color)
 		"jobs":
 			_icon_clipboard(img, color)
+		"copy", "clipboard":
+			_icon_clipboard(img, color)
+		"share":
+			_icon_share(img, color)
 		"invite":
 			_icon_ticket(img, color)
 		"practice":
@@ -635,6 +639,16 @@ static func _icon_practice(img: Image, color: Color) -> void:
 	_fill_circle(img, 17, 14, 3, lens)
 	_fill_circle(img, 9, 14, 1, color)
 	_fill_circle(img, 17, 14, 1, color)
+
+
+static func _icon_share(img: Image, color: Color) -> void:
+	## Folded note leaving the table. Cozy slip, not a megaphone or QR.
+	_fill_rect(img, 3, 8, 14, 14, color)
+	_fill_rect(img, 5, 10, 10, 10, Color(0, 0, 0, 0.28))
+	_fill_rect(img, 6, 12, 7, 2, color)
+	_fill_rect(img, 6, 16, 5, 2, color)
+	_fill_rect(img, 17, 13, 8, 3, color)
+	_fill_rect(img, 21, 10, 3, 9, color)
 
 
 static func _icon_ticket(img: Image, color: Color) -> void:
