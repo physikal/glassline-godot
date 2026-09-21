@@ -10,6 +10,7 @@ const Snapshot := preload("res://types/snapshot.gd")
 const HexMath := preload("res://scripts/hex_math.gd")
 const MarksPayout := preload("res://types/marks_payout.gd")
 const FirstHuntCoach := preload("res://scenes/match/first_hunt_coach.gd")
+const TerrainCoach := preload("res://scenes/match/terrain_coach.gd")
 
 enum Aim { NONE, ATTACK, RECON, RELOCATE }
 
@@ -54,6 +55,7 @@ var _btn_hideout: Button
 var _you_chip: Label
 var _rival_chip: Label
 var _coach: FirstHuntCoach
+var _terrain: TerrainCoach
 
 var _aim: int = Aim.NONE
 var _selected: Variant = null
@@ -81,6 +83,9 @@ func _ready() -> void:
 		_dummy_placed = true
 	_apply_server_reconnect()
 	var args := OS.get_cmdline_user_args()
+	if _cmdline_is_capture(args):
+		## Plate stills stay clean. Terrain captures opt back in.
+		TerrainCoach.suppressed = true
 	if "--capture-a1" in args:
 		_capture_after_play()
 	elif "--capture-a2" in args:
@@ -123,6 +128,10 @@ func _ready() -> void:
 		_capture_coach_dismissed()
 	elif "--capture-coach-chip" in args:
 		_capture_coach_chip()
+	elif "--capture-coach-terrain-high" in args:
+		_capture_coach_terrain_high()
+	elif "--capture-coach-terrain-brush" in args:
+		_capture_coach_terrain_brush()
 	elif "--capture-queue-matched-board" in args:
 		_capture_queue_matched_board()
 	elif "--capture-high-ground-lit" in args:
@@ -135,8 +144,16 @@ func _ready() -> void:
 		_capture_practice_bot()
 
 
+func _cmdline_is_capture(args: PackedStringArray) -> bool:
+	for arg in args:
+		if str(arg).begins_with("--capture-"):
+			return true
+	return false
+
+
 func _capture_high_ground(lit: bool) -> void:
 	## Mock toggle drives the chip. Client never invents from the local hex.
+	TerrainCoach.suppressed = true
 	if _coach:
 		_coach.dismiss()
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
@@ -172,6 +189,7 @@ func _capture_high_ground(lit: bool) -> void:
 
 func _capture_brush_cover_toast() -> void:
 	## Optional still: occupy a BRUSH target and keep the server toast. No chip.
+	TerrainCoach.suppressed = true
 	if _coach:
 		_coach.dismiss()
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
@@ -716,6 +734,7 @@ func _capture_end_summary_forfeit() -> void:
 
 
 func _prep_coach_capture() -> Snapshot:
+	TerrainCoach.suppressed = true
 	FirstHuntCoach.clear_seen()
 	var snap := _force_pvp_active_for_capture()
 	_refresh(snap)
@@ -776,6 +795,61 @@ func _capture_coach_chip() -> void:
 	img.save_png(out)
 	print("C6_COACH_CHIP %s" % out)
 	get_tree().quit()
+
+
+func _capture_coach_terrain_high() -> void:
+	## Hard hex lights the HIGH GROUND coach chip. Board stays live.
+	TerrainCoach.suppressed = false
+	TerrainCoach.clear_seen()
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+	DisplayServer.window_set_size(Vector2i(1280, 720))
+	if not ClientSession.use_live_api():
+		MockMatchServer.test_high_ground_active = true
+	await get_tree().process_frame
+	var snap := _ensure_active_for_decoy()
+	if ClientSession.match_id != "":
+		_apply_server_reconnect()
+		snap = ClientSession.typed_snapshot()
+	if _coach:
+		_coach.dismiss()
+	_refresh(snap)
+	_toast.text = ""
+	_status.text = ""
+	_phase.text = ""
+	if _btn_decoy:
+		_btn_decoy.visible = false
+	if _btn_abandon:
+		_btn_abandon.visible = false
+	_set_actions(true)
+	if _clock_chip:
+		_clock_chip.text = "01:30"
+	await _capture_coach_png("res://artifacts/ux/coach_terrain_high.png", "CT_HIGH")
+
+
+func _capture_coach_terrain_brush() -> void:
+	## Leafy cover toast language on the BRUSH chip. No cover badge.
+	TerrainCoach.suppressed = false
+	TerrainCoach.clear_seen()
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+	DisplayServer.window_set_size(Vector2i(1280, 720))
+	_dummy_busy = true
+	_dummy_placed = true
+	_dummy_delay = 0.0
+	await get_tree().process_frame
+	var snap := _setup_brush_cover_occupy()
+	if _coach:
+		_coach.dismiss()
+	_refresh(snap)
+	if _over:
+		_over.visible = false
+	if _btn_decoy:
+		_btn_decoy.visible = false
+	if _btn_abandon:
+		_btn_abandon.visible = false
+	_status.text = ""
+	_phase.text = ""
+	_toast.text = ""
+	await _capture_coach_png("res://artifacts/ux/coach_terrain_brush.png", "CT_BRUSH")
 
 
 func _capture_end_summary_standoff() -> void:
@@ -1141,6 +1215,13 @@ func _build() -> void:
 	_coach.bind_anchors(_btn_attack, _btn_recon, _btn_decoy, _exposure_doll)
 	add_child(_coach)
 
+	_terrain = TerrainCoach.new()
+	_terrain.set_anchors_preset(PRESET_FULL_RECT)
+	_terrain.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	## Above the end plate so a brush tip on a killing shot can still be dismissed.
+	_terrain.z_index = 40
+	add_child(_terrain)
+
 	_optic = preload("res://scenes/optic/optic_overlay.gd").new()
 	_optic.set_anchors_preset(PRESET_FULL_RECT)
 	add_child(_optic)
@@ -1362,6 +1443,7 @@ func _refresh(snap: Snapshot) -> void:
 		_btn_decoy.text = Contract.DECOY_LABEL
 	_bind_high_ground(snap)
 	_sync_coach(snap)
+	_sync_terrain_coach(snap)
 
 
 func _highlights(snap: Snapshot) -> Dictionary:
@@ -1379,6 +1461,29 @@ func _sync_coach(snap: Snapshot) -> void:
 	var job := ClientSession.is_job() or snap.is_job()
 	var live := snap.status() == Contract.STATUS_ACTIVE
 	_coach.present(job, live)
+
+
+func _sync_terrain_coach(snap: Snapshot) -> void:
+	## HIGH while the hard-hex chip is lit. BRUSH when the server says cover applied.
+	## A brush hit ends the hunt, so that tip is allowed on the ended snapshot too.
+	## Missing cover is not relevant. Jobs skip. Chip bodies never lock the board.
+	if _terrain == null:
+		return
+	var job := ClientSession.is_job() or snap.is_job()
+	if job:
+		_terrain.present(false, false)
+		return
+	var live := snap.status() == Contract.STATUS_ACTIVE
+	var ended := snap.status() == Contract.STATUS_ENDED
+	if not live and not ended:
+		_terrain.present(false, false)
+		return
+	var cover: Variant = snap.last_cover_applied()
+	var brush := false
+	if cover == true:
+		brush = true
+	var high := live and snap.you_high_ground_active()
+	_terrain.present(high, brush)
 
 
 func _set_actions(on: bool) -> void:

@@ -277,6 +277,16 @@ const COACH_RECON := "Scout a hex —\nno shot fired."
 const COACH_DOLL := "They peek —\nthe doll lights up."
 const COACH_DECOY := "Once a hunt —\ndrop a fake blip."
 
+## Terrain coach — one-shot HIGH GROUND + BRUSH. Same store, separate flag.
+const COACH_TERRAIN_SEEN_KEY := "coachTerrainSeen"
+const COACH_TERRAIN_HIGH := "high"
+const COACH_TERRAIN_BRUSH := "brush"
+const COACH_TERRAIN_KICKER := "TERRAIN"
+const COACH_TERRAIN_HIGH_TITLE := "HIGH GROUND"
+const COACH_TERRAIN_BRUSH_TITLE := "BRUSH"
+const COACH_TERRAIN_HIGH_COPY := "Hard hex lights the chip.\nYou shoot better from up there."
+const COACH_TERRAIN_BRUSH_COPY := "Leafy cover softens\nshots at you."
+
 
 static func format_grace_clock(sec: float) -> String:
 	var n := maxi(0, ceili(sec))
