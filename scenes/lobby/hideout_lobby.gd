@@ -196,7 +196,9 @@ func _ready() -> void:
 		await get_tree().process_frame
 		_on_play()
 	elif "--capture-high-ground-lit" in args or "--capture-high-ground-muted" in args \
-			or "--capture-brush-cover-toast" in args:
+			or "--capture-brush-cover-toast" in args \
+			or "--capture-coach-terrain-high" in args \
+			or "--capture-coach-terrain-brush" in args:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 		DisplayServer.window_set_size(Vector2i(1280, 720))
 		await get_tree().process_frame
