@@ -10,7 +10,7 @@ Hideout **JOURNAL** opens a wood plate of the last **10** ended hunts. Rows come
 | --- | --- |
 | Result pill | WIN / LOSS / FORFEIT / DRAW |
 | Rival | Server `displayName`. Practice bot reads **TOY SPY** |
-| Marks | Server Δ. Practice is always **Δ0**, even if a payload says +25 |
+| Marks | One chip: `0` / `+N` / `-N` (`Contract.format_marks_delta`). Practice is always **0**, even if a payload says +25 |
 | Tag | PRACTICE or QUICK. A job row is JOB — no tier, no rating |
 | CTA | PvP + `rematchAvailable` → existing `POST /matches/:id/rematch`. Practice → **PRACTICE AGAIN** (`mode: practice` create). Muted when the ledger says no |
 
@@ -21,7 +21,7 @@ Empty plate: **No hunts yet.** / **The table is quiet.**
 | Gate | Bar | Result |
 | --- | --- | --- |
 | J1 | ≤10 server rows, newest first | **PASS** mock |
-| J2 | Practice Marks Δ0 | **PASS** mock (poison +25 still displays Δ0) |
+| J2 | Practice Marks Δ0 | **PASS** mock (poison +25 still displays `0`) |
 | J3 | Rematch only when `rematchAvailable` | **PASS** mock. Expired row stays muted |
 | J4 | Practice again → practice create | **PASS** mock. Signal calls `_start_practice` |
 | J5 | Empty state cozy | **PASS** still `artifacts/ux/journal_empty.png` |

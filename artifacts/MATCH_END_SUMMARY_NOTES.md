@@ -19,7 +19,7 @@ SP jobs keep the existing job / `job_fail` map (LIVE `endReason=kill` → displa
 ## Chrome (UX bar)
 
 1. **Headline** — outcome only (language above).
-2. **Marks line** — `+N MARK · ★you.marks` from the table, not payload `marksDelta` and not `table +N`.
+2. **Marks line** — `0` / `+N` / `-N` · `★you.marks` from the table, not payload `marksDelta` and not `table +N`. Zero is `0`, never `+0` or `Δ+N`.
 3. **Reason** — table token underneath (`kill` / `standoff` / `forfeit`). Kill loser stays `kill`, not invented `loss`.
 4. **Rematch CTA** — `PLAY AGAIN` / `DECLINE` + `Marks already settled.` (copy unchanged). Jobs still Hideout-only.
 
@@ -30,7 +30,7 @@ SP jobs keep the existing job / `job_fail` map (LIVE `endReason=kill` → displa
 | ID | Result | Evidence |
 | --- | --- | --- |
 | **M.1** Kill / forfeit / standoff copy | **PASS mock** | Headless `_end_summary_case`. Stills `end_summary_kill.png` / `end_summary_forfeit.png` / `end_summary_standoff.png`. Both seats asserted in overlay strings. |
-| **M.2** Δ matches earn table | **PASS mock** | `table_delta` + mock settle: kill 25/3 · standoff 8/8 · forfeit 12/0. LIVE omit `marksDelta` still paints `+25 MARK · ★25`. |
+| **M.2** Δ matches earn table | **PASS mock** | `table_delta` + mock settle: kill 25/3 · standoff 8/8 · forfeit 12/0. LIVE omit `marksDelta` still paints `+25 · ★25`. |
 | **M.3** Rematch / Hideout still work | **PASS mock** | After overlay, `rematch_offered` · Play again → waiting · Decline → declined. Jobs stay Hideout. Existing `_rematch_case` / `_a4_gaps_case` unchanged. |
 | **M.4** UX taste vs end overlay | **PASS mock stills** | Gold marks line under a bigger headline, cream reason, then settled rematch plate. No mil-sim. |
 
@@ -39,7 +39,7 @@ SP jobs keep the existing job / `job_fail` map (LIVE `endReason=kill` → displa
 | Surface | Behavior |
 | --- | --- |
 | `MarksPayout.table_delta` / `table_reason` | `endReason` + winner vs seat. Forfeit / draw short-circuit. |
-| `MarksPayout.overlay_parts` / `end_overlay` | Headline · `+N MARK · ★balance` · reason. |
+| `MarksPayout.overlay_parts` / `end_overlay` | Headline · `0`/`+N`/`-N` · `★balance` · reason. |
 | `Snapshot.table_marks_delta` | Same table, display only. |
 | `MatchScreen._show_ended` | Split labels, then rematch buttons. Settled copy is always `Marks already settled.` |
 | `MockMatchServer.force_standoff` | Capture / tests: settle turn-cap without 16 turns. |

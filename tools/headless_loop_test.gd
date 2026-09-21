@@ -883,24 +883,25 @@ func _end_summary_case(failed: PackedStringArray) -> void:
 	_expect(failed, MarksPayout.table_delta(foil_leave, "a") == 0, "M.2 forfeit leaver 0")
 	var ow := MarksPayout.end_overlay(kill_win, "a", false)
 	_expect(failed, ow.find("MARK CONFIRMED") >= 0, "M.1 kill winner headline")
-	_expect(failed, ow.find("+25 MARK") >= 0 and ow.find("★25") >= 0, "M.1 kill winner marks line")
+	_expect(failed, ow.find("+25  ·  ★25") >= 0, "M.1 kill winner marks line")
+	_expect(failed, ow.find("+25 MARK") < 0 and ow.find("Δ+") < 0 and ow.find("0+") < 0, "M.1 no glued delta")
 	_expect(failed, ow.find("\nkill") >= 0, "M.1 kill winner reason")
 	var ol := MarksPayout.end_overlay(kill_lose, "b", false)
 	_expect(failed, ol.find("ELIMINATED") >= 0, "M.1 kill loser headline")
-	_expect(failed, ol.find("+3 MARK") >= 0 and ol.find("★3") >= 0, "M.1 kill loser marks line")
+	_expect(failed, ol.find("+3  ·  ★3") >= 0, "M.1 kill loser marks line")
 	_expect(failed, ol.find("\nkill") >= 0, "M.1 kill loser reason is kill not loss")
 	var os := MarksPayout.end_overlay(stand_a, "a", false)
 	_expect(failed, os.find("STANDOFF") >= 0, "M.1 standoff headline")
-	_expect(failed, os.find("+8 MARK") >= 0 and os.find("★8") >= 0, "M.1 standoff marks line")
+	_expect(failed, os.find("+8  ·  ★8") >= 0, "M.1 standoff marks line")
 	_expect(failed, os.find("\nstandoff") >= 0, "M.1 standoff reason")
-	_expect(failed, MarksPayout.end_overlay(stand_b, "b", false).find("+8 MARK") >= 0, "M.1 standoff both seats")
+	_expect(failed, MarksPayout.end_overlay(stand_b, "b", false).find("+8  ·  ★8") >= 0, "M.1 standoff both seats")
 	var of := MarksPayout.end_overlay(foil_win, "b", false)
 	_expect(failed, of.find("RIVAL FORFEIT") >= 0, "M.1 remaining headline")
-	_expect(failed, of.find("+12 MARK") >= 0 and of.find("★12") >= 0, "M.1 remaining marks line")
+	_expect(failed, of.find("+12  ·  ★12") >= 0, "M.1 remaining marks line")
 	_expect(failed, of.find("\nforfeit") >= 0, "M.1 remaining reason")
 	var ox := MarksPayout.end_overlay(foil_leave, "a", false)
 	_expect(failed, ox.find("FORFEIT") >= 0 and ox.find("RIVAL") < 0, "M.1 leaver headline")
-	_expect(failed, ox.find("+0 MARK") >= 0, "M.1 leaver +0 MARK")
+	_expect(failed, ox.find("0  ·  ★0") >= 0 and ox.find("+0") < 0, "M.1 leaver chip is 0")
 	_expect(failed, Snapshot.from_dict(kill_win).rematch_offered(), "M.3 kill rematch offered")
 	_expect(failed, Snapshot.from_dict(foil_win).rematch_offered(), "M.3 forfeit rematch offered")
 	_expect(failed, Snapshot.from_dict(stand_a).rematch_offered(), "M.3 standoff rematch offered")
@@ -976,7 +977,7 @@ func _payout_shape_case(failed: PackedStringArray) -> void:
 	_expect(failed, pay.reason == "kill", "result payout.reason")
 	var overlay := MarksPayout.end_overlay(live_body["snapshot"], "a", false)
 	_expect(failed, overlay.find("MARK CONFIRMED") >= 0, "end overlay win")
-	_expect(failed, overlay.find("+25 MARK") >= 0, "end overlay table Δ not payload 1")
+	_expect(failed, overlay.find("+25  ·  ★12") >= 0 and overlay.find("+1") < 0, "end overlay table Δ not payload 1")
 	_expect(failed, overlay.find("★12") >= 0, "end overlay balance")
 	_expect(failed, MarksPayout.live_delta_drifts(live_body["snapshot"], "a", false), "payload 1 drifts vs table +25")
 	var forfeit_snap := {
@@ -1003,7 +1004,7 @@ func _payout_shape_case(failed: PackedStringArray) -> void:
 	var live_copy := MarksPayout.end_overlay(live_ended, "a", false)
 	_expect(failed, live_copy.find("MARK CONFIRMED") >= 0, "live endReason kill")
 	_expect(failed, live_copy.find("★25") >= 0, "live you.marks balance")
-	_expect(failed, live_copy.find("+25 MARK") >= 0, "table Δ when marksDelta omitted")
+	_expect(failed, live_copy.find("+25  ·  ★25") >= 0, "table Δ when marksDelta omitted")
 	_expect(failed, live_copy.find("table  +") < 0, "no table +N chrome")
 	_expect(failed, live_copy.find("kill") >= 0, "pvp keeps kill")
 	_expect(failed, not MarksPayout.live_delta_drifts(live_ended, "a", false), "LIVE omit marksDelta is not drift")
@@ -1020,7 +1021,7 @@ func _payout_shape_case(failed: PackedStringArray) -> void:
 	_expect(failed, sp_copy.find("job") >= 0, "sp kill displays reason job")
 	_expect(failed, sp_copy.find("kill") < 0, "sp kill not shown as kill")
 	_expect(failed, sp_copy.find("★10") >= 0, "sp overlay uses you.marks")
-	_expect(failed, sp_copy.find("+10 MARK") >= 0, "sp table Δ uses job row")
+	_expect(failed, sp_copy.find("+10  ·  ★10") >= 0, "sp table Δ uses job row")
 	_expect(failed, MarksPayout.display_reason(sp_live_kill, true) == Contract.END_JOB, "display_reason kill->job")
 	var sp_delta := {
 		"status": "ended",
@@ -1031,7 +1032,7 @@ func _payout_shape_case(failed: PackedStringArray) -> void:
 		"payout": {"marks": 34, "marksDelta": 10, "reason": "kill"},
 	}
 	var sp_delta_copy := MarksPayout.end_overlay(sp_delta, "a", true)
-	_expect(failed, sp_delta_copy.find("+10 MARK") >= 0, "sp delta from you.marks envelope")
+	_expect(failed, sp_delta_copy.find("+10  ·  ★34") >= 0, "sp delta from you.marks envelope")
 	_expect(failed, sp_delta_copy.find("★34") >= 0, "sp delta balance you.marks")
 	_expect(failed, sp_delta_copy.find("\njob") >= 0, "sp delta reason job")
 	_expect(failed, sp_delta_copy.find("kill") < 0, "sp delta not kill")
@@ -2547,7 +2548,9 @@ func _practice_case(failed: PackedStringArray) -> void:
 	var parts: Dictionary = MarksPayout.overlay_parts(snap.raw, Contract.SEAT_A, false, true)
 	_expect(failed, int(parts.get("delta", -1)) == 0, "practice overlay Δ0")
 	_expect(failed, str(parts.get("headline", "")) == Contract.PRACTICE_CLEAR, "practice clear headline")
-	_expect(failed, str(parts.get("marks", "")).begins_with("+0 MARK"), "practice +0 MARK line")
+	_expect(failed, str(parts.get("marks", "")).begins_with("0"), "practice marks chip is 0")
+	_expect(failed, str(parts.get("marks", "")).find("+") < 0, "practice chip has no plus")
+	_expect(failed, str(parts.get("marks", "")).find("Δ") < 0, "practice chip has no delta glyph")
 	_expect(failed, str(parts.get("reason", "")) == "no marks", "practice no earn chrome")
 	var poisoned := snap.raw.duplicate(true)
 	poisoned["marksDelta"] = Contract.MARKS_PVP_WIN
@@ -2642,7 +2645,17 @@ func _journal_case(failed: PackedStringArray) -> void:
 		"marksDelta": Contract.MARKS_PVP_WIN,
 		"result": "win",
 		"rematchAvailable": true,
-	})) == "Δ0", "J2 poisoned practice still Δ0")
+	})) == "0", "J2 poisoned practice still 0")
+	_expect(failed, Contract.format_marks_delta(0) == "0", "P2 delta chip 0")
+	_expect(failed, Contract.format_marks_delta(25) == "+25", "P2 delta chip +N")
+	_expect(failed, Contract.format_marks_delta(-4) == "-4", "P2 delta chip -N")
+	_expect(failed, Contract.format_marks_delta(25) != "0+25" and Contract.format_marks_delta(25) != "Δ+25", "P2 no glued delta")
+	_expect(failed, Journal.marks_text(Journal.normalize({
+		"matchId": "m_neg",
+		"mode": Contract.MODE_PVP,
+		"marksDelta": -4,
+		"result": "loss",
+	})) == "-4", "journal negative is -N")
 
 	server.clear_all()
 	server.reset_wallet(0)
@@ -2745,7 +2758,9 @@ func _journal_case(failed: PackedStringArray) -> void:
 	})
 	plate.bind({"entries": shown})
 	_expect(failed, plate.row_count() == 3, "J1 plate shows server rows")
-	_expect(failed, plate.row_marks(0) == "Δ0", "J2 plate practice Δ0")
+	_expect(failed, plate.row_marks(0) == "0", "J2 plate practice 0")
+	_expect(failed, plate.row_marks(1) == "+25", "journal win chip +25")
+	_expect(failed, plate.row_marks(2) == "+3", "journal loss chip +3")
 	_expect(failed, plate.row_tag(0) == Contract.JOURNAL_TAG_PRACTICE, "practice tag")
 	_expect(failed, plate.row_cta_text(0) == Contract.JOURNAL_PRACTICE_AGAIN, "practice again label")
 	_expect(failed, not plate.row_cta_disabled(0), "practice again enabled")

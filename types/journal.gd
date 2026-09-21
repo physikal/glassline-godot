@@ -130,11 +130,7 @@ static func marks_text(entry: Dictionary) -> String:
 	var n := int(entry.get("marksDelta", 0))
 	if str(entry.get("mode", "")) == Contract.MODE_PRACTICE:
 		n = 0
-	if n > 0:
-		return "Δ+%d" % n
-	if n < 0:
-		return "Δ%d" % n
-	return "Δ0"
+	return Contract.format_marks_delta(n)
 
 
 static func rival_text(entry: Dictionary) -> String:
