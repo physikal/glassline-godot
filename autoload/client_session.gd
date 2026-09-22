@@ -43,6 +43,9 @@ var equipped_decor: String = ""
 ## Visual gun rack. Starter Fieldbolt owned-by-default until Coder gun SKUs.
 var owned_guns: Array = [Contract.GUN_FIELDBOLT]
 var equipped_gun: String = Contract.GUN_FIELDBOLT
+## Display cache of server you.exposureFloor. Missing payload → start 50.
+## Never written back. Cosmetics and operativeLevel do not compute it.
+var exposure_floor: int = Contract.EXPOSURE_FLOOR_START
 ## -1 follow project/env/export; 0 mock; 1 live
 var live_override: int = -1
 
@@ -71,6 +74,12 @@ func bind_marks(balance: int) -> void:
 	marks = balance
 
 
+func bind_exposure_floor_payload(bag: Dictionary) -> void:
+	## Read the server percent when the payload carries it. Otherwise 50.
+	## Does not write a percent and does not read operativeLevel.
+	exposure_floor = Contract.exposure_floor_from_payload(bag)
+
+
 func bind_player(bag: Dictionary) -> void:
 	## Keep the POST /players token. Marks bind only if the payload has them.
 	var token := str(bag.get("token", ""))
@@ -81,6 +90,7 @@ func bind_player(bag: Dictionary) -> void:
 		durable_player_id = pid
 	if bag.has("marks"):
 		bind_marks(int(bag.get("marks")))
+	bind_exposure_floor_payload(bag)
 
 
 func persist_player() -> void:
@@ -144,6 +154,7 @@ func apply_shop(bag: Dictionary) -> void:
 		equipped_gun = str(shop.equipped_gun)
 	_sync_cosmetic_flags()
 	_sync_gun_stub()
+	bind_exposure_floor_payload(bag)
 
 
 func owns_cosmetic(item_id: String) -> bool:
@@ -260,6 +271,7 @@ func apply_snapshot(snap: Dictionary) -> void:
 			})
 	else:
 		bind_marks(0)
+	bind_exposure_floor_payload(snap)
 	var payout = MarksPayout.from_any(snap)
 	var why: String = MarksPayout.display_reason(snap, is_job())
 	if payout.has_delta() or why != "":

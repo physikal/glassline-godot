@@ -58,12 +58,16 @@ static func clear_seen() -> void:
 
 
 static func reset_tips() -> void:
-	## Local only. Clears first-hunt and the terrain kind list. No API.
+	## Local only. Clears first-hunt, terrain kinds, and the gear-floor tip. No API.
 	## coachTerrainSeen is a comma list (high,brush), so clear it to empty.
 	var cfg := ConfigFile.new()
 	cfg.load(store_path)
 	cfg.set_value(Contract.COACH_SECTION, Contract.COACH_SEEN_KEY, false)
 	cfg.set_value(Contract.COACH_SECTION, Contract.COACH_TERRAIN_SEEN_KEY, "")
+	## Gear-floor tip shares this store. Reset brings the one-shot back.
+	cfg.set_value(Contract.COACH_SECTION, Contract.EXPOSURE_FLOOR_SEEN_KEY, false)
+	cfg.set_value(Contract.COACH_SECTION, Contract.EXPOSURE_FLOOR_LATCH_KEY, false)
+	cfg.set_value(Contract.COACH_SECTION, Contract.EXPOSURE_FLOOR_PRIOR_KEY, Contract.EXPOSURE_FLOOR_START)
 	cfg.save(store_path)
 
 

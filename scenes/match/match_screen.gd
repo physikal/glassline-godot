@@ -11,6 +11,7 @@ const HexMath := preload("res://scripts/hex_math.gd")
 const MarksPayout := preload("res://types/marks_payout.gd")
 const FirstHuntCoach := preload("res://scenes/match/first_hunt_coach.gd")
 const TerrainCoach := preload("res://scenes/match/terrain_coach.gd")
+const ExposureFloorTip := preload("res://scenes/match/exposure_floor_tip.gd")
 
 enum Aim { NONE, ATTACK, RECON, RELOCATE }
 
@@ -56,6 +57,7 @@ var _you_chip: Label
 var _rival_chip: Label
 var _coach: FirstHuntCoach
 var _terrain: TerrainCoach
+var _floor_tip: ExposureFloorTip
 
 var _aim: int = Aim.NONE
 var _selected: Variant = null
@@ -81,11 +83,12 @@ func _ready() -> void:
 	MatchAPI.match_event.connect(_on_match_event)
 	if ClientSession.dummy_player_id == "" and (ClientSession.is_job() or ClientSession.is_practice()):
 		_dummy_placed = true
-	_apply_server_reconnect()
 	var args := OS.get_cmdline_user_args()
 	if _cmdline_is_capture(args):
 		## Plate stills stay clean. Terrain captures opt back in.
 		TerrainCoach.suppressed = true
+		ExposureFloorTip.suppressed = true
+	_apply_server_reconnect()
 	if "--capture-a1" in args:
 		_capture_after_play()
 	elif "--capture-a2" in args:
@@ -142,6 +145,12 @@ func _ready() -> void:
 		_capture_brush_cover_toast()
 	elif "--capture-practice-bot" in args:
 		_capture_practice_bot()
+	elif "--capture-exposure-floor-50" in args:
+		_capture_exposure_floor("50")
+	elif "--capture-exposure-floor-step" in args:
+		_capture_exposure_floor("step")
+	elif "--capture-exposure-floor-tip" in args:
+		_capture_exposure_floor("tip")
 
 
 func _cmdline_is_capture(args: PackedStringArray) -> bool:
@@ -149,6 +158,84 @@ func _cmdline_is_capture(args: PackedStringArray) -> bool:
 		if str(arg).begins_with("--capture-"):
 			return true
 	return false
+
+
+func _capture_exposure_floor(kind: String) -> void:
+	## Doll reads you.exposureFloor. Step + tip stills stamp the mock field.
+	## The tip capture is the only one that un-suppresses the one-shot.
+	if _coach:
+		_coach.dismiss()
+	_dummy_busy = true
+	_dummy_delay = 0.0
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+	DisplayServer.window_set_size(Vector2i(1280, 720))
+	await get_tree().process_frame
+	if not ClientSession.use_live_api():
+		MockMatchServer.test_omit_exposure_floor = false
+		MockMatchServer.test_exposure_floor = null
+	var snap: Snapshot = ClientSession.typed_snapshot()
+	if snap.status() == Contract.STATUS_READY or snap.status() == Contract.STATUS_WAITING or snap.status() == "":
+		_submit(ActionIntent.select_hex(2, 2))
+		await get_tree().process_frame
+		if ClientSession.dummy_player_id != "":
+			MatchAPI.apply_action(ClientSession.match_id, ClientSession.dummy_player_id, ActionIntent.select_hex(7, 5))
+			await get_tree().process_frame
+		snap = ClientSession.typed_snapshot()
+	if snap.status() == Contract.STATUS_READY:
+		_submit(ActionIntent.start())
+		await get_tree().process_frame
+		snap = ClientSession.typed_snapshot()
+	if snap.status() == Contract.STATUS_ACTIVE and str(snap.phase()) == Contract.PHASE_ACTION:
+		_submit(ActionIntent.attack(0, 0))
+		await get_tree().process_frame
+		snap = ClientSession.typed_snapshot()
+	if not ClientSession.use_live_api():
+		if kind == "step" or kind == "tip":
+			MockMatchServer.test_exposure_floor = 40
+		else:
+			MockMatchServer.test_exposure_floor = null
+	if kind == "tip" and _floor_tip:
+		ExposureFloorTip.suppressed = false
+		ExposureFloorTip.clear_seen()
+		ExposureFloorTip.set_latched(false)
+		_floor_tip.seed_prior(Contract.EXPOSURE_FLOOR_START)
+	_art_lock_end_panel = true
+	_apply_server_reconnect()
+	snap = ClientSession.typed_snapshot()
+	_toast.text = ""
+	_status.text = ""
+	_phase.text = ""
+	_set_actions(false)
+	_end_panel.visible = true
+	_end_panel.position = Vector2(240, 160)
+	if _btn_decoy:
+		_btn_decoy.visible = false
+	if _btn_abandon:
+		_btn_abandon.visible = false
+	if _exposure_doll:
+		_exposure_doll.custom_minimum_size = Vector2(220, 300)
+		_exposure_doll.size = Vector2(220, 300)
+		_exposure_doll.bind_floor(snap.you_exposure_floor())
+	if _floor_tip:
+		_floor_tip.bind_anchor(_exposure_doll)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	var file_name := "exposure_floor_50.png"
+	var tag := "E3_FLOOR_50"
+	if kind == "step":
+		file_name = "exposure_floor_40.png"
+		tag = "E3_FLOOR_40"
+	elif kind == "tip":
+		file_name = "exposure_floor_tip.png"
+		tag = "E3_FLOOR_TIP"
+	var path := ProjectSettings.globalize_path("res://artifacts/ux/%s" % file_name)
+	img.save_png(path)
+	var label := _exposure_doll.exposure_label() if _exposure_doll else ""
+	var showing := _floor_tip.is_showing() if _floor_tip else false
+	print("EXPOSURE_FLOOR_CAPTURE ", tag, " ", path, " LABEL ", label, " TIP ", showing, " FLOOR ", snap.you_exposure_floor())
+	get_tree().quit()
 
 
 func _capture_high_ground(lit: bool) -> void:
@@ -479,14 +566,25 @@ func _bind_high_ground(snap: Snapshot) -> void:
 
 
 func _bind_server_exposure(snap: Snapshot) -> void:
-	## Doll is server you.exposurePct. Slider is the next end_turn intent only.
+	## Doll % is server you.exposureFloor. Missing field fail-closes to 50.
+	## Slider is the next end_turn exposurePct only — never writes the floor.
+	## Its minimum is that same floor, so the Recon/Attack exposure band cannot
+	## drop under the server percent or to 0. Result odds stay server-side.
 	## Chrome wash is you.equippedSkinId (shop snapshot cache if match omits it).
+	var floor := snap.you_exposure_floor()
 	if _exposure_doll:
-		_exposure_doll.bind_server_pct(snap.you_exposure())
+		_exposure_doll.bind_floor(floor)
 		var skin := snap.you_equipped_skin_id()
 		if skin == "" and not snap.you().has("equippedSkinId") and not snap.you().has("equipped"):
 			skin = ClientSession.equipped_cosmetic
 		_exposure_doll.bind_equipped(skin)
+	if _exposure:
+		_exposure.min_value = float(floor)
+		var band := Contract.clamp_exposure_intent(floor, _exposure.value)
+		if not is_equal_approx(float(_exposure.value), band):
+			_exposure.value = band
+	if _floor_tip:
+		_floor_tip.observe(floor)
 
 
 func _capture_equip_doll() -> void:
@@ -1160,7 +1258,7 @@ func _build() -> void:
 	expose_row.add_theme_constant_override("separation", 12)
 	end_col.add_child(expose_row)
 	_exposure_doll = ExposureDoll.new()
-	_exposure_doll.custom_minimum_size = Vector2(120, 168)
+	_exposure_doll.custom_minimum_size = Vector2(176, 168)
 	expose_row.add_child(_exposure_doll)
 	var expose_col := VBoxContainer.new()
 	expose_col.add_theme_constant_override("separation", 6)
@@ -1169,16 +1267,16 @@ func _build() -> void:
 	Chrome.apply_label(_exposure_lbl, 8, Chrome.HIGH_GOLD, true)
 	expose_col.add_child(_exposure_lbl)
 	_exposure = HSlider.new()
-	_exposure.min_value = 0
+	_exposure.min_value = Contract.EXPOSURE_FLOOR_START
 	_exposure.max_value = 100
-	_exposure.value = Contract.DEFAULT_EXPOSURE
+	_exposure.value = Contract.EXPOSURE_FLOOR_START
 	_exposure.custom_minimum_size = Vector2(280, 20)
 	_exposure.value_changed.connect(func(v: float) -> void:
 		_exposure_lbl.text = "NEXT  %d%%" % int(v)
 	)
 	expose_col.add_child(_exposure)
 	_exposure_lbl.text = "NEXT  50%"
-	_exposure_doll.bind_server_pct(Contract.DEFAULT_EXPOSURE)
+	_exposure_doll.bind_floor(Contract.EXPOSURE_FLOOR_START)
 	var move_hint := Label.new()
 	move_hint.text = "Optional: click an adjacent hex to relocate"
 	Chrome.apply_label(move_hint, 8, Chrome.CREAM)
@@ -1221,6 +1319,15 @@ func _build() -> void:
 	## Above the end plate so a brush tip on a killing shot can still be dismissed.
 	_terrain.z_index = 40
 	add_child(_terrain)
+
+	_floor_tip = ExposureFloorTip.new()
+	_floor_tip.set_anchors_preset(PRESET_FULL_RECT)
+	_floor_tip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	## Above the end plate so GOT IT can be tapped. Under the forfeit plate (z 50).
+	_floor_tip.z_index = 42
+	_floor_tip.z_as_relative = false
+	_floor_tip.bind_anchor(_exposure_doll)
+	add_child(_floor_tip)
 
 	_optic = preload("res://scenes/optic/optic_overlay.gd").new()
 	_optic.set_anchors_preset(PRESET_FULL_RECT)
@@ -1617,7 +1724,10 @@ func _on_optic_fire() -> void:
 
 
 func _on_end_turn() -> void:
-	var body := ActionIntent.end_turn(_exposure.value, _relocate_hex)
+	var floor := ClientSession.typed_snapshot().you_exposure_floor()
+	var intent := Contract.clamp_exposure_intent(floor, _exposure.value)
+	## Intent exposurePct only. The gear floor is not a client field.
+	var body := ActionIntent.end_turn(intent, _relocate_hex)
 	_relocate_hex = null
 	_selected = null
 	## Practice bot already moved inside the server response. No local dummy wait.
