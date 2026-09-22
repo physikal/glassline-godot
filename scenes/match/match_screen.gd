@@ -1232,6 +1232,9 @@ func _build() -> void:
 	_over.color = Color(0.05, 0.03, 0.02, 0.82)
 	_over.set_anchors_preset(PRESET_FULL_RECT)
 	_over.visible = false
+	## Hex faces sit at z 1–2. End-match wood (forfeit / kill / standoff) must paint above the board.
+	_over.z_index = 50
+	_over.z_as_relative = false
 	add_child(_over)
 	var plate := PanelContainer.new()
 	plate.set_anchors_preset(PRESET_CENTER)
