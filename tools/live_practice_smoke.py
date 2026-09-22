@@ -323,6 +323,7 @@ def main() -> int:
     decoy_result = decoy_body.get("result") if isinstance(decoy_body.get("result"), dict) else {}
     saw["decoy"] = decoy_result.get("type") == "decoy" or bool(decoy_result.get("planted"))
     you = snap.get("you") if isinstance(snap.get("you"), dict) else {}
+    # Server stores the live floor. Posted exposurePct 37 does not stick.
     saw["exposure"] = you.get("exposurePct")
     types |= terrain_types(snap)
 
@@ -407,7 +408,7 @@ def main() -> int:
         triad
         and saw["decoy"]
         and saw["recon"]
-        and saw["exposure"] == 37
+        and saw["exposure"] == 50
         and saw["highGroundActive"] is True
         and saw["highGroundApplied"] is True
         and saw["coverApplied"] is True

@@ -1,0 +1,758 @@
+{
+  "ok": false,
+  "base": "https://glassline-api.vercel.app",
+  "apiTip": "a66a8ac",
+  "clientTip": "8ed38a5",
+  "gates": {
+    "E3_client_doll": {
+      "ok": true,
+      "detail": "doll bind_floor + label Exposure N% + slider min = floor; RECON 0.35 / attack 0.90 unchanged"
+    },
+    "E5_client_no_post": {
+      "ok": false,
+      "detail": "end_turn posts exposurePct only; no exposureFloor, operativeLevel, or IAP"
+    },
+    "E1": {
+      "ok": true,
+      "detail": "player {'playerId': 'p_5100d0fcd5c24ab7bc462389a54f4c72', 'marks': 0, 'xp': 0, 'operativeLevel': 1, 'exposureFloor': 50} snapshot {'seat': 'a', 'marks': 0, 'xp': 0, 'operativeLevel': 1, 'exposureFloor': 50, 'exposurePct': 50, 'equippedSkinId': None, 'equippedDecorId': None, 'equippedGunId': 'gun_fieldbolt', 'movedLastTurn': False, 'hex': {'q': 2, 'r': 2}} anon {'seat': 'a', 'marks': 0, 'xp': 0, 'operativeLevel': 1, 'exposureFloor': 50, 'exposurePct': 50, 'equippedSkinId': None, 'equippedDecorId': None, 'equippedGunId': 'gun_fieldbolt', 'movedLastTurn': False, 'hex': None} end0 {'seat': 'a', 'marks': 0, 'xp': 0, 'operativeLevel': 1, 'exposureFloor': 50, 'exposurePct': 50, 'equippedSkinId': None, 'equippedDecorId': None, 'equippedGunId': 'gun_fieldbolt', 'movedLastTurn': False, 'hex': {'q': 2, 'r': 2}} end10 {'seat': 'b', 'marks': 0, 'xp': 0, 'operativeLevel': 1, 'exposureFloor': 50, 'exposurePct': 50, 'equippedSkinId': None, 'equippedDecorId': None, 'equippedGunId': 'gun_fieldbolt', 'movedLastTurn': False, 'hex': {'q': 7, 'r': 5}} neg exposurePct must be 0-100"
+    },
+    "E5_server_ignores_client_floor": {
+      "ok": true,
+      "detail": "end_turn exposurePct 0 + injected exposureFloor 20 / xp 999 stored {'seat': 'a', 'marks': 0, 'xp': 0, 'operativeLevel': 1, 'exposureFloor': 50, 'exposurePct': 50, 'equippedSkinId': None, 'equippedDecorId': None, 'equippedGunId': 'gun_fieldbolt', 'movedLastTurn': False, 'hex': {'q': 2, 'r': 2}}"
+    },
+    "E4_practice": {
+      "ok": false,
+      "detail": "practice xp/marks/floor {'seat': 'a', 'marks': 3, 'xp': 0, 'operativeLevel': 1, 'exposureFloor': 50, 'exposurePct': 50, 'equippedSkinId': None, 'equippedDecorId': None, 'equippedGunId': 'gun_fieldbolt', 'movedLastTurn': False, 'hex': None} -> {'seat': 'a', 'marks': 3, 'xp': 0, 'operativeLevel': 1, 'exposureFloor': 50, 'exposurePct': 50, 'equippedSkinId': None, 'equippedDecorId': None, 'equippedGunId': 'gun_fieldbolt', 'movedLastTurn': False, 'hex': {'q': 1, 'r': 1}} intent None"
+    },
+    "E2": {
+      "ok": true,
+      "detail": "steps {'xp350_floor50': True, 'xp400_floor40': True, 'xp850_floor40': True, 'xp900_floor30': True, 'xp1350_floor30': True, 'xp1400_floor20': True} bad [] replay {'seat': 'a', 'marks': 320, 'xp': 1450, 'operativeLevel': 15, 'exposureFloor': 20, 'exposurePct': 20, 'equippedSkinId': 'skin_hideout_stub', 'equippedDecorId': None, 'equippedGunId': 'gun_fieldbolt', 'movedLastTurn': False, 'hex': {'q': 2, 'r': 2}} -> {'seat': 'a', 'marks': 320, 'xp': 1450, 'operativeLevel': 15, 'exposureFloor': 20, 'exposurePct': 20, 'equippedSkinId': 'skin_hideout_stub', 'equippedDecorId': None, 'equippedGunId': 'gun_fieldbolt', 'movedLastTurn': False, 'hex': {'q': 2, 'r': 2}}"
+    },
+    "E3_bands": {
+      "ok": true,
+      "detail": "50 {'spotChance': 35, 'hitChance': 0.8, 'hitWant': 0.8, 'ok': True} steps {'40': {'spotChance': 30, 'hitChance': 0.75, 'ok': True}, '30': {'spotChance': 25, 'hitChance': 0.8, 'ok': True}, '20': {'spotChance': 20, 'hitChance': 0.85, 'ok': True}}"
+    },
+    "E4_cosmetics": {
+      "ok": false,
+      "detail": "shop {'seat': 'a', 'marks': 11, 'xp': 200, 'operativeLevel': 3, 'exposureFloor': 50, 'exposurePct': 50, 'equippedSkinId': 'skin_hideout_stub', 'equippedDecorId': None, 'equippedGunId': 'gun_fieldbolt', 'movedLastTurn': False, 'hex': {'q': 2, 'r': 2}} job {'seat': 'a', 'marks': 13, 'xp': 0, 'operativeLevel': 1, 'exposureFloor': 50, 'exposurePct': 50, 'equippedSkinId': None, 'equippedDecorId': None, 'equippedGunId': 'gun_fieldbolt', 'movedLastTurn': False, 'hex': {'q': 1, 'r': 1}} won True"
+    },
+    "E5": {
+      "ok": false,
+      "detail": "client omits exposureFloor; server discarded injected floor / xp"
+    }
+  },
+  "fails": [
+    "E5_client_no_post",
+    "E4_practice",
+    "E4_cosmetics",
+    "E5"
+  ],
+  "notes": [
+    "pace create 34.7s (17 in window)",
+    "pace create 1.1s (17 in window)",
+    "pace create 33.2s (17 in window)",
+    "client doll label for this L1 snapshot is \"Exposure 50%\" (EXPOSURE_FLOOR_LABEL). Slider min is that floor.",
+    "live floor did drop via operative XP; one-shot tip still was captured on the mock path in 8ed38a5 (no test hook to open the Godot tip without a second account level in-client)"
+  ],
+  "evidence": {
+    "client": {
+      "end_turn_posts_exposurePct": true,
+      "end_turn_omits_exposureFloor": false,
+      "end_turn_omits_operativeLevel": true,
+      "on_end_clamps": true,
+      "on_end_uses_intent": true,
+      "slider_min_is_floor": true,
+      "slider_not_hardcoded_zero": true,
+      "doll_binds_floor": true,
+      "doll_label_template": true,
+      "fail_closed_start": true,
+      "snapshot_reads_you_floor": true,
+      "recon_base_035": true,
+      "attack_base_090": true,
+      "no_iap_word": true,
+      "ok": false
+    },
+    "player": {
+      "playerId": "p_5100d0fcd5c24ab7bc462389a54f4c72",
+      "marks": 0,
+      "xp": 0,
+      "operativeLevel": 1,
+      "exposureFloor": 50
+    },
+    "anonymous": {
+      "matchId": "m_c1fac4ec902540e399f6ed262de7bc7b",
+      "you": {
+        "seat": "a",
+        "marks": 0,
+        "xp": 0,
+        "operativeLevel": 1,
+        "exposureFloor": 50,
+        "exposurePct": 50,
+        "equippedSkinId": null,
+        "equippedDecorId": null,
+        "equippedGunId": "gun_fieldbolt",
+        "movedLastTurn": false,
+        "hex": null
+      }
+    },
+    "sit": {
+      "matchId": "m_36257c8f118c4e589aa75581fc205fab",
+      "you": {
+        "seat": "b",
+        "marks": 0,
+        "xp": 0,
+        "operativeLevel": 1,
+        "exposureFloor": 50,
+        "exposurePct": 50,
+        "equippedSkinId": null,
+        "equippedDecorId": null,
+        "equippedGunId": "gun_fieldbolt",
+        "movedLastTurn": false,
+        "hex": {
+          "q": 7,
+          "r": 5
+        }
+      }
+    },
+    "l1_snapshot": {
+      "matchId": "m_36257c8f118c4e589aa75581fc205fab",
+      "you": {
+        "seat": "a",
+        "marks": 0,
+        "xp": 0,
+        "operativeLevel": 1,
+        "exposureFloor": 50,
+        "exposurePct": 50,
+        "equippedSkinId": null,
+        "equippedDecorId": null,
+        "equippedGunId": "gun_fieldbolt",
+        "movedLastTurn": false,
+        "hex": {
+          "q": 2,
+          "r": 2
+        }
+      },
+      "status": "active"
+    },
+    "reject_negative": {
+      "http": 200,
+      "ok": false,
+      "reason": "exposurePct must be 0-100",
+      "you": {
+        "seat": "a",
+        "marks": 0,
+        "xp": 0,
+        "operativeLevel": 1,
+        "exposureFloor": 50,
+        "exposurePct": 50,
+        "equippedSkinId": null,
+        "equippedDecorId": null,
+        "equippedGunId": "gun_fieldbolt",
+        "movedLastTurn": false,
+        "hex": {
+          "q": 2,
+          "r": 2
+        }
+      },
+      "phase": "await_end_turn"
+    },
+    "end_zero": {
+      "http": 200,
+      "ok": true,
+      "you": {
+        "seat": "a",
+        "marks": 0,
+        "xp": 0,
+        "operativeLevel": 1,
+        "exposureFloor": 50,
+        "exposurePct": 50,
+        "equippedSkinId": null,
+        "equippedDecorId": null,
+        "equippedGunId": "gun_fieldbolt",
+        "movedLastTurn": false,
+        "hex": {
+          "q": 2,
+          "r": 2
+        }
+      },
+      "phase": "await_action"
+    },
+    "end_ten": {
+      "http": 200,
+      "ok": true,
+      "you": {
+        "seat": "b",
+        "marks": 0,
+        "xp": 0,
+        "operativeLevel": 1,
+        "exposureFloor": 50,
+        "exposurePct": 50,
+        "equippedSkinId": null,
+        "equippedDecorId": null,
+        "equippedGunId": "gun_fieldbolt",
+        "movedLastTurn": false,
+        "hex": {
+          "q": 7,
+          "r": 5
+        }
+      }
+    },
+    "band50": {
+      "label": "floor50",
+      "floor": 50,
+      "ok": true,
+      "matchId": "m_7a67c6edcbf744439f6a43e3528ae621",
+      "emptyHitChance": 0,
+      "defenderMoved": false,
+      "spotChance": 35,
+      "reconType": "recon",
+      "spotWant": 35,
+      "hitChance": 0.8,
+      "hit": true,
+      "highGroundApplied": false,
+      "coverApplied": true,
+      "shotType": "attack",
+      "hitWant": 0.8,
+      "you": {
+        "seat": "b",
+        "marks": 37,
+        "xp": 150,
+        "operativeLevel": 2,
+        "exposureFloor": 50,
+        "exposurePct": 50,
+        "equippedSkinId": null,
+        "equippedDecorId": null,
+        "equippedGunId": "gun_fieldbolt",
+        "movedLastTurn": false,
+        "hex": {
+          "q": 7,
+          "r": 5
+        }
+      }
+    },
+    "practice": {
+      "ok": false,
+      "matchId": "m_d4f119d651e445e8afc78b4cc9523b5b",
+      "before": {
+        "seat": "a",
+        "marks": 3,
+        "xp": 0,
+        "operativeLevel": 1,
+        "exposureFloor": 50,
+        "exposurePct": 50,
+        "equippedSkinId": null,
+        "equippedDecorId": null,
+        "equippedGunId": "gun_fieldbolt",
+        "movedLastTurn": false,
+        "hex": null
+      },
+      "mode": "practice",
+      "kind": "practice",
+      "isBot": true,
+      "lastAttack": {
+        "hit": true,
+        "kill": true,
+        "hitChance": 0.9,
+        "status": "ended"
+      },
+      "after": {
+        "seat": "a",
+        "marks": 3,
+        "xp": 0,
+        "operativeLevel": 1,
+        "exposureFloor": 50,
+        "exposurePct": 50,
+        "equippedSkinId": null,
+        "equippedDecorId": null,
+        "equippedGunId": "gun_fieldbolt",
+        "movedLastTurn": false,
+        "hex": {
+          "q": 1,
+          "r": 1
+        }
+      },
+      "endReason": "kill",
+      "status": "ended"
+    },
+    "job": {
+      "http": 201,
+      "before": {
+        "seat": "a",
+        "marks": 3,
+        "xp": 0,
+        "operativeLevel": 1,
+        "exposureFloor": 50,
+        "exposurePct": 50,
+        "equippedSkinId": null,
+        "equippedDecorId": null,
+        "equippedGunId": "gun_fieldbolt",
+        "movedLastTurn": false,
+        "hex": null
+      },
+      "matchId": "m_3596013367b345cf836dc5824d8601b7",
+      "after": {
+        "seat": "a",
+        "marks": 13,
+        "xp": 0,
+        "operativeLevel": 1,
+        "exposureFloor": 50,
+        "exposurePct": 50,
+        "equippedSkinId": null,
+        "equippedDecorId": null,
+        "equippedGunId": "gun_fieldbolt",
+        "movedLastTurn": false,
+        "hex": {
+          "q": 1,
+          "r": 1
+        }
+      },
+      "endReason": "kill",
+      "kind": "sp_job",
+      "won": true,
+      "ok": false
+    },
+    "cosmetics": {
+      "buy": 200,
+      "buyId": "5dc0f4ea-775e-4ed4-9faf-c93b95392366",
+      "buyYou": {
+        "marks": 11,
+        "equippedSkinId": "skin_hideout_stub",
+        "equippedGunId": "gun_fieldbolt",
+        "xp": null,
+        "exposureFloor": null,
+        "operativeLevel": null
+      },
+      "equip": 200,
+      "gun": 200,
+      "replay": 200,
+      "shop": {
+        "you": {
+          "marks": 11,
+          "equippedSkinId": "skin_hideout_stub",
+          "equippedDecorId": null,
+          "equippedGunId": "gun_fieldbolt"
+        },
+        "owned": [
+          "gun_fieldbolt",
+          "skin_hideout_stub"
+        ]
+      },
+      "matchYou": {
+        "seat": "a",
+        "marks": 11,
+        "xp": 200,
+        "operativeLevel": 3,
+        "exposureFloor": 50,
+        "exposurePct": 50,
+        "equippedSkinId": "skin_hideout_stub",
+        "equippedDecorId": null,
+        "equippedGunId": "gun_fieldbolt",
+        "movedLastTurn": false,
+        "hex": {
+          "q": 2,
+          "r": 2
+        }
+      },
+      "matchId": "m_8081276c97a348bfa667e1644a41c96e",
+      "ok": true
+    },
+    "ladder": [
+      {
+        "n": 1,
+        "matchId": "m_3e4c44bce46a4f95b4974804337e3900",
+        "xp": 50,
+        "operativeLevel": 1,
+        "exposureFloor": 50,
+        "exposurePct": 50,
+        "marks": 25
+      },
+      {
+        "n": 2,
+        "matchId": "m_870634f740ca4884b70e35e60feda0c7",
+        "xp": 100,
+        "operativeLevel": 2,
+        "exposureFloor": 50,
+        "exposurePct": 50,
+        "marks": 37
+      },
+      {
+        "n": 3,
+        "matchId": "m_cc47e09d4f754f6db1b64836bbcd3cef",
+        "xp": 150,
+        "operativeLevel": 2,
+        "exposureFloor": 50,
+        "exposurePct": 50,
+        "marks": 49
+      },
+      {
+        "n": 4,
+        "matchId": "m_0f0b41f52848467e85285044f2a50965",
+        "xp": 200,
+        "operativeLevel": 3,
+        "exposureFloor": 50,
+        "exposurePct": 50,
+        "marks": 61
+      },
+      {
+        "n": 5,
+        "matchId": "m_92084f47c43e49f0a7e12772c3c6dd5f",
+        "xp": 250,
+        "operativeLevel": 3,
+        "exposureFloor": 50,
+        "exposurePct": 50,
+        "marks": 23
+      },
+      {
+        "n": 6,
+        "matchId": "m_3047097dc1664826b9d9da7df4c70a2d",
+        "xp": 300,
+        "operativeLevel": 4,
+        "exposureFloor": 50,
+        "exposurePct": 50,
+        "marks": 35
+      },
+      {
+        "n": 7,
+        "matchId": "m_569fc76b9f4849a4b4ff238e9a73ccf9",
+        "xp": 350,
+        "operativeLevel": 4,
+        "exposureFloor": 50,
+        "exposurePct": 50,
+        "marks": 47
+      },
+      {
+        "n": 8,
+        "matchId": "m_41f3f9afe3c94d44b5c7153e61aeda55",
+        "xp": 400,
+        "operativeLevel": 5,
+        "exposureFloor": 40,
+        "exposurePct": 40,
+        "marks": 59
+      },
+      {
+        "n": 9,
+        "matchId": "m_bf2e5c6a23bf4a20b950453a4325976f",
+        "xp": 450,
+        "operativeLevel": 5,
+        "exposureFloor": 40,
+        "exposurePct": 40,
+        "marks": 74
+      },
+      {
+        "n": 10,
+        "matchId": "m_89f23a14dbe24f24bda8b4104faaffb4",
+        "xp": 500,
+        "operativeLevel": 6,
+        "exposureFloor": 40,
+        "exposurePct": 40,
+        "marks": 86
+      },
+      {
+        "n": 11,
+        "matchId": "m_d639e40ae99d406f8d35ba22ecec9037",
+        "xp": 550,
+        "operativeLevel": 6,
+        "exposureFloor": 40,
+        "exposurePct": 40,
+        "marks": 98
+      },
+      {
+        "n": 12,
+        "matchId": "m_8d29fc30a39f43de8dbe01ac3420b607",
+        "xp": 600,
+        "operativeLevel": 7,
+        "exposureFloor": 40,
+        "exposurePct": 40,
+        "marks": 110
+      },
+      {
+        "n": 13,
+        "matchId": "m_4387a30eb635489e856c698e649cbd9f",
+        "xp": 650,
+        "operativeLevel": 7,
+        "exposureFloor": 40,
+        "exposurePct": 40,
+        "marks": 122
+      },
+      {
+        "n": 14,
+        "matchId": "m_03b4ae1e6375499384a0ccb7417a63d4",
+        "xp": 700,
+        "operativeLevel": 8,
+        "exposureFloor": 40,
+        "exposurePct": 40,
+        "marks": 134
+      },
+      {
+        "n": 15,
+        "matchId": "m_cf1d451fb4754ccd8fc23bdee9024855",
+        "xp": 750,
+        "operativeLevel": 8,
+        "exposureFloor": 40,
+        "exposurePct": 40,
+        "marks": 146
+      },
+      {
+        "n": 16,
+        "matchId": "m_d47e1236304e4d65b34788a6efc59dae",
+        "xp": 800,
+        "operativeLevel": 9,
+        "exposureFloor": 40,
+        "exposurePct": 40,
+        "marks": 158
+      },
+      {
+        "n": 17,
+        "matchId": "m_4be110b95c9741c7b310091ab81fe2de",
+        "xp": 850,
+        "operativeLevel": 9,
+        "exposureFloor": 40,
+        "exposurePct": 40,
+        "marks": 170
+      },
+      {
+        "n": 18,
+        "matchId": "m_8a589cca3a6c4f8ba36972f4fbd098a1",
+        "xp": 900,
+        "operativeLevel": 10,
+        "exposureFloor": 30,
+        "exposurePct": 30,
+        "marks": 182
+      },
+      {
+        "n": 19,
+        "matchId": "m_ac4e6b72dcd74286b29bcff477e18166",
+        "xp": 950,
+        "operativeLevel": 10,
+        "exposureFloor": 30,
+        "exposurePct": 30,
+        "marks": 197
+      },
+      {
+        "n": 20,
+        "matchId": "m_b5e7dbd0cdf24b5bbff321cb0e81349d",
+        "xp": 1000,
+        "operativeLevel": 11,
+        "exposureFloor": 30,
+        "exposurePct": 30,
+        "marks": 209
+      },
+      {
+        "n": 21,
+        "matchId": "m_3e17af76ff7a4cd395df92d0bc1f6c12",
+        "xp": 1050,
+        "operativeLevel": 11,
+        "exposureFloor": 30,
+        "exposurePct": 30,
+        "marks": 221
+      },
+      {
+        "n": 22,
+        "matchId": "m_d9f0d38ea5c141609e065edcb9fddf55",
+        "xp": 1100,
+        "operativeLevel": 12,
+        "exposureFloor": 30,
+        "exposurePct": 30,
+        "marks": 233
+      },
+      {
+        "n": 23,
+        "matchId": "m_6f82f694d57642f5aa157739c8d7042c",
+        "xp": 1150,
+        "operativeLevel": 12,
+        "exposureFloor": 30,
+        "exposurePct": 30,
+        "marks": 245
+      },
+      {
+        "n": 24,
+        "matchId": "m_535b4bcc83cd47b8a217cfd4afb9cb8b",
+        "xp": 1200,
+        "operativeLevel": 13,
+        "exposureFloor": 30,
+        "exposurePct": 30,
+        "marks": 257
+      },
+      {
+        "n": 25,
+        "matchId": "m_6f0927f8af714a98ae52049650dbc402",
+        "xp": 1250,
+        "operativeLevel": 13,
+        "exposureFloor": 30,
+        "exposurePct": 30,
+        "marks": 269
+      },
+      {
+        "n": 26,
+        "matchId": "m_f71f9dc3bde1454e9c1aa7c715c54db0",
+        "xp": 1300,
+        "operativeLevel": 14,
+        "exposureFloor": 30,
+        "exposurePct": 30,
+        "marks": 281
+      },
+      {
+        "n": 27,
+        "matchId": "m_bc7b8d3d61584ad3ae87c09b1e785eac",
+        "xp": 1350,
+        "operativeLevel": 14,
+        "exposureFloor": 30,
+        "exposurePct": 30,
+        "marks": 293
+      },
+      {
+        "n": 28,
+        "matchId": "m_8542abfc9dcd432facff175bf33721cf",
+        "xp": 1400,
+        "operativeLevel": 15,
+        "exposureFloor": 20,
+        "exposurePct": 20,
+        "marks": 305
+      }
+    ],
+    "bands": {
+      "40": {
+        "label": "floor40",
+        "floor": 40,
+        "ok": true,
+        "matchId": "m_6c48f06b423c4134be4be7ac8c5055c0",
+        "emptyHitChance": 0,
+        "defenderMoved": false,
+        "spotChance": 30,
+        "reconType": "recon",
+        "spotWant": 30,
+        "hitChance": 0.75,
+        "hit": true,
+        "highGroundApplied": false,
+        "coverApplied": true,
+        "shotType": "attack",
+        "hitWant": 0.75,
+        "you": {
+          "seat": "b",
+          "marks": 62,
+          "xp": 250,
+          "operativeLevel": 3,
+          "exposureFloor": 50,
+          "exposurePct": 50,
+          "equippedSkinId": null,
+          "equippedDecorId": null,
+          "equippedGunId": "gun_fieldbolt",
+          "movedLastTurn": false,
+          "hex": {
+            "q": 7,
+            "r": 5
+          }
+        }
+      },
+      "30": {
+        "label": "floor30",
+        "floor": 30,
+        "ok": true,
+        "matchId": "m_370e2aebde1a44edb5e275ff9c19981f",
+        "emptyHitChance": 0,
+        "defenderMoved": false,
+        "spotChance": 25,
+        "reconType": "recon",
+        "spotWant": 25,
+        "hitChance": 0.8,
+        "hit": true,
+        "highGroundApplied": false,
+        "coverApplied": false,
+        "shotType": "attack",
+        "hitWant": 0.8,
+        "you": {
+          "seat": "b",
+          "marks": 87,
+          "xp": 350,
+          "operativeLevel": 4,
+          "exposureFloor": 50,
+          "exposurePct": 50,
+          "equippedSkinId": null,
+          "equippedDecorId": null,
+          "equippedGunId": "gun_fieldbolt",
+          "movedLastTurn": false,
+          "hex": {
+            "q": 7,
+            "r": 5
+          }
+        }
+      },
+      "20": {
+        "label": "floor20",
+        "floor": 20,
+        "ok": true,
+        "matchId": "m_1c10c6ef012441ecaa1a8b8c55a7b471",
+        "emptyHitChance": 0,
+        "defenderMoved": false,
+        "spotChance": 20,
+        "reconType": "recon",
+        "spotWant": 20,
+        "hitChance": 0.85,
+        "hit": true,
+        "highGroundApplied": true,
+        "coverApplied": false,
+        "shotType": "attack",
+        "hitWant": 0.85,
+        "you": {
+          "seat": "b",
+          "marks": 112,
+          "xp": 450,
+          "operativeLevel": 5,
+          "exposureFloor": 40,
+          "exposurePct": 40,
+          "equippedSkinId": null,
+          "equippedDecorId": null,
+          "equippedGunId": "gun_fieldbolt",
+          "movedLastTurn": false,
+          "hex": {
+            "q": 7,
+            "r": 5
+          }
+        }
+      }
+    },
+    "replay": {
+      "matchId": "m_34e92cc790bc413294665b419612954d",
+      "first": {
+        "seat": "a",
+        "marks": 320,
+        "xp": 1450,
+        "operativeLevel": 15,
+        "exposureFloor": 20,
+        "exposurePct": 20,
+        "equippedSkinId": "skin_hideout_stub",
+        "equippedDecorId": null,
+        "equippedGunId": "gun_fieldbolt",
+        "movedLastTurn": false,
+        "hex": {
+          "q": 2,
+          "r": 2
+        }
+      },
+      "second": {
+        "seat": "a",
+        "marks": 320,
+        "xp": 1450,
+        "operativeLevel": 15,
+        "exposureFloor": 20,
+        "exposurePct": 20,
+        "equippedSkinId": "skin_hideout_stub",
+        "equippedDecorId": null,
+        "equippedGunId": "gun_fieldbolt",
+        "movedLastTurn": false,
+        "hex": {
+          "q": 2,
+          "r": 2
+        }
+      }
+    },
+    "crossed": {
+      "xp350_floor50": true,
+      "xp400_floor40": true,
+      "xp850_floor40": true,
+      "xp900_floor30": true,
+      "xp1350_floor30": true,
+      "xp1400_floor20": true
+    }
+  }
+}
