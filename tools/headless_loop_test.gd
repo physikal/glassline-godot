@@ -985,6 +985,8 @@ func _a4_gaps_case(failed: PackedStringArray) -> void:
 	var screen_src := FileAccess.get_file_as_string("res://scenes/match/match_screen.gd")
 	_expect(failed, screen_src.find("FORFEIT_HINT_COPY") >= 0, "P2 forfeit overlay uses settled hint")
 	_expect(failed, screen_src.find("STATUS %s") < 0 and screen_src.find("PHASE %s") < 0, "P2 no STATUS/PHASE ribbon")
+	_expect(failed, screen_src.find("_over.z_index = 50") >= 0, "P2 forfeit plate above hex board")
+	_expect(failed, screen_src.find("_over.z_as_relative = false") >= 0, "P2 forfeit plate absolute canvas z")
 
 	## A4.2 / A4.3 — disconnect_at + 30s uses the same forfeit path. Countdown readable.
 	server.clear_all()
