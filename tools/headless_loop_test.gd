@@ -980,6 +980,11 @@ func _a4_gaps_case(failed: PackedStringArray) -> void:
 	var foil := MarksPayout.end_overlay(winner_snap.raw, "b", false)
 	_expect(failed, foil.find("RIVAL FORFEIT") >= 0, "A4.4 overlay winner chrome")
 	_expect(failed, foil.find("+12") >= 0 or foil.find("table  +12") >= 0, "A4.4 overlay +12")
+	_expect(failed, Contract.FORFEIT_HINT_COPY.find("stays put") < 0, "P2 forfeit hint is not stays-put")
+	_expect(failed, Contract.FORFEIT_HINT_COPY.to_lower().find("settled") >= 0, "P2 forfeit hint settled wallet")
+	var screen_src := FileAccess.get_file_as_string("res://scenes/match/match_screen.gd")
+	_expect(failed, screen_src.find("FORFEIT_HINT_COPY") >= 0, "P2 forfeit overlay uses settled hint")
+	_expect(failed, screen_src.find("STATUS %s") < 0 and screen_src.find("PHASE %s") < 0, "P2 no STATUS/PHASE ribbon")
 
 	## A4.2 / A4.3 — disconnect_at + 30s uses the same forfeit path. Countdown readable.
 	server.clear_all()
