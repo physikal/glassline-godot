@@ -167,6 +167,26 @@ static func game_button(kind: String, text: String, bg: Color, fg: Color, min_si
 	return button
 
 
+static func smoke_chip() -> Button:
+	## Ability chrome. Lit/muted is paint_smoke_chip — never a HIGH GROUND key.
+	var button := game_button("smoke", Contract.SMOKE_LABEL, ABILITY_PURPLE, Color.WHITE, Vector2(248, 64))
+	paint_smoke_chip(button, false)
+	return button
+
+
+static func paint_smoke_chip(button: Button, available: bool) -> void:
+	## Lit only while snapshot smokeAvailable. Spent and missing fields stay muted.
+	if button == null:
+		return
+	button.set_meta("smoke_lit", available)
+	button.text = Contract.SMOKE_LABEL
+	var bg := ABILITY_PURPLE if available else Color("3a3058")
+	var fg := Color.WHITE if available else Color("9a94a8")
+	paint_chunk_button(button, bg, fg)
+	button.icon = make_icon("smoke", fg, 30)
+	button.tooltip_text = Contract.SMOKE_COPY if available else Contract.SMOKE_SPENT_COPY
+
+
 static func high_ground_chip(active: bool = false) -> Control:
 	## Snapshot-bound plate chip — not a 4th action key. Never invent the bonus.
 	var panel := PanelContainer.new()
@@ -243,6 +263,8 @@ static func describe_last_action(last: Dictionary) -> String:
 					int(planted.get("r", 0)),
 				]
 			return "lastAction decoy  planted  (toy doll)"
+		Contract.ACT_SMOKE:
+			return Contract.SMOKE_TOAST
 		Contract.ACT_FORFEIT:
 			return "lastAction forfeit  winner=%s" % str(last.get("winner", ""))
 		Contract.ACT_END_TURN:
@@ -370,6 +392,8 @@ static func make_icon(kind: String, color: Color, px: int = 28) -> Texture2D:
 			_icon_binoculars(img, color)
 		"ability", "star":
 			_icon_star(img, color)
+		"smoke", "puff":
+			_icon_smoke_puff(img, color)
 		"decoy":
 			_icon_toy_doll(img, color)
 		"clock":
@@ -557,6 +581,14 @@ static func _icon_binoculars(img: Image, color: Color) -> void:
 	_fill_rect(img, 12, 12, 5, 3, color)
 	_fill_rect(img, 6, 6, 5, 4, color)
 	_fill_rect(img, 18, 6, 5, 4, color)
+
+
+static func _icon_smoke_puff(img: Image, color: Color) -> void:
+	## Toy-spy puff. Soft clouds — not a canister or a terrain stamp.
+	_fill_circle(img, 8, 16, 4, color)
+	_fill_circle(img, 14, 12, 6, color)
+	_fill_circle(img, 21, 16, 4, color)
+	_fill_circle(img, 14, 16, 3, color.lightened(0.2))
 
 
 static func _icon_toy_doll(img: Image, color: Color) -> void:

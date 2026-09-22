@@ -21,7 +21,7 @@ Source: Notion “Glassline API contract draft v0” (Godot stamp). Client types
 2. `POST /matches/:id/join` `{ token }` sits that token; `{}` + Bearer claims empty seat B (`joinToken` for B). Both seated → `ready`
 3. Drop: both `select_hex` while `ready`; re-drop OK until `start`
 4. `{ type: "start" }` once both placed → `active`, `whoseTurn: "a"`, `turnIndex: 0`, `exposurePct: 50`
-5. Turns: exactly one of `attack` | `recon` | `uav` | `decoy`, then required `end_turn`
+5. Turns: exactly one of `attack` | `recon` | `uav` | `decoy` | `smoke`, then required `end_turn`
 6. `turnCap` 16 total (8 each) → `winner: "draw"`
 7. Kill → Marks +1 winner
 
@@ -35,7 +35,7 @@ Source: Notion “Glassline API contract draft v0” (Godot stamp). Client types
   turnIndex, turnCap: 16, whoseTurn: a|b|null,
   phase: await_action|await_end_turn|null,
   uavRemaining: 0|1,
-  you: { seat, hex, placed, marks, exposurePct, movedLastTurn, decoyAvailable, decoyRemaining: 0|1, decoyHex?, highGroundActive },
+  you: { seat, hex, placed, marks, exposurePct, movedLastTurn, decoyAvailable, decoyRemaining: 0|1, decoyHex?, highGroundActive, smokeAvailable?, smokeActive? },
   enemy: { seat, visibleHex, softHotTurnsLeft, decoySoftHex? },
   terrain: [{ q, r, type }],
   lastAction: ActionResult | null,
@@ -52,6 +52,7 @@ Source: Notion “Glassline API contract draft v0” (Godot stamp). Client types
 { type: "recon", hex: {q,r} }   // sector = center + 6 neighbors
 { type: "uav" }
 { type: "decoy" }            // no hex; server picks adjacent empty (LIVE 200)
+{ type: "smoke" }            // no hex; once/match. Omit fields → client fail-closed
 { type: "end_turn", exposurePct: number, hex?: {q,r} }
 
 → { ok, snapshot, result: ActionResult }
@@ -65,6 +66,7 @@ ActionResult =
   | { type: "recon", spotted: boolean, hex?: {q,r} }
   | { type: "uav", revealed: boolean, hex?: {q,r} }
   | { type: "decoy", hex?: {q,r}, planted?: boolean }
+  | { type: "smoke", active?: boolean }
   | { type: "end_turn" }
   | { type: "reject", reason: string }
 ```
@@ -85,6 +87,13 @@ ActionResult =
 - Attack result: `coverApplied` + existing `highGroundApplied` / `hitChance`. Applied only on an occupy roll.
 - Intent stays `{ type: "attack", hex }`. No IN COVER chip this slice. Guns / Marks / Decoy stay blind.
 - Client displays server fields only — never subtracts cover from a local hex.
+
+## SMOKE (once/match, exposure + spot only)
+- Intent `{ type: "smoke" }` on the existing `POST /matches/:id/actions` path. No hex. No Marks / IAP.
+- Snapshot `you.smokeAvailable` (bool) and `you.smokeActive` (bool or turns remaining). Also accept `smoke_available` / `smoke_active` and any casing of those names.
+- **Fail closed:** if `smokeAvailable` is absent, the SMOKE chip stays muted and the click does not POST. If `smokeActive` is absent, there is no toast and no hex tint.
+- Effect (server): for **1 enemy turn**, your hex counts as HARD for exposure + spot only. Already HARD stays HARD. Expires when that enemy turn ends.
+- **No** Attack +0.10. `you.highGroundActive` is unchanged by smoke. No IN COVER chip. UAV, Decoy, and Marks stay on their own fields.
 
 ## Realtime
 `GET /matches/:id/events` SSE → `{ event: "snapshot"|"your_turn", snapshot }`

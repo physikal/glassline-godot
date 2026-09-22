@@ -61,6 +61,60 @@ func decoy_available() -> bool:
 	return false
 
 
+func smoke_available() -> bool:
+	## Fail closed. Missing smokeAvailable (any casing) is not a charge.
+	var found := _smoke_field("smokeAvailable")
+	if not bool(found.get("present", false)):
+		return false
+	return _smoke_truthy(found.get("value"))
+
+
+func smoke_active() -> bool:
+	## Turns-remaining or bool. Missing / ended → no toast and no hex tint.
+	if status() == Contract.STATUS_ENDED:
+		return false
+	var found := _smoke_field("smokeActive")
+	if not bool(found.get("present", false)):
+		return false
+	return _smoke_truthy(found.get("value"))
+
+
+func smoke_fields_present() -> bool:
+	## Availability must be named. Active-only does not light the chip.
+	return bool(_smoke_field("smokeAvailable").get("present", false))
+
+
+func _smoke_field(canonical: String) -> Dictionary:
+	## you.* first, then top-level. smokeAvailable / smoke_available / SmokeAvailable.
+	var want := canonical.to_lower().replace("_", "")
+	var bags: Array = [you(), raw]
+	for bag in bags:
+		if not (bag is Dictionary):
+			continue
+		var dict: Dictionary = bag
+		for key in dict.keys():
+			var norm := str(key).to_lower().replace("_", "")
+			if norm == want:
+				return {"present": true, "value": dict[key]}
+	return {"present": false}
+
+
+func _smoke_truthy(value: Variant) -> bool:
+	if value == null:
+		return false
+	if value is bool:
+		return bool(value)
+	if value is int or value is float:
+		return float(value) > 0.0
+	if value is String:
+		var text := str(value).strip_edges().to_lower()
+		if text in ["1", "true", "yes"]:
+			return true
+		if text.is_valid_float():
+			return float(text) > 0.0
+	return false
+
+
 func you_decoy_hex() -> Variant:
 	## Owner marker. Null unless the snapshot named you.decoyHex.
 	if status() == Contract.STATUS_ENDED:

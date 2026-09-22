@@ -39,6 +39,7 @@ const ACT_ATTACK := "attack"
 const ACT_RECON := "recon"
 const ACT_UAV := "uav"
 const ACT_DECOY := "decoy"
+const ACT_SMOKE := "smoke"
 const ACT_END_TURN := "end_turn"
 const ACT_FORFEIT := "forfeit"
 
@@ -70,6 +71,14 @@ const FORFEIT_REASONS := ["forfeit", "disconnect", "disconnected", "ragequit"]
 ## Ability slot chrome (M5). Intent type stays `uav`.
 const ABILITY_LABEL := "UAV"
 const ABILITY_SLOT := "ABILITY"
+## Ability SMOKE — once/match toy puff. Intent `{ type: "smoke" }`, no hex.
+## Bind you.smokeAvailable / you.smokeActive (any casing). Missing → chip muted, no-op.
+## HARD for exposure+spot is server-owned. No Attack +0.10. No IN COVER chip.
+const SMOKE_LABEL := "SMOKE"
+const SMOKE_TOAST := "Smoke — hex is Hard this turn"
+const SMOKE_COPY := "Once a hunt. A toy puff — your hex counts as Hard this turn."
+const SMOKE_SPENT_COPY := "Smoke is spent."
+const SMOKE_ABSENT_COPY := "Smoke is not on this hunt."
 ## Ability #2 — toy doll decoy. Intent `{ type: "decoy" }`, no hex arg.
 const DECOY_LABEL := "DECOY"
 const DECOY_SLOT := "TOY DOLL"

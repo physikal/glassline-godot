@@ -20,6 +20,7 @@ var _you_hex: Variant = null
 var _enemy_hex: Variant = null
 var _own_decoy: Variant = null
 var _enemy_decoy: Variant = null
+var _smoke_tint: bool = false
 var _selected: Variant = null
 var _hover: Variant = null
 var _highlights: Dictionary = {} # "q,r" -> Color
@@ -51,9 +52,11 @@ func apply_snapshot(snap: Snapshot, selected: Variant = null, extra_highlights: 
 	_enemy_hex = snap.enemy_visible_hex()
 	_own_decoy = snap.you_decoy_hex()
 	_enemy_decoy = snap.enemy_decoy_soft_hex()
+	_smoke_tint = snap.smoke_active()
 	if snap.status() == Contract.STATUS_ENDED:
 		_own_decoy = null
 		_enemy_decoy = null
+		_smoke_tint = false
 	_selected = selected
 	_highlights = extra_highlights
 	_preview_tokens = snap.status() == Contract.STATUS_READY
@@ -150,7 +153,14 @@ func render_ink(layer: CanvasItem) -> void:
 			layer.draw_polyline(body + PackedVector2Array([body[0]]), outline, 1.6, true)
 			if _highlights.has(key):
 				layer.draw_arc(center, HEX_SIZE * 0.72, 0.0, TAU, 28, _highlights[key], 3.0, true)
+	if _smoke_tint and _you_hex != null:
+		_draw_smoke_tint(layer, _center_of(_you_hex))
 	_draw_tokens_on(layer)
+
+
+func smoke_tint_active() -> bool:
+	## Soft HARD wash on your hex while you.smokeActive. Not a terrain rewrite.
+	return _smoke_tint and _you_hex != null
 
 
 func _paint_fallback(center: Vector2, kind: String, fill: Color) -> void:
@@ -207,6 +217,19 @@ func _draw_tokens_on(layer: CanvasItem) -> void:
 
 func _center_of(hex: Variant) -> Vector2:
 	return HexMath.axial_to_pixel(int(hex["q"]), int(hex["r"]), HEX_SIZE) - _origin
+
+
+func _draw_smoke_tint(layer: CanvasItem, center: Vector2) -> void:
+	## Soft HARD wash + toy puff. Not an elevation chip and not a cover badge.
+	var corners := HexMath.hex_corners(HEX_SIZE * 0.92)
+	var body := PackedVector2Array()
+	for p in corners:
+		body.append(center + p)
+	var wash := Color(Chrome.HARD.r, Chrome.HARD.g, Chrome.HARD.b, 0.50)
+	layer.draw_colored_polygon(body, wash)
+	layer.draw_circle(center + Vector2(-10, -2), 8.0, Color(0.93, 0.94, 0.96, 0.42))
+	layer.draw_circle(center + Vector2(4, 3), 11.0, Color(0.90, 0.92, 0.95, 0.36))
+	layer.draw_circle(center + Vector2(12, -4), 6.0, Color(0.96, 0.96, 0.98, 0.34))
 
 
 func _draw_decoy_blip(layer: CanvasItem, center: Vector2, own: bool) -> void:

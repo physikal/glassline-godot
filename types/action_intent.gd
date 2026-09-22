@@ -33,6 +33,11 @@ static func ability() -> Dictionary:
 	return uav()
 
 
+static func smoke() -> Dictionary:
+	## Once/match puff. No hex. Server owns HARD-for-spot. No attack bonus.
+	return {"type": Contract.ACT_SMOKE}
+
+
 static func end_turn(exposure_pct: float, hex: Variant = null) -> Dictionary:
 	## exposurePct is the next-turn intent. Gear floor stays server you.exposureFloor.
 	var body := {"type": Contract.ACT_END_TURN, "exposurePct": exposure_pct}
