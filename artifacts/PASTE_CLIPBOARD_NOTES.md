@@ -15,6 +15,8 @@ Client-only. The private-hunt **join** plate reads the clipboard **once** when t
 
 Headless: `godot --headless --path . -s res://tools/headless_loop_test.gd` → `HEADLESS_LOOP_OK`.
 
+Soft P2 visit: `godot --headless --path . -- --assert-paste-toast` → `PASTE_TOAST_OK`.
+
 ## Read rule
 
 One `clipboard_get` per open and per focus of the join form. The hideout, the wait plate, quick match, and practice do not read. Paste does not watch the clipboard on a timer.
@@ -31,7 +33,9 @@ COPY still puts the raw 6-char code on the clipboard. `H7K 3P2` and `H7K-3P2` co
 | --- | --- |
 | `artifacts/ux/lobby_paste.png` | Join plate, clipboard `H7K3P2`, PASTE beside the field |
 | `artifacts/ux/lobby_pasted.png` | After the chip tap — field filled, toast **Pasted.** |
-| `artifacts/ux/lobby_paste_empty.png` | Clipboard empty — PASTE hidden |
+| `artifacts/ux/lobby_paste_empty.png` | Reopen Join, clipboard empty — PASTE hidden, no **Pasted.** toast |
+
+Soft P2: **Pasted.** shows only after a PASTE tap this visit. Opening Join, hiding the chip, an empty clipboard peek, or leaving Join clears it.
 
 ## Out
 

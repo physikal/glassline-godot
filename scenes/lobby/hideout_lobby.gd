@@ -69,6 +69,9 @@ func _ready() -> void:
 	_refresh_marks()
 	_refresh_shop()
 	var args := OS.get_cmdline_user_args()
+	if "--assert-paste-toast" in args:
+		get_tree().quit(_assert_paste_toast())
+		return
 	if "--capture-lobby" in args:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 		DisplayServer.window_set_size(Vector2i(1280, 720))
@@ -405,8 +408,60 @@ func _capture_lobby_join() -> void:
 	await _capture_named("res://artifacts/ux/lobby_join.png", "P6_LOBBY_JOIN")
 
 
+func _assert_paste_toast() -> int:
+	## Soft P2: Pasted. only after a PASTE tap this visit.
+	var failed: PackedStringArray = []
+	_open_invite()
+	if _join_edit:
+		_join_edit.text = ""
+	if (_join_pasted and _join_pasted.visible) or _toast.text == Contract.LOBBY_PASTED_COPY:
+		failed.append("fresh join shows Pasted")
+	if _join_edit and _join_edit.text != "":
+		failed.append("fresh join auto-filled")
+	_set_paste_offer("H7K3P2")
+	_on_paste_lobby_code()
+	if _join_edit == null or _join_edit.text != "H7K3P2":
+		failed.append("tap did not fill")
+	if _join_pasted == null or not _join_pasted.visible or _join_pasted.text != Contract.LOBBY_PASTED_COPY:
+		failed.append("tap did not show Pasted")
+	if _toast.text != Contract.LOBBY_PASTED_COPY:
+		failed.append("tap did not toast Pasted")
+	DisplayServer.clipboard_set("")
+	_peek_join_clipboard()
+	if _join_paste and _join_paste.visible:
+		failed.append("empty peek left the chip up")
+	if (_join_pasted and _join_pasted.visible) or _toast.text == Contract.LOBBY_PASTED_COPY:
+		failed.append("empty peek left Pasted")
+	if _join_edit and _join_edit.text != "H7K3P2":
+		failed.append("empty peek rewrote the field")
+	_set_paste_offer("H7K3P2")
+	_on_paste_lobby_code()
+	_close_invite()
+	if (_join_pasted and _join_pasted.visible) or _toast.text == Contract.LOBBY_PASTED_COPY:
+		failed.append("leave left Pasted")
+	_open_invite()
+	if _join_paste and _join_paste.visible:
+		failed.append("reopen empty showed the chip")
+	if (_join_pasted and _join_pasted.visible) or _toast.text == Contract.LOBBY_PASTED_COPY:
+		failed.append("reopen showed Pasted")
+	_set_paste_offer("H7K3P2")
+	_on_paste_lobby_code()
+	DisplayServer.clipboard_set("H7K3P2")
+	_show_invite_home()
+	if (_join_pasted and _join_pasted.visible) or _toast.text == Contract.LOBBY_PASTED_COPY:
+		failed.append("opening join left Pasted")
+	if LobbyPaste.peek_code() == "H7K3P2" and _join_paste and not _join_paste.visible:
+		failed.append("open peek hid a valid code")
+	if failed.is_empty():
+		print("PASTE_TOAST_OK")
+		return 0
+	for line in failed:
+		print("FAIL: ", line)
+	return 1
+
+
 func _capture_lobby_paste() -> void:
-	## C6 / C2 / C3: chip when the clipboard is a code, fill on tap, hidden when empty.
+	## C6 / C2: chip when the clipboard is a code, fill on tap, gold Pasted. line.
 	DisplayServer.clipboard_set("H7K3P2")
 	_open_invite()
 	if _join_edit:
@@ -415,12 +470,13 @@ func _capture_lobby_paste() -> void:
 	await _capture_named("res://artifacts/ux/lobby_paste.png", "C6_LOBBY_PASTE", false)
 	_on_paste_lobby_code()
 	await _capture_named("res://artifacts/ux/lobby_pasted.png", "C2_LOBBY_PASTED", false)
+	## Soft P2: reopen Join with an empty clipboard. Pasted. must not stick.
+	_close_invite()
 	DisplayServer.clipboard_set("")
-	_peek_join_clipboard()
+	_open_invite()
 	if _join_edit:
 		_join_edit.text = ""
 		_join_edit.caret_column = 0
-	_toast_msg("")
 	await _capture_named("res://artifacts/ux/lobby_paste_empty.png", "C3_LOBBY_PASTE_EMPTY")
 
 
@@ -1719,6 +1775,7 @@ func _close_invite() -> void:
 	_lobby_poll = 0.0
 	if _invite_panel:
 		_invite_panel.visible = false
+	_clear_pasted_toast()
 	_show_invite_home()
 	if _shop_row:
 		_shop_row.visible = true
@@ -1734,11 +1791,12 @@ func _show_invite_home() -> void:
 	if _invite_reject:
 		_invite_reject.text = ""
 	_clear_code_copied()
-	_set_pasted_note(false)
+	_clear_pasted_toast()
 	_peek_join_clipboard()
 
 
 func _show_invite_wait() -> void:
+	_clear_pasted_toast()
 	if _invite_home:
 		_invite_home.visible = false
 	if _invite_wait:
@@ -1772,7 +1830,7 @@ func _on_join_code_changed(text: String) -> void:
 		_join_edit.caret_column = norm.length()
 	if _invite_reject and _invite_reject.text != "":
 		_invite_reject.text = ""
-	_set_pasted_note(false)
+	_clear_pasted_toast()
 
 
 func _on_create_lobby() -> void:
@@ -1814,7 +1872,17 @@ func _peek_join_clipboard() -> void:
 	if not _join_form_open():
 		_set_paste_offer("")
 		return
-	_set_paste_offer(LobbyPaste.peek_code())
+	var code := LobbyPaste.peek_code()
+	_set_paste_offer(code)
+	if not Contract.is_lobby_code(code):
+		_clear_pasted_toast()
+
+
+func _clear_pasted_toast() -> void:
+	## Soft P2: Pasted. only after a PASTE tap this visit.
+	_set_pasted_note(false)
+	if _toast != null and _toast.text == Contract.LOBBY_PASTED_COPY:
+		_toast_msg("")
 
 
 func _set_pasted_note(on: bool) -> void:
@@ -1831,6 +1899,8 @@ func _set_paste_offer(code: String) -> void:
 	var offered := _join_paste_code != ""
 	_join_paste.visible = offered
 	_join_paste.disabled = not offered
+	if not offered:
+		_clear_pasted_toast()
 
 
 func _on_paste_lobby_code() -> void:

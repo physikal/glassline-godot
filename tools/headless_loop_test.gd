@@ -666,6 +666,21 @@ func _paste_clipboard_case(failed: PackedStringArray) -> void:
 	_expect(failed, hud_src.find("code_row.add_child(_join_paste)") < 0, "C6 paste is not on the wait plate")
 	_expect(failed, hud_src.find("_invite_wait.add_child(_join_paste)") < 0, "C6 wait plate has no paste chip")
 	_expect(failed, hud_src.find("MatchAPI.join_lobby(typed)") >= 0, "C4 join still posts the field")
+	var clear_body := _fn_body(hud_src, "_clear_pasted_toast")
+	_expect(failed, clear_body.find("_set_pasted_note(false)") >= 0, "P2 clear hides the Pasted note")
+	_expect(failed, clear_body.find("Contract.LOBBY_PASTED_COPY") >= 0, "P2 clear only drops the Pasted toast")
+	_expect(failed, home_body.find("_clear_pasted_toast()") >= 0, "P2 opening join clears Pasted")
+	_expect(failed, home_body.find("_set_pasted_note(true)") < 0, "P2 opening join does not show Pasted")
+	var close_body := _fn_body(hud_src, "_close_invite")
+	_expect(failed, close_body.find("_clear_pasted_toast()") >= 0, "P2 leaving join clears Pasted")
+	var offer_body := _fn_body(hud_src, "_set_paste_offer")
+	_expect(failed, offer_body.find("if not offered:") >= 0 and offer_body.find("_clear_pasted_toast()") >= 0, "P2 hidden paste chip clears Pasted")
+	_expect(failed, peek_body.find("if not Contract.is_lobby_code(code):") >= 0, "P2 empty peek notices a missing code")
+	_expect(failed, peek_body.find("_clear_pasted_toast()") >= 0, "P2 empty peek clears Pasted")
+	_expect(failed, peek_body.find("_set_pasted_note(true)") < 0, "P2 peek does not show Pasted")
+	_expect(failed, peek_body.find("_join_edit.text") < 0, "C2 peek still does not fill the field")
+	var wait_body := _fn_body(hud_src, "_show_invite_wait")
+	_expect(failed, wait_body.find("_clear_pasted_toast()") >= 0, "P2 leaving the join form clears Pasted")
 
 
 func _fn_body(src: String, name: String) -> String:
