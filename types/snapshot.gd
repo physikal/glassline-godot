@@ -312,6 +312,18 @@ func you_exposure() -> float:
 	return float(you().get("exposurePct", Contract.DEFAULT_EXPOSURE))
 
 
+func you_exposure_floor_present() -> bool:
+	return you().has("exposureFloor")
+
+
+func you_exposure_floor() -> int:
+	## Server you.exposureFloor only. Missing / 0 / unknown → 50. Never a client step.
+	var you_state := you()
+	if not you_state.has("exposureFloor"):
+		return Contract.EXPOSURE_FLOOR_START
+	return Contract.exposure_floor_or_start(you_state.get("exposureFloor"), true)
+
+
 func you_moved_last_turn() -> bool:
 	return bool(you().get("movedLastTurn", false))
 

@@ -19,6 +19,11 @@ var test_recon_roll: float = -1.0
 var test_now_ms: int = -1
 ## Stills / tests: null = compute from revealed own HARD. true/false force snapshot.
 var test_high_ground_active: Variant = null
+## Gear floor on you.exposureFloor. null = start 50. A step stamps that percent.
+## true on test_omit_exposure_floor drops the field (client fail-closes to 50).
+## Never derived from operativeLevel or cosmetics.
+var test_exposure_floor: Variant = null
+var test_omit_exposure_floor: bool = false
 ## Display stub for hideout. Persists across matches; tests call reset_wallet().
 var account_marks: int = Contract.MOCK_WALLET_STUB
 ## Cosmetic ledger (visual only). Never touches combat / hit / exposure.
@@ -1191,6 +1196,8 @@ func clear_all() -> void:
 	test_recon_roll = -1.0
 	test_now_ms = -1
 	test_high_ground_active = null
+	test_exposure_floor = null
+	test_omit_exposure_floor = false
 	## Wallet stays — PLAY must not wipe hideout Marks. Tests call reset_wallet().
 
 
@@ -1848,7 +1855,22 @@ func _snapshot_for_seat(match_state: Dictionary, seat: String) -> Dictionary:
 			snap["graceEndsAt"] = grace.get("endsAt")
 			snap["graceRemainingSec"] = grace.get("remainingSec")
 			snap["grace"] = grace
+	var floor_pub := _public_exposure_floor()
+	if bool(floor_pub.get("present", false)):
+		var you_bag: Dictionary = snap["you"]
+		you_bag["exposureFloor"] = int(floor_pub.get("value", Contract.EXPOSURE_FLOOR_START))
 	return snap
+
+
+func _public_exposure_floor() -> Dictionary:
+	## Start at 50. A test step stamps 40/30/20. Omit leaves the field off the wire.
+	## Action bodies and cosmetics cannot write this. operativeLevel is not read.
+	if test_omit_exposure_floor:
+		return {"present": false}
+	var n := Contract.EXPOSURE_FLOOR_START
+	if test_exposure_floor != null:
+		n = Contract.exposure_floor_or_start(test_exposure_floor, true)
+	return {"present": true, "value": n}
 
 
 func _disconnected_iso(seat_state: Dictionary) -> Variant:

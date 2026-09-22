@@ -5,6 +5,15 @@ const BOARD_Q := 9
 const BOARD_R := 7
 const TURN_CAP := 16
 const DEFAULT_EXPOSURE := 50
+## Gear floor. Server owns operativeLevel → you.exposureFloor (50/40/30/20).
+## Client displays the percent. It never maps a level to a lower %.
+const EXPOSURE_FLOOR_START := 50
+const EXPOSURE_FLOOR_LABEL := "Exposure %d%%"
+const EXPOSURE_FLOOR_TIP := "Gear tightened — harder to spot"
+const EXPOSURE_FLOOR_TIP_TITLE := "GEAR"
+const EXPOSURE_FLOOR_SEEN_KEY := "exposureFloorTipSeen"
+const EXPOSURE_FLOOR_PRIOR_KEY := "exposureFloorPrior"
+const EXPOSURE_FLOOR_LATCH_KEY := "exposureFloorTipLatched"
 const RECON_BASE := 0.35
 const RECON_MOVED_BONUS := 0.25
 const TERRAIN_SALT := "glassline-v0"
@@ -302,6 +311,41 @@ const GEAR_RESET := "RESET TIPS"
 const GEAR_CONFIRM_COPY := "Tips will show again."
 const GEAR_CONFIRM_YES := "RESET"
 const GEAR_CONFIRM_NO := "CANCEL"
+
+
+static func exposure_floor_or_start(value: Variant, present: bool) -> int:
+	## Missing, 0, or any percent outside 50/40/30/20 → start floor.
+	## Never invents a lower step from operativeLevel.
+	if not present or value == null:
+		return EXPOSURE_FLOOR_START
+	if value is bool or value is Dictionary or value is Array:
+		return EXPOSURE_FLOOR_START
+	if value is String and str(value).strip_edges() == "":
+		return EXPOSURE_FLOOR_START
+	var n := int(round(float(value)))
+	if n == 50 or n == 40 or n == 30 or n == 20:
+		return n
+	return EXPOSURE_FLOOR_START
+
+
+static func exposure_floor_from_payload(bag: Dictionary) -> int:
+	## Read you.exposureFloor / top-level exposureFloor / player.exposureFloor.
+	## operativeLevel, skins, guns, and poster chrome are ignored.
+	if bag.has("exposureFloor"):
+		return exposure_floor_or_start(bag.get("exposureFloor"), true)
+	var you_bag: Variant = bag.get("you", null)
+	if you_bag is Dictionary and (you_bag as Dictionary).has("exposureFloor"):
+		return exposure_floor_or_start((you_bag as Dictionary).get("exposureFloor"), true)
+	var player_bag: Variant = bag.get("player", null)
+	if player_bag is Dictionary and (player_bag as Dictionary).has("exposureFloor"):
+		return exposure_floor_or_start((player_bag as Dictionary).get("exposureFloor"), true)
+	return EXPOSURE_FLOOR_START
+
+
+static func clamp_exposure_intent(floor: int, intent: float) -> float:
+	## Next end_turn exposurePct band. Minimum is the server floor. Never 0.
+	var band := float(exposure_floor_or_start(floor, true))
+	return clampf(intent, band, 100.0)
 
 
 static func format_grace_clock(sec: float) -> String:

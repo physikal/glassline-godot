@@ -158,6 +158,7 @@ func _run() -> int:
 	_first_hunt_coach_case(failed)
 	_terrain_coach_case(failed)
 	_gear_strip_case(failed)
+	_exposure_floor_case(failed)
 	_practice_case(failed)
 	_journal_case(failed)
 
@@ -3181,6 +3182,134 @@ func _journal_case(failed: PackedStringArray) -> void:
 	_expect(failed, api_src.find("func rematch_match") >= 0, "rematch_match reuses rematch")
 	plate.free()
 	server.test_now_ms = -1
+
+
+func _exposure_floor_case(failed: PackedStringArray) -> void:
+	## E1–E5: doll and the end-turn band read you.exposureFloor. Missing → 50.
+	## Client never maps operativeLevel, never writes the %, cosmetics stay blind.
+	var bare: Snapshot = Snapshot.from_dict({"you": {"exposurePct": 80, "operativeLevel": 4}})
+	_expect(failed, not bare.you_exposure_floor_present(), "E1 floor field absent")
+	_expect(failed, bare.you_exposure_floor() == 50, "E1 missing floor fail-closes to 50")
+	_expect(failed, int(bare.you_exposure()) == 80, "E1 exposurePct stays the intent")
+	var zero: Snapshot = Snapshot.from_dict({"you": {"exposureFloor": 0}})
+	_expect(failed, zero.you_exposure_floor() == 50, "E1 never show 0")
+	var junk: Snapshot = Snapshot.from_dict({"you": {"exposureFloor": 15}})
+	_expect(failed, junk.you_exposure_floor() == 50, "E2 unknown percent fail-closes to 50")
+	var high: Snapshot = Snapshot.from_dict({"you": {"exposureFloor": 99}})
+	_expect(failed, high.you_exposure_floor() == 50, "E2 above the steps fail-closes to 50")
+	for step in [50, 40, 30, 20]:
+		var stepped: Snapshot = Snapshot.from_dict({"you": {"exposureFloor": step, "operativeLevel": 9}})
+		_expect(failed, stepped.you_exposure_floor() == step, "E2 server step %d" % step)
+	var level_only := {"operativeLevel": 9, "equippedSkinId": Contract.SHOP_STUB_ITEM_ID}
+	_expect(failed, Contract.exposure_floor_from_payload(level_only) == 50, "E4 level + skin do not author a floor")
+	_expect(failed, Contract.exposure_floor_from_payload({"you": {"exposureFloor": 20}}) == 20, "E3 you.exposureFloor 20")
+	_expect(failed, Contract.exposure_floor_from_payload({"player": {"exposureFloor": 30}}) == 30, "hideout player.exposureFloor 30")
+	_expect(failed, int(Contract.clamp_exposure_intent(50, 0.0)) == 50, "E1 band never 0")
+	_expect(failed, int(Contract.clamp_exposure_intent(40, 80.0)) == 80, "E3 band allows above the floor")
+	_expect(failed, int(Contract.clamp_exposure_intent(20, 10.0)) == 20, "E3 band cannot undercut the floor")
+	var intent := ActionIntent.end_turn(50.0)
+	_expect(failed, intent.has("exposurePct") and not intent.has("exposureFloor"), "E5 intent does not write the floor")
+	_expect(failed, not intent.has("operativeLevel"), "E5 intent does not write operativeLevel")
+
+	var Doll := load("res://scenes/match/exposure_doll.gd")
+	var doll = Doll.new()
+	doll.bind_floor(40)
+	_expect(failed, doll.displayed_floor() == 40, "E3 doll shows 40")
+	_expect(failed, doll.exposure_label() == "Exposure 40%", "E3 doll label Exposure 40%")
+	doll.bind_floor(0)
+	_expect(failed, doll.displayed_floor() == 50, "E1 doll 0 fail-closes to 50")
+	_expect(failed, doll.exposure_label() == "Exposure 50%", "E3 doll label Exposure 50%")
+	doll.bind_equipped(Contract.SHOP_STUB_ITEM_ID)
+	_expect(failed, doll.displayed_floor() == 50, "E4 skin wash does not move the floor")
+	doll.free()
+
+	var Tip := load("res://scenes/match/exposure_floor_tip.gd")
+	Tip.reset_store_for_test()
+	Tip.suppressed = false
+	_expect(failed, not Tip.is_seen(), "E3 tip unseen")
+	var tip = Tip.new()
+	tip.observe(50)
+	_expect(failed, not tip.is_showing(), "E3 first floor is not a drop")
+	tip.observe(40)
+	_expect(failed, tip.is_showing(), "E3 tip on the first drop")
+	_expect(failed, tip.body_text() == Contract.EXPOSURE_FLOOR_TIP, "E3 tip copy")
+	_expect(failed, tip.passthrough_ok(), "E3 tip body ignores the mouse")
+	tip.observe(40)
+	_expect(failed, tip.is_showing(), "E3 tip stays until dismiss")
+	tip.dismiss()
+	_expect(failed, not tip.is_showing(), "E3 tip dismissed")
+	_expect(failed, Tip.is_seen(), "E3 tip seen forever")
+	tip.observe(30)
+	_expect(failed, not tip.is_showing(), "E3 no second tip")
+	var Coach := load("res://scenes/match/first_hunt_coach.gd")
+	var saved_coach: String = Coach.store_path
+	Coach.store_path = Tip.store_path
+	Coach.reset_tips()
+	_expect(failed, not Tip.is_seen(), "E3 reset tips clears the floor flag")
+	_expect(failed, Tip.stored_prior() == 50, "E3 reset restores the tip baseline to 50")
+	tip.seed_prior(50)
+	tip.observe(30)
+	_expect(failed, tip.is_showing(), "E3 tip can show again after reset")
+	tip.free()
+	Coach.store_path = saved_coach
+	Tip.restore_store()
+
+	server.clear_all()
+	server.reset_wallet(0)
+	var created: Dictionary = server.create_match()
+	var mid := str(created["matchId"])
+	var a: Dictionary = server.join(mid, created["joinTokens"]["a"])
+	var b: Dictionary = server.join(mid, created["joinTokens"]["b"])
+	var pid_a := str(a["playerId"])
+	var joined: Snapshot = Snapshot.from_dict(a["snapshot"])
+	_expect(failed, joined.you_exposure_floor_present(), "mock publishes exposureFloor 50")
+	_expect(failed, joined.you_exposure_floor() == 50, "E1 mock start floor 50")
+	server.test_omit_exposure_floor = true
+	var omitted: Snapshot = Snapshot.from_dict(server.get_snapshot(mid, pid_a))
+	_expect(failed, not omitted.you_exposure_floor_present(), "omit leaves the field off")
+	_expect(failed, omitted.you_exposure_floor() == 50, "E1 omitted field still reads 50")
+	server.test_omit_exposure_floor = false
+	server.test_exposure_floor = 40
+	server.equipped_cosmetic = Contract.SHOP_STUB_ITEM_ID
+	var worn: Snapshot = Snapshot.from_dict(server.get_snapshot(mid, pid_a))
+	_expect(failed, worn.you_exposure_floor() == 40, "E2 mock step 40")
+	_expect(failed, worn.you_equipped_skin_id() == Contract.SHOP_STUB_ITEM_ID, "E4 skin still equips")
+	_expect(failed, worn.you_exposure_floor() == 40, "E4 skin does not change the floor")
+	server.equipped_cosmetic = ""
+	server.apply_action(mid, pid_a, ActionIntent.select_hex(2, 2))
+	server.apply_action(mid, b["playerId"], ActionIntent.select_hex(7, 5))
+	server.apply_action(mid, pid_a, ActionIntent.start())
+	server.apply_action(mid, pid_a, ActionIntent.attack(0, 0))
+	var body := ActionIntent.end_turn(10.0)
+	body["exposureFloor"] = 20
+	body["operativeLevel"] = 8
+	var ended: ActionResult = server.apply_action(mid, pid_a, body)
+	_expect(failed, ended.ok, "end_turn still accepts exposurePct")
+	var after: Snapshot = Snapshot.from_dict(ended.snapshot)
+	_expect(failed, int(after.you_exposure()) == 10, "E5 exposurePct intent is stored")
+	_expect(failed, after.you_exposure_floor() == 40, "E5 action cannot write the floor")
+	_expect(failed, not after.you().has("operativeLevel"), "E5 operativeLevel is not a client field")
+	_expect(failed, Contract.RECON_BASE == 0.35, "E3 RECON_BASE unchanged")
+	_expect(failed, Contract.BASE_HIT_CHANCE == 0.90, "E3 attack band unchanged")
+	_expect(failed, Contract.MARKS_PVP_WIN == 25, "E4 Marks table unchanged")
+	var screen_src := FileAccess.get_file_as_string("res://scenes/match/match_screen.gd")
+	_expect(failed, screen_src.find("you_exposure_floor()") >= 0, "doll bind reads you.exposureFloor")
+	_expect(failed, screen_src.find("clamp_exposure_intent") >= 0, "Recon/Attack band min reads the floor")
+	_expect(failed, screen_src.find("min_value = 0") < 0, "exposure slider is not hardcoded to 0")
+	var session = SessionScript.new()
+	session.bind_player({"playerId": "p_floor", "token": "tok_floor", "operativeLevel": 6, "marks": 4})
+	_expect(failed, session.exposure_floor == 50, "hideout self without the field stays 50")
+	session.bind_player({"playerId": "p_floor", "token": "tok_floor", "exposureFloor": 40, "marks": 4})
+	_expect(failed, session.exposure_floor == 40, "hideout self exposureFloor 40")
+	session.apply_shop({"marks": 4, "equipped": Contract.SHOP_BANDANA_ITEM_ID})
+	_expect(failed, session.exposure_floor == 50, "shop payload without the field fail-closes to 50")
+	session.apply_snapshot({"you": {"marks": 4, "exposureFloor": 30, "equippedSkinId": Contract.SHOP_BANDANA_ITEM_ID}})
+	_expect(failed, session.exposure_floor == 30, "snapshot you.exposureFloor 30")
+	_expect(failed, session.bandana, "E4 bandana still equips beside the floor")
+	session.free()
+	server.test_exposure_floor = null
+	server.test_omit_exposure_floor = false
+	server.equipped_cosmetic = ""
 
 
 func _journal_end(mode: String, winner: String, reason: String) -> Dictionary:

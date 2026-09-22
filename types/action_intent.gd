@@ -34,6 +34,7 @@ static func ability() -> Dictionary:
 
 
 static func end_turn(exposure_pct: float, hex: Variant = null) -> Dictionary:
+	## exposurePct is the next-turn intent. Gear floor stays server you.exposureFloor.
 	var body := {"type": Contract.ACT_END_TURN, "exposurePct": exposure_pct}
 	if hex != null:
 		# Mock reads `hex`. Live API locked field is `move` (Zod strips the extra key).

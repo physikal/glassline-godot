@@ -258,6 +258,12 @@ func _ready() -> void:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 		DisplayServer.window_set_size(Vector2i(1280, 720))
 		await _capture_gear(false, true)
+	elif "--capture-exposure-floor-50" in args or "--capture-exposure-floor-step" in args \
+			or "--capture-exposure-floor-tip" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await get_tree().process_frame
+		_on_play()
 	elif "--capture-abandon-cta" in args or "--capture-grace-countdown" in args \
 			or "--capture-forfeit-overlay" in args \
 			or "--capture-end-summary-kill" in args \

@@ -1,6 +1,6 @@
 extends Control
-## End-turn exposure doll. Display is snapshot you.exposurePct (server).
-## Paper-doll of the hideout operative — same plate, not a blocky avatar.
+## End-turn exposure doll. Display % is server you.exposureFloor.
+## Missing floor fail-closes to 50. Paper-doll of the hideout operative — same plate.
 
 const Chrome := preload("res://scripts/chrome.gd")
 const ArtPack := preload("res://scripts/art_pack.gd")
@@ -17,8 +17,8 @@ var _pct: Label
 
 
 func _ready() -> void:
-	if custom_minimum_size.x < 120.0 or custom_minimum_size.y < 168.0:
-		custom_minimum_size = Vector2(120, 168)
+	if custom_minimum_size.x < 176.0 or custom_minimum_size.y < 168.0:
+		custom_minimum_size = Vector2(176, 168)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	resized.connect(_on_resized)
 	_build()
@@ -26,13 +26,28 @@ func _ready() -> void:
 
 
 func set_exposure(value: float) -> void:
+	## Art-plate wash only. Match truth uses bind_floor.
 	exposure_pct = clampf(value, 0.0, 100.0)
 	_refresh()
 
 
+func bind_floor(value: Variant, present: bool = true) -> void:
+	## Server floor. 0 / missing / unknown stay at the start floor.
+	exposure_pct = float(Contract.exposure_floor_or_start(value, present))
+	_refresh()
+
+
 func bind_server_pct(value: float) -> void:
-	## A2: doll follows server you.exposurePct only.
+	## Art captures paint a wash. The hunt doll uses bind_floor.
 	set_exposure(value)
+
+
+func displayed_floor() -> int:
+	return int(round(exposure_pct))
+
+
+func exposure_label() -> String:
+	return Contract.EXPOSURE_FLOOR_LABEL % displayed_floor()
 
 
 func bind_equipped(item_id: String) -> void:
@@ -71,7 +86,7 @@ func _build() -> void:
 	_banner.offset_left = 4
 	_banner.offset_right = -4
 	_banner.offset_top = 4
-	_banner.offset_bottom = 36
+	_banner.offset_bottom = 40
 	_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_banner)
 
@@ -81,7 +96,7 @@ func _build() -> void:
 	_body.set_anchors_preset(PRESET_FULL_RECT)
 	_body.offset_left = 8
 	_body.offset_right = -8
-	_body.offset_top = 38
+	_body.offset_top = 42
 	_body.offset_bottom = -8
 	_body.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_body.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -100,11 +115,13 @@ func _build() -> void:
 	_pct.set_anchors_and_offsets_preset(PRESET_TOP_WIDE)
 	_pct.offset_left = 4
 	_pct.offset_right = -4
-	_pct.offset_top = 8
-	_pct.offset_bottom = 34
+	_pct.offset_top = 6
+	_pct.offset_bottom = 38
 	_pct.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_pct.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	Chrome.apply_label(_pct, 16, Chrome.INK, true)
+	_pct.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_pct.clip_text = false
+	Chrome.apply_label(_pct, 8, Chrome.INK, true)
 	add_child(_pct)
 
 
@@ -113,7 +130,7 @@ func _refresh() -> void:
 		_build()
 	_body.texture = ArtPack.doll_texture(equipped_skin_id)
 	if _pct:
-		_pct.text = "%d%%" % int(round(exposure_pct))
+		_pct.text = exposure_label()
 	if _cover:
 		var h := size.y
 		if h < 8.0:
