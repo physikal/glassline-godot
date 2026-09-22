@@ -27,6 +27,11 @@ var _end_panel: PanelContainer
 var _exposure: HSlider
 var _exposure_lbl: Label
 var _exposure_doll: ExposureDoll
+## Untouched NEXT baseline. Starts at the same 50 as the slider. A player drag
+## above the floor sets _next_player_raised so a later snapshot does not snap it.
+var _next_baseline: float = Contract.EXPOSURE_FLOOR_START
+var _next_player_raised: bool = false
+var _syncing_next: bool = false
 var _btn_attack: Button
 var _btn_recon: Button
 var _btn_uav: Button
@@ -553,7 +558,14 @@ func _apply_server_reconnect() -> Dictionary:
 	_relocate_hex = null
 	var fresh: Dictionary = MatchAPI.reconnect()
 	var snap: Snapshot = ClientSession.typed_snapshot()
-	_exposure.value = snap.you_exposure()
+	## Server exposurePct may still be the default 50. Do not treat that
+	## assignment as a player raise — bind snaps a stale 50 down to the floor.
+	if _exposure:
+		_syncing_next = true
+		_exposure.value = snap.you_exposure()
+		## Server exposurePct is not a slider raise. A leftover 50 still snaps.
+		_next_player_raised = false
+		_syncing_next = false
 	_bind_server_exposure(snap)
 	_refresh(snap)
 	return fresh
@@ -567,9 +579,9 @@ func _bind_high_ground(snap: Snapshot) -> void:
 
 func _bind_server_exposure(snap: Snapshot) -> void:
 	## Doll % is server you.exposureFloor. Missing field fail-closes to 50.
-	## Slider is the next end_turn exposurePct only — never writes the floor.
-	## Its minimum is that same floor, so the Recon/Attack exposure band cannot
-	## drop under the server percent or to 0. Result odds stay server-side.
+	## NEXT label + slider use that same floor as baseline and minimum.
+	## A stale default of 50 snaps down when the floor is lower. A player
+	## raise stays inside the band. The slider never writes the floor.
 	## Chrome wash is you.equippedSkinId (shop snapshot cache if match omits it).
 	var floor := snap.you_exposure_floor()
 	if _exposure_doll:
@@ -579,10 +591,19 @@ func _bind_server_exposure(snap: Snapshot) -> void:
 			skin = ClientSession.equipped_cosmetic
 		_exposure_doll.bind_equipped(skin)
 	if _exposure:
-		_exposure.min_value = float(floor)
-		var band := Contract.clamp_exposure_intent(floor, _exposure.value)
-		if not is_equal_approx(float(_exposure.value), band):
-			_exposure.value = band
+		var snapped: Dictionary = Contract.snap_next_exposure(
+			floor, float(_exposure.value), _next_baseline, _next_player_raised
+		)
+		_next_baseline = float(snapped["baseline"])
+		_next_player_raised = bool(snapped["player_raised"])
+		var shown := float(snapped["value"])
+		_syncing_next = true
+		_exposure.min_value = float(snapped["min"])
+		if not is_equal_approx(float(_exposure.value), shown):
+			_exposure.value = shown
+		_syncing_next = false
+		if _exposure_lbl:
+			_exposure_lbl.text = "NEXT  %d%%" % int(shown)
 	if _floor_tip:
 		_floor_tip.observe(floor)
 
@@ -1273,6 +1294,15 @@ func _build() -> void:
 	_exposure.custom_minimum_size = Vector2(280, 20)
 	_exposure.value_changed.connect(func(v: float) -> void:
 		_exposure_lbl.text = "NEXT  %d%%" % int(v)
+		if _syncing_next:
+			return
+		## A drag above the live floor is the player's raise. Back on the
+		## floor, NEXT tracks the server baseline again.
+		if v > float(_exposure.min_value) + 0.01:
+			_next_player_raised = true
+		else:
+			_next_player_raised = false
+			_next_baseline = float(v)
 	)
 	expose_col.add_child(_exposure)
 	_exposure_lbl.text = "NEXT  50%"

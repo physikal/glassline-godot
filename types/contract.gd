@@ -348,6 +348,30 @@ static func clamp_exposure_intent(floor: int, intent: float) -> float:
 	return clampf(intent, band, 100.0)
 
 
+static func snap_next_exposure(floor: int, current: float, baseline: float, player_raised: bool) -> Dictionary:
+	## NEXT label/slider baseline is the same server floor as the doll.
+	## On open / snapshot apply: below the floor, still on the untouched
+	## baseline, or stuck at the stale default 50 while the floor is lower
+	## → snap to the floor. A player raise stays inside the band.
+	## Never writes exposureFloor.
+	var band := float(exposure_floor_or_start(floor, true))
+	var shown_now := float(current)
+	var stale_default := (
+		not player_raised
+		and int(round(shown_now)) == EXPOSURE_FLOOR_START
+		and int(band) < EXPOSURE_FLOOR_START
+	)
+	var on_baseline := not player_raised and is_equal_approx(shown_now, float(baseline))
+	var follows := stale_default or on_baseline or shown_now < band
+	var shown := band if follows else clampf(shown_now, band, 100.0)
+	return {
+		"value": shown,
+		"min": band,
+		"baseline": shown if follows else float(baseline),
+		"player_raised": false if follows else player_raised,
+	}
+
+
 static func format_grace_clock(sec: float) -> String:
 	var n := maxi(0, ceili(sec))
 	return "%d:%02d" % [int(n / 60), n % 60]
