@@ -1782,6 +1782,8 @@ func _show_ended(snap: Snapshot) -> void:
 	_over_hint.visible = offered
 	if practice:
 		_over_hint.text = Contract.PRACTICE_WAIT_COPY if you_waiting else Contract.PRACTICE_REMATCH_HINT
+	elif foil:
+		_over_hint.text = Contract.REMATCH_WAIT_COPY if you_waiting else Contract.FORFEIT_HINT_COPY
 	else:
 		_over_hint.text = Contract.REMATCH_WAIT_COPY if you_waiting else Contract.REMATCH_HINT_COPY
 	_btn_play_again.visible = offered

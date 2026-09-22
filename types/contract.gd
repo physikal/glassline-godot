@@ -155,6 +155,8 @@ const REMATCH_PLAY_COPY := "PLAY AGAIN"
 const REMATCH_DECLINE_COPY := "DECLINE"
 const REMATCH_SETTLED_COPY := "Marks already settled."
 const REMATCH_HINT_COPY := "Play again for a fresh drop. Wallet stays put."
+## Forfeit body. +12 / 0 already landed — do not say the wallet stayed put.
+const FORFEIT_HINT_COPY := "Play again for a fresh drop. Wallet already settled."
 const REMATCH_WAIT_COPY := "Waiting on your rival…"
 const REMATCH_TIMER_COPY := "Answer in %ds"
 
