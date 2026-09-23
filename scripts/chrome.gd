@@ -116,7 +116,7 @@ static func rack_peg_color(state: String) -> Color:
 
 static func part_row_peg_state(owned: bool, equipped: bool) -> String:
 	## Bright leaf / mid green only when the PARTS chip is worn or owned.
-	## Unowned T1/T2 rows use the locked peg — the dim mute, not a gold strip.
+	## Unowned T1/T2/T3 rows use the locked peg — the dim mute, not a gold strip.
 	if equipped:
 		return "equipped"
 	if owned:

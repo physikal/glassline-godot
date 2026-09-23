@@ -176,19 +176,25 @@ const GUN_VISUAL_COPY := "visual only"
 
 ## Gun parts — same /shop spine. Soft feel only (wobble / shot window).
 ## Never hit% · spot% · exposure floor · HIGH GROUND · BRUSH · Marks earn.
-## One equipped id per slot. T2 replaces T1 in that slot. Null id = bare.
+## One equipped id per slot. Higher tier replaces the worn id. Null id = bare.
 const PART_OPTIC := "gun_part_optic"
 const PART_STOCK := "gun_part_stock"
 const PART_BARREL := "gun_part_barrel"
 const PART_OPTIC_T2 := "gun_part_optic_t2"
 const PART_STOCK_T2 := "gun_part_stock_t2"
 const PART_BARREL_T2 := "gun_part_barrel_t2"
+const PART_OPTIC_T3 := "gun_part_optic_t3"
+const PART_STOCK_T3 := "gun_part_stock_t3"
+const PART_BARREL_T3 := "gun_part_barrel_t3"
 const PART_OPTIC_NAME := "OPTIC"
 const PART_STOCK_NAME := "STOCK"
 const PART_BARREL_NAME := "BARREL"
 const PART_OPTIC_T2_NAME := "OPTIC T2"
 const PART_STOCK_T2_NAME := "STOCK T2"
 const PART_BARREL_T2_NAME := "BARREL T2"
+const PART_OPTIC_T3_NAME := "OPTIC T3"
+const PART_STOCK_T3_NAME := "STOCK T3"
+const PART_BARREL_T3_NAME := "BARREL T3"
 const PART_KIND := "gun-part"
 const PART_SLOT_OPTIC := "optic"
 const PART_SLOT_STOCK := "stock"
@@ -199,17 +205,25 @@ const PART_BARREL_PRICE := 125
 const PART_OPTIC_T2_PRICE := 150
 const PART_STOCK_T2_PRICE := 175
 const PART_BARREL_T2_PRICE := 200
-## Mock snapshot table matching LIVE. Attack chrome reads you.* only.
+const PART_OPTIC_T3_PRICE := 275
+const PART_STOCK_T3_PRICE := 325
+const PART_BARREL_T3_PRICE := 375
+## Mock snapshot table. Attack chrome reads you.shotWindowSec / you.wobbleScale only.
 ## T1 b5ba339: optic 1.4, stock 0.8, barrel 0.9, stack 0.75.
 ## T2 2608bd6: optic 1.55, stock 0.75, barrel 0.85, stack still 0.75.
+## T3 ticket: optic +0.50s (1.70), stock −30% (0.70), barrel −20% (0.80).
+## Stack floor stays 0.75. Solo T3 stock is quieter than the stack; the pair does not drop.
 const SHOT_WINDOW_BASE_SEC := 1.2
 const SHOT_WINDOW_OPTIC_SEC := 1.4
 const SHOT_WINDOW_OPTIC_T2_SEC := 1.55
+const SHOT_WINDOW_OPTIC_T3_SEC := 1.70
 const WOBBLE_SCALE_BASE := 1.0
 const WOBBLE_STOCK_SCALE := 0.80
 const WOBBLE_BARREL_SCALE := 0.90
 const WOBBLE_STOCK_T2_SCALE := 0.75
 const WOBBLE_BARREL_T2_SCALE := 0.85
+const WOBBLE_STOCK_T3_SCALE := 0.70
+const WOBBLE_BARREL_T3_SCALE := 0.80
 const WOBBLE_STACK_FLOOR := 0.75
 const PART_TOAST_WINDOW := "Shot window looser"
 const PART_TOAST_WOBBLE := "Wobble quieter"
@@ -733,6 +747,18 @@ static func shop_part_barrel_t2_item() -> Dictionary:
 	return _shop_item(PART_BARREL_T2, PART_BARREL_T2_NAME, PART_KIND, PART_BARREL_T2_PRICE, 2)
 
 
+static func shop_part_optic_t3_item() -> Dictionary:
+	return _shop_item(PART_OPTIC_T3, PART_OPTIC_T3_NAME, PART_KIND, PART_OPTIC_T3_PRICE, 3)
+
+
+static func shop_part_stock_t3_item() -> Dictionary:
+	return _shop_item(PART_STOCK_T3, PART_STOCK_T3_NAME, PART_KIND, PART_STOCK_T3_PRICE, 3)
+
+
+static func shop_part_barrel_t3_item() -> Dictionary:
+	return _shop_item(PART_BARREL_T3, PART_BARREL_T3_NAME, PART_KIND, PART_BARREL_T3_PRICE, 3)
+
+
 static func _shop_item(item_id: String, item_name: String, kind: String, price: int, tier: int = 0) -> Dictionary:
 	var item := {
 		"id": item_id,
@@ -760,10 +786,13 @@ static func shop_catalog_items() -> Array:
 		shop_gun_crescent_item(),
 		shop_part_optic_item(),
 		shop_part_optic_t2_item(),
+		shop_part_optic_t3_item(),
 		shop_part_stock_item(),
 		shop_part_stock_t2_item(),
+		shop_part_stock_t3_item(),
 		shop_part_barrel_item(),
 		shop_part_barrel_t2_item(),
+		shop_part_barrel_t3_item(),
 	]
 
 
@@ -834,11 +863,11 @@ static func canonical_gun_id(item_id: String) -> String:
 
 
 static func part_ids() -> Array:
-	## Slot then tier, so T2 sits under its T1 on the same PARTS plate.
+	## Slot then tier, so T2 and T3 sit under T1 on the same PARTS plate.
 	return [
-		PART_OPTIC, PART_OPTIC_T2,
-		PART_STOCK, PART_STOCK_T2,
-		PART_BARREL, PART_BARREL_T2,
+		PART_OPTIC, PART_OPTIC_T2, PART_OPTIC_T3,
+		PART_STOCK, PART_STOCK_T2, PART_STOCK_T3,
+		PART_BARREL, PART_BARREL_T2, PART_BARREL_T3,
 	]
 
 
@@ -851,9 +880,15 @@ static func is_part_slot(slot: String) -> bool:
 
 
 static func canonical_part_id(item_id: String) -> String:
-	## LIVE ids gun_part_*. kind gun-part. T2 does not collapse into T1.
+	## LIVE ids gun_part_*. kind gun-part. Higher tiers do not collapse into T1.
 	## Never a skin, decor, or gun slot.
 	match str(item_id):
+		PART_OPTIC_T3, "part_optic_t3", "optic_t3":
+			return PART_OPTIC_T3
+		PART_STOCK_T3, "part_stock_t3", "stock_t3":
+			return PART_STOCK_T3
+		PART_BARREL_T3, "part_barrel_t3", "barrel_t3":
+			return PART_BARREL_T3
 		PART_OPTIC_T2, "part_optic_t2", "optic_t2":
 			return PART_OPTIC_T2
 		PART_STOCK_T2, "part_stock_t2", "stock_t2":
@@ -872,11 +907,11 @@ static func canonical_part_id(item_id: String) -> String:
 
 static func part_slot(item_id: String) -> String:
 	match canonical_part_id(item_id):
-		PART_OPTIC, PART_OPTIC_T2:
+		PART_OPTIC, PART_OPTIC_T2, PART_OPTIC_T3:
 			return PART_SLOT_OPTIC
-		PART_STOCK, PART_STOCK_T2:
+		PART_STOCK, PART_STOCK_T2, PART_STOCK_T3:
 			return PART_SLOT_STOCK
-		PART_BARREL, PART_BARREL_T2:
+		PART_BARREL, PART_BARREL_T2, PART_BARREL_T3:
 			return PART_SLOT_BARREL
 		_:
 			return ""
@@ -884,6 +919,12 @@ static func part_slot(item_id: String) -> String:
 
 static func part_name(item_id: String) -> String:
 	match canonical_part_id(item_id):
+		PART_STOCK_T3:
+			return PART_STOCK_T3_NAME
+		PART_BARREL_T3:
+			return PART_BARREL_T3_NAME
+		PART_OPTIC_T3:
+			return PART_OPTIC_T3_NAME
 		PART_STOCK_T2:
 			return PART_STOCK_T2_NAME
 		PART_BARREL_T2:
@@ -942,16 +983,21 @@ static func _part_feel_id(value: Variant, t1_when_true: String) -> String:
 
 
 static func local_wobble_scale(stock_on: Variant = false, barrel_on: Variant = false) -> float:
-	## Mock snapshot table, matching LIVE. Attack chrome does not call this.
-	## Any stock plus any barrel floors at 0.75. T2 stock alone is already 0.75.
+	## Mock snapshot table. Attack chrome does not call this.
+	## Any stock plus any barrel floors at 0.75. T3 does not lower that cap.
+	## Solo T3 stock is 0.70 (−30%). Solo T3 barrel is 0.80 (−20%).
 	var stock_id := _part_feel_id(stock_on, PART_STOCK)
 	var barrel_id := _part_feel_id(barrel_on, PART_BARREL)
 	if stock_id != "" and barrel_id != "":
 		return WOBBLE_STACK_FLOOR
+	if stock_id == PART_STOCK_T3:
+		return WOBBLE_STOCK_T3_SCALE
 	if stock_id == PART_STOCK_T2:
 		return WOBBLE_STOCK_T2_SCALE
 	if stock_id == PART_STOCK:
 		return WOBBLE_STOCK_SCALE
+	if barrel_id == PART_BARREL_T3:
+		return WOBBLE_BARREL_T3_SCALE
 	if barrel_id == PART_BARREL_T2:
 		return WOBBLE_BARREL_T2_SCALE
 	if barrel_id == PART_BARREL:
@@ -960,8 +1006,10 @@ static func local_wobble_scale(stock_on: Variant = false, barrel_on: Variant = f
 
 
 static func local_shot_window_sec(optic_on: Variant = false) -> float:
-	## Mock snapshot table, matching LIVE. Attack chrome does not call this.
+	## Mock snapshot table. Attack chrome does not call this.
 	var optic_id := _part_feel_id(optic_on, PART_OPTIC)
+	if optic_id == PART_OPTIC_T3:
+		return SHOT_WINDOW_OPTIC_T3_SEC
 	if optic_id == PART_OPTIC_T2:
 		return SHOT_WINDOW_OPTIC_T2_SEC
 	if optic_id == PART_OPTIC:

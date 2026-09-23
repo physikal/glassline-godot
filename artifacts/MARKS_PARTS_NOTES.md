@@ -1,5 +1,7 @@
 # Marks gun-part sinks — Optic / Stock / Barrel
 
+T3 ladder bind: [`PART_T3_LADDER_NOTES.md`](PART_T3_LADDER_NOTES.md).
+
 Client half of [Slice ticket — Marks gun-part sinks](https://www.notion.so/3e44dabdb33981189443e51553699b0b).  
 Same `/shop` spine as guns: `GET /shop` + `POST /shop/buy` `{ itemId, clientBuyId }` + `POST /shop/equip` `{ itemId }` / `{ itemId: null, slot }`. **Catalog part SKUs**, not a new endpoint family. T2 is three more `gun-part` ids on that spine.
 
