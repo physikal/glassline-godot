@@ -131,6 +131,7 @@ func _run() -> int:
 	_expect(failed, server.account_marks == replay_wallet, "refused replay does not double grant")
 
 	_decoy_case(failed)
+	_smoke_case(failed)
 	_lobby_case(failed)
 	_invite_share_case(failed)
 	_paste_clipboard_case(failed)
@@ -236,6 +237,260 @@ func _a2_reconnect_case(failed: PackedStringArray) -> void:
 	_expect(failed, snap.you_marks() == noted_marks, "A2 you.marks from server")
 	_expect(failed, session.marks == snap.you_marks(), "A2 wallet bind replaced invented 999")
 	session.free()
+
+
+func _smoke_case(failed: PackedStringArray) -> void:
+	## Once/match puff. Snapshot flags only. No Attack +0.10. Fail closed if unnamed.
+	var intent := ActionIntent.smoke()
+	_expect(failed, str(intent.get("type", "")) == Contract.ACT_SMOKE, "S0 type smoke")
+	_expect(failed, not intent.has("hex"), "S0 intent has no hex")
+	_expect(failed, not intent.has("highGround"), "S0 intent has no highGround")
+	_expect(failed, not intent.has("hitChance"), "S0 intent has no hitChance")
+	_expect(failed, str(ActionIntent.ability().get("type", "")) == Contract.ACT_UAV, "S0 UAV ability path untouched")
+	var bare: Snapshot = Snapshot.from_dict({"status": Contract.STATUS_ACTIVE, "you": {"seat": "a", "hex": {"q": 1, "r": 1}}})
+	_expect(failed, not bare.smoke_available(), "S0 missing smokeAvailable is not a charge")
+	_expect(failed, not bare.smoke_active(), "S0 missing smokeActive does not tint")
+	_expect(failed, not bare.smoke_fields_present(), "S0 missing fields fail closed")
+	var snake: Snapshot = Snapshot.from_dict({"you": {"smoke_available": true, "smoke_active": 1}})
+	_expect(failed, snake.smoke_available() and snake.smoke_active(), "S0 snake_case + turns remaining")
+	var camel: Snapshot = Snapshot.from_dict({"you": {"SmokeAvailable": false, "SmokeActive": "0"}})
+	_expect(failed, camel.smoke_fields_present() and not camel.smoke_available(), "S0 camelCase false stays spent")
+	_expect(failed, not camel.smoke_active(), "S0 SmokeActive 0 is not live")
+	var ended: Snapshot = Snapshot.from_dict({
+		"status": Contract.STATUS_ENDED,
+		"you": {"smokeAvailable": false, "smokeActive": true},
+	})
+	_expect(failed, not ended.smoke_active(), "S0 ended clears the tint")
+	var chip: Button = Chrome.smoke_chip()
+	Chrome.paint_smoke_chip(chip, true)
+	_expect(failed, bool(chip.get_meta("smoke_lit")), "S0 lit chip when available")
+	_expect(failed, chip.text == Contract.SMOKE_LABEL, "S0 chip reads SMOKE")
+	Chrome.paint_smoke_chip(chip, false)
+	_expect(failed, not bool(chip.get_meta("smoke_lit")), "S0 muted chip when spent")
+	chip.free()
+	var toast := Chrome.describe_last_action({"type": Contract.ACT_SMOKE, "active": true})
+	_expect(failed, toast == Contract.SMOKE_TOAST, "S0 toast copy")
+	_expect(failed, toast.find("IN COVER") < 0, "S0 toast has no cover badge")
+	_expect(failed, toast.find("+0.10") < 0 and toast.find("+10%") < 0, "S0 toast has no attack bonus")
+
+	server.clear_all()
+	server.reset_wallet(Contract.MOCK_WALLET_STUB)
+	var created: Dictionary = server.create_match()
+	var mid := str(created["matchId"])
+	var a: Dictionary = server.join(mid, created["joinTokens"]["a"])
+	var b: Dictionary = server.join(mid, created["joinTokens"]["b"])
+	var pid_a := str(a["playerId"])
+	var pid_b := str(b["playerId"])
+	var open_a: Dictionary = server.find_hex_of_type(mid, Contract.TYPE_OPEN)
+	var open_b: Dictionary = server.find_hex_of_type(mid, Contract.TYPE_OPEN, open_a)
+	_expect(failed, not open_a.is_empty() and not open_b.is_empty(), "S1 two OPEN hexes")
+	var parked: ActionResult = server.apply_action(mid, pid_a, ActionIntent.smoke())
+	_expect(failed, not parked.ok and str(parked.result.get("reason", "")) == "match is not active", "S1 inactive smoke refused")
+	server.apply_action(mid, pid_a, ActionIntent.select_hex(int(open_a["q"]), int(open_a["r"])))
+	server.apply_action(mid, pid_b, ActionIntent.select_hex(int(open_b["q"]), int(open_b["r"])))
+	server.apply_action(mid, pid_a, ActionIntent.start())
+	var before: int = server.account_marks
+	var snap: Snapshot = Snapshot.from_dict(server.get_snapshot(mid, pid_a))
+	_expect(failed, snap.smoke_available(), "S1 smokeAvailable true at start")
+	_expect(failed, not snap.smoke_active(), "S1 smokeActive false before use")
+	_expect(failed, not snap.you_high_ground_active(), "S1 OPEN is not HIGH GROUND")
+	_expect(failed, int(snap.you_exposure_floor()) == 50, "S5 doll floor 50 before smoke")
+	var early: ActionResult = server.apply_action(mid, pid_b, ActionIntent.smoke())
+	_expect(failed, not early.ok and str(early.result.get("reason", "")) == "not your turn", "S1 rival smoke refused off-turn")
+
+	var smoked := ActionIntent.smoke()
+	smoked["hex"] = Contract.hex_dict(0, 0)
+	var r: ActionResult = server.apply_action(mid, pid_a, smoked)
+	_expect(failed, r.ok, "S1 smoke ok")
+	snap = Snapshot.from_dict(r.snapshot)
+	var cast: Dictionary = snap.last_action()
+	_expect(failed, cast.get("type") == Contract.ACT_SMOKE, "S1 result type smoke")
+	_expect(failed, cast.size() == 1, "S1 result is exactly { type: smoke }")
+	_expect(failed, str(snap.phase()) == Contract.PHASE_END_TURN, "S1 consumes the action")
+	_expect(failed, not snap.smoke_available(), "S1 smokeAvailable false after use")
+	_expect(failed, snap.smoke_active(), "S1 smokeActive for the enemy turn")
+	_expect(failed, not snap.you_high_ground_active(), "S1 smoke does not light HIGH GROUND")
+	_expect(failed, snap.you().has("highGroundActive") and snap.you().get("highGroundActive") == false, "S1 HG flag stays false")
+	_expect(failed, snap.uav_remaining() == 1, "S4 UAV charge untouched")
+	_expect(failed, snap.decoy_available(), "S4 decoy charge untouched")
+	_expect(failed, snap.you_marks() == before, "S4 no Marks spend")
+	_expect(failed, server.account_marks == before, "S4 ledger unchanged")
+	_expect(failed, int(snap.you_exposure()) == 50, "S5 exposurePct stays 50")
+	_expect(failed, int(snap.you_exposure_floor()) == 50, "S5 doll floor stays 50")
+	_expect(failed, not cast.has("hitChance"), "S3 result has no hitChance")
+	_expect(failed, not cast.has("highGroundApplied"), "S3 result has no highGroundApplied")
+	var rival: Snapshot = Snapshot.from_dict(server.get_snapshot(mid, pid_b))
+	_expect(failed, rival.enemy_smoke_active(), "S1 enemy.smokeActive")
+	_expect(failed, rival.smoke_available(), "S4 rival smoke charge untouched")
+	_expect(failed, rival.enemy_visible_hex() == null, "S1 smoke does not reveal a hex")
+	r = server.apply_action(mid, pid_a, ActionIntent.smoke())
+	_expect(failed, not r.ok and str(r.result.get("reason", "")) == "awaiting end_turn", "S1 second smoke waits for end_turn")
+	r = server.apply_action(mid, pid_a, ActionIntent.end_turn(50))
+	_expect(failed, r.ok, "S2 planting end_turn")
+	snap = Snapshot.from_dict(server.get_snapshot(mid, pid_a))
+	_expect(failed, snap.smoke_active(), "S2 planting end keeps the puff")
+	_expect(failed, not snap.smoke_available(), "S2 still spent")
+	var miss := _smoke_empty_hex(open_a, open_b)
+	r = server.apply_action(mid, pid_b, ActionIntent.attack(int(miss["q"]), int(miss["r"])))
+	_expect(failed, r.ok, "S2 enemy action while smoked")
+	r = server.apply_action(mid, pid_b, ActionIntent.end_turn(50))
+	_expect(failed, r.ok, "S2 enemy end_turn")
+	snap = Snapshot.from_dict(server.get_snapshot(mid, pid_a))
+	_expect(failed, snap.smoke_active(), "S2 still live after the enemy turn")
+	_expect(failed, str(snap.whose_turn()) == Contract.SEAT_A, "S2 caster's next window")
+	_expect(failed, str(snap.phase()) == Contract.PHASE_ACTION, "S2 caster can act")
+	r = server.apply_action(mid, pid_a, ActionIntent.attack(int(miss["q"]), int(miss["r"])))
+	snap = Snapshot.from_dict(r.snapshot)
+	_expect(failed, snap.smoke_active(), "S2 still live on the caster's next action")
+	r = server.apply_action(mid, pid_a, ActionIntent.end_turn(50))
+	snap = Snapshot.from_dict(server.get_snapshot(mid, pid_a))
+	_expect(failed, not snap.smoke_active(), "S2 cleared on the caster's next end_turn")
+	_expect(failed, not snap.smoke_available(), "S2 charge stays spent")
+	_expect(failed, int(snap.you_exposure_floor()) == 50, "S5 floor still 50 after expiry")
+	r = server.apply_action(mid, pid_b, ActionIntent.attack(int(miss["q"]), int(miss["r"])))
+	r = server.apply_action(mid, pid_b, ActionIntent.end_turn(50))
+	r = server.apply_action(mid, pid_a, ActionIntent.smoke())
+	_expect(failed, not r.ok and str(r.result.get("reason", "")) == "smoke already used", "S1 smoke already used")
+
+	_smoke_occupy_case(failed, "S3")
+	_smoke_hard_case(failed)
+
+	var lone: Snapshot = Snapshot.from_dict({
+		"status": Contract.STATUS_ACTIVE,
+		"you": {"smokeActive": true},
+		"enemy": {},
+	})
+	_expect(failed, lone.smoke_active() and not lone.enemy_smoke_active(), "S1 you.smokeActive is not the enemy flag")
+	var foe: Snapshot = Snapshot.from_dict({
+		"status": Contract.STATUS_ACTIVE,
+		"enemy": {"smoke_active": true},
+	})
+	_expect(failed, foe.enemy_smoke_active() and not foe.smoke_active(), "S1 enemy flag does not toast you")
+	var Board := load("res://scenes/match/hex_board.gd")
+	var board = Board.new()
+	board.apply_snapshot(Snapshot.from_dict({
+		"status": Contract.STATUS_ACTIVE,
+		"you": {"hex": {"q": 2, "r": 2}, "smokeActive": true, "smokeAvailable": false, "highGroundActive": false},
+		"enemy": {"smokeActive": true},
+	}))
+	_expect(failed, board.smoke_tint_active(), "S2 soft tint while you.smokeActive")
+	_expect(failed, not board.enemy_smoke_tint_active(), "S1 enemy smoke does not invent a hex")
+	board.apply_snapshot(Snapshot.from_dict({
+		"status": Contract.STATUS_ACTIVE,
+		"you": {"hex": {"q": 2, "r": 2}, "highGroundActive": true},
+		"enemy": {"smokeActive": true, "visibleHex": {"q": 4, "r": 4}},
+	}))
+	_expect(failed, not board.smoke_tint_active(), "S2 missing you.smokeActive does not tint")
+	_expect(failed, board.enemy_smoke_tint_active(), "S1 known visibleHex can take the rival wash")
+	board.apply_snapshot(Snapshot.from_dict({
+		"status": Contract.STATUS_ENDED,
+		"you": {"hex": {"q": 2, "r": 2}, "smokeActive": true},
+		"enemy": {"smokeActive": true, "visibleHex": {"q": 4, "r": 4}},
+	}))
+	_expect(failed, not board.smoke_tint_active() and not board.enemy_smoke_tint_active(), "S2 ended clears both tints")
+	board.free()
+
+
+func _smoke_empty_hex(a: Dictionary, b: Dictionary) -> Dictionary:
+	for q in Contract.BOARD_Q:
+		for r in Contract.BOARD_R:
+			var cand := Contract.hex_dict(q, r)
+			if Contract.same_hex(cand, a) or Contract.same_hex(cand, b):
+				continue
+			return cand
+	return Contract.hex_dict(0, 0)
+
+
+func _smoke_occupy_case(failed: PackedStringArray, tag: String) -> void:
+	## OPEN smoker occupies the rival. Mock kills; chance stays 0.90 with no HG.
+	server.clear_all()
+	server.reset_wallet(0)
+	var created: Dictionary = server.create_match()
+	var mid := str(created["matchId"])
+	var a: Dictionary = server.join(mid, created["joinTokens"]["a"])
+	var b: Dictionary = server.join(mid, created["joinTokens"]["b"])
+	var pid_a := str(a["playerId"])
+	var pid_b := str(b["playerId"])
+	var open_a: Dictionary = server.find_hex_of_type(mid, Contract.TYPE_OPEN)
+	var open_b: Dictionary = server.find_hex_of_type(mid, Contract.TYPE_OPEN, open_a)
+	server.apply_action(mid, pid_a, ActionIntent.select_hex(int(open_a["q"]), int(open_a["r"])))
+	server.apply_action(mid, pid_b, ActionIntent.select_hex(int(open_b["q"]), int(open_b["r"])))
+	server.apply_action(mid, pid_a, ActionIntent.start())
+	var r: ActionResult = server.apply_action(mid, pid_a, ActionIntent.smoke())
+	r = server.apply_action(mid, pid_a, ActionIntent.end_turn(50))
+	var miss := _smoke_empty_hex(open_a, open_b)
+	r = server.apply_action(mid, pid_b, ActionIntent.attack(int(miss["q"]), int(miss["r"])))
+	r = server.apply_action(mid, pid_b, ActionIntent.end_turn(50))
+	var live: Snapshot = Snapshot.from_dict(server.get_snapshot(mid, pid_a))
+	_expect(failed, live.smoke_active(), tag + " puff still live for the occupy")
+	_expect(failed, not live.you_high_ground_active(), tag + " OPEN smoker is not HIGH GROUND")
+	r = server.apply_action(mid, pid_a, ActionIntent.attack(int(open_b["q"]), int(open_b["r"])))
+	var last: Dictionary = r.snapshot.get("lastAction", {})
+	_expect(failed, r.ok and bool(last.get("hit", false)), tag + " occupy hits")
+	_expect(failed, is_equal_approx(float(last.get("hitChance", -1.0)), Contract.BASE_HIT_CHANCE), tag + " no Attack +0.10 from smoke")
+	_expect(failed, last.get("highGroundApplied") == false, tag + " highGroundApplied false")
+	_expect(failed, last.get("coverApplied") == false, tag + " coverApplied false on OPEN")
+	_expect(failed, Contract.HIGH_GROUND_HIT == 0.10, tag + " HIGH GROUND table unchanged")
+
+
+func _smoke_hard_case(failed: PackedStringArray) -> void:
+	server.clear_all()
+	server.reset_wallet(0)
+	var created: Dictionary = server.create_match()
+	var mid := str(created["matchId"])
+	var a: Dictionary = server.join(mid, created["joinTokens"]["a"])
+	var b: Dictionary = server.join(mid, created["joinTokens"]["b"])
+	var pid_a := str(a["playerId"])
+	var pid_b := str(b["playerId"])
+	var open_b: Dictionary = server.find_hex_of_type(mid, Contract.TYPE_OPEN)
+	var hard: Dictionary = server.find_hex_of_type(mid, Contract.TYPE_HARD, open_b)
+	_expect(failed, not hard.is_empty(), "S3 board has HARD")
+	server.apply_action(mid, pid_a, ActionIntent.select_hex(int(hard["q"]), int(hard["r"])))
+	server.apply_action(mid, pid_b, ActionIntent.select_hex(int(open_b["q"]), int(open_b["r"])))
+	server.apply_action(mid, pid_a, ActionIntent.start())
+	_expect(failed, Snapshot.from_dict(server.get_snapshot(mid, pid_a)).you_high_ground_active(), "S3 real HARD lights HG before smoke")
+	var shot: ActionResult = server.apply_action(mid, pid_a, ActionIntent.attack(int(open_b["q"]), int(open_b["r"])))
+	var real: Dictionary = shot.snapshot.get("lastAction", {})
+	_expect(failed, is_equal_approx(float(real.get("hitChance", -1.0)), 1.0), "S3 real HARD occupy hitChance 1")
+	_expect(failed, real.get("highGroundApplied") == true, "S3 real HARD sets highGroundApplied")
+	var ended: Snapshot = Snapshot.from_dict(shot.snapshot)
+	_expect(failed, not ended.smoke_active(), "S3 real HARD shot did not invent smoke")
+
+	server.clear_all()
+	created = server.create_match()
+	mid = str(created["matchId"])
+	a = server.join(mid, created["joinTokens"]["a"])
+	b = server.join(mid, created["joinTokens"]["b"])
+	pid_a = str(a["playerId"])
+	pid_b = str(b["playerId"])
+	open_b = server.find_hex_of_type(mid, Contract.TYPE_OPEN)
+	hard = server.find_hex_of_type(mid, Contract.TYPE_HARD, open_b)
+	server.apply_action(mid, pid_a, ActionIntent.select_hex(int(hard["q"]), int(hard["r"])))
+	server.apply_action(mid, pid_b, ActionIntent.select_hex(int(open_b["q"]), int(open_b["r"])))
+	server.apply_action(mid, pid_a, ActionIntent.start())
+	var r: ActionResult = server.apply_action(mid, pid_a, ActionIntent.smoke())
+	var snap: Snapshot = Snapshot.from_dict(r.snapshot)
+	_expect(failed, snap.you_high_ground_active(), "S3 real HARD stays HG under smoke")
+	_expect(failed, snap.smoke_active(), "S2 smoke still active on HARD")
+	_expect(failed, snap.uav_remaining() == 1 and snap.decoy_available(), "S4 UAV and Decoy still charged on HARD")
+	_expect(failed, int(snap.you_exposure_floor()) == 50, "S5 floor untouched on HARD smoke")
+	r = server.apply_action(mid, pid_a, ActionIntent.end_turn(50))
+	var miss := _smoke_empty_hex(hard, open_b)
+	r = server.apply_action(mid, pid_b, ActionIntent.recon(int(miss["q"]), int(miss["r"])))
+	r = server.apply_action(mid, pid_b, ActionIntent.end_turn(50))
+	snap = Snapshot.from_dict(server.get_snapshot(mid, pid_a))
+	_expect(failed, snap.smoke_active(), "S2 HARD puff survives the enemy turn")
+	_expect(failed, snap.you_high_ground_active(), "S3 HG still the real HARD hex")
+	_expect(failed, snap.decoy_available(), "S4 decoy still available after the enemy turn")
+	r = server.apply_action(mid, pid_a, ActionIntent.attack(int(miss["q"]), int(miss["r"])))
+	r = server.apply_action(mid, pid_a, ActionIntent.end_turn(50))
+	snap = Snapshot.from_dict(server.get_snapshot(mid, pid_a))
+	_expect(failed, not snap.smoke_active(), "S2 HARD puff clears on the next own end_turn")
+	_expect(failed, not snap.smoke_available(), "S1 HARD charge stays spent")
+	r = server.apply_action(mid, pid_b, ActionIntent.attack(int(miss["q"]), int(miss["r"])))
+	r = server.apply_action(mid, pid_b, ActionIntent.end_turn(50))
+	r = server.apply_action(mid, pid_a, ActionIntent.smoke())
+	_expect(failed, not r.ok and str(r.result.get("reason", "")) == "smoke already used", "S1 HARD smoke already used")
 
 
 func _decoy_pick(aq: int, ar: int, bq: int, br: int) -> Vector2i:

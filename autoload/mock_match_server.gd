@@ -1175,6 +1175,8 @@ func apply_action(match_id: String, player_id: String, action: Dictionary) -> Ac
 			applied = _act_uav(match_state, seat)
 		Contract.ACT_DECOY:
 			applied = _act_decoy(match_state, seat)
+		Contract.ACT_SMOKE:
+			applied = _act_smoke(match_state, seat)
 		Contract.ACT_END_TURN:
 			applied = _act_end_turn(match_state, seat, action)
 		_:
@@ -1212,6 +1214,9 @@ func _empty_seat(token: String) -> Dictionary:
 		"movedLastTurn": false,
 		"uavRemaining": 1,
 		"decoyAvailable": true,
+		"smokeAvailable": true,
+		"smokeLive": false,
+		"smokeHold": false,
 		"decoyHex": null,
 		"decoyJustPlaced": false,
 		"disconnectedAtMs": 0,
@@ -1512,6 +1517,46 @@ func _act_uav(match_state: Dictionary, seat: String) -> ActionResult:
 	return _ok(match_state, seat)
 
 
+func _act_smoke(match_state: Dictionary, seat: String) -> ActionResult:
+	## Once/match. Flags only — attack hit chance does not read smokeLive.
+	## LIVE result is exactly { type: "smoke" }. Extra hex in the body is ignored.
+	if match_state["status"] != Contract.STATUS_ACTIVE:
+		return _fail(match_state, seat, "match is not active")
+	if str(match_state["whoseTurn"]) != seat:
+		return _fail(match_state, seat, "not your turn")
+	if str(match_state["phase"]) != Contract.PHASE_ACTION:
+		return _fail(match_state, seat, "awaiting end_turn")
+	var seat_state: Dictionary = match_state["seats"][seat]
+	if not bool(seat_state.get("smokeAvailable", false)):
+		return _fail(match_state, seat, "smoke already used")
+	seat_state["smokeAvailable"] = false
+	seat_state["smokeLive"] = true
+	seat_state["smokeHold"] = true
+	match_state["phase"] = Contract.PHASE_END_TURN
+	_set_last(match_state, {"type": Contract.ACT_SMOKE})
+	return _ok(match_state, seat)
+
+
+func _tick_smoke(match_state: Dictionary, ending_seat: String) -> void:
+	## Decoy clock. Only the seat who is ending ticks their own puff.
+	## Planting end_turn clears the hold and keeps the puff live.
+	## That seat's next own end_turn clears it. The enemy end_turn does not.
+	var seat_state: Dictionary = match_state["seats"][ending_seat]
+	if not bool(seat_state.get("smokeLive", false)):
+		return
+	if bool(seat_state.get("smokeHold", false)):
+		seat_state["smokeHold"] = false
+	else:
+		seat_state["smokeLive"] = false
+		seat_state["smokeHold"] = false
+
+
+func _smoke_active_for(match_state: Dictionary, seat: String) -> bool:
+	if str(match_state.get("status", "")) == Contract.STATUS_ENDED:
+		return false
+	return bool(match_state["seats"][seat].get("smokeLive", false))
+
+
 func _act_decoy(match_state: Dictionary, seat: String) -> ActionResult:
 	var gate := _need_own_action(match_state, seat)
 	if gate != "":
@@ -1614,6 +1659,7 @@ func _act_end_turn(match_state: Dictionary, seat: String, action: Dictionary) ->
 			seat_state["decoyJustPlaced"] = false
 		else:
 			_clear_seat_decoy(seat_state)
+	_tick_smoke(match_state, seat)
 	for viewer in [Contract.SEAT_A, Contract.SEAT_B]:
 		var intel: Dictionary = match_state["intel"][viewer]
 		var left := int(intel.get("softHotTurnsLeft", 0))
@@ -1801,12 +1847,15 @@ func _snapshot_for_seat(match_state: Dictionary, seat: String) -> Dictionary:
 			"decoyRemaining": 1 if bool(you.get("decoyAvailable", false)) else 0,
 			"decoyHex": _decoy_hex_for_snap(you, match_state),
 			"highGroundActive": _high_ground_active_for(match_state, seat),
+			"smokeAvailable": bool(you.get("smokeAvailable", false)),
+			"smokeActive": _smoke_active_for(match_state, seat),
 		},
 		"enemy": {
 			"seat": other,
 			"visibleHex": visible,
 			"softHotTurnsLeft": int(intel.get("softHotTurnsLeft", 0)),
 			"decoySoftHex": _decoy_hex_for_snap(match_state["seats"][other], match_state),
+			"smokeActive": _smoke_active_for(match_state, other),
 			"disconnectedAt": _disconnected_iso(match_state["seats"][other]),
 		},
 		"terrain": terrain,

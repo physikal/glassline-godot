@@ -35,6 +35,7 @@ var _syncing_next: bool = false
 var _btn_attack: Button
 var _btn_recon: Button
 var _btn_uav: Button
+var _btn_smoke: Button
 var _btn_decoy: Button
 var _btn_high: Button
 var _high_cap: Label
@@ -156,6 +157,12 @@ func _ready() -> void:
 		_capture_exposure_floor("step")
 	elif "--capture-exposure-floor-tip" in args:
 		_capture_exposure_floor("tip")
+	elif "--capture-smoke-available" in args:
+		_capture_smoke("available")
+	elif "--capture-smoke-spent" in args:
+		_capture_smoke("spent")
+	elif "--capture-smoke-active" in args:
+		_capture_smoke("active")
 
 
 func _cmdline_is_capture(args: PackedStringArray) -> bool:
@@ -573,8 +580,40 @@ func _apply_server_reconnect() -> Dictionary:
 
 func _bind_high_ground(snap: Snapshot) -> void:
 	## Chip truth is snapshot you.highGroundActive. Never local hex / terrain.
+	## Smoke does not light this chip.
 	if _high_chip:
 		Chrome.paint_high_ground_chip(_high_chip, snap.you_high_ground_active())
+
+
+func _bind_smoke(snap: Snapshot) -> void:
+	## Lit only when smokeAvailable is named and true. Otherwise muted / no-op.
+	if _btn_smoke == null:
+		return
+	var available := snap.smoke_available()
+	Chrome.paint_smoke_chip(_btn_smoke, available)
+	_btn_smoke.disabled = _btn_smoke.disabled or not available
+	if available:
+		_btn_smoke.tooltip_text = Contract.SMOKE_COPY
+	elif snap.smoke_fields_present():
+		_btn_smoke.tooltip_text = Contract.SMOKE_SPENT_COPY
+	else:
+		_btn_smoke.tooltip_text = Contract.SMOKE_ABSENT_COPY
+	_apply_smoke_toast(snap)
+
+
+func _apply_smoke_toast(snap: Snapshot) -> void:
+	if _toast == null:
+		return
+	if snap.smoke_active():
+		_toast.text = Contract.SMOKE_TOAST
+		_toast.position = Vector2(180, 48)
+		_toast.size = Vector2(920, 36)
+		_toast.z_index = 45
+		_toast.z_as_relative = false
+		return
+	_toast.position = Vector2(240, 580)
+	_toast.size = Vector2(800, 28)
+	_toast.z_index = 0
 
 
 func _bind_server_exposure(snap: Snapshot) -> void:
@@ -648,6 +687,127 @@ func _ensure_active_for_decoy() -> Snapshot:
 		_submit(ActionIntent.select_hex(2, 2))
 		if ClientSession.dummy_player_id != "":
 			_submit_as(ClientSession.dummy_player_id, ActionIntent.select_hex(7, 5))
+		snap = ClientSession.typed_snapshot()
+	if snap.status() == Contract.STATUS_READY:
+		_submit(ActionIntent.start())
+		snap = ClientSession.typed_snapshot()
+	return snap
+
+
+func _capture_smoke(kind: String) -> void:
+	## Three stills: lit chip, muted spent chip, active toast + soft HARD tint.
+	if _coach:
+		_coach.dismiss()
+	_dummy_busy = true
+	_dummy_delay = 0.0
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+	DisplayServer.window_set_size(Vector2i(1280, 720))
+	await get_tree().process_frame
+	var snap := _smoke_drop_open()
+	if kind == "active" or kind == "spent":
+		if snap.status() == Contract.STATUS_ACTIVE and str(snap.phase()) == Contract.PHASE_ACTION and snap.smoke_available():
+			_submit(ActionIntent.smoke())
+			snap = ClientSession.typed_snapshot()
+	if kind == "spent":
+		## Decoy clock: enemy end_turn keeps the puff. The caster's next end_turn clears it.
+		if str(snap.phase()) == Contract.PHASE_END_TURN and str(snap.whose_turn()) == ClientSession.seat:
+			_submit_as(ClientSession.player_id, ActionIntent.end_turn(Contract.DEFAULT_EXPOSURE))
+			snap = ClientSession.typed_snapshot()
+		var dummy := ClientSession.dummy_player_id
+		if dummy != "":
+			var draw: Dictionary = MatchAPI.get_snapshot(ClientSession.match_id, dummy)
+			var dsnap: Snapshot = Snapshot.from_dict(draw)
+			if str(dsnap.phase()) == Contract.PHASE_ACTION:
+				var miss := _smoke_miss_hex(dsnap.you_hex(), snap.you_hex())
+				_submit_as(dummy, ActionIntent.attack(int(miss["q"]), int(miss["r"])))
+				draw = MatchAPI.get_snapshot(ClientSession.match_id, dummy)
+				dsnap = Snapshot.from_dict(draw)
+			if str(dsnap.phase()) == Contract.PHASE_END_TURN:
+				_submit_as(dummy, ActionIntent.end_turn(Contract.DEFAULT_EXPOSURE))
+			var fresh: Dictionary = MatchAPI.get_snapshot(ClientSession.match_id, ClientSession.player_id)
+			if not fresh.is_empty():
+				ClientSession.apply_snapshot(fresh)
+			snap = ClientSession.typed_snapshot()
+		if snap.smoke_active() and str(snap.whose_turn()) == ClientSession.seat:
+			if str(snap.phase()) == Contract.PHASE_ACTION:
+				var mine := _smoke_miss_hex(snap.you_hex(), null)
+				_submit(ActionIntent.attack(int(mine["q"]), int(mine["r"])))
+				snap = ClientSession.typed_snapshot()
+			if str(snap.phase()) == Contract.PHASE_END_TURN:
+				_submit(ActionIntent.end_turn(Contract.DEFAULT_EXPOSURE))
+				snap = ClientSession.typed_snapshot()
+	_dummy_busy = true
+	_dummy_delay = 0.0
+	_refresh(snap)
+	_end_panel.visible = false
+	_btn_start.visible = false
+	if _btn_decoy:
+		_btn_decoy.visible = false
+	if _btn_abandon:
+		_btn_abandon.visible = false
+	_set_actions(kind != "active")
+	_bind_smoke(snap)
+	_status.text = ""
+	_phase.text = ""
+	if kind == "active":
+		_toast.text = Contract.SMOKE_TOAST
+		_toast.position = Vector2(180, 48)
+		_toast.size = Vector2(920, 36)
+		_toast.z_index = 45
+		_toast.z_as_relative = false
+		Chrome.apply_label(_toast, 16, Color("f7e7a8"), true)
+	else:
+		_toast.text = ""
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var file_name := "smoke_chip_available.png"
+	var tag := "SMOKE_AVAILABLE"
+	if kind == "spent":
+		file_name = "smoke_chip_spent.png"
+		tag = "SMOKE_SPENT"
+	elif kind == "active":
+		file_name = "smoke_active_toast.png"
+		tag = "SMOKE_ACTIVE"
+	var path := ProjectSettings.globalize_path("res://artifacts/ux/%s" % file_name)
+	var img := get_viewport().get_texture().get_image()
+	img.save_png(path)
+	var lit := bool(_btn_smoke.get_meta("smoke_lit")) if _btn_smoke and _btn_smoke.has_meta("smoke_lit") else false
+	print("SMOKE_CAPTURE ", tag, " ", path, " LIT ", lit, " ACTIVE ", snap.smoke_active(), " AVAIL ", snap.smoke_available(), " HG ", snap.you_high_ground_active())
+	get_tree().quit()
+
+
+func _smoke_miss_hex(a: Variant, b: Variant) -> Dictionary:
+	for q in Contract.BOARD_Q:
+		for r in Contract.BOARD_R:
+			var cand := Contract.hex_dict(q, r)
+			if a != null and Contract.same_hex(cand, a):
+				continue
+			if b != null and Contract.same_hex(cand, b):
+				continue
+			return cand
+	return Contract.hex_dict(0, 0)
+
+
+func _smoke_drop_open() -> Snapshot:
+	## OPEN footing so the still cannot be read as a HIGH GROUND chip.
+	var snap: Snapshot = ClientSession.typed_snapshot()
+	if ClientSession.use_live_api() or ClientSession.match_id == "":
+		return _ensure_active_for_decoy()
+	var open_a: Dictionary = MockMatchServer.find_hex_of_type(ClientSession.match_id, Contract.TYPE_OPEN)
+	var skip: Variant = open_a if not open_a.is_empty() else null
+	var open_b: Dictionary = MockMatchServer.find_hex_of_type(ClientSession.match_id, Contract.TYPE_OPEN, skip)
+	var aq := int(open_a.get("q", 2))
+	var ar := int(open_a.get("r", 2))
+	var bq := int(open_b.get("q", 7))
+	var br := int(open_b.get("r", 5))
+	if Contract.same_hex(Contract.hex_dict(aq, ar), Contract.hex_dict(bq, br)):
+		bq = 7
+		br = 5
+	if snap.status() == Contract.STATUS_READY or snap.status() == Contract.STATUS_WAITING or snap.status() == "":
+		_submit(ActionIntent.select_hex(aq, ar))
+		if ClientSession.dummy_player_id != "":
+			_submit_as(ClientSession.dummy_player_id, ActionIntent.select_hex(bq, br))
 		snap = ClientSession.typed_snapshot()
 	if snap.status() == Contract.STATUS_READY:
 		_submit(ActionIntent.start())
@@ -1252,6 +1412,13 @@ func _build() -> void:
 	_btn_decoy.pressed.connect(_on_decoy)
 	_btn_decoy.position = Vector2(24, 548)
 	add_child(_btn_decoy)
+	## Ability chrome. Sits above the painted ABILITY key. UAV hotspot stays put.
+	_btn_smoke = Chrome.smoke_chip()
+	_btn_smoke.position = Vector2(620, 492)
+	_btn_smoke.z_index = 24
+	_btn_smoke.z_as_relative = false
+	_btn_smoke.pressed.connect(_on_smoke)
+	add_child(_btn_smoke)
 
 	## Soft P2: rematch-ready START is a centered drop cue, not tucked under P2.
 	_btn_start = Chrome.chunk_button("START", Chrome.PLAY_GREEN, Color.WHITE, Vector2(320, 56))
@@ -1582,6 +1749,7 @@ func _refresh(snap: Snapshot) -> void:
 	else:
 		_btn_decoy.text = Contract.DECOY_LABEL
 	_bind_high_ground(snap)
+	_bind_smoke(snap)
 	_sync_coach(snap)
 	_sync_terrain_coach(snap)
 
@@ -1631,6 +1799,8 @@ func _set_actions(on: bool) -> void:
 	_btn_recon.disabled = not on
 	_btn_uav.disabled = not on
 	_btn_decoy.disabled = not on
+	if _btn_smoke:
+		_btn_smoke.disabled = not on
 
 
 func _on_board_input(event: InputEvent) -> void:
@@ -1727,6 +1897,14 @@ func _on_uav() -> void:
 
 func _on_decoy() -> void:
 	_submit(ActionIntent.decoy())
+
+
+func _on_smoke() -> void:
+	## Fail closed: no snapshot charge → no POST.
+	var snap: Snapshot = ClientSession.typed_snapshot()
+	if not snap.smoke_available():
+		return
+	_submit(ActionIntent.smoke())
 
 
 func _toggle_mute() -> void:

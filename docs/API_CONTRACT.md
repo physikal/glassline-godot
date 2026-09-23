@@ -21,7 +21,7 @@ Source: Notion “Glassline API contract draft v0” (Godot stamp). Client types
 2. `POST /matches/:id/join` `{ token }` sits that token; `{}` + Bearer claims empty seat B (`joinToken` for B). Both seated → `ready`
 3. Drop: both `select_hex` while `ready`; re-drop OK until `start`
 4. `{ type: "start" }` once both placed → `active`, `whoseTurn: "a"`, `turnIndex: 0`, `exposurePct: 50`
-5. Turns: exactly one of `attack` | `recon` | `uav` | `decoy`, then required `end_turn`
+5. Turns: exactly one of `attack` | `recon` | `uav` | `decoy` | `smoke`, then required `end_turn`
 6. `turnCap` 16 total (8 each) → `winner: "draw"`
 7. Kill → Marks +1 winner
 
@@ -35,8 +35,8 @@ Source: Notion “Glassline API contract draft v0” (Godot stamp). Client types
   turnIndex, turnCap: 16, whoseTurn: a|b|null,
   phase: await_action|await_end_turn|null,
   uavRemaining: 0|1,
-  you: { seat, hex, placed, marks, exposurePct, movedLastTurn, decoyAvailable, decoyRemaining: 0|1, decoyHex?, highGroundActive },
-  enemy: { seat, visibleHex, softHotTurnsLeft, decoySoftHex? },
+  you: { seat, hex, placed, marks, exposurePct, movedLastTurn, decoyAvailable, decoyRemaining: 0|1, decoyHex?, highGroundActive, smokeAvailable?, smokeActive? },
+  enemy: { seat, visibleHex, softHotTurnsLeft, decoySoftHex?, smokeActive? },
   terrain: [{ q, r, type }],
   lastAction: ActionResult | null,
   winner: a|b|draw|null,
@@ -52,6 +52,7 @@ Source: Notion “Glassline API contract draft v0” (Godot stamp). Client types
 { type: "recon", hex: {q,r} }   // sector = center + 6 neighbors
 { type: "uav" }
 { type: "decoy" }            // no hex; server picks adjacent empty (LIVE 200)
+{ type: "smoke" }            // no hex; once/match. Omit fields → client fail-closed
 { type: "end_turn", exposurePct: number, hex?: {q,r} }
 
 → { ok, snapshot, result: ActionResult }
@@ -65,6 +66,7 @@ ActionResult =
   | { type: "recon", spotted: boolean, hex?: {q,r} }
   | { type: "uav", revealed: boolean, hex?: {q,r} }
   | { type: "decoy", hex?: {q,r}, planted?: boolean }
+  | { type: "smoke", active?: boolean }
   | { type: "end_turn" }
   | { type: "reject", reason: string }
 ```
@@ -85,6 +87,14 @@ ActionResult =
 - Attack result: `coverApplied` + existing `highGroundApplied` / `hitChance`. Applied only on an occupy roll.
 - Intent stays `{ type: "attack", hex }`. No IN COVER chip this slice. Guns / Marks / Decoy stay blind.
 - Client displays server fields only — never subtracts cover from a local hex.
+
+## SMOKE (once/match, exposure + spot only)
+LIVE tip `fa7285ba`. Intent `{ type: "smoke" }` on the existing `POST /matches/:id/actions` path. No hex (an extra hex is ignored). No Marks / IAP. Success result is exactly `{ type: "smoke" }`.
+- Snapshot `you.smokeAvailable` (bool) and `you.smokeActive` (bool or turns remaining). `enemy.smokeActive` too. Also accept `smoke_available` / `smoke_active` and any casing of those names.
+- **Fail closed:** if `smokeAvailable` is absent, the SMOKE chip stays muted and the click does not POST. If `you.smokeActive` is absent, there is no toast and no hex tint. If `enemy.smokeActive` is absent, the rival hex is not washed. Smoke never writes `enemy.visibleHex`.
+- **Decoy clock:** cast → available false, active true, phase `await_end_turn`. The planting `end_turn` keeps it. The enemy's full turn keeps it. The caster's next action window still has it. The caster's next own `end_turn` clears `smokeActive`. `smokeAvailable` stays false. Rejects: `match is not active`, `not your turn`, `awaiting end_turn`, `smoke already used`.
+- Cover-only HARD for spot (−20, no stack with a real HARD cell) and exposure. Spot math stays server-owned (`spotChance` 35 open → 15 smoked or HARD).
+- **No** Attack +0.10 and no `highGroundApplied` from smoke. `you.highGroundActive` is unchanged. No IN COVER chip. UAV, Decoy, Marks, and `you.exposureFloor` stay on their own fields.
 
 ## Realtime
 `GET /matches/:id/events` SSE → `{ event: "snapshot"|"your_turn", snapshot }`
