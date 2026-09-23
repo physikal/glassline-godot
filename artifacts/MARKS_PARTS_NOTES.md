@@ -17,7 +17,7 @@ Editor Play stays MOCK (`use_live_api=false`). LIVE `GET /shop` lists `gun_part_
 
 Stock + barrel stack floors at ×0.75 (−25%). Optic does not change wobble. Stock and barrel do not change the window. One equipped id per slot.
 
-LIVE `b5ba339` publishes `you.shotWindowSec` and `you.wobbleScale` as numbers. Those win for Attack chrome. Missing or null fields use the table above for juice only. Hit resolution stays the occupy formula. Kind is `gun-part`. A catalog that already lists the three ids buys on the shop spine — rows are not muted.
+LIVE `b5ba339` publishes `you.shotWindowSec` and `you.wobbleScale`. Attack chrome reads those numbers only. A missing or null field stays the bare plate (1.2s, wobble 1). Equipped ids do not author the juice. Hit resolution stays the occupy formula. Kind is `gun-part`. ARMORY buys the three ids on the shop spine.
 
 ## Bind
 

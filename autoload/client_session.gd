@@ -332,7 +332,7 @@ func part_slot_state(item_id: String) -> String:
 
 
 func attack_wobble_scale() -> float:
-	## Server wobbleScale when the snapshot named a number. Else Design juice.
+	## Server you.wobbleScale only. Bare 1 when the snapshot omitted the number.
 	return feel_wobble_scale
 
 
@@ -370,12 +370,8 @@ func _bind_part_feel(bag: Dictionary) -> void:
 		window_value = root.get("shotWindowSec")
 	feel_wobble_from_server = wobble_present
 	feel_window_from_server = window_present
-	feel_wobble_scale = Contract.resolve_wobble_scale(
-		wobble_present, wobble_value, equipped_stock_id() != "", equipped_barrel_id() != ""
-	)
-	feel_shot_window_sec = Contract.resolve_shot_window_sec(
-		window_present, window_value, equipped_optic_id() != ""
-	)
+	feel_wobble_scale = Contract.resolve_wobble_scale(wobble_present, wobble_value)
+	feel_shot_window_sec = Contract.resolve_shot_window_sec(window_present, window_value)
 
 
 func gun_slot_state(item_id: String) -> String:

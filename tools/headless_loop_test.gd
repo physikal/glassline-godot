@@ -2287,16 +2287,20 @@ func _part_sink_case(failed: PackedStringArray) -> void:
 	var denied: Dictionary = server.equip_cosmetic(Contract.PART_STOCK, Contract.PART_SLOT_STOCK)
 	_expect(failed, str(denied.get("error", "")) == Contract.SHOP_ERR_NOT_OWNED, "P unowned stock rejected")
 
-	## Missing feel fields → Design juice from equipped ids. Missing ids → bare defaults.
+	## C2: omitted feel stays bare. Equipped ids do not author window or wobble.
 	var local = SessionScript.new()
 	local.owned_parts = [Contract.PART_OPTIC, Contract.PART_STOCK, Contract.PART_BARREL]
 	local.equipped_optic = Contract.PART_OPTIC
 	local.equipped_stock = Contract.PART_STOCK
 	local.equipped_barrel = Contract.PART_BARREL
 	local.apply_shop({"you": {"marks": 10, "equippedOpticId": Contract.PART_OPTIC, "equippedStockId": Contract.PART_STOCK, "equippedBarrelId": Contract.PART_BARREL}})
-	_expect(failed, not local.feel_wobble_from_server and not local.feel_window_from_server, "P omitted feel is not server")
-	_expect(failed, is_equal_approx(local.attack_wobble_scale(), 0.75), "P local stack cap")
-	_expect(failed, is_equal_approx(local.feel_shot_window_sec, 1.4), "P local optic window")
+	_expect(failed, not local.feel_wobble_from_server and not local.feel_window_from_server, "C2 omitted feel is not server")
+	_expect(failed, is_equal_approx(local.attack_wobble_scale(), 1.0), "C2 omitted wobble stays 1")
+	_expect(failed, is_equal_approx(local.feel_shot_window_sec, 1.2), "C2 omitted window stays 1.2")
+	var session_src := FileAccess.get_file_as_string("res://autoload/client_session.gd")
+	var optic_src := FileAccess.get_file_as_string("res://scenes/optic/optic_overlay.gd")
+	_expect(failed, session_src.find("local_wobble_scale") < 0 and session_src.find("local_shot_window_sec") < 0, "C2 session does not author feel")
+	_expect(failed, optic_src.find("local_wobble_scale") < 0 and optic_src.find("local_shot_window_sec") < 0, "C2 optic does not author feel")
 	local.apply_shop({"you": {"marks": 10, "wobbleScale": 0.55, "shotWindowSec": 0.9, "equippedOpticId": null, "equippedStockId": null, "equippedBarrelId": null}})
 	_expect(failed, local.feel_wobble_from_server and is_equal_approx(local.attack_wobble_scale(), 0.55), "P server wobble wins")
 	_expect(failed, local.feel_window_from_server and is_equal_approx(local.feel_shot_window_sec, 0.9), "P server window wins")
@@ -2321,7 +2325,8 @@ func _part_sink_case(failed: PackedStringArray) -> void:
 	_expect(failed, _part_delta(kitted.get("kill_delta")) == Contract.MARKS_PVP_WIN, "P PvP kill still ★25")
 	_expect(failed, _part_delta(practice.get("kill_delta")) == Contract.MARKS_PRACTICE, "P practice Marks Δ0")
 	_expect(failed, bool(practice.get("wallet_held", false)), "P practice does not grant")
-	_expect(failed, bool(practice.get("feel_window", false)), "P practice snapshot still carries the window")
+	_expect(failed, bool(practice.get("feel_window", false)), "C4 practice window 1.4")
+	_expect(failed, bool(practice.get("feel_wobble", false)), "C4 practice wobble 0.75")
 	_expect(failed, bool(practice.get("chance_formula", false)), "P practice hitChance ignores parts")
 	_expect(failed, Contract.BASE_HIT_CHANCE == 0.90 and Contract.RECON_BASE == 0.35 and Contract.BRUSH_COVER_HIT == 0.10, "P hit and spot constants unchanged")
 	server.reset_wallet(Contract.MOCK_WALLET_STUB)
@@ -2415,6 +2420,7 @@ func _part_practice_run() -> Dictionary:
 		"kill_delta": kill_snap.marks_delta(),
 		"wallet_held": int(server.account_marks) == wallet_before,
 		"feel_window": kill_snap.you_shot_window_sec() != null and is_equal_approx(float(kill_snap.you_shot_window_sec()), 1.4),
+		"feel_wobble": kill_snap.you_wobble_scale() != null and is_equal_approx(float(kill_snap.you_wobble_scale()), 0.75),
 		"chance_formula": _part_chance_ok(kill_last),
 	}
 

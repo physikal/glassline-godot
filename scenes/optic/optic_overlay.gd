@@ -107,7 +107,7 @@ func _process(delta: float) -> void:
 
 
 func _apply_feel() -> void:
-	## Chrome only. Server wobbleScale / shotWindowSec when present; else Design numbers.
+	## Chrome only. Server you.wobbleScale / you.shotWindowSec. Bare plate if omitted.
 	## Never writes hit, spot, or exposure.
 	var scale := Contract.WOBBLE_SCALE_BASE
 	var window_sec := Contract.SHOT_WINDOW_BASE_SEC

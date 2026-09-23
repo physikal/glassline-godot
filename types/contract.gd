@@ -734,7 +734,7 @@ static func part_row_status(owned: bool, can_buy: bool, equipped: bool) -> Strin
 
 
 static func local_wobble_scale(stock_on: bool, barrel_on: bool) -> float:
-	## Client juice when the snapshot omits wobbleScale. Same table as LIVE.
+	## Mock snapshot table, matching LIVE. The client does not call this for Attack chrome.
 	if stock_on and barrel_on:
 		return WOBBLE_STACK_FLOOR
 	if stock_on:
@@ -745,7 +745,7 @@ static func local_wobble_scale(stock_on: bool, barrel_on: bool) -> float:
 
 
 static func local_shot_window_sec(optic_on: bool) -> float:
-	## Client juice when the snapshot omits shotWindowSec. Optic alone. 1.2 → 1.4.
+	## Mock snapshot table, matching LIVE. The client does not call this for Attack chrome.
 	return SHOT_WINDOW_OPTIC_SEC if optic_on else SHOT_WINDOW_BASE_SEC
 
 
@@ -759,18 +759,18 @@ static func feel_number(value: Variant) -> bool:
 	return false
 
 
-static func resolve_wobble_scale(present: bool, value: Variant, stock_on: bool, barrel_on: bool) -> float:
-	## Server number wins when it is actually a number. Null / missing → Design juice.
+static func resolve_wobble_scale(present: bool, value: Variant) -> float:
+	## C2: you.wobbleScale only. Missing / null stays the bare 1. Equipped ids do not author it.
 	if present and feel_number(value):
 		return float(value)
-	return local_wobble_scale(stock_on, barrel_on)
+	return WOBBLE_SCALE_BASE
 
 
-static func resolve_shot_window_sec(present: bool, value: Variant, optic_on: bool) -> float:
-	## Server you.shotWindowSec wins when it is a number. Null / missing → Design.
+static func resolve_shot_window_sec(present: bool, value: Variant) -> float:
+	## C2: you.shotWindowSec only. Missing / null stays 1.2. Equipped ids do not author it.
 	if present and feel_number(value):
 		return float(value)
-	return local_shot_window_sec(optic_on)
+	return SHOT_WINDOW_BASE_SEC
 
 
 static func gun_family_name(item_id: String) -> String:
