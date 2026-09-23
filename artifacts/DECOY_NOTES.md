@@ -42,6 +42,20 @@ Evidence (`m_05991e267e994d688b6991977111b430`): A(2,2) → `result.hex` / `you.
 
 `python3 tools/live_decoy_smoke.py` (`artifacts/live_decoy_smoke.txt`).
 
+## L3 unlock
+
+Slice mirrors SMOKE L5. LIVE tip `662dba7` on `https://glassline-api.vercel.app`. Exact `you.operativeLevel` and exact `you.decoyAvailable`. `decoyAvailable` is true only when `operativeLevel >= 3` and the charge remains. Below L3 the wire reads `decoyAvailable: false` and `decoyRemaining: 0` while the charge stays unspent. Reject reason is `reach operative L3`.
+
+| Gate | Client |
+| --- | --- |
+| D1 | Chip lights only when exact `operativeLevel >= 3` and exact `decoyAvailable` is true |
+| D2 | Below L3 the chip stays visible on the Soft P2 spent-wood plate. Tip `DECOY · L3`. Tap toasts `Reach operative L3` |
+| D3 | `xp` is ignored. Practice does not level and practice Marks stay Δ0. An L3 snapshot stays unlocked in practice |
+| D4 | Once unlocked, once/match, adjacent empty, miss+clear, and expiry are unchanged |
+| D5 | No Marks, no IAP, no catalog SKU, no second charge. A locked tap does not spend the doll |
+
+Fail closed: a charge with no exact `operativeLevel` stays locked and does not POST. Snake-case aliases and `decoyRemaining` alone do not unlock. A missing charge with no level stays the absent chip. Mock accounts start at L5 so the existing harness stays the unlocked path; `operative_level = 2` publishes `decoyAvailable` false and refuses with `reach operative L3`.
+
 ## Gates
 
 | Gate | Mock | LIVE | Notes |
@@ -72,14 +86,20 @@ Headless: `godot --headless --path . -s res://tools/headless_loop_test.gd` → `
 | --- | --- |
 | D6 HUD | `artifacts/ux/decoy_action_hud.png` |
 | D6 dashed doll | `artifacts/ux/decoy_dashed_blip.png` |
+| Locked L2, tip visible | `artifacts/ux/decoy_chip_locked.png` |
+| Unlocked L3 | `artifacts/ux/decoy_chip_unlocked.png` |
+| Lock toast | `artifacts/ux/decoy_lock_toast.png` |
 
 Capture (mock, `DISPLAY=:1`):
 
 ```
 /tmp/godot --path . --resolution 1280x720 -- --capture-decoy-hud
 /tmp/godot --path . --resolution 1280x720 -- --capture-decoy-blip
+/tmp/godot --path . --resolution 1280x720 -- --capture-decoy-locked
+/tmp/godot --path . --resolution 1280x720 -- --capture-decoy-unlocked
+/tmp/godot --path . --resolution 1280x720 -- --capture-decoy-lock-toast
 ```
 
 ## Out
 
-Multi-charge · damaging decoys · shop unlock · mil-sim smoke · Marks spend/grant · hit%/spot% buff.
+Multi-charge · damaging decoys · Marks/IAP buy · mil-sim smoke · Marks spend/grant · hit%/spot% buff. Hideout XP plate stays `SMOKE · L5` under L5. Practice XP stays Δ0.
