@@ -79,8 +79,6 @@ func _init() -> void:
 	col.add_child(_floor_tip_chip)
 	_floor_tip = Label.new()
 	_floor_tip.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_floor_tip.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_floor_tip.custom_minimum_size = Vector2(TRACK_W, 0)
 	Chrome.apply_label(_floor_tip, 8, Chrome.CREAM, true)
 	_floor_tip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_floor_tip_chip.add_child(_floor_tip)

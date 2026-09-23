@@ -23,3 +23,10 @@ godot --path . --resolution 1280x720 -- --capture-xp-plate-floor-l5
 godot --path . --resolution 1280x720 -- --capture-xp-plate-floor-l10
 godot --path . --resolution 1280x720 -- --capture-xp-plate-floor-l15
 ```
+
+| Still | What |
+| --- | --- |
+| `artifacts/ux/xp_plate_floor_l4.png` | L4, `18 / 100`, `SMOKE · L5`, `Exposure floor · L5 · 40%` |
+| `artifacts/ux/xp_plate_floor_l5.png` | L5, `0 / 100`, smoke tip gone, `Exposure floor · L10 · 30%` |
+| `artifacts/ux/xp_plate_floor_l10.png` | L10, `64 / 100`, `Exposure floor · L15 · 20%` |
+| `artifacts/ux/xp_plate_floor_l15.png` | L15, `0 / 100`, floor tip omitted |
