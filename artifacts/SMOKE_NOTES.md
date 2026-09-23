@@ -16,7 +16,7 @@ LIVE source of truth: API tip `fa7285ba` on `https://glassline-api.vercel.app`.
 | `Snapshot.smoke_available()` | `you.smokeAvailable`, or `smoke_available`, or any casing. Missing → **false** |
 | `Snapshot.smoke_active()` | `you.smokeActive` bool or turns-remaining `> 0`. Same casing tolerance. Missing or match ended → **false** |
 | `Snapshot.enemy_smoke_active()` | `enemy.smokeActive` only. Does not read `you.*` and does not invent `visibleHex` |
-| Match HUD | Purple **SMOKE** chip (toy puff) above the painted ABILITY key. Lit when available. Muted when spent or when the field is absent |
+| Match HUD | **SMOKE** chip (same toy puff) above the painted ABILITY key. Available is lit hot purple. Spent, or a missing field, is grey muted wood |
 | Click | Posts only when `smoke_available()`. Otherwise no-op |
 | Your puff | Toast `Smoke — hex is Hard this turn` and a soft HARD wash on **your** hex |
 | Rival puff | Wash only if `enemy.smokeActive` and `enemy.visibleHex` are both already set. No toast |
