@@ -23,7 +23,7 @@ LIVE `b5ba339` publishes `you.shotWindowSec` and `you.wobbleScale`. Attack chrom
 
 Snapshot keys: `you.equippedOpticId`, `you.equippedStockId`, `you.equippedBarrelId` (null = empty). Optional `you.ownedParts`. Buy auto-equips that slot only and does not clobber gun / skin / decor. Client never `marks -=`.
 
-ARMORY third row under guns: wood chips, toy glyphs, ★ prices. No hit% / spot% / exposure on the row. Equipped slots paint a green peg chip on the rack and a glyph peg on the exposure doll. Buy toast: “Shot window looser” / “Wobble quieter”.
+ARMORY third row under guns: wood chips, toy glyphs, ★ prices. No hit% / spot% / exposure on the row. Equipped slots paint a green peg chip on the rack and a glyph peg on the exposure doll. Insufficient Marks is one shared wood toast (`Not enough Marks.`), not a line on each chip. A successful buy shows a clearing wood toast — Optic “Shot window looser”, Stock / Barrel “Wobble quieter” — then the plate hides itself.
 
 ## Parity
 
