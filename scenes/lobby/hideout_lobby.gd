@@ -227,6 +227,10 @@ func _ready() -> void:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 		DisplayServer.window_set_size(Vector2i(1280, 720))
 		await _capture_part_optic_feel()
+	elif "--capture-part-t2" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await _capture_part_t2_set()
 	elif "--capture-art-hex" in args or "--capture-art-optic" in args:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 		DisplayServer.window_set_size(Vector2i(1280, 720))
@@ -469,6 +473,17 @@ func _assert_part_toast() -> int:
 			row_hits += 1
 	if row_hits != 0:
 		failed.append("per-row insufficient still showing")
+	for part_id in [Contract.PART_OPTIC_T2, Contract.PART_STOCK_T2, Contract.PART_BARREL_T2]:
+		if not _shop_lines.has(part_id):
+			failed.append("missing T2 row %s" % part_id)
+			continue
+		var price_lbl: Label = _shop_lines[part_id].get("price")
+		var want := "★%d" % Contract.shop_item_price(part_id)
+		if price_lbl == null or price_lbl.text != want:
+			failed.append("T2 price %s" % part_id)
+		var status_lbl: Label = _shop_lines[part_id].get("status")
+		if status_lbl and (status_lbl.text.find("%") >= 0 or status_lbl.text.find("hit") >= 0):
+			failed.append("T2 row has combat copy")
 	if not ClientSession.use_live_api():
 		MockMatchServer.reset_wallet(400)
 	_bind_wallet()
@@ -491,6 +506,17 @@ func _assert_part_toast() -> int:
 		failed.append("barrel toast mismatch")
 	if _part_toast_lbl and (_part_toast_lbl.text.find("%") >= 0 or _part_toast_lbl.text.find("0.") >= 0):
 		failed.append("wobble toast has combat stats")
+	if not ClientSession.use_live_api():
+		MockMatchServer.reset_wallet(200)
+	_bind_wallet()
+	_bind_shop()
+	_refresh_marks()
+	_refresh_shop()
+	_on_shop_primary(Contract.PART_OPTIC_T2)
+	if _part_toast_lbl == null or _part_toast_lbl.text != Contract.PART_TOAST_WINDOW or not _part_toast_clearing:
+		failed.append("T2 optic toast did not show")
+	elif _part_toast_lbl.text.find("%") >= 0 or _part_toast_lbl.text.find("1.") >= 0:
+		failed.append("T2 optic toast has combat stats")
 	if failed.is_empty():
 		print("PART_TOAST_OK")
 		return 0
@@ -676,29 +702,40 @@ func _capture_gun_rack_dynamic() -> void:
 	await _capture_named("res://artifacts/ux/gun_rack_dynamic.png", "GUN_RACK_DYNAMIC")
 
 
+func _fit_part_plate() -> void:
+	## Same wood plate, tall enough for T1 + T2 on each of the three slots.
+	if _shop_row:
+		_shop_row.visible = true
+		_shop_row.offset_left = 72
+		_shop_row.offset_right = -72
+		_shop_row.offset_top = -640
+		_shop_row.offset_bottom = -16
+	_hide_non_part_shop_rows()
+
+
 func _capture_part_armory() -> void:
-	## Third Marks row: Optic ★75 · Stock ★100 · Barrel ★125. No combat copy.
+	## PARTS ladder at the stub wallet: shared insufficient plate, no per-row Marks line.
 	if not ClientSession.use_live_api():
 		MockMatchServer.reset_wallet(24)
 	_bind_wallet()
 	_bind_shop()
 	_refresh_marks()
 	_refresh_shop()
-	if _shop_row:
-		_shop_row.visible = true
-		_shop_row.offset_top = -360
-		_shop_row.offset_bottom = -88
-	_hide_non_part_shop_rows()
+	_fit_part_plate()
 	_toast_msg("")
 	await _capture_named("res://artifacts/ux/part_armory_row.png", "PART_ARMORY_ROW")
 
 
 func _capture_part_equipped() -> void:
+	## T2 wears the slot. T1 stays owned. Green peg chips use the equipped id.
 	if not ClientSession.use_live_api():
-		MockMatchServer.reset_wallet(400)
+		MockMatchServer.reset_wallet(900)
 		MockMatchServer.buy_shop(Contract.PART_OPTIC, "ux-part-optic")
 		MockMatchServer.buy_shop(Contract.PART_STOCK, "ux-part-stock")
 		MockMatchServer.buy_shop(Contract.PART_BARREL, "ux-part-barrel")
+		MockMatchServer.buy_shop(Contract.PART_OPTIC_T2, "ux-part-optic-t2")
+		MockMatchServer.buy_shop(Contract.PART_STOCK_T2, "ux-part-stock-t2")
+		MockMatchServer.buy_shop(Contract.PART_BARREL_T2, "ux-part-barrel-t2")
 	_bind_wallet()
 	_bind_shop()
 	_refresh_marks()
@@ -712,20 +749,75 @@ func _capture_part_equipped() -> void:
 
 func _capture_part_buy_toast() -> void:
 	if not ClientSession.use_live_api():
-		MockMatchServer.reset_wallet(200)
+		MockMatchServer.reset_wallet(400)
+		MockMatchServer.buy_shop(Contract.PART_OPTIC, "ux-part-optic-owned")
+	_bind_wallet()
+	_bind_shop()
+	_refresh_marks()
+	_refresh_shop()
+	_fit_part_plate()
+	await get_tree().process_frame
+	_on_shop_primary(Contract.PART_OPTIC_T2)
+	await get_tree().process_frame
+	await _capture_named("res://artifacts/ux/part_buy_toast.png", "PART_BUY_TOAST")
+
+
+func _capture_part_t2_set() -> void:
+	## Four stills: ladder prices, shared insufficient plate, buy-feel toast, green pegs.
+	if not ClientSession.use_live_api():
+		MockMatchServer.reset_wallet(900)
+	_bind_wallet()
+	_bind_shop()
+	_refresh_marks()
+	_refresh_shop()
+	_fit_part_plate()
+	_toast_msg("")
+	_sync_part_marks_toast()
+	await _capture_named("res://artifacts/ux/part_t2_rows.png", "PART_T2_ROWS", false)
+
+	if not ClientSession.use_live_api():
+		MockMatchServer.reset_wallet(24)
+	_bind_wallet()
+	_bind_shop()
+	_refresh_marks()
+	_refresh_shop()
+	_fit_part_plate()
+	_toast_msg("")
+	_sync_part_marks_toast()
+	await _capture_named("res://artifacts/ux/part_t2_insufficient.png", "PART_T2_INSUFFICIENT", false)
+
+	if not ClientSession.use_live_api():
+		MockMatchServer.reset_wallet(400)
+		MockMatchServer.buy_shop(Contract.PART_OPTIC, "ux-t2-optic-t1")
+	_bind_wallet()
+	_bind_shop()
+	_refresh_marks()
+	_refresh_shop()
+	_fit_part_plate()
+	await get_tree().process_frame
+	_on_shop_primary(Contract.PART_OPTIC_T2)
+	await get_tree().process_frame
+	await _capture_named("res://artifacts/ux/part_t2_buy_toast.png", "PART_T2_BUY_TOAST", false)
+
+	if not ClientSession.use_live_api():
+		MockMatchServer.reset_wallet(900)
+		MockMatchServer.buy_shop(Contract.PART_OPTIC, "ux-t2-eq-o")
+		MockMatchServer.buy_shop(Contract.PART_STOCK, "ux-t2-eq-s")
+		MockMatchServer.buy_shop(Contract.PART_BARREL, "ux-t2-eq-b")
+		MockMatchServer.buy_shop(Contract.PART_OPTIC_T2, "ux-t2-eq-o2")
+		MockMatchServer.buy_shop(Contract.PART_STOCK_T2, "ux-t2-eq-s2")
+		MockMatchServer.buy_shop(Contract.PART_BARREL_T2, "ux-t2-eq-b2")
 	_bind_wallet()
 	_bind_shop()
 	_refresh_marks()
 	_refresh_shop()
 	if _shop_row:
-		_shop_row.visible = true
-		_shop_row.offset_top = -360
-		_shop_row.offset_bottom = -88
-	_hide_non_part_shop_rows()
-	await get_tree().process_frame
-	_on_shop_primary(Contract.PART_OPTIC)
-	await get_tree().process_frame
-	await _capture_named("res://artifacts/ux/part_buy_toast.png", "PART_BUY_TOAST")
+		_shop_row.visible = false
+	_refresh_part_chips()
+	if _part_toast:
+		_part_toast.visible = false
+	_toast_msg("")
+	await _capture_named("res://artifacts/ux/part_t2_equipped.png", "PART_T2_EQUIPPED")
 
 
 func _capture_part_optic_feel() -> void:

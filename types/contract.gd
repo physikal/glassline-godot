@@ -145,13 +145,19 @@ const GUN_VISUAL_COPY := "visual only"
 
 ## Gun parts — same /shop spine. Soft feel only (wobble / shot window).
 ## Never hit% · spot% · exposure floor · HIGH GROUND · BRUSH · Marks earn.
-## One equipped id per slot. Null snapshot id = the bare default.
+## One equipped id per slot. T2 replaces T1 in that slot. Null id = bare.
 const PART_OPTIC := "gun_part_optic"
 const PART_STOCK := "gun_part_stock"
 const PART_BARREL := "gun_part_barrel"
+const PART_OPTIC_T2 := "gun_part_optic_t2"
+const PART_STOCK_T2 := "gun_part_stock_t2"
+const PART_BARREL_T2 := "gun_part_barrel_t2"
 const PART_OPTIC_NAME := "OPTIC"
 const PART_STOCK_NAME := "STOCK"
 const PART_BARREL_NAME := "BARREL"
+const PART_OPTIC_T2_NAME := "OPTIC T2"
+const PART_STOCK_T2_NAME := "STOCK T2"
+const PART_BARREL_T2_NAME := "BARREL T2"
 const PART_KIND := "gun-part"
 const PART_SLOT_OPTIC := "optic"
 const PART_SLOT_STOCK := "stock"
@@ -159,12 +165,20 @@ const PART_SLOT_BARREL := "barrel"
 const PART_OPTIC_PRICE := 75
 const PART_STOCK_PRICE := 100
 const PART_BARREL_PRICE := 125
-## LIVE b5ba339. Optic is window-only. Stock 0.8, Barrel 0.9, stack 0.75.
+const PART_OPTIC_T2_PRICE := 150
+const PART_STOCK_T2_PRICE := 175
+const PART_BARREL_T2_PRICE := 200
+## Mock snapshot table matching LIVE. Attack chrome reads you.* only.
+## T1 b5ba339: optic 1.4, stock 0.8, barrel 0.9, stack 0.75.
+## T2 2608bd6: optic 1.55, stock 0.75, barrel 0.85, stack still 0.75.
 const SHOT_WINDOW_BASE_SEC := 1.2
 const SHOT_WINDOW_OPTIC_SEC := 1.4
+const SHOT_WINDOW_OPTIC_T2_SEC := 1.55
 const WOBBLE_SCALE_BASE := 1.0
 const WOBBLE_STOCK_SCALE := 0.80
 const WOBBLE_BARREL_SCALE := 0.90
+const WOBBLE_STOCK_T2_SCALE := 0.75
+const WOBBLE_BARREL_T2_SCALE := 0.85
 const WOBBLE_STACK_FLOOR := 0.75
 const PART_TOAST_WINDOW := "Shot window looser"
 const PART_TOAST_WOBBLE := "Wobble quieter"
@@ -550,19 +564,31 @@ static func shop_gun_crescent_item() -> Dictionary:
 
 
 static func shop_part_optic_item() -> Dictionary:
-	return _shop_item(PART_OPTIC, PART_OPTIC_NAME, PART_KIND, PART_OPTIC_PRICE)
+	return _shop_item(PART_OPTIC, PART_OPTIC_NAME, PART_KIND, PART_OPTIC_PRICE, 1)
 
 
 static func shop_part_stock_item() -> Dictionary:
-	return _shop_item(PART_STOCK, PART_STOCK_NAME, PART_KIND, PART_STOCK_PRICE)
+	return _shop_item(PART_STOCK, PART_STOCK_NAME, PART_KIND, PART_STOCK_PRICE, 1)
 
 
 static func shop_part_barrel_item() -> Dictionary:
-	return _shop_item(PART_BARREL, PART_BARREL_NAME, PART_KIND, PART_BARREL_PRICE)
+	return _shop_item(PART_BARREL, PART_BARREL_NAME, PART_KIND, PART_BARREL_PRICE, 1)
 
 
-static func _shop_item(item_id: String, item_name: String, kind: String, price: int) -> Dictionary:
-	return {
+static func shop_part_optic_t2_item() -> Dictionary:
+	return _shop_item(PART_OPTIC_T2, PART_OPTIC_T2_NAME, PART_KIND, PART_OPTIC_T2_PRICE, 2)
+
+
+static func shop_part_stock_t2_item() -> Dictionary:
+	return _shop_item(PART_STOCK_T2, PART_STOCK_T2_NAME, PART_KIND, PART_STOCK_T2_PRICE, 2)
+
+
+static func shop_part_barrel_t2_item() -> Dictionary:
+	return _shop_item(PART_BARREL_T2, PART_BARREL_T2_NAME, PART_KIND, PART_BARREL_T2_PRICE, 2)
+
+
+static func _shop_item(item_id: String, item_name: String, kind: String, price: int, tier: int = 0) -> Dictionary:
+	var item := {
 		"id": item_id,
 		"itemId": item_id,
 		"name": item_name,
@@ -572,6 +598,9 @@ static func _shop_item(item_id: String, item_name: String, kind: String, price: 
 		"cosmetic": true,
 		"combat": false,
 	}
+	if tier > 0:
+		item["tier"] = tier
+	return item
 
 
 static func shop_catalog_items() -> Array:
@@ -584,8 +613,11 @@ static func shop_catalog_items() -> Array:
 		shop_gun_railframe_item(),
 		shop_gun_crescent_item(),
 		shop_part_optic_item(),
+		shop_part_optic_t2_item(),
 		shop_part_stock_item(),
+		shop_part_stock_t2_item(),
 		shop_part_barrel_item(),
+		shop_part_barrel_t2_item(),
 	]
 
 
@@ -656,7 +688,12 @@ static func canonical_gun_id(item_id: String) -> String:
 
 
 static func part_ids() -> Array:
-	return [PART_OPTIC, PART_STOCK, PART_BARREL]
+	## Slot then tier, so T2 sits under its T1 on the same PARTS plate.
+	return [
+		PART_OPTIC, PART_OPTIC_T2,
+		PART_STOCK, PART_STOCK_T2,
+		PART_BARREL, PART_BARREL_T2,
+	]
 
 
 static func is_part_chrome(item_id: String) -> bool:
@@ -668,8 +705,15 @@ static func is_part_slot(slot: String) -> bool:
 
 
 static func canonical_part_id(item_id: String) -> String:
-	## LIVE ids gun_part_*. kind gun-part. Never a skin, decor, or gun slot.
+	## LIVE ids gun_part_*. kind gun-part. T2 does not collapse into T1.
+	## Never a skin, decor, or gun slot.
 	match str(item_id):
+		PART_OPTIC_T2, "part_optic_t2", "optic_t2":
+			return PART_OPTIC_T2
+		PART_STOCK_T2, "part_stock_t2", "stock_t2":
+			return PART_STOCK_T2
+		PART_BARREL_T2, "part_barrel_t2", "barrel_t2":
+			return PART_BARREL_T2
 		PART_OPTIC, "part_optic", "optic", "toy_optic", "glass_optic":
 			return PART_OPTIC
 		PART_STOCK, "part_stock", "stock", "toy_stock", "shoulder_stock":
@@ -682,11 +726,11 @@ static func canonical_part_id(item_id: String) -> String:
 
 static func part_slot(item_id: String) -> String:
 	match canonical_part_id(item_id):
-		PART_OPTIC:
+		PART_OPTIC, PART_OPTIC_T2:
 			return PART_SLOT_OPTIC
-		PART_STOCK:
+		PART_STOCK, PART_STOCK_T2:
 			return PART_SLOT_STOCK
-		PART_BARREL:
+		PART_BARREL, PART_BARREL_T2:
 			return PART_SLOT_BARREL
 		_:
 			return ""
@@ -694,6 +738,12 @@ static func part_slot(item_id: String) -> String:
 
 static func part_name(item_id: String) -> String:
 	match canonical_part_id(item_id):
+		PART_STOCK_T2:
+			return PART_STOCK_T2_NAME
+		PART_BARREL_T2:
+			return PART_BARREL_T2_NAME
+		PART_OPTIC_T2:
+			return PART_OPTIC_T2_NAME
 		PART_STOCK:
 			return PART_STOCK_NAME
 		PART_BARREL:
@@ -736,20 +786,41 @@ static func part_row_status(owned: bool, can_buy: bool, equipped: bool) -> Strin
 	return ""
 
 
-static func local_wobble_scale(stock_on: bool, barrel_on: bool) -> float:
-	## Mock snapshot table, matching LIVE. The client does not call this for Attack chrome.
-	if stock_on and barrel_on:
+static func _part_feel_id(value: Variant, t1_when_true: String) -> String:
+	## Bool true is the T1 id (older call sites). A string is that equipped id.
+	if value is bool:
+		return t1_when_true if value else ""
+	if value == null:
+		return ""
+	return canonical_part_id(str(value))
+
+
+static func local_wobble_scale(stock_on: Variant = false, barrel_on: Variant = false) -> float:
+	## Mock snapshot table, matching LIVE. Attack chrome does not call this.
+	## Any stock plus any barrel floors at 0.75. T2 stock alone is already 0.75.
+	var stock_id := _part_feel_id(stock_on, PART_STOCK)
+	var barrel_id := _part_feel_id(barrel_on, PART_BARREL)
+	if stock_id != "" and barrel_id != "":
 		return WOBBLE_STACK_FLOOR
-	if stock_on:
+	if stock_id == PART_STOCK_T2:
+		return WOBBLE_STOCK_T2_SCALE
+	if stock_id == PART_STOCK:
 		return WOBBLE_STOCK_SCALE
-	if barrel_on:
+	if barrel_id == PART_BARREL_T2:
+		return WOBBLE_BARREL_T2_SCALE
+	if barrel_id == PART_BARREL:
 		return WOBBLE_BARREL_SCALE
 	return WOBBLE_SCALE_BASE
 
 
-static func local_shot_window_sec(optic_on: bool) -> float:
-	## Mock snapshot table, matching LIVE. The client does not call this for Attack chrome.
-	return SHOT_WINDOW_OPTIC_SEC if optic_on else SHOT_WINDOW_BASE_SEC
+static func local_shot_window_sec(optic_on: Variant = false) -> float:
+	## Mock snapshot table, matching LIVE. Attack chrome does not call this.
+	var optic_id := _part_feel_id(optic_on, PART_OPTIC)
+	if optic_id == PART_OPTIC_T2:
+		return SHOT_WINDOW_OPTIC_T2_SEC
+	if optic_id == PART_OPTIC:
+		return SHOT_WINDOW_OPTIC_SEC
+	return SHOT_WINDOW_BASE_SEC
 
 
 static func feel_number(value: Variant) -> bool:
@@ -822,8 +893,8 @@ static func shop_catalog_stub(
 			owned_part_ids.append(pid)
 	if not owned_gun_ids.has(GUN_FIELDBOLT):
 		owned_gun_ids.append(GUN_FIELDBOLT)
-	var wobble := local_wobble_scale(stock_id != "", barrel_id != "")
-	var window_sec := local_shot_window_sec(optic_id != "")
+	var wobble := local_wobble_scale(stock_id, barrel_id)
+	var window_sec := local_shot_window_sec(optic_id)
 	return {
 		"items": shop_catalog_items(),
 		"you": {
