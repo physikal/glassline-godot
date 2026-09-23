@@ -18,12 +18,21 @@ Fieldbolt (24, 192, 268×56) and Railframe (24, 252, 268×56) already sat on the
 
 `optic-attack.jpg` was already the full-screen plate (thumb stick over the D-pad, Fire a separate tap). Hex faces are z 1–2 and were drawing **through** the scope, so the landscape read as hex tiles. The plate now uses z 36 (`z_as_relative = false`), above the board and under the forfeit plate (z 50). No hex stamp is drawn inside the optic.
 
+## Locked canon targets
+
+| Surface | Compare to | Live |
+| --- | --- | --- |
+| Hideout rack | `lobby-canon.jpg` bolts + `match-board-canon.jpg` HUD | Fieldbolt **equipped** (gold underline) · Railframe **owned** (plate paint) · Crescent **locked** (wash). No new SKUs. |
+| Attack optic | `optic-attack.jpg` + match-board plate | **Joystick** over the plate plus. The painted D-pad stays covered. Fire is still a separate tap. |
+
 ## Stills
 
 - Before rack: `artifacts/ux/chrome_reconfirm_rack_before.png`
 - After rack (Fieldbolt equipped · Railframe owned · Crescent locked): `artifacts/ux/chrome_reconfirm_rack_after.png`
 - Before optic: `artifacts/ux/chrome_reconfirm_optic_before.png`
 - After optic: `artifacts/ux/chrome_reconfirm_optic_after.png`
+- Side-by-side rack vs lobby-canon + match-board: `artifacts/ux/chrome_reconfirm_sbs_rack.png`
+- Side-by-side optic joystick vs optic-attack + match-board: `artifacts/ux/chrome_reconfirm_sbs_optic.png`
 
 ```bash
 godot --headless --path . -s res://tools/headless_loop_test.gd   # HEADLESS_LOOP_OK
