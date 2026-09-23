@@ -2,11 +2,12 @@
 .godot/
 *.translation
 export.cfg
-export_presets.cfg
+# export_presets.cfg is committed so the Windows LIVE desktop export is reproducible.
 *.apk
 *.aab
 *.zip
 *.pck
+/build/
 
 # Local editor binary (do not commit)
 /godot
