@@ -16,6 +16,9 @@ const JOBS_ORANGE := Color("e87a22")
 const ATTACK_RED := Color("c23b3b")
 const RECON_BLUE := Color("1f6feb")
 const ABILITY_PURPLE := Color("6b4ac7")
+## Spent SMOKE plate. Grey muted wood — not a darkened purple.
+const SMOKE_SPENT := Color("6d675e")
+const SMOKE_SPENT_INK := Color("e4ddd2")
 const DECOY_CARAMEL := Color("c46b3a")
 const HIGH_GOLD := Color("c9a24a")
 ## Bandana recolor wash — toy chrome tint, not a new plate / mil-sim art.
@@ -175,15 +178,34 @@ static func smoke_chip() -> Button:
 
 
 static func paint_smoke_chip(button: Button, available: bool) -> void:
-	## Lit only while snapshot smokeAvailable. Spent and missing fields stay muted.
+	## Lit hot purple only while snapshot smokeAvailable.
+	## Spent and missing fields stay grey wood. Same puff; theme mutes it.
 	if button == null:
 		return
 	button.set_meta("smoke_lit", available)
 	button.text = Contract.SMOKE_LABEL
-	var bg := ABILITY_PURPLE if available else Color("3a3058")
-	var fg := Color.WHITE if available else Color("9a94a8")
+	var bg := ABILITY_PURPLE if available else SMOKE_SPENT
+	var fg := Color.WHITE if available else SMOKE_SPENT_INK
 	paint_chunk_button(button, bg, fg)
-	button.icon = make_icon("smoke", fg, 30)
+	## One white puff. Spent multiplies it by the grey ink — no second texture.
+	button.icon = make_icon("smoke", Color.WHITE, 30)
+	var icon_tint := Color.WHITE if available else SMOKE_SPENT_INK
+	for state in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
+		button.add_theme_color_override("icon_%s_color" % state, icon_tint)
+	if not available:
+		## The HUD shows this chip disabled once the charge is gone.
+		## Keep the plate and the label on the grey wood — do not darken
+		## back toward purple or fade the word out.
+		var radius := 18
+		var edge := SMOKE_SPENT.lightened(0.18)
+		button.add_theme_stylebox_override("normal", flat(SMOKE_SPENT, radius, edge, 3))
+		button.add_theme_stylebox_override("hover", flat(SMOKE_SPENT.lightened(0.04), radius, edge, 3))
+		button.add_theme_stylebox_override("pressed", flat(SMOKE_SPENT.darkened(0.06), radius, edge, 3))
+		button.add_theme_stylebox_override("disabled", flat(SMOKE_SPENT, radius, edge, 3))
+		button.add_theme_color_override("font_color", SMOKE_SPENT_INK)
+		button.add_theme_color_override("font_hover_color", SMOKE_SPENT_INK)
+		button.add_theme_color_override("font_pressed_color", SMOKE_SPENT_INK)
+		button.add_theme_color_override("font_disabled_color", SMOKE_SPENT_INK)
 	button.tooltip_text = Contract.SMOKE_COPY if available else Contract.SMOKE_SPENT_COPY
 
 
