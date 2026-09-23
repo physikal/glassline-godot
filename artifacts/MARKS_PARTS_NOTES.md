@@ -5,19 +5,19 @@ Same `/shop` spine as guns: `GET /shop` + `POST /shop/buy` `{ itemId, clientBuyI
 
 Hard: **server owns feel** · **client never authors kill / spot / exposure / HG / SMOKE math** · **no IAP** · **no mil-sim art** · **practice Marks Δ0**.
 
-Editor Play stays MOCK (`use_live_api=false`). Live catalog that omits a part keeps the row and mutes BUY (`pending`) so the client does not POST. When `/shop` lists the id, the row wires.
+Editor Play stays MOCK (`use_live_api=false`). LIVE `GET /shop` lists `gun_part_optic` / `gun_part_stock` / `gun_part_barrel` (`kind: gun-part`). ARMORY buys those ids on the shop spine. A catalog that omits one still shows the row and the buy posts.
 
 ## Feel (chrome only)
 
 | Part | id | slot | price | juice |
 | --- | --- | --- | --- | --- |
-| OPTIC | `part_optic` | `equippedOpticId` | ★75 | shot window 1.2s → 1.4s |
-| STOCK | `part_stock` | `equippedStockId` | ★100 | wobble ×0.80 |
-| BARREL | `part_barrel` | `equippedBarrelId` | ★125 | wobble ×0.90 |
+| OPTIC | `gun_part_optic` | `equippedOpticId` | ★75 | `shotWindowSec` 1.2 → 1.4 |
+| STOCK | `gun_part_stock` | `equippedStockId` | ★100 | `wobbleScale` 0.8 |
+| BARREL | `gun_part_barrel` | `equippedBarrelId` | ★125 | `wobbleScale` 0.9 |
 
 Stock + barrel stack floors at ×0.75 (−25%). Optic does not change wobble. Stock and barrel do not change the window. One equipped id per slot.
 
-`you.wobbleScale` / `you.shotWindowMs`, when they are numbers, win. Missing or null fields use the table above for Attack chrome only. Hit resolution stays the occupy formula.
+LIVE `b5ba339` publishes `you.shotWindowSec` and `you.wobbleScale` as numbers. Those win for Attack chrome. Missing or null fields use the table above for juice only. Hit resolution stays the occupy formula. Kind is `gun-part`. A catalog that already lists the three ids buys on the shop spine — rows are not muted.
 
 ## Bind
 

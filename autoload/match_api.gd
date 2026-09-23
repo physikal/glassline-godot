@@ -121,8 +121,8 @@ func get_shop() -> Dictionary:
 					body["ownedParts"] = you.get("ownedParts")
 				if you.has("wobbleScale"):
 					body["wobbleScale"] = you.get("wobbleScale")
-				if you.has("shotWindowMs"):
-					body["shotWindowMs"] = you.get("shotWindowMs")
+				if you.has("shotWindowSec"):
+					body["shotWindowSec"] = you.get("shotWindowSec")
 			if me.has("owned"):
 				body["owned"] = me.get("owned")
 			if me.has("ownedGuns"):

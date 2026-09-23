@@ -2212,8 +2212,9 @@ func _part_sink_case(failed: PackedStringArray) -> void:
 	_expect(failed, is_equal_approx(Contract.local_wobble_scale(true, false), 0.80), "P stock wobble −20%")
 	_expect(failed, is_equal_approx(Contract.local_wobble_scale(false, true), 0.90), "P barrel wobble −10%")
 	_expect(failed, is_equal_approx(Contract.local_wobble_scale(true, true), 0.75), "P stack wobble cap −25%")
-	_expect(failed, Contract.local_shot_window_ms(false) == 1200, "P base window 1.2s")
-	_expect(failed, Contract.local_shot_window_ms(true) == 1400, "P optic window 1.4s")
+	_expect(failed, is_equal_approx(Contract.local_shot_window_sec(false), 1.2), "P base window 1.2s")
+	_expect(failed, is_equal_approx(Contract.local_shot_window_sec(true), 1.4), "P optic window 1.4s")
+	_expect(failed, Contract.PART_OPTIC == "gun_part_optic" and Contract.PART_KIND == "gun-part", "P live part ids")
 	_expect(failed, is_equal_approx(Contract.local_wobble_scale(false, false), 1.0), "P bare wobble")
 	_expect(failed, Contract.part_buy_toast(Contract.PART_OPTIC) == Contract.PART_TOAST_WINDOW, "P optic toast")
 	_expect(failed, Contract.part_buy_toast(Contract.PART_STOCK) == Contract.PART_TOAST_WOBBLE, "P stock toast")
@@ -2223,25 +2224,26 @@ func _part_sink_case(failed: PackedStringArray) -> void:
 		"items": [{"id": "skin_hideout_stub", "name": "Hideout Skin (stub)", "price": 50, "kind": "skin"}],
 	}))
 	_expect(failed, lagged.has_item(Contract.PART_OPTIC), "P lag still shows optic row")
-	_expect(failed, lagged.catalog_pending(Contract.PART_OPTIC), "P omitted optic is pending")
-	_expect(failed, lagged.catalog_pending(Contract.PART_BARREL), "P omitted barrel is pending")
+	_expect(failed, not lagged.catalog_pending(Contract.PART_OPTIC), "P omitted optic stays buyable")
+	_expect(failed, not lagged.catalog_pending(Contract.PART_BARREL), "P omitted barrel stays buyable")
 	_expect(failed, not lagged.catalog_pending(Contract.GUN_RAILFRAME), "P gun lag stays buyable")
 	var live_parts = Shop.from_any(Contract.merge_live_shop_catalog({
 		"items": [
-			{"id": "part_optic", "name": "TOY OPTIC", "price": 75, "kind": "part"},
-			{"id": "part_stock", "name": "TOY STOCK", "price": 100, "kind": "part"},
-			{"id": "part_barrel", "name": "TOY BARREL", "price": 125, "kind": "part"},
+			{"id": "gun_part_optic", "name": "OPTIC", "price": 75, "kind": "gun-part"},
+			{"id": "gun_part_stock", "name": "STOCK", "price": 100, "kind": "gun-part"},
+			{"id": "gun_part_barrel", "name": "BARREL", "price": 125, "kind": "gun-part"},
 		],
 	}))
 	_expect(failed, not live_parts.catalog_pending(Contract.PART_OPTIC), "P live optic is wired")
-	_expect(failed, live_parts.name_of(Contract.PART_OPTIC) == "TOY OPTIC", "P prefer LIVE optic name")
+	_expect(failed, live_parts.name_of(Contract.PART_OPTIC) == "OPTIC", "P prefer LIVE optic name")
 	_expect(failed, live_parts.price_of(Contract.PART_OPTIC) == 75, "P live optic price")
+	_expect(failed, str(live_parts.item_for(Contract.PART_OPTIC).get("kind", "")) == "gun-part", "P live kind gun-part")
 
 	var session = SessionScript.new()
 	session.apply_shop(server.get_shop())
 	_expect(failed, session.equipped_optic_id() == "", "P default optic empty")
 	_expect(failed, is_equal_approx(session.attack_wobble_scale(), 1.0), "P default wobble 1")
-	_expect(failed, session.feel_shot_window_ms == 1200, "P default window from server 1200")
+	_expect(failed, is_equal_approx(session.feel_shot_window_sec, 1.2), "P default window from server 1.2")
 	_expect(failed, session.feel_wobble_from_server, "P mock snapshot names wobbleScale")
 	var poor: Dictionary = server.buy_shop(Contract.PART_OPTIC, Contract.new_client_buy_id())
 	_expect(failed, str(poor.get("error", "")) == Contract.SHOP_ERR_INSUFFICIENT, "P insufficient optic")
@@ -2260,7 +2262,7 @@ func _part_sink_case(failed: PackedStringArray) -> void:
 	_expect(failed, session.marks == 325, "P optic 400-75 from snapshot")
 	_expect(failed, session.owns_part(Contract.PART_OPTIC), "P owns optic")
 	_expect(failed, session.is_equipped(Contract.PART_OPTIC), "P optic auto-equip")
-	_expect(failed, session.feel_shot_window_ms == 1400, "P server window 1400")
+	_expect(failed, is_equal_approx(session.feel_shot_window_sec, 1.4), "P server window 1.4")
 	_expect(failed, is_equal_approx(session.attack_wobble_scale(), 1.0), "P optic does not change wobble")
 	var replay: Dictionary = server.buy_shop(Contract.PART_OPTIC, optic_id)
 	_expect(failed, bool(replay.get("ok", false)) and server.account_marks == 325, "P optic clientBuyId idempotent")
@@ -2270,7 +2272,7 @@ func _part_sink_case(failed: PackedStringArray) -> void:
 	_expect(failed, session.is_equipped(Contract.PART_STOCK) and session.is_equipped(Contract.PART_BARREL), "P stock and barrel equipped")
 	_expect(failed, session.is_equipped(Contract.PART_OPTIC), "P optic slot survives stock buy")
 	_expect(failed, is_equal_approx(session.attack_wobble_scale(), 0.75), "P server stack wobble 0.75")
-	_expect(failed, session.feel_shot_window_ms == 1400, "P barrel does not change window")
+	_expect(failed, is_equal_approx(session.feel_shot_window_sec, 1.4), "P barrel does not change window")
 	_expect(failed, session.equipped_gun_id() == Contract.GUN_FIELDBOLT, "P parts do not clobber gun")
 	var off: Dictionary = server.equip_cosmetic("", Contract.PART_SLOT_STOCK)
 	session.apply_shop(off)
@@ -2294,17 +2296,18 @@ func _part_sink_case(failed: PackedStringArray) -> void:
 	local.apply_shop({"you": {"marks": 10, "equippedOpticId": Contract.PART_OPTIC, "equippedStockId": Contract.PART_STOCK, "equippedBarrelId": Contract.PART_BARREL}})
 	_expect(failed, not local.feel_wobble_from_server and not local.feel_window_from_server, "P omitted feel is not server")
 	_expect(failed, is_equal_approx(local.attack_wobble_scale(), 0.75), "P local stack cap")
-	_expect(failed, local.feel_shot_window_ms == 1400, "P local optic window")
-	local.apply_shop({"you": {"marks": 10, "wobbleScale": 0.55, "shotWindowMs": 900, "equippedOpticId": null, "equippedStockId": null, "equippedBarrelId": null}})
+	_expect(failed, is_equal_approx(local.feel_shot_window_sec, 1.4), "P local optic window")
+	local.apply_shop({"you": {"marks": 10, "wobbleScale": 0.55, "shotWindowSec": 0.9, "equippedOpticId": null, "equippedStockId": null, "equippedBarrelId": null}})
 	_expect(failed, local.feel_wobble_from_server and is_equal_approx(local.attack_wobble_scale(), 0.55), "P server wobble wins")
-	_expect(failed, local.feel_window_from_server and local.feel_shot_window_ms == 900, "P server window wins")
+	_expect(failed, local.feel_window_from_server and is_equal_approx(local.feel_shot_window_sec, 0.9), "P server window wins")
 	_expect(failed, local.equipped_optic_id() == "", "P null optic id is default")
 	var bare: Snapshot = Snapshot.from_dict({"you": {"seat": "a", "marks": 0}})
-	_expect(failed, bare.you_equipped_optic_id() == "" and bare.you_wobble_scale() == null and bare.you_shot_window_ms() == null, "P missing snapshot fields fail closed")
-	var named: Snapshot = Snapshot.from_dict({"you": {"equippedOpticId": "part_optic", "equippedStockId": null, "wobbleScale": 0.8, "shotWindowMs": 1400}})
+	_expect(failed, bare.you_equipped_optic_id() == "" and bare.you_wobble_scale() == null and bare.you_shot_window_sec() == null, "P missing snapshot fields fail closed")
+	var named: Snapshot = Snapshot.from_dict({"you": {"equippedOpticId": "gun_part_optic", "equippedStockId": null, "wobbleScale": 0.8, "shotWindowSec": 1.4}})
 	_expect(failed, named.you_equipped_optic_id() == Contract.PART_OPTIC, "P snapshot optic id")
 	_expect(failed, named.you_equipped_stock_id() == "", "P snapshot null stock")
 	_expect(failed, is_equal_approx(float(named.you_wobble_scale()), 0.8), "P snapshot wobbleScale")
+	_expect(failed, is_equal_approx(float(named.you_shot_window_sec()), 1.4), "P snapshot shotWindowSec")
 	local.free()
 
 	## Combat parity: parts do not move hit / spot / exposure / practice Marks.
@@ -2411,7 +2414,7 @@ func _part_practice_run() -> Dictionary:
 		"ok": bool(kill.ok),
 		"kill_delta": kill_snap.marks_delta(),
 		"wallet_held": int(server.account_marks) == wallet_before,
-		"feel_window": int(kill_snap.you_shot_window_ms() if kill_snap.you_shot_window_ms() != null else 0) == 1400,
+		"feel_window": kill_snap.you_shot_window_sec() != null and is_equal_approx(float(kill_snap.you_shot_window_sec()), 1.4),
 		"chance_formula": _part_chance_ok(kill_last),
 	}
 

@@ -17,7 +17,7 @@ var equipped_stock: String = ""
 var equipped_barrel: String = ""
 var owned_parts: Array = []
 var wobble_scale: Variant = null
-var shot_window_ms: Variant = null
+var shot_window_sec: Variant = null
 var error: String = ""
 var ok: bool = true
 var owned_present: bool = false
@@ -60,11 +60,11 @@ static func from_any(payload: Variant):
 	parsed.owned_parts = _read_owned_parts(bag, root)
 	parsed.marks = _read_marks(bag, root)
 	var wobble := _read_feel(bag, root, "wobbleScale")
-	var window := _read_feel(bag, root, "shotWindowMs")
+	var window := _read_feel(bag, root, "shotWindowSec")
 	parsed.wobble_present = bool(wobble.get("present", false))
 	parsed.window_present = bool(window.get("present", false))
 	parsed.wobble_scale = wobble.get("value", null)
-	parsed.shot_window_ms = window.get("value", null)
+	parsed.shot_window_sec = window.get("value", null)
 	parsed.owned_present = _has_owned(bag, root)
 	parsed.equipped_present = _has_equipped(bag, root)
 	parsed.equipped_decor_present = _has_equipped_decor(bag, root)
@@ -493,7 +493,7 @@ static func _has_owned_parts(bag: Dictionary, root: Dictionary) -> bool:
 
 
 static func _read_feel(bag: Dictionary, root: Dictionary, key: String) -> Dictionary:
-	## wobbleScale / shotWindowMs. Missing key is not a number. Null stays missing.
+	## wobbleScale / shotWindowSec. Missing key is not a number. Null stays missing.
 	for source in [bag, root]:
 		var you: Variant = source.get("you", {})
 		if you is Dictionary and you.has(key):

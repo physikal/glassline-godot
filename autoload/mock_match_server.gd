@@ -24,7 +24,7 @@ var test_high_ground_active: Variant = null
 ## Never derived from operativeLevel or cosmetics.
 var test_exposure_floor: Variant = null
 var test_omit_exposure_floor: bool = false
-## Drop wobbleScale / shotWindowMs so the client uses Design juice locally.
+## Drop wobbleScale / shotWindowSec so the client uses Design juice locally.
 var test_omit_part_feel: bool = false
 ## Display stub for hideout. Persists across matches; tests call reset_wallet().
 var account_marks: int = Contract.MOCK_WALLET_STUB
@@ -310,11 +310,11 @@ func _omit_part_feel(bag: Dictionary) -> Dictionary:
 	if not test_omit_part_feel:
 		return bag
 	bag.erase("wobbleScale")
-	bag.erase("shotWindowMs")
+	bag.erase("shotWindowSec")
 	var you: Variant = bag.get("you", {})
 	if you is Dictionary:
 		you.erase("wobbleScale")
-		you.erase("shotWindowMs")
+		you.erase("shotWindowSec")
 	return bag
 
 
@@ -346,7 +346,7 @@ func _shop_ok(result: Dictionary = {}) -> Dictionary:
 		"equippedBarrelId": equipped_barrel if equipped_barrel != "" else null,
 		"ownedParts": owned_parts.duplicate(),
 		"wobbleScale": _feel_field(snap, "wobbleScale"),
-		"shotWindowMs": _feel_field(snap, "shotWindowMs"),
+		"shotWindowSec": _feel_field(snap, "shotWindowSec"),
 		"marks": account_marks,
 		"result": result,
 	}
@@ -371,7 +371,7 @@ func _shop_reject(reason: String) -> Dictionary:
 		"equippedBarrelId": equipped_barrel if equipped_barrel != "" else null,
 		"ownedParts": owned_parts.duplicate(),
 		"wobbleScale": _feel_field(snap, "wobbleScale"),
-		"shotWindowMs": _feel_field(snap, "shotWindowMs"),
+		"shotWindowSec": _feel_field(snap, "shotWindowSec"),
 		"marks": account_marks,
 		"result": {"type": Contract.ACT_REJECT, "reason": reason},
 	}
@@ -1942,7 +1942,7 @@ func _snapshot_for_seat(match_state: Dictionary, seat: String) -> Dictionary:
 			"equippedBarrelId": equipped_barrel if equipped_barrel != "" else null,
 			"ownedParts": owned_parts.duplicate(),
 			"wobbleScale": Contract.local_wobble_scale(equipped_stock != "", equipped_barrel != ""),
-			"shotWindowMs": Contract.local_shot_window_ms(equipped_optic != ""),
+			"shotWindowSec": Contract.local_shot_window_sec(equipped_optic != ""),
 			"decoyAvailable": bool(you.get("decoyAvailable", false)),
 			"decoyRemaining": 1 if bool(you.get("decoyAvailable", false)) else 0,
 			"decoyHex": _decoy_hex_for_snap(you, match_state),

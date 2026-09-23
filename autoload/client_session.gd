@@ -49,7 +49,7 @@ var equipped_optic: String = ""
 var equipped_stock: String = ""
 var equipped_barrel: String = ""
 var feel_wobble_scale: float = Contract.WOBBLE_SCALE_BASE
-var feel_shot_window_ms: int = Contract.SHOT_WINDOW_BASE_MS
+var feel_shot_window_sec: float = Contract.SHOT_WINDOW_BASE_SEC
 var feel_wobble_from_server: bool = false
 var feel_window_from_server: bool = false
 ## Display cache of server you.exposureFloor. Missing payload → start 50.
@@ -337,7 +337,7 @@ func attack_wobble_scale() -> float:
 
 
 func attack_shot_window_sec() -> float:
-	return float(feel_shot_window_ms) / 1000.0
+	return feel_shot_window_sec
 
 
 func _bind_part_feel(bag: Dictionary) -> void:
@@ -362,18 +362,18 @@ func _bind_part_feel(bag: Dictionary) -> void:
 		wobble_value = root.get("wobbleScale")
 	var window_present := false
 	var window_value: Variant = null
-	if you.has("shotWindowMs") and Contract.feel_number(you.get("shotWindowMs")):
+	if you.has("shotWindowSec") and Contract.feel_number(you.get("shotWindowSec")):
 		window_present = true
-		window_value = you.get("shotWindowMs")
-	elif root.has("shotWindowMs") and Contract.feel_number(root.get("shotWindowMs")) and not you.has("shotWindowMs"):
+		window_value = you.get("shotWindowSec")
+	elif root.has("shotWindowSec") and Contract.feel_number(root.get("shotWindowSec")) and not you.has("shotWindowSec"):
 		window_present = true
-		window_value = root.get("shotWindowMs")
+		window_value = root.get("shotWindowSec")
 	feel_wobble_from_server = wobble_present
 	feel_window_from_server = window_present
 	feel_wobble_scale = Contract.resolve_wobble_scale(
 		wobble_present, wobble_value, equipped_stock_id() != "", equipped_barrel_id() != ""
 	)
-	feel_shot_window_ms = Contract.resolve_shot_window_ms(
+	feel_shot_window_sec = Contract.resolve_shot_window_sec(
 		window_present, window_value, equipped_optic_id() != ""
 	)
 
@@ -414,7 +414,7 @@ func apply_snapshot(snap: Dictionary) -> void:
 				or you.has("equippedGunId") or you.has("ownedGuns") or you.has("ownedGunIds") \
 				or you.has("equippedOpticId") or you.has("equippedStockId") or you.has("equippedBarrelId") \
 				or you.has("ownedParts") or you.has("ownedPartIds") \
-				or you.has("wobbleScale") or you.has("shotWindowMs"):
+				or you.has("wobbleScale") or you.has("shotWindowSec"):
 			apply_shop({
 				"you": you,
 				"owned": you.get("owned", owned_cosmetics),
@@ -428,7 +428,7 @@ func apply_snapshot(snap: Dictionary) -> void:
 				"equippedBarrelId": you.get("equippedBarrelId", null) if you.has("equippedBarrelId") else equipped_barrel,
 				"ownedParts": you.get("ownedParts", you.get("ownedPartIds", owned_parts)),
 				"wobbleScale": you.get("wobbleScale", null) if you.has("wobbleScale") else null,
-				"shotWindowMs": you.get("shotWindowMs", null) if you.has("shotWindowMs") else null,
+				"shotWindowSec": you.get("shotWindowSec", null) if you.has("shotWindowSec") else null,
 			})
 	else:
 		bind_marks(0)

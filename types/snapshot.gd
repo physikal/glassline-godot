@@ -383,9 +383,9 @@ func you_wobble_scale() -> Variant:
 	return _you_feel_number("wobbleScale")
 
 
-func you_shot_window_ms() -> Variant:
-	## Server you.shotWindowMs only. Null when omitted or not a number.
-	return _you_feel_number("shotWindowMs")
+func you_shot_window_sec() -> Variant:
+	## Server you.shotWindowSec only. Null when omitted or not a number.
+	return _you_feel_number("shotWindowSec")
 
 
 func _you_feel_number(key: String) -> Variant:

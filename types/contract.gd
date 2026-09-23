@@ -146,22 +146,22 @@ const GUN_VISUAL_COPY := "visual only"
 ## Gun parts — same /shop spine. Soft feel only (wobble / shot window).
 ## Never hit% · spot% · exposure floor · HIGH GROUND · BRUSH · Marks earn.
 ## One equipped id per slot. Null snapshot id = the bare default.
-const PART_OPTIC := "part_optic"
-const PART_STOCK := "part_stock"
-const PART_BARREL := "part_barrel"
+const PART_OPTIC := "gun_part_optic"
+const PART_STOCK := "gun_part_stock"
+const PART_BARREL := "gun_part_barrel"
 const PART_OPTIC_NAME := "OPTIC"
 const PART_STOCK_NAME := "STOCK"
 const PART_BARREL_NAME := "BARREL"
-const PART_KIND := "part"
+const PART_KIND := "gun-part"
 const PART_SLOT_OPTIC := "optic"
 const PART_SLOT_STOCK := "stock"
 const PART_SLOT_BARREL := "barrel"
 const PART_OPTIC_PRICE := 75
 const PART_STOCK_PRICE := 100
 const PART_BARREL_PRICE := 125
-## Design lock 2026-09-23. Optic is window-only. Stock −20%, Barrel −10%, stack floor −25%.
-const SHOT_WINDOW_BASE_MS := 1200
-const SHOT_WINDOW_OPTIC_MS := 1400
+## LIVE b5ba339. Optic is window-only. Stock 0.8, Barrel 0.9, stack 0.75.
+const SHOT_WINDOW_BASE_SEC := 1.2
+const SHOT_WINDOW_OPTIC_SEC := 1.4
 const WOBBLE_SCALE_BASE := 1.0
 const WOBBLE_STOCK_SCALE := 0.80
 const WOBBLE_BARREL_SCALE := 0.90
@@ -666,13 +666,13 @@ static func is_part_slot(slot: String) -> bool:
 
 
 static func canonical_part_id(item_id: String) -> String:
-	## Catalog ids. kind: part. Never a skin, decor, or gun slot.
+	## LIVE ids gun_part_*. kind gun-part. Never a skin, decor, or gun slot.
 	match str(item_id):
-		PART_OPTIC, "optic", "toy_optic", "glass_optic":
+		PART_OPTIC, "part_optic", "optic", "toy_optic", "glass_optic":
 			return PART_OPTIC
-		PART_STOCK, "stock", "toy_stock", "shoulder_stock":
+		PART_STOCK, "part_stock", "stock", "toy_stock", "shoulder_stock":
 			return PART_STOCK
-		PART_BARREL, "barrel", "toy_barrel":
+		PART_BARREL, "part_barrel", "barrel", "toy_barrel":
 			return PART_BARREL
 		_:
 			return ""
@@ -734,18 +734,19 @@ static func part_row_status(owned: bool, can_buy: bool, equipped: bool) -> Strin
 
 
 static func local_wobble_scale(stock_on: bool, barrel_on: bool) -> float:
-	## Client juice when the snapshot omits wobbleScale. Cap −25% (scale 0.75).
-	var scale := WOBBLE_SCALE_BASE
+	## Client juice when the snapshot omits wobbleScale. Same table as LIVE.
+	if stock_on and barrel_on:
+		return WOBBLE_STACK_FLOOR
 	if stock_on:
-		scale *= WOBBLE_STOCK_SCALE
+		return WOBBLE_STOCK_SCALE
 	if barrel_on:
-		scale *= WOBBLE_BARREL_SCALE
-	return maxf(scale, WOBBLE_STACK_FLOOR)
+		return WOBBLE_BARREL_SCALE
+	return WOBBLE_SCALE_BASE
 
 
-static func local_shot_window_ms(optic_on: bool) -> int:
-	## Client juice when the snapshot omits shotWindowMs. Optic alone. Base 1.2s → 1.4s.
-	return SHOT_WINDOW_OPTIC_MS if optic_on else SHOT_WINDOW_BASE_MS
+static func local_shot_window_sec(optic_on: bool) -> float:
+	## Client juice when the snapshot omits shotWindowSec. Optic alone. 1.2 → 1.4.
+	return SHOT_WINDOW_OPTIC_SEC if optic_on else SHOT_WINDOW_BASE_SEC
 
 
 static func feel_number(value: Variant) -> bool:
@@ -765,10 +766,11 @@ static func resolve_wobble_scale(present: bool, value: Variant, stock_on: bool, 
 	return local_wobble_scale(stock_on, barrel_on)
 
 
-static func resolve_shot_window_ms(present: bool, value: Variant, optic_on: bool) -> int:
+static func resolve_shot_window_sec(present: bool, value: Variant, optic_on: bool) -> float:
+	## Server you.shotWindowSec wins when it is a number. Null / missing → Design.
 	if present and feel_number(value):
-		return int(round(float(value)))
-	return local_shot_window_ms(optic_on)
+		return float(value)
+	return local_shot_window_sec(optic_on)
 
 
 static func gun_family_name(item_id: String) -> String:
@@ -818,7 +820,7 @@ static func shop_catalog_stub(
 	if not owned_gun_ids.has(GUN_FIELDBOLT):
 		owned_gun_ids.append(GUN_FIELDBOLT)
 	var wobble := local_wobble_scale(stock_id != "", barrel_id != "")
-	var window_ms := local_shot_window_ms(optic_id != "")
+	var window_sec := local_shot_window_sec(optic_id != "")
 	return {
 		"items": shop_catalog_items(),
 		"you": {
@@ -834,7 +836,7 @@ static func shop_catalog_stub(
 			"equippedStockId": stock,
 			"equippedBarrelId": barrel,
 			"wobbleScale": wobble,
-			"shotWindowMs": window_ms,
+			"shotWindowSec": window_sec,
 		},
 		"owned": owned_ids,
 		"ownedGuns": owned_gun_ids,
@@ -847,15 +849,15 @@ static func shop_catalog_stub(
 		"equippedStockId": stock,
 		"equippedBarrelId": barrel,
 		"wobbleScale": wobble,
-		"shotWindowMs": window_ms,
+		"shotWindowSec": window_sec,
 		"marks": marks,
 	}
 
 
 static func merge_live_shop_catalog(live: Dictionary) -> Dictionary:
 	## Prefer LIVE names/prices when Coder lists a SKU. Append any missing
-	## mock row so ARMORY still shows skins / poster / gun SKUs.
-	## Parts the live catalog omitted stay visible but pending — buy does not POST.
+	## mock row so ARMORY still shows skins / poster / guns / parts.
+	## LIVE lists gun_part_* — those rows buy on the shop spine.
 	var out: Dictionary = live.duplicate(true)
 	var items: Variant = out.get("items", [])
 	if not (items is Array):
@@ -872,10 +874,7 @@ static func merge_live_shop_catalog(live: Dictionary) -> Dictionary:
 	for stub in shop_catalog_items():
 		var sid := str(stub.get("id", ""))
 		if sid != "" and not ids.has(sid):
-			var row: Dictionary = stub.duplicate(true)
-			if is_part_chrome(sid):
-				row["pending"] = true
-			merged.append(row)
+			merged.append(stub.duplicate(true))
 	out["items"] = merged
 	return out
 
