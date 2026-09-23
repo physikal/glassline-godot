@@ -150,6 +150,7 @@ func _run() -> int:
 	_gun_chrome_case(failed)
 	_part_sink_case(failed)
 	_part_t2_case(failed)
+	_part_peg_case(failed)
 	_optic_joystick_case(failed)
 	_chrome_reconfirm_case(failed)
 	_match_board_chrome_case(failed)
@@ -2498,6 +2499,41 @@ func _part_t2_case(failed: PackedStringArray) -> void:
 	session.free()
 	if failed.size() == before:
 		print("PART_T2_OK")
+
+
+func _part_peg_case(failed: PackedStringArray) -> void:
+	## Unowned PARTS rows use the locked mute. Owned and equipped stay the bright pegs.
+	var before := failed.size()
+	var Chrome := load("res://scripts/chrome.gd")
+	var unowned_state: String = Chrome.part_row_peg_state(false, false)
+	var owned_state: String = Chrome.part_row_peg_state(true, false)
+	var equipped_state: String = Chrome.part_row_peg_state(true, true)
+	_expect(failed, unowned_state == "locked", "unowned PART peg is the locked mute")
+	_expect(failed, owned_state == "owned", "owned PART peg stays the mid green")
+	_expect(failed, equipped_state == "equipped", "equipped PART peg stays the lit leaf")
+	var unowned_peg: Color = Chrome.rack_peg_color(unowned_state)
+	var owned_peg: Color = Chrome.rack_peg_color(owned_state)
+	var equipped_peg: Color = Chrome.rack_peg_color(equipped_state)
+	_expect(failed, unowned_peg == Chrome.RACK_PEG_LOCKED, "unowned PART peg reuses the locked mute")
+	_expect(failed, owned_peg == Chrome.RACK_PEG_OWNED and equipped_peg == Chrome.RACK_PEG_EQUIPPED, "owned and equipped PART pegs stay bright")
+	_expect(failed, equipped_peg.g > owned_peg.g and owned_peg.g > unowned_peg.g, "PART peg greens read equipped > owned > unowned")
+	_expect(failed, unowned_peg != Chrome.HIGH_GOLD and owned_peg != Chrome.HIGH_GOLD and equipped_peg != Chrome.HIGH_GOLD, "PART pegs are not gold strips")
+	var peg: Panel = Chrome.rack_peg(unowned_state)
+	_expect(failed, str(peg.get_meta("rack_peg_state", "")) == "locked", "unowned peg meta is locked")
+	Chrome.paint_rack_peg(peg, equipped_state)
+	_expect(failed, str(peg.get_meta("rack_peg_state", "")) == "equipped", "paint lifts a peg to equipped")
+	peg.free()
+	var lobby_src := FileAccess.get_file_as_string("res://scenes/lobby/hideout_lobby.gd")
+	var refresh_at := lobby_src.find("func _refresh_shop")
+	var refresh_fn := lobby_src.substr(refresh_at, lobby_src.find("func _ensure_shop_lines") - refresh_at)
+	_expect(failed, refresh_fn.find("part_row_peg_state") >= 0, "PARTS refresh paints the row peg")
+	_expect(failed, refresh_fn.find("\"EQUIPPED\"") < 0 and refresh_fn.find("\"LOCKED\"") < 0, "PARTS refresh has no gold state strips")
+	var line_at := lobby_src.find("func _make_shop_line")
+	var line_fn := lobby_src.substr(line_at, lobby_src.find("func _build_gun_rack") - line_at)
+	_expect(failed, line_fn.find("rack_peg(\"locked\")") >= 0, "PARTS rows start on the muted peg")
+	_expect(failed, line_fn.find("\"EQUIPPED\"") < 0 and line_fn.find("\"LOCKED\"") < 0, "PARTS rows have no gold state strips")
+	if failed.size() == before:
+		print("PART_PEG_OK")
 
 
 func _part_delta(value: Variant) -> int:

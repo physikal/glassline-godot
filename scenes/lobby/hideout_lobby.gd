@@ -231,6 +231,10 @@ func _ready() -> void:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 		DisplayServer.window_set_size(Vector2i(1280, 720))
 		await _capture_part_t2_set()
+	elif "--capture-part-pegs" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await _capture_part_pegs()
 	elif "--capture-art-hex" in args or "--capture-art-optic" in args:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 		DisplayServer.window_set_size(Vector2i(1280, 720))
@@ -820,6 +824,35 @@ func _capture_part_t2_set() -> void:
 	await _capture_named("res://artifacts/ux/part_t2_equipped.png", "PART_T2_EQUIPPED")
 
 
+func _capture_part_pegs() -> void:
+	## Unowned T1/T2 rows keep the dim locked peg. Owned and equipped stay bright green.
+	if not ClientSession.use_live_api():
+		MockMatchServer.reset_wallet(900)
+	_bind_wallet()
+	_bind_shop()
+	_refresh_marks()
+	_refresh_shop()
+	_fit_part_plate()
+	_toast_msg("")
+	_sync_part_marks_toast()
+	await _capture_named("res://artifacts/ux/part_pegs_unowned.png", "PART_PEGS_UNOWNED", false)
+
+	if not ClientSession.use_live_api():
+		MockMatchServer.reset_wallet(900)
+		MockMatchServer.buy_shop(Contract.PART_OPTIC, "ux-peg-optic")
+		MockMatchServer.buy_shop(Contract.PART_STOCK, "ux-peg-stock")
+		MockMatchServer.buy_shop(Contract.PART_STOCK_T2, "ux-peg-stock-t2")
+	_bind_wallet()
+	_bind_shop()
+	_refresh_marks()
+	_refresh_shop()
+	_fit_part_plate()
+	_toast_msg("")
+	if _part_toast:
+		_part_toast.visible = false
+	await _capture_named("res://artifacts/ux/part_pegs_owned.png", "PART_PEGS_OWNED")
+
+
 func _capture_part_optic_feel() -> void:
 	if not ClientSession.use_live_api():
 		MockMatchServer.reset_wallet(400)
@@ -1246,13 +1279,24 @@ func _make_shop_line(item: Dictionary) -> PanelContainer:
 	line.add_theme_constant_override("separation", 16)
 	col.add_child(line)
 
+	var peg: Panel = null
 	if Contract.is_part_chrome(item_id):
+		## Peg then toy glyph. Unowned starts on the locked mute; refresh lifts owned/equipped.
+		var mark := HBoxContainer.new()
+		mark.add_theme_constant_override("separation", 8)
+		mark.alignment = BoxContainer.ALIGNMENT_CENTER
+		mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		peg = Chrome.rack_peg("locked")
+		peg.custom_minimum_size = Vector2(8, 20)
+		peg.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		mark.add_child(peg)
 		var glyph := TextureRect.new()
 		glyph.texture = Chrome.make_icon(Contract.part_glyph(item_id), Chrome.HIGH_GOLD, 22)
 		glyph.custom_minimum_size = Vector2(22, 22)
 		glyph.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		line.add_child(glyph)
+		mark.add_child(glyph)
+		line.add_child(mark)
 
 	var name_lbl := Label.new()
 	name_lbl.text = str(item.get("name", ""))
@@ -1282,6 +1326,7 @@ func _make_shop_line(item: Dictionary) -> PanelContainer:
 		"price": price_lbl,
 		"btn": btn,
 		"status": status,
+		"peg": peg,
 	}
 	return row
 
@@ -1904,6 +1949,10 @@ func _refresh_shop() -> void:
 				Chrome.paint_chunk_button(btn, Chrome.LOADOUT_BLUE, Color.WHITE)
 			else:
 				Chrome.paint_chunk_button(btn, Color("3a322c"), Color(0.72, 0.68, 0.58, 0.70))
+		if part:
+			var peg: Panel = widgets.get("peg")
+			if peg:
+				Chrome.paint_rack_peg(peg, Chrome.part_row_peg_state(owned, equipped))
 		if status:
 			if pending:
 				status.text = ""
