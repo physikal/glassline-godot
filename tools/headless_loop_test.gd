@@ -1457,6 +1457,18 @@ func _payout_shape_case(failed: PackedStringArray) -> void:
 	}
 	var foil := MarksPayout.end_overlay(forfeit_snap, "a", false)
 	_expect(failed, foil.find("RIVAL FORFEIT") >= 0, "forfeit winner chrome")
+	_expect(failed, foil.find("+15  ·  ★8") >= 0, "forfeit plate +15 not payload 1")
+	var old_forfeit := {
+		"status": "ended",
+		"winner": "a",
+		"endReason": "forfeit",
+		"you": {"seat": "a", "marks": 12},
+		"payout": {"marks": 12, "marksDelta": 12, "reason": "forfeit"},
+	}
+	var old_plate := MarksPayout.end_overlay(old_forfeit, "a", false)
+	_expect(failed, old_plate.find("RIVAL FORFEIT") >= 0, "old forfeit still rival forfeit")
+	_expect(failed, old_plate.find("+15  ·  ★12") >= 0, "forfeit plate +15 when payload still +12")
+	_expect(failed, old_plate.find("+12") < 0, "forfeit plate does not paint old +12")
 	var you_forfeit := MarksPayout.end_overlay({"endReason": "disconnect", "winner": "b", "you": {"seat": "a", "marks": 7}}, "a", false)
 	_expect(failed, you_forfeit.find("FORFEIT") >= 0, "disconnect loser chrome")
 	var job_win := MarksPayout.end_overlay({"winner": "a", "payout": {"marks": 5, "marksDelta": 1, "reason": "job"}}, "a", true)
@@ -1624,6 +1636,7 @@ func _job_ladder_case(failed: PackedStringArray) -> void:
 		_expect(failed, fail_chip == "%s  ·  ★%d" % [Contract.format_marks_delta(expect_n), expect_n], "mock T%d fail chip" % tier)
 		var fail_row: Dictionary = server.get_journal(str(fail_job.get("playerId", "")))["entries"][0]
 		_expect(failed, int(fail_row.get("marksDelta", -1)) == expect_n, "mock T%d fail journal Δ" % tier)
+		_expect(failed, Journal.marks_text(fail_row) == Contract.format_marks_delta(expect_n), "mock T%d fail journal chip" % tier)
 	session.free()
 
 
@@ -3840,8 +3853,65 @@ func _journal_case(failed: PackedStringArray) -> void:
 		"matchId": "m_neg",
 		"mode": Contract.MODE_PVP,
 		"marksDelta": -4,
+	})) == "−4", "unclassified journal delta stays −N")
+	_expect(failed, Journal.marks_text(Journal.normalize({
+		"matchId": "m_loss",
+		"mode": Contract.MODE_PVP,
+		"marksDelta": 3,
 		"result": "loss",
-	})) == "−4", "journal negative is −N")
+	})) == "+4", "journal loss chip is table +4")
+	var old_foil := Journal.normalize({
+		"matchId": "m_old_foil",
+		"mode": Contract.MODE_PVP,
+		"result": "win",
+		"marksDelta": 12,
+		"endReason": "forfeit",
+	})
+	_expect(failed, int(old_foil.get("marksDelta", 0)) == 12, "journal keeps ledger forfeit Δ")
+	_expect(failed, Journal.marks_text(old_foil) == "+15", "journal forfeit chip +15 not ledger +12")
+	_expect(failed, Journal.marks_text(Journal.normalize({
+		"matchId": "m_old_kill",
+		"mode": Contract.MODE_PVP,
+		"result": "win",
+		"marksDelta": 25,
+	})) == "+32", "journal old kill paints +32")
+	_expect(failed, Journal.marks_text(Journal.normalize({
+		"matchId": "m_old_stand",
+		"mode": Contract.MODE_PVP,
+		"result": "draw",
+		"marksDelta": 8,
+	})) == "+10", "journal old standoff paints +10")
+	_expect(failed, Journal.marks_text(Journal.normalize({
+		"matchId": "m_old_t1",
+		"mode": Contract.MODE_SP_JOB,
+		"result": "win",
+		"marksDelta": 10,
+	})) == "+12", "journal old T1 paints +12")
+	_expect(failed, Journal.marks_text(Journal.normalize({
+		"matchId": "m_old_t2",
+		"mode": Contract.MODE_SP_JOB,
+		"result": "win",
+		"marksDelta": 15,
+	})) == "+18", "journal old T2 paints +18")
+	_expect(failed, Journal.marks_text(Journal.normalize({
+		"matchId": "m_old_t3",
+		"mode": Contract.MODE_SP_JOB,
+		"result": "win",
+		"marksDelta": 20,
+	})) == "+24", "journal old T3 paints +24")
+	_expect(failed, Journal.marks_text(Journal.normalize({
+		"matchId": "m_old_fail",
+		"mode": Contract.MODE_SP_JOB,
+		"result": "loss",
+		"marksDelta": 0,
+	})) == "+2", "journal old T1 fail paints +2")
+	_expect(failed, Journal.marks_text(Journal.normalize({
+		"matchId": "m_fail3",
+		"mode": Contract.MODE_SP_JOB,
+		"result": "loss",
+		"marksDelta": 0,
+		"jobTier": 3,
+	})) == "+3", "journal T3 fail paints +3")
 
 	server.clear_all()
 	server.reset_wallet(0)
@@ -3878,6 +3948,29 @@ func _journal_case(failed: PackedStringArray) -> void:
 	_expect(failed, Journal.mode_tag(job_row) == Contract.JOURNAL_TAG_JOB, "job tag is not a quick hunt")
 	_expect(failed, not job_row.has("mmr") and not job_row.has("elo"), "journal row has no rating fields")
 
+	server.clear_all()
+	server.reset_wallet(0)
+	var foil_end: Dictionary = _journal_end(Contract.MODE_PVP, Contract.SEAT_A, Contract.END_FORFEIT)
+	var foil_row: Dictionary = server.get_journal("")["entries"][0]
+	_expect(failed, str(foil_row.get("matchId", "")) == str(foil_end.get("matchId", "")), "forfeit journal row")
+	_expect(failed, int(foil_row.get("marksDelta", 0)) == Contract.MARKS_FORFEIT_WIN, "forfeit journal ledger +15")
+	_expect(failed, Journal.marks_text(foil_row) == "+15", "forfeit journal chip +15")
+	_expect(failed, str(foil_row.get("result", "")) == "win", "forfeit win result stays WIN")
+	var leave_end: Dictionary = _journal_end(Contract.MODE_PVP, Contract.SEAT_B, Contract.END_FORFEIT)
+	var leave_row: Dictionary = server.get_journal("")["entries"][0]
+	_expect(failed, str(leave_row.get("matchId", "")) == str(leave_end.get("matchId", "")), "forfeit leaver journal row")
+	_expect(failed, int(leave_row.get("marksDelta", -1)) == 0, "forfeit leaver ledger 0")
+	_expect(failed, Journal.marks_text(leave_row) == "0", "forfeit leaver chip 0")
+	_journal_end(Contract.MODE_PVP, Contract.WIN_DRAW, Contract.END_STANDOFF)
+	var stand_row: Dictionary = server.get_journal("")["entries"][0]
+	_expect(failed, Journal.marks_text(stand_row) == "+10", "standoff journal chip +10")
+	for tier in [1, 2, 3]:
+		var job_win: Dictionary = server.create_job(tier)
+		server.force_end(str(job_win.get("matchId", "")), Contract.SEAT_A, Contract.END_KILL)
+		var job_chip: Dictionary = server.get_journal(str(job_win.get("playerId", "")))["entries"][0]
+		var expect_win := Contract.job_tier_delta(tier)
+		_expect(failed, Journal.marks_text(job_chip) == Contract.format_marks_delta(expect_win), "journal T%d win chip" % tier)
+		_expect(failed, int(job_chip.get("marksDelta", -1)) == expect_win, "journal T%d win ledger untouched" % tier)
 	server.clear_all()
 	server.reset_wallet(0)
 	var ids: PackedStringArray = []
@@ -3976,6 +4069,18 @@ func _journal_case(failed: PackedStringArray) -> void:
 	var api_src := FileAccess.get_file_as_string("res://autoload/match_api.gd")
 	_expect(failed, api_src.find("JOURNAL_ERR_UNAVAILABLE") >= 0, "404 falls back until the route lands")
 	_expect(failed, api_src.find("func rematch_match") >= 0, "rematch_match reuses rematch")
+	var lock_rows: Array = [
+		{"matchId": "m_foil", "mode": Contract.MODE_PVP, "result": "win", "marksDelta": 12, "endReason": "forfeit", "rival": {"displayName": "RIVAL", "isBot": false}},
+		{"matchId": "m_stand", "mode": Contract.MODE_PVP, "result": "draw", "marksDelta": 8, "rival": {"displayName": "RIVAL", "isBot": false}},
+		{"matchId": "m_t2", "mode": Contract.MODE_SP_JOB, "result": "win", "marksDelta": 15, "jobTier": 2, "rival": {"displayName": "BOT", "isBot": true}},
+		{"matchId": "m_t3f", "mode": Contract.MODE_SP_JOB, "result": "loss", "marksDelta": 0, "jobTier": 3, "rival": {"displayName": "BOT", "isBot": true}},
+	]
+	plate.bind({"entries": lock_rows})
+	_expect(failed, plate.row_marks(0) == "+15", "journal forfeit row +15")
+	_expect(failed, plate.row_marks(1) == "+10", "journal standoff row +10")
+	_expect(failed, plate.row_marks(2) == "+18", "journal T2 row +18")
+	_expect(failed, plate.row_marks(3) == "+3", "journal T3 fail row +3")
+	_expect(failed, plate.uses_wood(), "journal lock rows stay on wood")
 	plate.free()
 	server.test_now_ms = -1
 

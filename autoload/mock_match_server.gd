@@ -2151,7 +2151,7 @@ func _journal_entry(match_state: Dictionary, seat: String) -> Dictionary:
 			name = "BOT"
 		else:
 			name = "RIVAL"
-	return {
+	var row := {
 		"matchId": str(match_state.get("matchId", "")),
 		"mode": mode,
 		"result": _journal_result(match_state, seat),
@@ -2162,10 +2162,17 @@ func _journal_entry(match_state: Dictionary, seat: String) -> Dictionary:
 		"endedSeq": int(match_state.get("endedSeq", 0)),
 		"rematchAvailable": _journal_rematch_available(match_state),
 	}
+	## Seat payout reason. Display only — the chip paints the lock from this.
+	var why := str(pay.get("reason", match_state.get("endReason", "")))
+	if why != "":
+		row["endReason"] = why
+	if mode == Contract.MODE_SP_JOB:
+		row["jobTier"] = int(match_state.get("jobTier", 1))
+	return row
 
 
 func _journal_public(row: Dictionary) -> Dictionary:
-	return {
+	var public_row := {
 		"matchId": str(row.get("matchId", "")),
 		"mode": str(row.get("mode", "")),
 		"result": str(row.get("result", "")),
@@ -2174,6 +2181,12 @@ func _journal_public(row: Dictionary) -> Dictionary:
 		"endedAt": str(row.get("endedAt", "")),
 		"rematchAvailable": bool(row.get("rematchAvailable", false)),
 	}
+	var why := str(row.get("endReason", ""))
+	if why != "":
+		public_row["endReason"] = why
+	if int(row.get("jobTier", 0)) >= 1:
+		public_row["jobTier"] = int(row.get("jobTier"))
+	return public_row
 
 
 func _journal_result(match_state: Dictionary, seat: String) -> String:
