@@ -208,11 +208,11 @@ const PART_BARREL_T2_PRICE := 200
 const PART_OPTIC_T3_PRICE := 275
 const PART_STOCK_T3_PRICE := 325
 const PART_BARREL_T3_PRICE := 375
-## Mock snapshot table. Attack chrome reads you.shotWindowSec / you.wobbleScale only.
+## Mock snapshot table only. Attack chrome reads you.shotWindowSec / you.wobbleScale.
+## A missing feel field stays bare. These numbers do not override a server value.
 ## T1 b5ba339: optic 1.4, stock 0.8, barrel 0.9, stack 0.75.
 ## T2 2608bd6: optic 1.55, stock 0.75, barrel 0.85, stack still 0.75.
-## T3 ticket: optic +0.50s (1.70), stock −30% (0.70), barrel −20% (0.80).
-## Stack floor stays 0.75. Solo T3 stock is quieter than the stack; the pair does not drop.
+## T3 LIVE fcd5fac: optic 1.70, stock 0.70, barrel 0.80. Stack floor stays 0.75.
 const SHOT_WINDOW_BASE_SEC := 1.2
 const SHOT_WINDOW_OPTIC_SEC := 1.4
 const SHOT_WINDOW_OPTIC_T2_SEC := 1.55
