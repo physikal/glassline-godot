@@ -3,27 +3,25 @@
 Client half of [Slice ticket — T3 gun-part ladder](https://www.notion.so/3e44dabdb339812aa560ff63a480c9b9).  
 Same three slots. Same `/shop` buy + equip. Same snapshot fields. Soft feel only.
 
-## Tip dependency
+## LIVE catalog
 
-Coder catalog tip checked 2026-09-23: `physikal/glassline-api` `src/shopCatalog.ts` (`3d297589`) lists T1 and T2 only. `GunPartTier` is `1 | 2`. No `gun_part_*_t3`.
+Coder tip `fcd5fac` is on `https://glassline-api.vercel.app` (checked 2026-09-23). `GET /shop` lists the three SKUs. `GET /shop/me` publishes the same snapshot fields as T1/T2.
 
-Client ids follow that spine so the rows light when `GET /shop` returns `tier: 3`:
-
-| Slot | id | price | solo feel from bare |
+| Slot | id | ★ | solo feel from bare |
 | --- | --- | --- | --- |
-| Optic | `gun_part_optic_t3` | ★275 | `shotWindowSec` 1.2 → **1.70** (+0.50s) |
-| Stock | `gun_part_stock_t3` | ★325 | `wobbleScale` **0.70** (−30%) |
-| Barrel | `gun_part_barrel_t3` | ★375 | `wobbleScale` **0.80** (−20%) |
+| Optic | `gun_part_optic_t3` | 275 | `shotWindowSec` 1.2 → **1.70** |
+| Stock | `gun_part_stock_t3` | 325 | `wobbleScale` **0.70** |
+| Barrel | `gun_part_barrel_t3` | 375 | `wobbleScale` **0.80** |
 
-Kind stays `gun-part`. Names `OPTIC T3` / `STOCK T3` / `BARREL T3`. `tier: 3`. LIVE price and name win when the catalog lists the id. A catalog that omits one still shows the row (same gap-fill as T2).
+Kind `gun-part`. Names `OPTIC T3` / `STOCK T3` / `BARREL T3`. `tier: 3`. The plate uses the catalog `id` and `price`. LIVE price and name win when the row is present.
 
 ## Feel
 
-Attack chrome reads `you.shotWindowSec` and `you.wobbleScale` only. A missing or null field stays the bare plate (1.2s, wobble 1) even when a T3 id is equipped. Equipped ids do not author the juice.
+Attack chrome reads `you.shotWindowSec` and `you.wobbleScale` only. A missing or null field stays the bare plate (1.2s, wobble 1) even when a T3 id is equipped. Equipped ids do not author the juice. The mock table matches the LIVE numbers so editor snapshots use the same fields; it does not override a server value.
 
-Stock + barrel stack floor stays **0.75**. That holds for T3+T3 and every mixed pair. Solo T3 stock is 0.70; the pair does not go quieter than 0.75. Optic does not change wobble. Stock and barrel do not change the window.
+Bare `GET /shop/me` on that deploy returned `shotWindowSec: 1.2` and `wobbleScale: 1` with null part ids.
 
-If Coder reuses the live sum-then-cap (`Math.min(stockPct + barrelPct, 25)`) on a solo T3 stock, the snapshot may publish 0.75 instead of 0.70. The client shows that number. It does not override it.
+Stock + barrel stack floor stays **0.75**. That holds for T3+T3 and every mixed pair. Solo T3 stock is 0.70. Solo T3 barrel is 0.80. Optic does not change wobble. Stock and barrel do not change the window.
 
 ## Plate
 
