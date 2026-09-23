@@ -115,12 +115,12 @@ func _run() -> int:
 	_expect(failed, last is Dictionary and last.get("kill") == true, "kill flag")
 	_expect(failed, snap.status() == Contract.STATUS_ENDED, "ended")
 	_expect(failed, str(snap.winner()) == "a", "winner a")
-	_expect(failed, snap.you_marks() == Contract.MARKS_PVP_WIN, "marks +25 wallet")
-	_expect(failed, snap.marks_delta() == Contract.MARKS_PVP_WIN, "marksDelta +25 from server payout")
+	_expect(failed, snap.you_marks() == Contract.MARKS_PVP_WIN, "marks +32 wallet")
+	_expect(failed, snap.marks_delta() == Contract.MARKS_PVP_WIN, "marksDelta +32 from server payout")
 	_expect(failed, snap.end_reason() == Contract.END_KILL, "payout reason kill")
 	_expect(failed, int(snap.payout().balance()) == Contract.MARKS_PVP_WIN, "payout.marks wallet")
 	var loser: Snapshot = Snapshot.from_dict(server.get_snapshot(match_id, pid_b))
-	_expect(failed, loser.marks_delta() == Contract.MARKS_PVP_LOSS, "loser +3")
+	_expect(failed, loser.marks_delta() == Contract.MARKS_PVP_LOSS, "loser +4")
 	_expect(failed, loser.end_reason() == Contract.END_LOSS, "loser reason")
 	var replay_wallet: int = server.account_marks
 	var again: Dictionary = server.get_snapshot(match_id, pid_a)
@@ -564,7 +564,7 @@ func _decoy_case(failed: PackedStringArray) -> void:
 	_expect(failed, snap.uav_remaining() == 1, "D5 UAV charge untouched")
 	_expect(failed, int(snap.you_exposure()) == 50, "D5 exposure unchanged")
 	_expect(failed, Contract.RECON_BASE == 0.35, "D5 RECON_BASE still 0.35")
-	_expect(failed, Contract.MARKS_PVP_WIN == 25, "D5 PvP kill table still ★25")
+	_expect(failed, Contract.MARKS_PVP_WIN == 32, "D5 PvP kill table still ★32")
 
 	r = server.apply_action(mid, pid_a, ActionIntent.decoy())
 	_expect(failed, not r.ok, "D1 second decoy refused (phase)")
@@ -741,12 +741,12 @@ func _lobby_case(failed: PackedStringArray) -> void:
 	var kill: ActionResult = server.apply_action(mid, pid_b, ActionIntent.attack(2, 2))
 	var kill_snap: Snapshot = Snapshot.from_dict(kill.snapshot)
 	_expect(failed, kill_snap.status() == Contract.STATUS_ENDED, "P3 kill ended")
-	_expect(failed, kill_snap.marks_delta() == Contract.MARKS_PVP_WIN, "P3 winner ★25")
+	_expect(failed, kill_snap.marks_delta() == Contract.MARKS_PVP_WIN, "P3 winner ★32")
 	_expect(failed, kill_snap.end_reason() == Contract.END_KILL, "P3 reason kill")
 	var loser: Snapshot = Snapshot.from_dict(server.get_snapshot(mid, pid_a))
-	_expect(failed, loser.marks_delta() == Contract.MARKS_PVP_LOSS, "P3 loser ★3")
+	_expect(failed, loser.marks_delta() == Contract.MARKS_PVP_LOSS, "P3 loser ★4")
 	_expect(failed, loser.rematch_offered(), "P3 rematch still offered")
-	_expect(failed, Contract.RECON_BASE == 0.35 and Contract.MARKS_PVP_WIN == 25, "P3 combat table unchanged")
+	_expect(failed, Contract.RECON_BASE == 0.35 and Contract.MARKS_PVP_WIN == 32, "P3 combat table ★32")
 
 	## P5 — cancel / leave → hideout, no forfeit Marks.
 	server.clear_all()
@@ -1050,11 +1050,11 @@ func _queue_case(failed: PackedStringArray) -> void:
 	var kill: ActionResult = server.apply_action(mid, pid_b, ActionIntent.attack(2, 2))
 	var kill_snap: Snapshot = Snapshot.from_dict(kill.snapshot)
 	_expect(failed, kill_snap.status() == Contract.STATUS_ENDED, "Q2 kill ended")
-	_expect(failed, kill_snap.marks_delta() == Contract.MARKS_PVP_WIN, "Q2 winner ★25")
+	_expect(failed, kill_snap.marks_delta() == Contract.MARKS_PVP_WIN, "Q2 winner ★32")
 	var loser: Snapshot = Snapshot.from_dict(server.get_snapshot(mid, pid_a))
-	_expect(failed, loser.marks_delta() == Contract.MARKS_PVP_LOSS, "Q2 loser ★3")
+	_expect(failed, loser.marks_delta() == Contract.MARKS_PVP_LOSS, "Q2 loser ★4")
 	_expect(failed, loser.rematch_offered(), "Q2 rematch still offered")
-	_expect(failed, Contract.RECON_BASE == 0.35 and Contract.MARKS_PVP_WIN == 25, "Q2 combat table unchanged")
+	_expect(failed, Contract.RECON_BASE == 0.35 and Contract.MARKS_PVP_WIN == 32, "Q2 combat table ★32")
 
 	## Q3 — cancel → hideout, Marks Δ0, no match.
 	server.clear_all()
@@ -1218,7 +1218,7 @@ func _rematch_case(failed: PackedStringArray) -> void:
 
 
 func _a4_gaps_case(failed: PackedStringArray) -> void:
-	## A4.1 abandon → forfeit +12/0. Same settle as timeout. Rematch only after ended.
+	## A4.1 abandon → forfeit +15/0. Same settle as timeout. Rematch only after ended.
 	server.clear_all()
 	server.reset_wallet(24)
 	var created: Dictionary = server.create_match()
@@ -1242,8 +1242,8 @@ func _a4_gaps_case(failed: PackedStringArray) -> void:
 	_expect(failed, loser.you_marks() == 24, "A4.1 leaver Marks +0 (24)")
 	_expect(failed, loser.marks_delta() == Contract.MARKS_FORFEIT_LOSS, "A4.1 leaver marksDelta 0")
 	var winner_snap: Snapshot = Snapshot.from_dict(server.get_snapshot(mid, pid_b))
-	_expect(failed, winner_snap.you_marks() == Contract.MARKS_FORFEIT_WIN, "A4.1 remaining +12")
-	_expect(failed, winner_snap.marks_delta() == Contract.MARKS_FORFEIT_WIN, "A4.1 remaining marksDelta +12")
+	_expect(failed, winner_snap.you_marks() == Contract.MARKS_FORFEIT_WIN, "A4.1 remaining +15")
+	_expect(failed, winner_snap.marks_delta() == Contract.MARKS_FORFEIT_WIN, "A4.1 remaining marksDelta +15")
 	_expect(failed, winner_snap.rematch_offered(), "A4.4 rematch CTA after ended")
 	var again: Dictionary = server.abandon(mid, pid_a)
 	_expect(failed, bool(again.get("ok", false)), "A4.1 abandon idempotent")
@@ -1251,7 +1251,7 @@ func _a4_gaps_case(failed: PackedStringArray) -> void:
 	_expect(failed, server.account_marks == 24, "A4.1 replay abandon no second grant")
 	var foil := MarksPayout.end_overlay(winner_snap.raw, "b", false)
 	_expect(failed, foil.find("RIVAL FORFEIT") >= 0, "A4.4 overlay winner chrome")
-	_expect(failed, foil.find("+12") >= 0 or foil.find("table  +12") >= 0, "A4.4 overlay +12")
+	_expect(failed, foil.find("+15") >= 0 or foil.find("table  +15") >= 0, "A4.4 overlay +15")
 	_expect(failed, Contract.FORFEIT_HINT_COPY.find("stays put") < 0, "P2 forfeit hint is not stays-put")
 	_expect(failed, Contract.FORFEIT_HINT_COPY.to_lower().find("settled") >= 0, "P2 forfeit hint settled wallet")
 	var screen_src := FileAccess.get_file_as_string("res://scenes/match/match_screen.gd")
@@ -1290,7 +1290,7 @@ func _a4_gaps_case(failed: PackedStringArray) -> void:
 	_expect(failed, after.status() == Contract.STATUS_ENDED, "A4.2 grace silence ended")
 	_expect(failed, after.is_forfeit(), "A4.2 endReason forfeit")
 	_expect(failed, str(after.winner()) == "a", "A4.2 remaining wins")
-	_expect(failed, after.you_marks() == 10 + Contract.MARKS_FORFEIT_WIN, "A4.2 remaining +12")
+	_expect(failed, after.you_marks() == 10 + Contract.MARKS_FORFEIT_WIN, "A4.2 remaining +15")
 	_expect(failed, after.rematch_offered(), "A4.4 rematch after timeout forfeit")
 	_expect(failed, bool(grace.get("ok", false)), "A4.3 start_grace ok")
 
@@ -1302,7 +1302,7 @@ func _end_summary_case(failed: PackedStringArray) -> void:
 		"winner": "a",
 		"endReason": "kill",
 		"kind": "pvp",
-		"you": {"seat": "a", "marks": 25},
+		"you": {"seat": "a", "marks": 32},
 		"rematch": {"status": "waiting", "youAccepted": false, "opponentAccepted": false},
 	}
 	var kill_lose := {
@@ -1310,7 +1310,7 @@ func _end_summary_case(failed: PackedStringArray) -> void:
 		"winner": "a",
 		"endReason": "kill",
 		"kind": "pvp",
-		"you": {"seat": "b", "marks": 3},
+		"you": {"seat": "b", "marks": 4},
 		"rematch": {"status": "waiting"},
 	}
 	var stand_a := {
@@ -1318,7 +1318,7 @@ func _end_summary_case(failed: PackedStringArray) -> void:
 		"winner": "draw",
 		"endReason": "standoff",
 		"kind": "pvp",
-		"you": {"seat": "a", "marks": 8},
+		"you": {"seat": "a", "marks": 10},
 		"rematch": {"status": "waiting"},
 	}
 	var stand_b := {
@@ -1326,14 +1326,14 @@ func _end_summary_case(failed: PackedStringArray) -> void:
 		"winner": "draw",
 		"endReason": "standoff",
 		"kind": "pvp",
-		"you": {"seat": "b", "marks": 8},
+		"you": {"seat": "b", "marks": 10},
 	}
 	var foil_win := {
 		"status": "ended",
 		"winner": "b",
 		"endReason": "forfeit",
 		"kind": "pvp",
-		"you": {"seat": "b", "marks": 12},
+		"you": {"seat": "b", "marks": 15},
 		"rematch": {"status": "waiting"},
 	}
 	var foil_leave := {
@@ -1343,29 +1343,29 @@ func _end_summary_case(failed: PackedStringArray) -> void:
 		"kind": "pvp",
 		"you": {"seat": "a", "marks": 0},
 	}
-	_expect(failed, MarksPayout.table_delta(kill_win, "a") == 25, "M.2 kill winner +25")
-	_expect(failed, MarksPayout.table_delta(kill_lose, "b") == 3, "M.2 kill loser +3")
-	_expect(failed, MarksPayout.table_delta(stand_a, "a") == 8, "M.2 standoff A +8")
-	_expect(failed, MarksPayout.table_delta(stand_b, "b") == 8, "M.2 standoff B +8")
-	_expect(failed, MarksPayout.table_delta(foil_win, "b") == 12, "M.2 forfeit remaining +12")
+	_expect(failed, MarksPayout.table_delta(kill_win, "a") == 32, "M.2 kill winner +32")
+	_expect(failed, MarksPayout.table_delta(kill_lose, "b") == 4, "M.2 kill loser +4")
+	_expect(failed, MarksPayout.table_delta(stand_a, "a") == 10, "M.2 standoff A +10")
+	_expect(failed, MarksPayout.table_delta(stand_b, "b") == 10, "M.2 standoff B +10")
+	_expect(failed, MarksPayout.table_delta(foil_win, "b") == 15, "M.2 forfeit remaining +15")
 	_expect(failed, MarksPayout.table_delta(foil_leave, "a") == 0, "M.2 forfeit leaver 0")
 	var ow := MarksPayout.end_overlay(kill_win, "a", false)
 	_expect(failed, ow.find("MARK CONFIRMED") >= 0, "M.1 kill winner headline")
-	_expect(failed, ow.find("+25  ·  ★25") >= 0, "M.1 kill winner marks line")
+	_expect(failed, ow.find("+32  ·  ★32") >= 0, "M.1 kill winner marks line")
 	_expect(failed, ow.find("+25 MARK") < 0 and ow.find("Δ+") < 0 and ow.find("0+") < 0, "M.1 no glued delta")
 	_expect(failed, ow.find("\nkill") >= 0, "M.1 kill winner reason")
 	var ol := MarksPayout.end_overlay(kill_lose, "b", false)
 	_expect(failed, ol.find("ELIMINATED") >= 0, "M.1 kill loser headline")
-	_expect(failed, ol.find("+3  ·  ★3") >= 0, "M.1 kill loser marks line")
+	_expect(failed, ol.find("+4  ·  ★4") >= 0, "M.1 kill loser marks line")
 	_expect(failed, ol.find("\nkill") >= 0, "M.1 kill loser reason is kill not loss")
 	var os := MarksPayout.end_overlay(stand_a, "a", false)
 	_expect(failed, os.find("STANDOFF") >= 0, "M.1 standoff headline")
-	_expect(failed, os.find("+8  ·  ★8") >= 0, "M.1 standoff marks line")
+	_expect(failed, os.find("+10  ·  ★10") >= 0, "M.1 standoff marks line")
 	_expect(failed, os.find("\nstandoff") >= 0, "M.1 standoff reason")
-	_expect(failed, MarksPayout.end_overlay(stand_b, "b", false).find("+8  ·  ★8") >= 0, "M.1 standoff both seats")
+	_expect(failed, MarksPayout.end_overlay(stand_b, "b", false).find("+10  ·  ★10") >= 0, "M.1 standoff both seats")
 	var of := MarksPayout.end_overlay(foil_win, "b", false)
 	_expect(failed, of.find("RIVAL FORFEIT") >= 0, "M.1 remaining headline")
-	_expect(failed, of.find("+12  ·  ★12") >= 0, "M.1 remaining marks line")
+	_expect(failed, of.find("+15  ·  ★15") >= 0, "M.1 remaining marks line")
 	_expect(failed, of.find("\nforfeit") >= 0, "M.1 remaining reason")
 	var ox := MarksPayout.end_overlay(foil_leave, "a", false)
 	_expect(failed, ox.find("FORFEIT") >= 0 and ox.find("RIVAL") < 0, "M.1 leaver headline")
@@ -1384,8 +1384,8 @@ func _end_summary_case(failed: PackedStringArray) -> void:
 	var mid := str(hunt["matchId"])
 	var winner_snap: Snapshot = Snapshot.from_dict(server.get_snapshot(mid, hunt["pidA"]))
 	var loser_snap: Snapshot = Snapshot.from_dict(server.get_snapshot(mid, hunt["pidB"]))
-	_expect(failed, winner_snap.table_marks_delta() == 25, "M.2 mock kill winner table")
-	_expect(failed, loser_snap.table_marks_delta() == 3, "M.2 mock kill loser table")
+	_expect(failed, winner_snap.table_marks_delta() == 32, "M.2 mock kill winner table")
+	_expect(failed, loser_snap.table_marks_delta() == 4, "M.2 mock kill loser table")
 	_expect(failed, winner_snap.rematch_offered() and loser_snap.rematch_offered(), "M.3 rematch after kill")
 	var accept: Dictionary = server.rematch(mid, str(hunt["pidA"]), true)
 	_expect(failed, bool(accept.get("ok", false)), "M.3 Play again still posts")
@@ -1405,7 +1405,7 @@ func _end_summary_case(failed: PackedStringArray) -> void:
 	var stand: Dictionary = server.force_standoff(mid, a["playerId"])
 	var stand_snap: Snapshot = Snapshot.from_dict(stand.get("snapshot", {}))
 	_expect(failed, stand_snap.status() == Contract.STATUS_ENDED, "M.1 force standoff ended")
-	_expect(failed, stand_snap.table_marks_delta() == 8, "M.2 force standoff +8")
+	_expect(failed, stand_snap.table_marks_delta() == 10, "M.2 force standoff +10")
 	_expect(failed, MarksPayout.end_overlay(stand_snap.raw, "a", false).find("STANDOFF") >= 0, "M.1 force standoff chrome")
 	_expect(failed, stand_snap.rematch_offered(), "M.3 standoff rematch")
 	var hide: Dictionary = server.rematch(mid, a["playerId"], false)
@@ -1445,9 +1445,9 @@ func _payout_shape_case(failed: PackedStringArray) -> void:
 	_expect(failed, pay.reason == "kill", "result payout.reason")
 	var overlay := MarksPayout.end_overlay(live_body["snapshot"], "a", false)
 	_expect(failed, overlay.find("MARK CONFIRMED") >= 0, "end overlay win")
-	_expect(failed, overlay.find("+25  ·  ★12") >= 0 and overlay.find("+1") < 0, "end overlay table Δ not payload 1")
+	_expect(failed, overlay.find("+32  ·  ★12") >= 0 and overlay.find("+1") < 0, "end overlay table Δ not payload 1")
 	_expect(failed, overlay.find("★12") >= 0, "end overlay balance")
-	_expect(failed, MarksPayout.live_delta_drifts(live_body["snapshot"], "a", false), "payload 1 drifts vs table +25")
+	_expect(failed, MarksPayout.live_delta_drifts(live_body["snapshot"], "a", false), "payload 1 drifts vs table +32")
 	var forfeit_snap := {
 		"status": "ended",
 		"winner": "a",
@@ -1467,12 +1467,12 @@ func _payout_shape_case(failed: PackedStringArray) -> void:
 		"winner": "a",
 		"kind": "pvp",
 		"endReason": "kill",
-		"you": {"seat": "a", "marks": 25},
+		"you": {"seat": "a", "marks": 32},
 	}
 	var live_copy := MarksPayout.end_overlay(live_ended, "a", false)
 	_expect(failed, live_copy.find("MARK CONFIRMED") >= 0, "live endReason kill")
-	_expect(failed, live_copy.find("★25") >= 0, "live you.marks balance")
-	_expect(failed, live_copy.find("+25  ·  ★25") >= 0, "table Δ when marksDelta omitted")
+	_expect(failed, live_copy.find("★32") >= 0, "live you.marks balance")
+	_expect(failed, live_copy.find("+32  ·  ★32") >= 0, "table Δ when marksDelta omitted")
 	_expect(failed, live_copy.find("table  +") < 0, "no table +N chrome")
 	_expect(failed, live_copy.find("kill") >= 0, "pvp keeps kill")
 	_expect(failed, not MarksPayout.live_delta_drifts(live_ended, "a", false), "LIVE omit marksDelta is not drift")
@@ -1482,14 +1482,14 @@ func _payout_shape_case(failed: PackedStringArray) -> void:
 		"kind": "sp_job",
 		"endReason": "kill",
 		"job": {"jobId": "j_x", "tier": 1, "name": "Rooftop Rookie"},
-		"you": {"seat": "a", "marks": 10},
+		"you": {"seat": "a", "marks": 12},
 	}
 	var sp_copy := MarksPayout.end_overlay(sp_live_kill, "a", true)
 	_expect(failed, sp_copy.find("JOB COMPLETE") >= 0, "sp kill maps headline")
 	_expect(failed, sp_copy.find("job") >= 0, "sp kill displays reason job")
 	_expect(failed, sp_copy.find("kill") < 0, "sp kill not shown as kill")
-	_expect(failed, sp_copy.find("★10") >= 0, "sp overlay uses you.marks")
-	_expect(failed, sp_copy.find("+10  ·  ★10") >= 0, "sp table Δ uses job row")
+	_expect(failed, sp_copy.find("★12") >= 0, "sp overlay uses you.marks")
+	_expect(failed, sp_copy.find("+12  ·  ★12") >= 0, "sp table Δ uses job row")
 	_expect(failed, MarksPayout.display_reason(sp_live_kill, true) == Contract.END_JOB, "display_reason kill->job")
 	var sp_delta := {
 		"status": "ended",
@@ -1500,7 +1500,7 @@ func _payout_shape_case(failed: PackedStringArray) -> void:
 		"payout": {"marks": 34, "marksDelta": 10, "reason": "kill"},
 	}
 	var sp_delta_copy := MarksPayout.end_overlay(sp_delta, "a", true)
-	_expect(failed, sp_delta_copy.find("+10  ·  ★34") >= 0, "sp delta from you.marks envelope")
+	_expect(failed, sp_delta_copy.find("+12  ·  ★34") >= 0, "sp delta from you.marks envelope")
 	_expect(failed, sp_delta_copy.find("★34") >= 0, "sp delta balance you.marks")
 	_expect(failed, sp_delta_copy.find("\njob") >= 0, "sp delta reason job")
 	_expect(failed, sp_delta_copy.find("kill") < 0, "sp delta not kill")
@@ -1512,6 +1512,28 @@ func _payout_shape_case(failed: PackedStringArray) -> void:
 		"you": {"seat": "a", "marks": 24},
 	}
 	_expect(failed, MarksPayout.display_reason(sp_loss, true) == Contract.END_JOB_FAIL, "sp loss kill->job_fail")
+	_expect(failed, MarksPayout.table_delta(sp_loss, "a", true) == 2, "sp loss T1 fail +2")
+	_expect(failed, MarksPayout.end_overlay(sp_loss, "a", true).find("+2  ·  ★24") >= 0, "sp loss chip +2")
+	var sp_fail_t2 := {
+		"status": "ended",
+		"winner": "b",
+		"kind": "sp_job",
+		"endReason": "kill",
+		"job": {"tier": 2},
+		"you": {"seat": "a", "marks": 3},
+	}
+	var sp_fail_t3 := {
+		"status": "ended",
+		"winner": "b",
+		"kind": "sp_job",
+		"endReason": "kill",
+		"jobTier": 3,
+		"you": {"seat": "a", "marks": 3},
+	}
+	_expect(failed, MarksPayout.table_delta(sp_fail_t2, "a", true) == 3, "sp loss T2 fail +3")
+	_expect(failed, MarksPayout.end_overlay(sp_fail_t2, "a", true).find("+3  ·  ★3") >= 0, "sp loss T2 chip +3")
+	_expect(failed, MarksPayout.table_delta(sp_fail_t3, "a", true) == 3, "sp loss T3 fail +3")
+	_expect(failed, MarksPayout.end_overlay(sp_fail_t3, "a", true).find("+3  ·  ★3") >= 0, "sp loss T3 chip +3")
 
 
 func _job_case(failed: PackedStringArray) -> void:
@@ -1537,9 +1559,9 @@ func _job_case(failed: PackedStringArray) -> void:
 	snap = Snapshot.from_dict(r.snapshot)
 	_expect(failed, r.ok and snap.status() == Contract.STATUS_ENDED, "job kill ends")
 	_expect(failed, snap.end_reason() == Contract.END_JOB, "job payout reason")
-	_expect(failed, snap.marks_delta() == Contract.MARKS_JOB_T1, "job T1 marksDelta +10")
-	_expect(failed, snap.you_marks() == 20, "job wallet from server")
-	_expect(failed, server.account_marks == 20, "mock ledger not client +=")
+	_expect(failed, snap.marks_delta() == Contract.MARKS_JOB_T1, "job T1 marksDelta +12")
+	_expect(failed, snap.you_marks() == 22, "job wallet from server")
+	_expect(failed, server.account_marks == 22, "mock ledger not client +=")
 	server.clear_all()
 	server.reset_wallet(0)
 	created = server.create_match({"mode": "sp_job", "jobTier": 3})
@@ -1551,7 +1573,7 @@ func _job_case(failed: PackedStringArray) -> void:
 	server.apply_action(mid, a["playerId"], ActionIntent.start())
 	r = server.apply_action(mid, a["playerId"], ActionIntent.attack(7, 5))
 	snap = Snapshot.from_dict(r.snapshot)
-	_expect(failed, snap.marks_delta() == Contract.MARKS_JOB_T3, "job T3 marksDelta +20")
+	_expect(failed, snap.marks_delta() == Contract.MARKS_JOB_T3, "job T3 marksDelta +24")
 	_job_ladder_case(failed)
 
 
@@ -1560,29 +1582,48 @@ func _job_ladder_case(failed: PackedStringArray) -> void:
 	_expect(failed, Contract.job_row_label(1) == "T1  Rooftop Rookie", "J5 T1 row label")
 	_expect(failed, Contract.job_row_label(2) == "T2  Warehouse Watch", "J5 T2 row label")
 	_expect(failed, Contract.job_row_label(3) == "T3  Night Contract", "J5 T3 row label")
-	_expect(failed, Contract.job_tier_delta(1) == 10, "J1 table T1 ★10")
-	_expect(failed, Contract.job_tier_delta(2) == 15, "J2 table T2 ★15")
-	_expect(failed, Contract.job_tier_delta(3) == 20, "J3 table T3 ★20")
+	_expect(failed, Contract.job_tier_delta(1) == 12, "J1 table T1 ★12")
+	_expect(failed, Contract.job_tier_delta(2) == 18, "J2 table T2 ★18")
+	_expect(failed, Contract.job_tier_delta(3) == 24, "J3 table T3 ★24")
+	_expect(failed, Contract.job_tier_fail_delta(1) == 2, "J1 fail T1 +2")
+	_expect(failed, Contract.job_tier_fail_delta(2) == 3, "J2 fail T2 +3")
+	_expect(failed, Contract.job_tier_fail_delta(3) == 3, "J3 fail T3 +3")
+	_expect(failed, Contract.MARKS_JOB_T3 < Contract.MARKS_PVP_WIN, "SP max win under PvP kill")
+	_expect(failed, Contract.MARKS_PRACTICE == 0, "Practice Δ0")
 	server.clear_all()
 	server.reset_wallet(0)
 	var session = SessionScript.new()
 	session.bind_marks(999)
 	var j1: Dictionary = server.complete_job(1, "job-j1")
 	session.apply_snapshot(j1.get("snapshot", {}))
-	_expect(failed, session.marks == 10, "J1 snapshot you.marks 0→10 (not 999+)")
-	_expect(failed, server.account_marks == 10, "J1 mock ledger +10")
+	_expect(failed, session.marks == 12, "J1 snapshot you.marks 0→12 (not 999+)")
+	_expect(failed, server.account_marks == 12, "J1 mock ledger +12")
 	var j2: Dictionary = server.complete_job(2, "job-j2")
 	session.apply_snapshot(j2.get("snapshot", {}))
-	_expect(failed, session.marks == 25, "J2 snapshot you.marks 10→25")
+	_expect(failed, session.marks == 30, "J2 snapshot you.marks 12→30")
 	var j3: Dictionary = server.complete_job(3, "job-j3")
 	session.apply_snapshot(j3.get("snapshot", {}))
-	_expect(failed, session.marks == 45, "J3 snapshot you.marks 25→45")
+	_expect(failed, session.marks == 54, "J3 snapshot you.marks 30→54")
 	var replay: Dictionary = server.complete_job(3, "job-j3")
 	session.bind_marks(999)
 	session.apply_snapshot(replay.get("snapshot", {}))
-	_expect(failed, server.account_marks == 45, "J4 same clientJobId no second grant")
-	_expect(failed, session.marks == 45, "J4 replay binds snapshot 45 (never marks +=)")
+	_expect(failed, server.account_marks == 54, "J4 same clientJobId no second grant")
+	_expect(failed, session.marks == 54, "J4 replay binds snapshot 54 (never marks +=)")
 	_expect(failed, str(replay.get("jobId", "")) == str(j3.get("jobId", "")), "J4 replay same jobId")
+	for tier in [1, 2, 3]:
+		var expect_n := Contract.job_tier_fail_delta(tier)
+		server.clear_all()
+		server.reset_wallet(0)
+		var fail_job: Dictionary = server.create_job(tier)
+		var fail_end: Dictionary = server.force_end(str(fail_job.get("matchId", "")), Contract.SEAT_B, Contract.END_KILL)
+		var fail_snap: Snapshot = Snapshot.from_dict(fail_end.get("snapshot", {}))
+		_expect(failed, fail_snap.marks_delta() == expect_n, "mock T%d fail marksDelta" % tier)
+		_expect(failed, fail_snap.you_marks() == expect_n, "mock T%d fail wallet" % tier)
+		_expect(failed, MarksPayout.table_delta(fail_snap.raw, Contract.SEAT_A, true) == expect_n, "mock T%d fail table" % tier)
+		var fail_chip := MarksPayout.marks_line(fail_snap.raw, Contract.SEAT_A, true)
+		_expect(failed, fail_chip == "%s  ·  ★%d" % [Contract.format_marks_delta(expect_n), expect_n], "mock T%d fail chip" % tier)
+		var fail_row: Dictionary = server.get_journal(str(fail_job.get("playerId", "")))["entries"][0]
+		_expect(failed, int(fail_row.get("marksDelta", -1)) == expect_n, "mock T%d fail journal Δ" % tier)
 	session.free()
 
 
@@ -1611,7 +1652,7 @@ func _shop_case(failed: PackedStringArray) -> void:
 	_expect(failed, Shop.row_status_text(true, true, true) == Contract.SHOP_EQUIPPED_COPY, "P2 wearing copy")
 	_expect(failed, not Contract.SHOP_EQUIPPED_COPY.begins_with("Bought"), "P2 wearing line is not Bought stack")
 	_expect(failed, Shop.row_buy_enabled(true, false), "P2 OWNED stays clickable to toggle plate")
-	_expect(failed, Contract.RECON_BASE == 0.35 and Contract.MARKS_PVP_WIN == 25, "S4 combat table unchanged")
+	_expect(failed, Contract.RECON_BASE == 0.35 and Contract.MARKS_PVP_WIN == 32, "S4 combat table ★32")
 
 	var session = SessionScript.new()
 	session.apply_shop(catalog)
@@ -1718,7 +1759,7 @@ func _shop_sink2_case(failed: PackedStringArray) -> void:
 	_expect(failed, listed.name_of(Contract.SHOP_BANDANA_ITEM_ID) == Contract.SHOP_BANDANA_ITEM_NAME, "S2.1 name BANDANA RECOLOR")
 	_expect(failed, not listed.can_afford() or listed.balance() < 100, "S2.2 ★24 cannot afford ★100")
 	_expect(failed, not Shop.row_buy_enabled(false, listed.balance() >= 100), "S2.2 BUY disabled when Marks < 100")
-	_expect(failed, Contract.RECON_BASE == 0.35 and Contract.MARKS_PVP_WIN == 25, "S2.4 combat table unchanged")
+	_expect(failed, Contract.RECON_BASE == 0.35 and Contract.MARKS_PVP_WIN == 32, "S2.4 combat table ★32")
 
 	var lagged = Shop.from_any(Contract.merge_live_shop_catalog({
 		"items": [{"id": "skin_hideout_stub", "name": "Hideout Skin (stub)", "price": 50, "kind": "skin"}],
@@ -1823,7 +1864,7 @@ func _shop_sink3_case(failed: PackedStringArray) -> void:
 	_expect(failed, listed.has_item(Contract.GUN_FIELDBOLT), "S3.6 Fieldbolt catalog row")
 	_expect(failed, listed.balance() < 150, "S3.3 ★24 cannot afford ★150")
 	_expect(failed, not Shop.row_buy_enabled(false, listed.balance() >= 150), "S3.3 BUY disabled when Marks < 150")
-	_expect(failed, Contract.RECON_BASE == 0.35 and Contract.MARKS_PVP_WIN == 25, "S3.5 combat table unchanged")
+	_expect(failed, Contract.RECON_BASE == 0.35 and Contract.MARKS_PVP_WIN == 32, "S3.5 combat table ★32")
 
 	var lagged = Shop.from_any(Contract.merge_live_shop_catalog({
 		"items": [
@@ -2147,8 +2188,8 @@ func _gun_combat_parity_case(failed: PackedStringArray) -> void:
 		_expect(failed, bolt.get(key) == rail.get(key), "G5 Fieldbolt vs Railframe %s identical" % key)
 		_expect(failed, bolt.get(key) == cres.get(key), "G5 Fieldbolt vs Crescent %s identical" % key)
 	_expect(failed, Contract.RECON_BASE == 0.35, "G5 RECON_BASE 0.35")
-	_expect(failed, Contract.MARKS_PVP_WIN == 25, "G5 PvP kill ★25")
-	_expect(failed, int(bolt.get("kill_delta", -1)) == Contract.MARKS_PVP_WIN, "G5 kill marksDelta +25")
+	_expect(failed, Contract.MARKS_PVP_WIN == 32, "G5 PvP kill ★32")
+	_expect(failed, int(bolt.get("kill_delta", -1)) == Contract.MARKS_PVP_WIN, "G5 kill marksDelta +32")
 	_expect(failed, str(bolt.get("snap_gun", "")) == Contract.GUN_FIELDBOLT, "G5 snapshot names Fieldbolt")
 	_expect(failed, str(rail.get("snap_gun", "")) == Contract.GUN_RAILFRAME, "G5 snapshot names Railframe")
 	_expect(failed, str(cres.get("snap_gun", "")) == Contract.GUN_CRESCENT, "G5 snapshot names Crescent")
@@ -2339,7 +2380,7 @@ func _part_sink_case(failed: PackedStringArray) -> void:
 	for key in ["miss_hit", "miss_chance", "kill_hit", "kill_delta", "spotted", "exposure_floor"]:
 		_expect(failed, plain.get(key) == kitted.get(key), "P parity %s" % key)
 	_expect(failed, bool(plain.get("chance_formula", false)) and bool(kitted.get("chance_formula", false)), "P hitChance is the occupy formula")
-	_expect(failed, _part_delta(kitted.get("kill_delta")) == Contract.MARKS_PVP_WIN, "P PvP kill still ★25")
+	_expect(failed, _part_delta(kitted.get("kill_delta")) == Contract.MARKS_PVP_WIN, "P PvP kill still ★32")
 	_expect(failed, _part_delta(practice.get("kill_delta")) == Contract.MARKS_PRACTICE, "P practice Marks Δ0")
 	_expect(failed, bool(practice.get("wallet_held", false)), "P practice does not grant")
 	_expect(failed, bool(practice.get("feel_window", false)), "C4 practice window 1.4")
@@ -3052,7 +3093,7 @@ func _brush_cover_case(failed: PackedStringArray) -> void:
 	_expect(failed, last is Dictionary and last.get("coverApplied") == true, "B1 coverApplied true")
 	_expect(failed, last is Dictionary and last.get("highGroundApplied") == false, "B3 OPEN no high ground")
 	_expect(failed, last is Dictionary and is_equal_approx(float(last.get("hitChance", -1)), 0.80), "B3 OPEN→BRUSH 0.80")
-	_expect(failed, snap.you_marks() == Contract.MARKS_PVP_WIN, "B6 kill table +25 not extra")
+	_expect(failed, snap.you_marks() == Contract.MARKS_PVP_WIN, "B6 kill table +32 not extra")
 	_expect(failed, Chrome.describe_attack_result(last).find("80%") >= 0, "B1 toast chance 80%")
 
 	## B3 HARD → BRUSH = 0.90
@@ -3076,7 +3117,7 @@ func _brush_cover_case(failed: PackedStringArray) -> void:
 	_expect(failed, last is Dictionary and last.get("coverApplied") == true, "B3 HARD→BRUSH cover")
 	_expect(failed, last is Dictionary and last.get("highGroundApplied") == true, "B3 HARD→BRUSH high ground")
 	_expect(failed, last is Dictionary and is_equal_approx(float(last.get("hitChance", -1)), 0.90), "B3 HARD→BRUSH 0.90")
-	_expect(failed, Snapshot.from_dict(r.snapshot).you_marks() == Contract.MARKS_PVP_WIN, "B6 stacked kill still +25")
+	_expect(failed, Snapshot.from_dict(r.snapshot).you_marks() == Contract.MARKS_PVP_WIN, "B6 stacked kill still +32")
 	_expect(failed, Snapshot.from_dict(r.snapshot).you_equipped_gun_id() == Contract.GUN_CRESCENT, "B6 crescent chrome-blind")
 
 	## B2 target OPEN / HARD → no cover mod
@@ -3206,8 +3247,8 @@ func _equip_combat_parity_case(failed: PackedStringArray) -> void:
 	for key in ["miss_hit", "miss_kill", "miss_phase", "miss_hot", "miss_exposure", "kill_hit", "kill_kill", "kill_delta", "recon_base", "pvp_win"]:
 		_expect(failed, bare.get(key) == worn.get(key), "E5 %s identical" % key)
 	_expect(failed, Contract.RECON_BASE == 0.35, "E5 RECON_BASE 0.35")
-	_expect(failed, Contract.MARKS_PVP_WIN == 25, "E5 PvP kill ★25")
-	_expect(failed, int(bare.get("kill_delta", -1)) == Contract.MARKS_PVP_WIN, "E5 kill marksDelta +25")
+	_expect(failed, Contract.MARKS_PVP_WIN == 32, "E5 PvP kill ★32")
+	_expect(failed, int(bare.get("kill_delta", -1)) == Contract.MARKS_PVP_WIN, "E5 kill marksDelta +32")
 
 
 func _equip_combat_run(wear_ghillie: bool) -> Dictionary:
@@ -3281,7 +3322,7 @@ func _first_hunt_coach_case(failed: PackedStringArray) -> void:
 	_expect(failed, Contract.COACH_RECON.find("Scout") >= 0, "C2 Recon cozy copy")
 	_expect(failed, Contract.COACH_DOLL.find("doll") >= 0, "C2 Doll cozy copy")
 	_expect(failed, Contract.COACH_DECOY.find("blip") >= 0, "C2 Decoy cozy copy")
-	_expect(failed, Contract.RECON_BASE == 0.35 and Contract.MARKS_PVP_WIN == 25, "C4 combat table unchanged")
+	_expect(failed, Contract.RECON_BASE == 0.35 and Contract.MARKS_PVP_WIN == 32, "C4 combat table ★32")
 	coach.dismiss()
 	_expect(failed, not coach.is_showing(), "C3 gone after Got it")
 	_expect(failed, Coach.is_seen(), "C5 seen after dismiss")
@@ -3363,7 +3404,7 @@ func _terrain_coach_case(failed: PackedStringArray) -> void:
 	held.present(true, false)
 	_expect(failed, held.is_showing(), "terrain C1 returns on the live board")
 	_expect(failed, Contract.RECON_BASE == 0.35, "terrain C4 RECON_BASE")
-	_expect(failed, Contract.MARKS_PVP_WIN == 25, "terrain C4 PvP win table")
+	_expect(failed, Contract.MARKS_PVP_WIN == 32, "terrain C4 PvP win table")
 	_expect(failed, Contract.HIGH_GROUND_HIT == 0.10, "terrain C4 high-ground table")
 	var src := FileAccess.get_file_as_string("res://scenes/match/terrain_coach.gd")
 	var hud := FileAccess.get_file_as_string("res://scenes/match/match_screen.gd")
@@ -3550,8 +3591,8 @@ func _draw_case(failed: PackedStringArray) -> void:
 	var snap: Snapshot = Snapshot.from_dict(server.get_snapshot(mid, a["playerId"]))
 	_expect(failed, snap.status() == Contract.STATUS_ENDED, "cap ended")
 	_expect(failed, str(snap.winner()) == Contract.WIN_DRAW, "cap draw")
-	_expect(failed, snap.you_marks() == 4 + Contract.MARKS_STANDOFF, "standoff +8 wallet")
-	_expect(failed, snap.marks_delta() == Contract.MARKS_STANDOFF, "standoff marksDelta +8")
+	_expect(failed, snap.you_marks() == 4 + Contract.MARKS_STANDOFF, "standoff +10 wallet")
+	_expect(failed, snap.marks_delta() == Contract.MARKS_STANDOFF, "standoff marksDelta +10")
 	_expect(failed, snap.end_reason() == Contract.END_STANDOFF, "standoff reason")
 	_expect(failed, server.account_marks == 4 + Contract.MARKS_STANDOFF, "standoff uses GD table")
 
@@ -3697,7 +3738,7 @@ func _practice_case(failed: PackedStringArray) -> void:
 	poisoned["marksDelta"] = Contract.MARKS_PVP_WIN
 	if poisoned.get("payout") is Dictionary:
 		poisoned["payout"]["marksDelta"] = Contract.MARKS_PVP_WIN
-	_expect(failed, MarksPayout.table_delta(poisoned, Contract.SEAT_A) == 0, "practice table ignores +25")
+	_expect(failed, MarksPayout.table_delta(poisoned, Contract.SEAT_A) == 0, "practice table ignores +32")
 	_expect(failed, snap.rematch_offered(), "practice rematch offered")
 	var again: Dictionary = server.rematch(mid, pid, true)
 	_expect(failed, str(again.get("status", "")) == Contract.REMATCH_READY, "practice rematch ready on one accept")
@@ -3791,10 +3832,10 @@ func _journal_case(failed: PackedStringArray) -> void:
 		"rematchAvailable": true,
 	})) == "0", "J2 poisoned practice still 0")
 	_expect(failed, Contract.format_marks_delta(0) == "0", "P2 delta chip 0")
-	_expect(failed, Contract.format_marks_delta(25) == "+25", "P2 delta chip +N")
+	_expect(failed, Contract.format_marks_delta(32) == "+32", "P2 delta chip +N")
 	_expect(failed, Contract.format_marks_delta(-4) == "−4", "P2 delta chip −N")
 	_expect(failed, Contract.format_marks_delta(-4) != "-4", "P2 minus is not a hyphen")
-	_expect(failed, Contract.format_marks_delta(25) != "0+25" and Contract.format_marks_delta(25) != "Δ+25", "P2 no glued delta")
+	_expect(failed, Contract.format_marks_delta(32) != "0+32" and Contract.format_marks_delta(32) != "Δ+32", "P2 no glued delta")
 	_expect(failed, Journal.marks_text(Journal.normalize({
 		"matchId": "m_neg",
 		"mode": Contract.MODE_PVP,
@@ -3889,7 +3930,7 @@ func _journal_case(failed: PackedStringArray) -> void:
 		"matchId": "m_open",
 		"mode": Contract.MODE_PVP,
 		"result": "win",
-		"marksDelta": 25,
+		"marksDelta": 32,
 		"rematchAvailable": true,
 		"rival": {"displayName": "RIVAL", "isBot": false},
 	})
@@ -3897,15 +3938,15 @@ func _journal_case(failed: PackedStringArray) -> void:
 		"matchId": "m_shut",
 		"mode": Contract.MODE_PVP,
 		"result": "loss",
-		"marksDelta": 3,
+		"marksDelta": 4,
 		"rematchAvailable": false,
 		"rival": {"displayName": "RIVAL", "isBot": false},
 	})
 	plate.bind({"entries": shown})
 	_expect(failed, plate.row_count() == 3, "J1 plate shows server rows")
 	_expect(failed, plate.row_marks(0) == "0", "J2 plate practice 0")
-	_expect(failed, plate.row_marks(1) == "+25", "journal win chip +25")
-	_expect(failed, plate.row_marks(2) == "+3", "journal loss chip +3")
+	_expect(failed, plate.row_marks(1) == "+32", "journal win chip +32")
+	_expect(failed, plate.row_marks(2) == "+4", "journal loss chip +4")
 	_expect(failed, plate.row_tag(0) == Contract.JOURNAL_TAG_PRACTICE, "practice tag")
 	_expect(failed, plate.row_cta_text(0) == Contract.JOURNAL_PRACTICE_AGAIN, "practice again label")
 	_expect(failed, not plate.row_cta_disabled(0), "practice again enabled")
@@ -4065,7 +4106,7 @@ func _exposure_floor_case(failed: PackedStringArray) -> void:
 	_expect(failed, not after.you().has("operativeLevel"), "E5 operativeLevel is not a client field")
 	_expect(failed, Contract.RECON_BASE == 0.35, "E3 RECON_BASE unchanged")
 	_expect(failed, Contract.BASE_HIT_CHANCE == 0.90, "E3 attack band unchanged")
-	_expect(failed, Contract.MARKS_PVP_WIN == 25, "E4 Marks table unchanged")
+	_expect(failed, Contract.MARKS_PVP_WIN == 32, "E4 Marks table ★32")
 	var screen_src := FileAccess.get_file_as_string("res://scenes/match/match_screen.gd")
 	_expect(failed, screen_src.find("you_exposure_floor()") >= 0, "doll bind reads you.exposureFloor")
 	_expect(failed, screen_src.find("clamp_exposure_intent") >= 0, "Recon/Attack band min reads the floor")

@@ -22,7 +22,7 @@ func _run() -> int:
 	var titles: PackedStringArray = coach.visible_titles()
 	_expect(failed, titles.has("ATTACK") and titles.has("RECON") and titles.has("DOLL") and titles.has("DECOY"), "Attack Recon Doll Decoy")
 	_expect(failed, coach.passthrough_ok(), "no modal lock")
-	_expect(failed, Contract.RECON_BASE == 0.35 and Contract.MARKS_PVP_WIN == 25, "no combat delta")
+	_expect(failed, Contract.RECON_BASE == 0.35 and Contract.MARKS_PVP_WIN == 32, "no combat delta")
 
 	coach.dismiss()
 	_expect(failed, not coach.is_showing(), "chips gone after dismiss")

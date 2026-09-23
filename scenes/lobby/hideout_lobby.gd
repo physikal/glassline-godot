@@ -964,7 +964,7 @@ func _capture_sp_job_t3() -> void:
 		_jobs_panel.visible = false
 	if _shop_row:
 		_shop_row.visible = true
-	_toast_msg("Night Contract  ·  ★20")
+	_toast_msg("%s  ·  %s" % [Contract.JOB_NAME_T3, Chrome.marks_star_text(Contract.job_tier_delta(3))])
 	await _capture_named("res://artifacts/ux/sp_job_t3_post_marks.png", "J5_SP_JOB_T3_MARKS")
 
 
@@ -2218,7 +2218,11 @@ func _toggle_jobs() -> void:
 	if _shop_row:
 		_shop_row.visible = not _jobs_panel.visible
 	if _jobs_panel.visible:
-		_toast_msg("T1 ★10   ·   T2 ★15   ·   T3 ★20")
+		_toast_msg("T1 %s   ·   T2 %s   ·   T3 %s" % [
+			Chrome.marks_star_text(Contract.job_tier_delta(1)),
+			Chrome.marks_star_text(Contract.job_tier_delta(2)),
+			Chrome.marks_star_text(Contract.job_tier_delta(3)),
+		])
 
 
 func _toggle_invite() -> void:

@@ -200,7 +200,7 @@ static func display_reason(payload: Dictionary, job_hint: bool = false) -> Strin
 
 static func table_reason(payload: Dictionary, job: bool = false, practice: bool = false) -> String:
 	## Earn-table token from snapshot endReason + winner. Not payout.reason=loss.
-	## Practice has no earn line — the overlay says so instead of kill / +25.
+	## Practice has no earn line — the overlay says so instead of kill / +32.
 	if practice or payload_is_practice(payload):
 		return "no marks"
 	if payload_is_job(payload, job):
@@ -222,6 +222,16 @@ static func table_reason(payload: Dictionary, job: bool = false, practice: bool 
 	return display_reason(payload, job)
 
 
+static func _job_tier(payload: Dictionary) -> int:
+	## `job.tier` when the bag has one. Otherwise top-level `jobTier`. Missing stays T1.
+	var job_obj: Variant = payload.get("job", null)
+	if job_obj is Dictionary and (job_obj as Dictionary).has("tier"):
+		return int(job_obj.get("tier", 1))
+	if payload.has("jobTier"):
+		return int(payload.get("jobTier", 1))
+	return 1
+
+
 static func table_delta(payload: Dictionary, you_seat: String, job: bool = false, practice: bool = false) -> int:
 	## Locked earn table. Display only — never `marks +=`.
 	## Practice is Δ0 on every ending. The earn table does not apply.
@@ -230,12 +240,7 @@ static func table_delta(payload: Dictionary, you_seat: String, job: bool = false
 	var why := table_reason(payload, job, false)
 	var win: Variant = payload.get("winner", null)
 	var you_won := win != null and str(win) == you_seat
-	var job_obj: Variant = payload.get("job", {})
-	var tier := 1
-	if job_obj is Dictionary:
-		tier = int(job_obj.get("tier", 1))
-	elif payload.has("jobTier"):
-		tier = int(payload.get("jobTier", 1))
+	var tier := _job_tier(payload)
 	if why == Contract.END_KILL:
 		return Contract.MARKS_PVP_WIN if you_won else Contract.MARKS_PVP_LOSS
 	if why == Contract.END_STANDOFF:
@@ -245,7 +250,7 @@ static func table_delta(payload: Dictionary, you_seat: String, job: bool = false
 	if why == Contract.END_JOB:
 		return Contract.job_tier_delta(tier)
 	if why == Contract.END_JOB_FAIL:
-		return Contract.MARKS_JOB_FAIL
+		return Contract.job_tier_fail_delta(tier)
 	if why == Contract.END_LOSS:
 		return Contract.MARKS_PVP_LOSS
 	return 0
@@ -266,7 +271,7 @@ static func table_copy(end_reason: String, you_won: bool, job_tier: int = 1) -> 
 	if why in [Contract.END_JOB, Contract.END_JOB_FAIL]:
 		if you_won:
 			return "table  T%d %s" % [job_tier, Contract.format_marks_delta(Contract.job_tier_delta(job_tier))]
-		return "table  %s" % Contract.format_marks_delta(0)
+		return "table  %s" % Contract.format_marks_delta(Contract.job_tier_fail_delta(job_tier))
 	if why == Contract.END_LOSS:
 		return "table  %s" % Contract.format_marks_delta(Contract.MARKS_PVP_LOSS)
 	return ""

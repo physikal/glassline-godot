@@ -187,15 +187,18 @@ const PART_TOAST_HOLD_SEC := 2.4
 const PART_OWNED_COPY := "OWNED"
 const PART_EQUIPPED_COPY := "Wearing this"
 
-## Locked GD earn table (2026-09-18). Mock display grants only; LIVE ledger is Coder.
-const MARKS_PVP_WIN := 25
-const MARKS_PVP_LOSS := 3
-const MARKS_STANDOFF := 8
-const MARKS_JOB_T1 := 10
-const MARKS_JOB_T2 := 15
-const MARKS_JOB_T3 := 20
-const MARKS_JOB_FAIL := 0
-const MARKS_FORFEIT_WIN := 12
+## Locked GD earn table (2026-09-23). Display + mock only; LIVE ledger is Coder.
+## Practice stays 0. SP max win (T3) stays under the PvP kill.
+const MARKS_PVP_WIN := 32
+const MARKS_PVP_LOSS := 4
+const MARKS_STANDOFF := 10
+const MARKS_JOB_T1 := 12
+const MARKS_JOB_T2 := 18
+const MARKS_JOB_T3 := 24
+const MARKS_JOB_FAIL_T1 := 2
+const MARKS_JOB_FAIL_T2 := 3
+const MARKS_JOB_FAIL_T3 := 3
+const MARKS_FORFEIT_WIN := 15
 const MARKS_FORFEIT_LOSS := 0
 const FORFEIT_GRACE_SEC := 30
 
@@ -217,7 +220,7 @@ const REMATCH_PLAY_COPY := "PLAY AGAIN"
 const REMATCH_DECLINE_COPY := "DECLINE"
 const REMATCH_SETTLED_COPY := "Marks already settled."
 const REMATCH_HINT_COPY := "Play again for a fresh drop. Wallet stays put."
-## Forfeit body. +12 / 0 already landed — do not say the wallet stayed put.
+## Forfeit body. +15 / 0 already landed — do not say the wallet stayed put.
 const FORFEIT_HINT_COPY := "Play again for a fresh drop. Wallet already settled."
 const REMATCH_WAIT_COPY := "Waiting on your rival…"
 const REMATCH_TIMER_COPY := "Answer in %ds"
@@ -464,6 +467,17 @@ static func job_tier_delta(tier: int) -> int:
 			return MARKS_JOB_T3
 		_:
 			return MARKS_JOB_T1
+
+
+static func job_tier_fail_delta(tier: int) -> int:
+	## Per-tier job loss. Unknown tier stays T1. Display + mock only.
+	match tier:
+		2:
+			return MARKS_JOB_FAIL_T2
+		3:
+			return MARKS_JOB_FAIL_T3
+		_:
+			return MARKS_JOB_FAIL_T1
 
 
 static func job_row_label(tier: int) -> String:

@@ -133,7 +133,7 @@ POST shapes (Coder PR #9 / LIVE):
 { ok: true, snapshot }   // status ended, endReason forfeit, winner = remaining
 ```
 
-- Marks: remaining **+12** / leaver **+0**. Snapshot `you.marks` is the settled wallet.
+- Marks: remaining **+15** / leaver **+0** (display + mock table). Snapshot `you.marks` is the settled wallet.
 - `ready` / `waiting` → 409 `match_not_active`.
 - Already `ended` → 409 `match_already_ended` (idempotent: no second grant). Client GET-replays.
 - Rematch still ended-only (409 `match_not_ended` while `active`).
