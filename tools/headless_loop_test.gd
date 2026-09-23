@@ -2219,6 +2219,21 @@ func _part_sink_case(failed: PackedStringArray) -> void:
 	_expect(failed, Contract.part_buy_toast(Contract.PART_OPTIC) == Contract.PART_TOAST_WINDOW, "P optic toast")
 	_expect(failed, Contract.part_buy_toast(Contract.PART_STOCK) == Contract.PART_TOAST_WOBBLE, "P stock toast")
 	_expect(failed, Contract.part_buy_toast(Contract.PART_BARREL) == Contract.PART_TOAST_WOBBLE, "P barrel toast")
+	_expect(failed, Contract.part_row_status(false, false, false) == "", "P insufficient is not a per-row line")
+	_expect(failed, Contract.SHOP_INSUFFICIENT_COPY == "Not enough Marks.", "P shared insufficient copy")
+	var feel_copy := Contract.PART_TOAST_WINDOW + Contract.PART_TOAST_WOBBLE
+	_expect(failed, feel_copy.find("%") < 0 and feel_copy.find("1.4") < 0 and feel_copy.find("0.8") < 0, "P buy toast has no combat stats")
+	_expect(failed, Contract.PART_TOAST_HOLD_SEC > 0.0, "P buy toast hold is set")
+	var part_hud := FileAccess.get_file_as_string("res://scenes/lobby/hideout_lobby.gd")
+	var wood_toast := _fn_body(part_hud, "_build_part_wood_toast")
+	_expect(failed, wood_toast.find("PartWoodToast") >= 0 and wood_toast.find("make_wood_texture") >= 0, "P one shared wood toast plate")
+	var show_toast := _fn_body(part_hud, "_show_part_wood_toast")
+	_expect(failed, show_toast.find("create_timer(Contract.PART_TOAST_HOLD_SEC)") >= 0, "P buy toast clears on its own")
+	var buy_body := _fn_body(part_hud, "_on_shop_primary")
+	_expect(failed, buy_body.find("_show_part_wood_toast(Contract.SHOP_INSUFFICIENT_COPY, false)") >= 0, "P insufficient uses the shared toast")
+	_expect(failed, buy_body.find("_show_part_wood_toast(Contract.part_buy_toast(item_id), true)") >= 0, "P buy feel uses the clearing toast")
+	var sync_body := _fn_body(part_hud, "_sync_part_marks_toast")
+	_expect(failed, sync_body.find("Contract.SHOP_INSUFFICIENT_COPY") >= 0 and sync_body.find("_part_toast_clearing") >= 0, "P insufficient toast yields to the clearing buy line")
 
 	var lagged = Shop.from_any(Contract.merge_live_shop_catalog({
 		"items": [{"id": "skin_hideout_stub", "name": "Hideout Skin (stub)", "price": 50, "kind": "skin"}],

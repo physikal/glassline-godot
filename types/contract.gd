@@ -168,6 +168,8 @@ const WOBBLE_BARREL_SCALE := 0.90
 const WOBBLE_STACK_FLOOR := 0.75
 const PART_TOAST_WINDOW := "Shot window looser"
 const PART_TOAST_WOBBLE := "Wobble quieter"
+## Buy-feel wood toast. Same hold as other clearing hideout toasts.
+const PART_TOAST_HOLD_SEC := 2.4
 const PART_OWNED_COPY := "OWNED"
 const PART_EQUIPPED_COPY := "Wearing this"
 
@@ -725,11 +727,12 @@ static func part_buy_toast(item_id: String) -> String:
 
 
 static func part_row_status(owned: bool, can_buy: bool, equipped: bool) -> String:
-	## No hit / spot / exposure copy. Feel lives on the buy toast and the optic.
+	## Wear copy only. Insufficient Marks is one shared wood toast, not a line per chip.
+	## No hit / spot / exposure copy. Feel lives on the clearing buy toast.
 	if owned:
 		return PART_EQUIPPED_COPY if equipped else PART_OWNED_COPY
 	if not can_buy:
-		return SHOP_INSUFFICIENT_COPY
+		return ""
 	return ""
 
 

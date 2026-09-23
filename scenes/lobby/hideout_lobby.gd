@@ -49,6 +49,10 @@ var _gun_hands: TextureRect
 var _gun_kicker: Label
 var _part_kicker: Label
 var _part_chips: HBoxContainer
+var _part_toast: PanelContainer
+var _part_toast_lbl: Label
+var _part_toast_gen: int = 0
+var _part_toast_clearing: bool = false
 var _wallet_row: HBoxContainer
 var _taste_doll: ExposureDoll
 var _dock_quick: Button
@@ -73,6 +77,9 @@ func _ready() -> void:
 	var args := OS.get_cmdline_user_args()
 	if "--assert-paste-toast" in args:
 		get_tree().quit(_assert_paste_toast())
+		return
+	if "--assert-part-toast" in args:
+		get_tree().quit(await _assert_part_toast())
 		return
 	if "--capture-lobby" in args:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
@@ -438,6 +445,60 @@ func _capture_lobby_join() -> void:
 	await _capture_named("res://artifacts/ux/lobby_join.png", "P6_LOBBY_JOIN")
 
 
+func _assert_part_toast() -> int:
+	## One shared insufficient plate. Buy-feel copy clears on its own. No combat stats.
+	var failed: PackedStringArray = []
+	if not ClientSession.use_live_api():
+		MockMatchServer.reset_wallet(24)
+	_bind_wallet()
+	_bind_shop()
+	_refresh_marks()
+	_refresh_shop()
+	if _shop_row:
+		_shop_row.visible = true
+	_hide_non_part_shop_rows()
+	_sync_part_marks_toast()
+	if _part_toast_lbl == null or not _part_toast.visible or _part_toast_lbl.text != Contract.SHOP_INSUFFICIENT_COPY:
+		failed.append("shared insufficient toast missing")
+	var row_hits := 0
+	for item_id in _shop_lines.keys():
+		if not Contract.is_part_chrome(str(item_id)):
+			continue
+		var status: Label = _shop_lines[item_id].get("status")
+		if status and status.text.find("Marks") >= 0:
+			row_hits += 1
+	if row_hits != 0:
+		failed.append("per-row insufficient still showing")
+	if not ClientSession.use_live_api():
+		MockMatchServer.reset_wallet(400)
+	_bind_wallet()
+	_bind_shop()
+	_refresh_marks()
+	_refresh_shop()
+	_on_shop_primary(Contract.PART_OPTIC)
+	if _part_toast_lbl == null or _part_toast_lbl.text != Contract.PART_TOAST_WINDOW or not _part_toast_clearing:
+		failed.append("optic toast did not show")
+	elif _part_toast_lbl.text.find("%") >= 0 or _part_toast_lbl.text.find("1.") >= 0:
+		failed.append("optic toast has combat stats")
+	await get_tree().create_timer(Contract.PART_TOAST_HOLD_SEC + 0.35).timeout
+	if _part_toast_clearing or (_part_toast_lbl and _part_toast_lbl.text == Contract.PART_TOAST_WINDOW):
+		failed.append("optic toast did not clear")
+	_on_shop_primary(Contract.PART_STOCK)
+	if _part_toast_lbl == null or _part_toast_lbl.text != Contract.PART_TOAST_WOBBLE:
+		failed.append("stock toast mismatch")
+	_on_shop_primary(Contract.PART_BARREL)
+	if _part_toast_lbl == null or _part_toast_lbl.text != Contract.PART_TOAST_WOBBLE:
+		failed.append("barrel toast mismatch")
+	if _part_toast_lbl and (_part_toast_lbl.text.find("%") >= 0 or _part_toast_lbl.text.find("0.") >= 0):
+		failed.append("wobble toast has combat stats")
+	if failed.is_empty():
+		print("PART_TOAST_OK")
+		return 0
+	for line in failed:
+		print("FAIL: ", line)
+	return 1
+
+
 func _assert_paste_toast() -> int:
 	## Soft P2: Pasted. only after a PASTE tap this visit.
 	var failed: PackedStringArray = []
@@ -687,6 +748,8 @@ func _hide_non_part_shop_rows() -> void:
 		if child == _part_kicker:
 			child.visible = true
 			continue
+		if child == _part_toast:
+			continue
 		if child is Label:
 			(child as CanvasItem).visible = false
 			continue
@@ -911,6 +974,7 @@ func _build() -> void:
 	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	Chrome.apply_label(_toast, 10, Color("f0e3b0"), true)
 	add_child(_toast)
+	_build_part_wood_toast()
 
 	_build_jobs_panel()
 	_build_invite_panel()
@@ -1757,6 +1821,7 @@ func _refresh_shop() -> void:
 				status.text = Shop.row_status_text(owned, can_buy, equipped)
 	_refresh_bg()
 	_refresh_gun_rack()
+	_sync_part_marks_toast()
 
 
 func _ensure_shop_lines(items: Array) -> void:
@@ -1812,9 +1877,13 @@ func _on_shop_primary(item_id: String) -> void:
 	_refresh_marks()
 	_buying_id = ""
 	if shop.is_insufficient():
-		if status:
-			status.text = Contract.SHOP_INSUFFICIENT_COPY
-		_toast_msg("ARMORY rejected  ·  insufficient_marks")
+		if Contract.is_part_chrome(item_id):
+			## One shared wood toast. Do not stamp the line onto this chip.
+			_show_part_wood_toast(Contract.SHOP_INSUFFICIENT_COPY, false)
+		else:
+			if status:
+				status.text = Contract.SHOP_INSUFFICIENT_COPY
+			_toast_msg("ARMORY rejected  ·  insufficient_marks")
 	elif shop.is_unavailable() or shop.error == Contract.SHOP_ERR_UNKNOWN_ITEM:
 		if status:
 			status.text = "LIVE shop not ready" if shop.is_unavailable() else str(shop.error)
@@ -1826,9 +1895,10 @@ func _on_shop_primary(item_id: String) -> void:
 	else:
 		if status:
 			status.text = Contract.part_row_status(true, true, true) if Contract.is_part_chrome(item_id) else Contract.SHOP_EQUIPPED_COPY
-		## Parts get one soft feel line. Skins / guns keep the row as the only status.
+		## Parts get one soft feel line on a clearing wood toast. No combat stats.
+		## Skins / guns keep the row as the only status.
 		if Contract.is_part_chrome(item_id):
-			_toast_msg(Contract.part_buy_toast(item_id))
+			_show_part_wood_toast(Contract.part_buy_toast(item_id), true)
 		else:
 			_toast_msg("")
 	_refresh_shop()
@@ -1890,6 +1960,98 @@ func _toggle_suit() -> void:
 		_on_equip_toggle(str(ClientSession.equipped_cosmetic))
 	else:
 		_on_equip_toggle(next_id)
+
+
+func _build_part_wood_toast() -> void:
+	## Same wood-grain plate as the gear strip and journal. One shared slot under PARTS.
+	_part_toast = PanelContainer.new()
+	_part_toast.name = "PartWoodToast"
+	_part_toast.visible = false
+	_part_toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_part_toast.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_part_toast.custom_minimum_size = Vector2(0, 44)
+	var box := Chrome.flat(Color(0.10, 0.07, 0.05, 0.22), 16, Chrome.HIGH_GOLD, 3)
+	box.content_margin_left = 16
+	box.content_margin_right = 16
+	box.content_margin_top = 6
+	box.content_margin_bottom = 6
+	_part_toast.add_theme_stylebox_override("panel", box)
+	if _shop_col != null and _part_kicker != null:
+		_shop_col.add_child(_part_toast)
+		_shop_col.move_child(_part_toast, _part_kicker.get_index() + 1)
+	else:
+		add_child(_part_toast)
+
+	var wood := TextureRect.new()
+	wood.name = "Wood"
+	wood.set_anchors_preset(PRESET_FULL_RECT)
+	wood.texture = Chrome.make_wood_texture(220, 64)
+	wood.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	wood.stretch_mode = TextureRect.STRETCH_SCALE
+	wood.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_part_toast.add_child(wood)
+
+	_part_toast_lbl = Label.new()
+	_part_toast_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_part_toast_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_part_toast_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_part_toast_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	Chrome.apply_label(_part_toast_lbl, 12, Chrome.CREAM, true)
+	_part_toast.add_child(_part_toast_lbl)
+
+
+func _parts_marks_short() -> bool:
+	## True when any unowned part chip would have repeated "Not enough Marks."
+	var bag = Shop.from_any(MatchAPI.get_shop())
+	var short := false
+	for family in Contract.part_ids():
+		var item_id := str(family)
+		if ClientSession.owns_cosmetic(item_id):
+			continue
+		if bag.catalog_pending(item_id):
+			continue
+		if int(ClientSession.marks) < int(bag.price_of(item_id)):
+			short = true
+	return short
+
+
+func _sync_part_marks_toast() -> void:
+	## Insufficient stays one plate while the armory is up. A clearing buy line wins.
+	if _part_toast == null or _part_toast_clearing:
+		return
+	var parts_open := _shop_row != null and _shop_row.visible and _part_kicker != null and _part_kicker.visible
+	var show := parts_open and _parts_marks_short()
+	if show:
+		if not _part_toast.visible or _part_toast_lbl.text != Contract.SHOP_INSUFFICIENT_COPY:
+			_part_toast_lbl.text = Contract.SHOP_INSUFFICIENT_COPY
+			_part_toast.visible = true
+		return
+	if _part_toast_lbl != null and _part_toast_lbl.text == Contract.SHOP_INSUFFICIENT_COPY:
+		_part_toast.visible = false
+		_part_toast_lbl.text = ""
+
+
+func _show_part_wood_toast(text: String, clearing: bool) -> void:
+	## clearing=true hides the plate on its own. Same slot for insufficient and buy-feel.
+	if _part_toast == null or _part_toast_lbl == null:
+		return
+	_part_toast_gen += 1
+	var gen := _part_toast_gen
+	_part_toast_clearing = clearing and text != ""
+	_part_toast_lbl.text = text
+	_part_toast.visible = text != ""
+	if not _part_toast_clearing:
+		return
+	get_tree().create_timer(Contract.PART_TOAST_HOLD_SEC).timeout.connect(func() -> void:
+		if gen != _part_toast_gen or not _part_toast_clearing:
+			return
+		_part_toast_clearing = false
+		if _part_toast_lbl:
+			_part_toast_lbl.text = ""
+		if _part_toast:
+			_part_toast.visible = false
+		_sync_part_marks_toast()
+	)
 
 
 func _toast_msg(text: String) -> void:
@@ -2320,6 +2482,7 @@ func _notification(what: int) -> void:
 
 
 func _process(delta: float) -> void:
+	_sync_part_marks_toast()
 	if _queue_waiting:
 		_queue_elapsed += delta
 		if _queue_elapsed >= float(Contract.QUEUE_TTL_SEC):
