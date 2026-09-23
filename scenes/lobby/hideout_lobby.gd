@@ -309,11 +309,23 @@ func _ready() -> void:
 		DisplayServer.window_set_size(Vector2i(1280, 720))
 		await _capture_gear(false, true)
 	elif "--capture-xp-plate-tip" in args or "--capture-xp-plate-l5" in args \
-			or "--capture-xp-plate-progress" in args:
+			or "--capture-xp-plate-progress" in args \
+			or "--capture-xp-plate-floor-l4" in args \
+			or "--capture-xp-plate-floor-l5" in args \
+			or "--capture-xp-plate-floor-l10" in args \
+			or "--capture-xp-plate-floor-l15" in args:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 		DisplayServer.window_set_size(Vector2i(1280, 720))
 		var plate_kind := "progress"
-		if "--capture-xp-plate-tip" in args:
+		if "--capture-xp-plate-floor-l4" in args:
+			plate_kind = "floor-l4"
+		elif "--capture-xp-plate-floor-l5" in args:
+			plate_kind = "floor-l5"
+		elif "--capture-xp-plate-floor-l10" in args:
+			plate_kind = "floor-l10"
+		elif "--capture-xp-plate-floor-l15" in args:
+			plate_kind = "floor-l15"
+		elif "--capture-xp-plate-tip" in args:
 			plate_kind = "tip"
 		elif "--capture-xp-plate-l5" in args:
 			plate_kind = "l5"
@@ -1949,12 +1961,18 @@ func _capture_xp_plate(kind: String) -> void:
 	if not ClientSession.use_live_api():
 		MockMatchServer.test_omit_xp = false
 		MockMatchServer.test_omit_operative_level = false
-		if kind == "tip":
+		if kind == "tip" or kind == "floor-l4":
 			MockMatchServer.operative_level = 4
 			MockMatchServer.account_xp = 318
-		elif kind == "l5":
+		elif kind == "l5" or kind == "floor-l5":
 			MockMatchServer.operative_level = 5
 			MockMatchServer.account_xp = 400
+		elif kind == "floor-l10":
+			MockMatchServer.operative_level = 10
+			MockMatchServer.account_xp = 964
+		elif kind == "floor-l15":
+			MockMatchServer.operative_level = 15
+			MockMatchServer.account_xp = 1400
 		else:
 			MockMatchServer.operative_level = 2
 			MockMatchServer.account_xp = 164
@@ -1968,8 +1986,20 @@ func _capture_xp_plate(kind: String) -> void:
 	elif kind == "l5":
 		path = "res://artifacts/ux/xp_plate_l5.png"
 		tag = "XP_PLATE_L5"
+	elif kind == "floor-l4":
+		path = "res://artifacts/ux/xp_plate_floor_l4.png"
+		tag = "XP_PLATE_FLOOR_L4"
+	elif kind == "floor-l5":
+		path = "res://artifacts/ux/xp_plate_floor_l5.png"
+		tag = "XP_PLATE_FLOOR_L5"
+	elif kind == "floor-l10":
+		path = "res://artifacts/ux/xp_plate_floor_l10.png"
+		tag = "XP_PLATE_FLOOR_L10"
+	elif kind == "floor-l15":
+		path = "res://artifacts/ux/xp_plate_floor_l15.png"
+		tag = "XP_PLATE_FLOOR_L15"
 	if _xp_plate:
-		print("XP_PLATE ", tag, " LEVEL ", _xp_plate.level_text(), " TIP ", _xp_plate.tip_visible(), " ", _xp_plate.tip_text(), " FILL ", _xp_plate.fill_ratio(), " PROG ", _xp_plate.progress(), " LEFT ", _xp_plate.remaining())
+		print("XP_PLATE ", tag, " LEVEL ", _xp_plate.level_text(), " TIP ", _xp_plate.tip_visible(), " ", _xp_plate.tip_text(), " FLOOR ", _xp_plate.floor_tip_visible(), " ", _xp_plate.floor_tip_text(), " FILL ", _xp_plate.fill_ratio(), " PROG ", _xp_plate.progress(), " LEFT ", _xp_plate.remaining())
 	await _capture_named(path, tag)
 
 
