@@ -998,7 +998,7 @@ func _capture_grace_countdown() -> void:
 func _capture_forfeit_overlay() -> void:
 	await get_tree().process_frame
 	_force_pvp_active_for_capture()
-	## Remaining seat wins: dummy leaves → you +12, rematch chrome, no mil-sim.
+	## Remaining seat wins: dummy leaves → you +15, rematch chrome, no mil-sim.
 	if ClientSession.dummy_player_id != "":
 		var body: Dictionary = MatchAPI.abandon_as(ClientSession.dummy_player_id)
 		var snap_raw: Variant = body.get("snapshot", {})
@@ -1297,7 +1297,7 @@ func _build() -> void:
 
 	_btn_abandon = Chrome.chunk_button(Contract.ABANDON_COPY, Chrome.WOOD, Chrome.CREAM, Vector2(200, 40))
 	_btn_abandon.position = Vector2(1056, 88)
-	_btn_abandon.tooltip_text = "Leave the hunt. Rival keeps the Marks table (+12 / 0)."
+	_btn_abandon.tooltip_text = "Leave the hunt. Rival keeps the Marks table (+%d / %d)." % [Contract.MARKS_FORFEIT_WIN, Contract.MARKS_FORFEIT_LOSS]
 	_btn_abandon.pressed.connect(_on_abandon)
 	_btn_abandon.visible = false
 	add_child(_btn_abandon)
@@ -1709,7 +1709,7 @@ func _refresh(snap: Snapshot) -> void:
 		if snap.is_practice() or ClientSession.is_practice():
 			_btn_abandon.tooltip_text = Contract.PRACTICE_ABANDON_TIP
 		else:
-			_btn_abandon.tooltip_text = "Leave the hunt. Rival keeps the Marks table (+12 / 0)."
+			_btn_abandon.tooltip_text = "Leave the hunt. Rival keeps the Marks table (+%d / %d)." % [Contract.MARKS_FORFEIT_WIN, Contract.MARKS_FORFEIT_LOSS]
 	var turn_n := snap.turn_index()
 	if turn_n < 1:
 		turn_n = 1

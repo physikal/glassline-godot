@@ -1,9 +1,9 @@
 # SP job T2/T3 ladder — client (J1–J5)
 
 Client half of [Slice ticket — SP job T2/T3 ladder](https://www.notion.so/3e04dabdb33981d4a46dd9ddd25d1439).  
-Hideout ladder UX + LIVE smoke. **No contract rewrite.** Server already awards T1 ★10 / T2 ★15 / T3 ★20 at match/job end.
+Hideout ladder UX. Display chips read `Contract.job_tier_delta`: T1 ★12 / T2 ★18 / T3 ★24. Mock grants the same table. LIVE wallet stays Coder.
 
-Hard: awards < PvP kill ★25 · durable `POST /players` Bearer · snapshot-only Marks. No new cosmetics, IAP, combat reward chrome, or mil-sim art.
+Hard: awards < PvP kill ★32 · durable `POST /players` Bearer · snapshot-only Marks. No new cosmetics, IAP, combat reward chrome, or mil-sim art.
 
 ## LIVE shapes (curled 2026-09-19)
 
@@ -29,9 +29,9 @@ Bot drop (`src/bot.ts` `SP_BOT_HEX`): T1 `(8,6)` · T2 `(7,5)` · T3 `(8,5)`.
 
 | Gate | Client surface | Pass |
 | --- | --- | --- |
-| **J1** | Hideout row **T1 Rooftop Rookie ★10** → START → board → kill | LIVE `you.marks` **+10**. Mock `complete_job(1, clientJobId)` same bind. |
-| **J2** | **T2 Warehouse Watch ★15** | LIVE **+15** on the same Bearer. |
-| **J3** | **T3 Night Contract ★20** | LIVE **+20** on the same Bearer. |
+| **J1** | Hideout row **T1 Rooftop Rookie ★12** → START → board → kill | Mock `complete_job(1, clientJobId)` binds **+12**. |
+| **J2** | **T2 Warehouse Watch ★18** | Mock **+18**. |
+| **J3** | **T3 Night Contract ★24** | Mock **+24**. |
 | **J4** | Replay same complete (`GET /matches/:id`, `GET /jobs/:id`, re-attack ended job, POST `/jobs` same `clientJobId` without a second kill) | Wallet unchanged. Mock `complete_job` receipts are keyed by `clientJobId`. |
 | **J5** | Three lobby-canon rows + post-T3 Marks chip | `artifacts/ux/sp_jobs_ladder.png` · `artifacts/ux/sp_job_t3_post_marks.png` |
 

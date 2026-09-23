@@ -1809,7 +1809,7 @@ func _settle_payout(match_state: Dictionary, end_reason: String) -> void:
 			delta = Contract.job_tier_delta(job_tier) if job else Contract.MARKS_PVP_WIN
 			reason = Contract.END_JOB if job else Contract.END_KILL
 		else:
-			delta = Contract.MARKS_JOB_FAIL if job else Contract.MARKS_PVP_LOSS
+			delta = Contract.job_tier_fail_delta(job_tier) if job else Contract.MARKS_PVP_LOSS
 			reason = Contract.END_JOB_FAIL if job else Contract.END_LOSS
 		## Practice earn table is blind. Win, loss, forfeit, and standoff are all Δ0.
 		if _is_practice(match_state):

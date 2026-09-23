@@ -8,10 +8,10 @@ Slice: [📋 Slice ticket — Match end summary](https://app.notion.com/p/3e04da
 
 | `endReason` · seat | Δ | Headline |
 | --- | --- | --- |
-| kill + winner | **+25** | `MARK CONFIRMED` |
-| kill + loser | **+3** | `ELIMINATED` |
-| standoff (both) | **+8** | `STANDOFF` |
-| forfeit + remaining | **+12** | `RIVAL FORFEIT` |
+| kill + winner | **+32** | `MARK CONFIRMED` |
+| kill + loser | **+4** | `ELIMINATED` |
+| standoff (both) | **+10** | `STANDOFF` |
+| forfeit + remaining | **+15** | `RIVAL FORFEIT` |
 | forfeit + leaver | **0** | `FORFEIT` |
 
 SP jobs keep the existing job / `job_fail` map (LIVE `endReason=kill` → display `job`). Overlay never `marks +=`.
@@ -30,7 +30,7 @@ SP jobs keep the existing job / `job_fail` map (LIVE `endReason=kill` → displa
 | ID | Result | Evidence |
 | --- | --- | --- |
 | **M.1** Kill / forfeit / standoff copy | **PASS mock** | Headless `_end_summary_case`. Stills `end_summary_kill.png` / `end_summary_forfeit.png` / `end_summary_standoff.png`. Both seats asserted in overlay strings. |
-| **M.2** Δ matches earn table | **PASS mock** | `table_delta` + mock settle: kill 25/3 · standoff 8/8 · forfeit 12/0. LIVE omit `marksDelta` still paints `+25 · ★25`. |
+| **M.2** Δ matches earn table | **PASS mock** | `table_delta` + mock settle: kill 32/4 · standoff 10/10 · forfeit 15/0. LIVE omit `marksDelta` still paints `+32 · ★32`. |
 | **M.3** Rematch / Hideout still work | **PASS mock** | After overlay, `rematch_offered` · Play again → waiting · Decline → declined. Jobs stay Hideout. Existing `_rematch_case` / `_a4_gaps_case` unchanged. |
 | **M.4** UX taste vs end overlay | **PASS mock stills** | Gold marks line under a bigger headline, cream reason, then settled rematch plate. No mil-sim. |
 
