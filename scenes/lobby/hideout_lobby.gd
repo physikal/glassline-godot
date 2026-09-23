@@ -1020,7 +1020,7 @@ func _build_gun_rack() -> void:
 	_gun_hands.texture = ArtPack.rifle_held_texture()
 	_gun_hands.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_gun_hands.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_gun_hands.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_gun_hands.stretch_mode = TextureRect.STRETCH_SCALE
 	_gun_hands.position = ArtPack.HELD_POS
 	_gun_hands.size = ArtPack.HELD_SIZE
 	_gun_hands.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1040,7 +1040,8 @@ func _refresh_gun_rack() -> void:
 		stamp.texture = ArtPack.rifle_texture(gid, "locked" if state == "locked" else "owned")
 		stamp.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		stamp.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		stamp.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		## 1:1 on the painted bolt. Aspect-fit in a taller slot ghosted a second gun.
+		stamp.stretch_mode = TextureRect.STRETCH_SCALE
 		stamp.position = ArtPack.rack_position(gid)
 		stamp.size = ArtPack.rack_size(gid)
 		stamp.mouse_filter = Control.MOUSE_FILTER_STOP

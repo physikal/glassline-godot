@@ -1,6 +1,7 @@
 extends Control
 ## Toy optic. FIRE only submits the chosen hex — MockMatchServer owns hit/miss.
-## Attack frame is the Josh-locked optic-attack.jpg plate. FAR/MID/NEAR display-only.
+## Attack frame is the Josh-locked optic-attack.jpg landscape. FAR/MID/NEAR display-only.
+## The plate paints above the hex board — not hex tiles seen through the scope.
 ## Virtual thumb stick replaces the plate D-pad. Fire stays a separate tap.
 
 const Chrome := preload("res://scripts/chrome.gd")
@@ -30,6 +31,10 @@ var _family_lbl: Label
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	## Hex faces sit at z 1–2 and were painting through this plate.
+	## Landscape optic-attack stays above the board, under forfeit (z 50).
+	z_index = 36
+	z_as_relative = false
 	_build()
 	visible = false
 

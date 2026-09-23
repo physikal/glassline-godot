@@ -149,6 +149,7 @@ func _run() -> int:
 	_shop_sink3_case(failed)
 	_gun_chrome_case(failed)
 	_optic_joystick_case(failed)
+	_chrome_reconfirm_case(failed)
 	_match_board_chrome_case(failed)
 	_high_ground_case(failed)
 	_brush_cover_case(failed)
@@ -2208,6 +2209,28 @@ func _optic_joystick_case(failed: PackedStringArray) -> void:
 	_expect(failed, ActionIntent.attack(0, 0).get("type") == Contract.ACT_ATTACK, "attack intent unchanged")
 	_expect(failed, not ActionIntent.attack(4, 3).has("stick"), "stick is not an attack field")
 	stick.free()
+
+
+func _chrome_reconfirm_case(failed: PackedStringArray) -> void:
+	## Rack crops sit on the painted bolts. Optic is the landscape plate, above hex faces.
+	var Art := load("res://scripts/art_pack.gd")
+	_expect(failed, Art.rack_position("gun_fieldbolt") == Vector2(24, 192), "Fieldbolt hang")
+	_expect(failed, Art.rack_size("gun_fieldbolt") == Vector2(268, 56), "Fieldbolt hang size")
+	_expect(failed, Art.rack_position("gun_railframe") == Vector2(24, 252), "Railframe hang")
+	_expect(failed, Art.rack_position("gun_crescent") == Vector2(24, 318), "Crescent sits on the painted body")
+	_expect(failed, Art.rack_size("gun_crescent") == Vector2(268, 50), "Crescent crop is 268×50")
+	var cres: Texture2D = Art.rifle_texture("gun_crescent", "owned")
+	var cres_lock: Texture2D = Art.rifle_texture("gun_crescent", "locked")
+	_expect(failed, cres != null and cres.get_width() == 268 and cres.get_height() == 50, "Crescent owned crop matches hang")
+	_expect(failed, cres_lock != null and cres_lock.get_width() == 268 and cres_lock.get_height() == 50, "Crescent locked wash matches hang")
+	_expect(failed, Art.HELD_POS == Vector2(628, 348), "hands sit on the painted bolt")
+	_expect(failed, Art.HELD_SIZE == Vector2(192, 52), "hands crop is the plate bolt")
+	var held: Texture2D = Art.rifle_held_texture()
+	_expect(failed, held != null and held.get_width() == 192 and held.get_height() == 52, "held texture matches the bolt")
+	var optic_src := FileAccess.get_file_as_string("res://scenes/optic/optic_overlay.gd")
+	_expect(failed, optic_src.find("optic-attack.jpg") >= 0, "Attack optic uses the landscape plate")
+	_expect(failed, optic_src.find("z_index = 36") >= 0, "landscape plate draws above hex faces")
+	_expect(failed, optic_src.find("hex_tile") < 0 and optic_src.find("hex_stamp") < 0, "optic does not stamp a hex through the scope")
 
 
 func _match_board_chrome_case(failed: PackedStringArray) -> void:

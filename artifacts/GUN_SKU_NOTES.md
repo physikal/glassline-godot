@@ -94,9 +94,9 @@ Unequip empty `equippedGunId` stays empty (no gold rack highlight). Hands + Atta
 
 | Surface | Chrome |
 | --- | --- |
-| Hideout rack | Plate-cropped `assets/art_v2/rifle_*_plate.png` at hang points (24, 192/252/312). Locked wash for unowned. |
-| Hideout hands | `rifle_held_plate.png` + family accent modulate (olive / brass / teal). |
-| Attack optic | Locked `optic-attack.jpg` + family stamp + `FIELDBOLT · visual only` (or Railframe / Crescent). |
+| Hideout rack | Plate crops on the painted bolts: Fieldbolt (24, 192, 268×56), Railframe (24, 252, 268×56), Crescent (24, 318, 268×50). Locked wash covers that same rect. |
+| Hideout hands | `rifle_held_plate.png` 1:1 at (628, 348, 192×52) + family accent modulate (olive / brass / teal). |
+| Attack optic | `optic-attack.jpg` landscape above the hex faces (z 36) + family stamp + `FIELDBOLT · visual only` (or Railframe / Crescent). |
 | Marks chip | `you.marks` only. Equip never debits. |
 
 Josh-locked paint from `assets/canon` / match-board / lobby plates. No new dialect. No mil-sim.
