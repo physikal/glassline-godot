@@ -2817,16 +2817,18 @@ func _capture_journal_muted() -> void:
 
 
 func _seed_journal_rows() -> void:
-	## Three ledger rows for the still. Practice Δ0, a quick win, a quick loss.
+	## Ledger rows for the still. Newest first: practice 0, forfeit win +15, kill +32, loss +4.
 	MockMatchServer.clear_all()
-	MockMatchServer.reset_wallet(24)
+	MockMatchServer.reset_wallet(0)
 	MockMatchServer.test_now_ms = 1000
 	_end_seed_match(Contract.MODE_PVP, Contract.SEAT_B, Contract.END_KILL)
 	MockMatchServer.test_now_ms = 2000
 	_end_seed_match(Contract.MODE_PVP, Contract.SEAT_A, Contract.END_KILL)
 	MockMatchServer.test_now_ms = 3000
+	_end_seed_match(Contract.MODE_PVP, Contract.SEAT_A, Contract.END_FORFEIT)
+	MockMatchServer.test_now_ms = 4000
 	_end_seed_match(Contract.MODE_PRACTICE, Contract.SEAT_A, Contract.END_KILL)
-	MockMatchServer.test_now_ms = 3000
+	MockMatchServer.test_now_ms = 4000
 
 
 func _seed_journal_muted() -> void:

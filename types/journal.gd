@@ -2,6 +2,7 @@ extends RefCounted
 ## Server journal rows only. Never builds a hunt the payload did not list.
 
 const Contract := preload("res://types/contract.gd")
+const MarksPayout := preload("res://types/marks_payout.gd")
 
 
 static func from_http(status: int, body: Variant) -> Dictionary:
@@ -65,7 +66,7 @@ static func normalize(entry: Dictionary) -> Dictionary:
 	var available := bool(entry.get("rematchAvailable", entry.get("rematch_available", false)))
 	if mode == Contract.MODE_SP_JOB:
 		available = false
-	return {
+	var row := {
 		"matchId": str(entry.get("matchId", entry.get("match_id", ""))),
 		"mode": mode,
 		"result": _result_token(str(entry.get("result", ""))),
@@ -74,6 +75,14 @@ static func normalize(entry: Dictionary) -> Dictionary:
 		"endedAt": str(entry.get("endedAt", entry.get("ended_at", ""))),
 		"rematchAvailable": available,
 	}
+	## Display hints only. The ledger number above is not rewritten.
+	var why := str(entry.get("endReason", entry.get("reason", ""))).to_lower()
+	if why != "":
+		row["endReason"] = why
+	var tier := _stated_tier(entry)
+	if tier >= 1:
+		row["jobTier"] = tier
+	return row
 
 
 static func is_empty(body: Dictionary) -> bool:
@@ -127,10 +136,20 @@ static func result_text(entry: Dictionary) -> String:
 
 
 static func marks_text(entry: Dictionary) -> String:
-	var n := int(entry.get("marksDelta", 0))
-	if str(entry.get("mode", "")) == Contract.MODE_PRACTICE:
-		n = 0
-	return Contract.format_marks_delta(n)
+	## Wood chip. Locked earn table, not the ledger number.
+	## Practice is always 0. Does not write marksDelta or the wallet.
+	return Contract.format_marks_delta(display_delta(entry))
+
+
+static func display_delta(entry: Dictionary) -> int:
+	var mode := _mode_of(entry)
+	if mode == Contract.MODE_PRACTICE:
+		return Contract.MARKS_PRACTICE
+	var payload := _table_payload(entry, mode)
+	if payload.is_empty():
+		return int(entry.get("marksDelta", entry.get("marks_delta", 0)))
+	var job := mode == Contract.MODE_SP_JOB
+	return MarksPayout.table_delta(payload, Contract.SEAT_A, job, false)
 
 
 static func rival_text(entry: Dictionary) -> String:
@@ -156,6 +175,94 @@ static func _rival(entry: Dictionary) -> Dictionary:
 	var name := str(bag.get("displayName", bag.get("name", "")))
 	var bot := bool(bag.get("isBot", bag.get("bot", false)))
 	return {"displayName": name, "isBot": bot}
+
+
+static func _mode_of(entry: Dictionary) -> String:
+	var mode := str(entry.get("mode", entry.get("kind", ""))).to_lower()
+	if mode in ["job", "sp", "spjob"]:
+		return Contract.MODE_SP_JOB
+	return mode
+
+
+static func _stated_tier(entry: Dictionary) -> int:
+	var job_obj: Variant = entry.get("job", null)
+	if job_obj is Dictionary and (job_obj as Dictionary).has("tier"):
+		var from_job := int((job_obj as Dictionary).get("tier", 0))
+		if from_job >= 1:
+			return from_job
+	if entry.has("jobTier") and int(entry.get("jobTier", 0)) >= 1:
+		return int(entry.get("jobTier"))
+	if entry.has("tier") and int(entry.get("tier", 0)) >= 1:
+		return int(entry.get("tier"))
+	return 0
+
+
+static func _entry_tier(entry: Dictionary, raw: int, result: String, job: bool) -> int:
+	var stated := _stated_tier(entry)
+	if stated >= 1:
+		return stated
+	if not job:
+		return 1
+	if result == "win":
+		if raw == Contract.MARKS_JOB_T3 or raw == 20:
+			return 3
+		## Previous T2 grant was +15. New T2 is +18. Both paint ★18.
+		if raw == Contract.MARKS_JOB_T2 or raw == 15:
+			return 2
+		return 1
+	if raw == Contract.MARKS_JOB_FAIL_T2 or raw == Contract.MARKS_JOB_FAIL_T3:
+		return 2
+	return 1
+
+
+static func _infer_reason(result: String, job: bool, raw: int) -> String:
+	## Rows that only carry the old ledger number still paint the lock.
+	if result in ["draw", "standoff"]:
+		return Contract.END_STANDOFF
+	if result == "forfeit":
+		return Contract.END_FORFEIT
+	if job and result == "win":
+		return Contract.END_JOB
+	if job and result == "loss":
+		return Contract.END_JOB_FAIL
+	if result == "win":
+		## Previous forfeit win was +12. The lock is +15. Kill stays +32.
+		if raw == 12 or raw == Contract.MARKS_FORFEIT_WIN:
+			return Contract.END_FORFEIT
+		return Contract.END_KILL
+	if result == "loss":
+		return Contract.END_LOSS
+	return ""
+
+
+static func _table_payload(entry: Dictionary, mode: String) -> Dictionary:
+	var result := _result_token(str(entry.get("result", "")))
+	var why := str(entry.get("endReason", entry.get("reason", ""))).to_lower()
+	var raw := int(entry.get("marksDelta", entry.get("marks_delta", 0)))
+	var job := mode == Contract.MODE_SP_JOB
+	if why == "":
+		why = _infer_reason(result, job, raw)
+	if why == "":
+		return {}
+	var winner := Contract.SEAT_A
+	if result in ["draw", "standoff"] or why == Contract.END_STANDOFF:
+		winner = Contract.WIN_DRAW
+	elif result in ["loss", "forfeit"] or why in [Contract.END_JOB_FAIL, Contract.END_LOSS]:
+		winner = Contract.SEAT_B
+	elif why in Contract.FORFEIT_REASONS and result != "win":
+		winner = Contract.SEAT_B
+	var payload := {
+		"mode": mode,
+		"kind": mode,
+		"endReason": why,
+		"winner": winner,
+		"you": {"seat": Contract.SEAT_A},
+	}
+	if job:
+		var tier := _entry_tier(entry, raw, result, true)
+		payload["job"] = {"tier": tier}
+		payload["jobTier"] = tier
+	return payload
 
 
 static func _result_token(raw: String) -> String:

@@ -10,7 +10,7 @@ Hideout **JOURNAL** opens a wood plate of the last **10** ended hunts. Rows come
 | --- | --- |
 | Result pill | WIN / LOSS / FORFEIT / DRAW |
 | Rival | Server `displayName`. Practice bot reads **TOY SPY** |
-| Marks | One chip: `0` / `+N` / `−N` (`Contract.format_marks_delta`). Practice is always **0**, even if a payload says +25 |
+| Marks | Locked-table chip: `0` / `+N` (`Contract.format_marks_delta` via `Journal.display_delta`). PvP **+32 / +10 / +4 / +15** · SP **+12 / +18 / +24** · fail **+2 / +3 / +3** · Practice **0**. An old ledger +12 forfeit still paints **+15**. `marksDelta` is not rewritten. |
 | Tag | PRACTICE or QUICK. A job row is JOB — no tier, no rating |
 | CTA | PvP + `rematchAvailable` → existing `POST /matches/:id/rematch`. Practice → **PRACTICE AGAIN** (`mode: practice` create). Muted when the ledger says no |
 
