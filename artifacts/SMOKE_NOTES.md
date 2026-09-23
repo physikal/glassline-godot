@@ -16,7 +16,7 @@ LIVE source of truth: API tip `fa7285ba` on `https://glassline-api.vercel.app`.
 | `Snapshot.smoke_available()` | `you.smokeAvailable`, or `smoke_available`, or any casing. Missing → **false** |
 | `Snapshot.smoke_active()` | `you.smokeActive` bool or turns-remaining `> 0`. Same casing tolerance. Missing or match ended → **false** |
 | `Snapshot.enemy_smoke_active()` | `enemy.smokeActive` only. Does not read `you.*` and does not invent `visibleHex` |
-| Match HUD | **SMOKE** chip (same toy puff) above the painted ABILITY key. Available is lit hot purple. Locked (below L5) and spent share the grey muted wood plate |
+| Match HUD | **SMOKE** chip in the ability rail under **ABILITY**, beside UAV and DECOY. Available is lit hot purple. Locked (below L5) and spent share the grey muted wood plate. Lock copy is a bottom toast, not a header line |
 | Click | Posts only when `smoke_chrome()` is available (L5 and a named charge). Locked tap toasts. Spent / absent do not POST |
 | Your puff | Toast `Smoke — hex is Hard this turn` and a soft HARD wash on **your** hex |
 | Rival puff | Wash only if `enemy.smokeActive` and `enemy.visibleHex` are both already set. No toast |

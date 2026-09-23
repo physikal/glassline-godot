@@ -718,6 +718,13 @@ func _decoy_l3_case(failed: PackedStringArray) -> void:
 	_expect(failed, bool(locked_chip.get_meta("decoy_locked")) and not bool(locked_chip.get_meta("decoy_lit")), "D2 locked chip is visible wood, not lit")
 	_expect(failed, locked_chip.text == Contract.DECOY_LABEL, "D2 chip still reads DECOY")
 	_expect(failed, locked_chip.tooltip_text == Contract.DECOY_TIP, "D2 locked tooltip is the tip")
+	var hud_src := FileAccess.get_file_as_string("res://scenes/match/match_screen.gd")
+	_expect(failed, hud_src.find("func _mount_ability_rail") >= 0, "H1 chips share one ability rail")
+	_expect(failed, hud_src.find("Vector2(620, 492)") < 0, "H1 smoke chip does not free-float")
+	_expect(failed, hud_src.find("Vector2(24, 548)") < 0, "H1 decoy chip does not cover ATTACK")
+	_expect(failed, hud_src.find("Vector2(24, 500)") < 0, "H2 no sticky lock plate on the legend")
+	_expect(failed, hud_src.find("func _place_lock_toast") >= 0, "H2 lock line is a toast")
+	_expect(failed, hud_src.find("Color(\"20160e\")") < 0, "H3 no flat grey board slab")
 	var locked_box := locked_chip.get_theme_stylebox("normal") as StyleBoxFlat
 	_expect(failed, locked_box != null and locked_box.bg_color.is_equal_approx(Chrome.SMOKE_SPENT), "D2 locked plate is the spent wood")
 	Chrome.paint_decoy_button(locked_chip, Contract.DECOY_CHROME_AVAILABLE)
