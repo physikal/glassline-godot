@@ -114,6 +114,16 @@ static func rack_peg_color(state: String) -> Color:
 			return RACK_PEG_LOCKED
 
 
+static func part_row_peg_state(owned: bool, equipped: bool) -> String:
+	## Bright leaf / mid green only when the PARTS chip is worn or owned.
+	## Unowned T1/T2 rows use the locked peg — the dim mute, not a gold strip.
+	if equipped:
+		return "equipped"
+	if owned:
+		return "owned"
+	return "locked"
+
+
 static func rack_bolt_modulate(state: String) -> Color:
 	## Theme the existing painted bolt. Locked is a green darken, not the grey wash.
 	match state:
@@ -152,11 +162,10 @@ static func part_slot_chip(item_id: String, state: String) -> PanelContainer:
 	return chip
 
 
-static func rack_peg(state: String) -> Panel:
-	## Short painted dowel on the bolt. No EQUIPPED / OWNED / LOCKED strip.
-	var peg := Panel.new()
-	peg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	peg.custom_minimum_size = Vector2(10, 20)
+static func paint_rack_peg(peg: Panel, state: String) -> void:
+	## Repaint a dowel in place. Unowned PARTS rows call this with the locked mute.
+	if peg == null:
+		return
 	var fill := rack_peg_color(state)
 	var box := flat(fill, 4, fill.darkened(0.42), 2)
 	box.content_margin_left = 0
@@ -165,6 +174,14 @@ static func rack_peg(state: String) -> Panel:
 	box.content_margin_bottom = 0
 	peg.add_theme_stylebox_override("panel", box)
 	peg.set_meta("rack_peg_state", state)
+
+
+static func rack_peg(state: String) -> Panel:
+	## Short painted dowel on the bolt. No EQUIPPED / OWNED / LOCKED strip.
+	var peg := Panel.new()
+	peg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	peg.custom_minimum_size = Vector2(10, 20)
+	paint_rack_peg(peg, state)
 	return peg
 
 
