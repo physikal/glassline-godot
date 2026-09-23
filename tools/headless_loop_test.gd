@@ -140,6 +140,7 @@ func _run() -> int:
 	_rematch_case(failed)
 	_a4_gaps_case(failed)
 	_end_summary_case(failed)
+	_end_xp_case(failed)
 	_live_shape_case(failed)
 	_payout_shape_case(failed)
 	_job_case(failed)
@@ -1691,6 +1692,138 @@ func _end_summary_case(failed: PackedStringArray) -> void:
 	_expect(failed, stand_snap.rematch_offered(), "M.3 standoff rematch")
 	var hide: Dictionary = server.rematch(mid, a["playerId"], false)
 	_expect(failed, str(hide.get("rematch", {}).get("status", "")) == Contract.REMATCH_DECLINED, "M.3 standoff Decline")
+
+
+func _end_xp_case(failed: PackedStringArray) -> void:
+	## Match-end XP line. Marks Δ stays the earn table. No bar. No xpGranted.
+	var kill := {
+		"status": "ended",
+		"winner": "a",
+		"endReason": "kill",
+		"kind": "pvp",
+		"you": {"seat": "a", "marks": 32, "xp": 100, "operativeLevel": 2},
+	}
+	var kill_line := MarksPayout.xp_line(kill, "a", false, false)
+	_expect(failed, kill_line == "+100 XP  ·  L2 unlocked", "XP kill win levels")
+	_expect(failed, MarksPayout.end_overlay(kill, "a", false).find("+32  ·  ★32") >= 0, "XP plate keeps Marks Δ")
+	_expect(failed, MarksPayout.table_delta(kill, "a") == 32, "XP plate does not invent Marks")
+	var stay := {
+		"status": "ended",
+		"winner": "a",
+		"endReason": "forfeit",
+		"kind": "pvp",
+		"you": {"seat": "a", "marks": 15, "xp": 70, "operativeLevel": 1},
+	}
+	_expect(failed, MarksPayout.xp_line(stay, "a") == "+50 XP  ·  L1", "XP forfeit win stays L1")
+	_expect(failed, MarksPayout.xp_line(stay, "a").find("unlocked") < 0, "XP L1 forfeit is not unlocked")
+	var up := {
+		"status": "ended",
+		"winner": "a",
+		"endReason": "forfeit",
+		"you": {"seat": "a", "marks": 15, "xp": 110, "operativeLevel": 2},
+	}
+	_expect(failed, MarksPayout.xp_line(up, "a") == "+50 XP  ·  L2 unlocked", "XP forfeit crosses L2")
+	var loss := {
+		"status": "ended",
+		"winner": "b",
+		"endReason": "kill",
+		"you": {"seat": "a", "marks": 4, "xp": 70, "operativeLevel": 1},
+	}
+	_expect(failed, MarksPayout.xp_line(loss, "a") == "", "XP loss is Δ0")
+	var stand := {
+		"status": "ended",
+		"winner": "draw",
+		"endReason": "standoff",
+		"you": {"seat": "a", "marks": 10, "xp": 70, "operativeLevel": 1},
+	}
+	_expect(failed, MarksPayout.xp_line(stand, "a") == "", "XP standoff is Δ0")
+	var practice := {
+		"status": "ended",
+		"winner": "a",
+		"endReason": "kill",
+		"kind": "practice",
+		"you": {"seat": "a", "marks": 0, "xp": 40, "operativeLevel": 1, "xpDelta": 100},
+	}
+	_expect(failed, MarksPayout.xp_line(practice, "a", false, true) == "", "practice omits XP")
+	_expect(failed, MarksPayout.overlay_parts(practice, "a", false, true).get("xp", "x") == "", "practice parts omit XP")
+	_expect(failed, str(MarksPayout.overlay_parts(practice, "a", false, true).get("marks", "")).find("+") < 0, "practice Marks stay Δ0")
+	var job := {
+		"status": "ended",
+		"winner": "a",
+		"endReason": "kill",
+		"kind": "sp_job",
+		"you": {"seat": "a", "marks": 12, "xp": 40, "operativeLevel": 1},
+	}
+	_expect(failed, MarksPayout.xp_line(job, "a", true) == "", "job XP is Δ0")
+	var missing_xp := {
+		"status": "ended",
+		"winner": "a",
+		"endReason": "kill",
+		"you": {"seat": "a", "marks": 32, "operativeLevel": 2},
+	}
+	_expect(failed, MarksPayout.xp_line(missing_xp, "a") == "", "missing you.xp omits")
+	var missing_lv := {
+		"status": "ended",
+		"winner": "a",
+		"endReason": "kill",
+		"you": {"seat": "a", "marks": 32, "xp": 100},
+	}
+	_expect(failed, MarksPayout.xp_line(missing_lv, "a") == "", "missing operativeLevel omits")
+	var snake := {
+		"status": "ended",
+		"winner": "a",
+		"endReason": "kill",
+		"you": {"seat": "a", "marks": 32, "xp": 100, "operative_level": 2},
+		"xp": 100,
+	}
+	_expect(failed, MarksPayout.xp_line(snake, "a") == "", "snake level and top-level xp do not paint")
+	var granted := {
+		"status": "ended",
+		"winner": "a",
+		"endReason": "kill",
+		"you": {"seat": "a", "marks": 32, "xp": 100, "operativeLevel": 2, "xpGranted": 1},
+	}
+	_expect(failed, MarksPayout.xp_line(granted, "a") == "+100 XP  ·  L2 unlocked", "xpGranted is not the delta")
+	var server_delta := {
+		"status": "ended",
+		"winner": "a",
+		"endReason": "kill",
+		"you": {"seat": "a", "marks": 32, "xp": 80, "operativeLevel": 1, "xpDelta": 40},
+	}
+	_expect(failed, MarksPayout.xp_line(server_delta, "a") == "+40 XP  ·  L1", "you.xpDelta beats the kill table")
+	_expect(failed, MarksPayout.xp_line(server_delta, "a").find("unlocked") < 0, "xpDelta 40 on L1 does not tick")
+	var payout_delta := {
+		"status": "ended",
+		"winner": "a",
+		"endReason": "kill",
+		"payout": {"marks": 32, "marksDelta": 32, "xpDelta": 50},
+		"you": {"seat": "a", "marks": 32, "xp": 110, "operativeLevel": 2},
+	}
+	_expect(failed, MarksPayout.xp_line(payout_delta, "a") == "+50 XP  ·  L2 unlocked", "payout.xpDelta beats the kill table")
+	_expect(failed, MarksPayout.marks_line(payout_delta, "a") == "+32  ·  ★32", "xpDelta does not change Marks")
+	var zero_delta := {
+		"status": "ended",
+		"winner": "a",
+		"endReason": "kill",
+		"you": {"seat": "a", "xp": 100, "operativeLevel": 2, "xpDelta": 0},
+	}
+	_expect(failed, MarksPayout.xp_line(zero_delta, "a") == "", "xpDelta 0 does not fall through to +100")
+	var junk := {
+		"status": "ended",
+		"winner": "a",
+		"endReason": "kill",
+		"you": {"seat": "a", "xp": "100", "operativeLevel": 2},
+	}
+	_expect(failed, MarksPayout.xp_line(junk, "a") == "", "string xp is not a total")
+	var ahead := {
+		"status": "ended",
+		"winner": "a",
+		"endReason": "kill",
+		"you": {"seat": "a", "xp": 100, "operativeLevel": 5},
+	}
+	var ahead_line := MarksPayout.xp_line(ahead, "a")
+	_expect(failed, ahead_line == "+100 XP  ·  L5", "server level is the label")
+	_expect(failed, ahead_line.find("unlocked") < 0, "level ahead of the curve is not unlocked")
 
 
 func _live_shape_case(failed: PackedStringArray) -> void:
