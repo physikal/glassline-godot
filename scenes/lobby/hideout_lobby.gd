@@ -244,7 +244,8 @@ func _ready() -> void:
 		await get_tree().process_frame
 		_on_play()
 	elif "--capture-smoke-available" in args or "--capture-smoke-spent" in args \
-			or "--capture-smoke-active" in args:
+			or "--capture-smoke-active" in args or "--capture-smoke-locked" in args \
+			or "--capture-smoke-lock-toast" in args:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 		DisplayServer.window_set_size(Vector2i(1280, 720))
 		await get_tree().process_frame

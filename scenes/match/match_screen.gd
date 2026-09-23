@@ -165,6 +165,10 @@ func _ready() -> void:
 		_capture_smoke("spent")
 	elif "--capture-smoke-active" in args:
 		_capture_smoke("active")
+	elif "--capture-smoke-locked" in args:
+		_capture_smoke("locked")
+	elif "--capture-smoke-lock-toast" in args:
+		_capture_smoke("toast")
 
 
 func _cmdline_is_capture(args: PackedStringArray) -> bool:
@@ -588,19 +592,37 @@ func _bind_high_ground(snap: Snapshot) -> void:
 
 
 func _bind_smoke(snap: Snapshot) -> void:
-	## Lit only when smokeAvailable is named and true. Otherwise muted / no-op.
+	## Lit only at operative L5 with a named charge. Locked stays on the wood plate and can toast.
 	if _btn_smoke == null:
 		return
-	var available := snap.smoke_available()
-	Chrome.paint_smoke_chip(_btn_smoke, available)
-	_btn_smoke.disabled = _btn_smoke.disabled or not available
-	if available:
+	var chrome := snap.smoke_chrome()
+	var lit := chrome == Contract.SMOKE_CHROME_AVAILABLE
+	var locked := chrome == Contract.SMOKE_CHROME_LOCKED
+	Chrome.paint_smoke_chip(_btn_smoke, lit, locked)
+	if locked:
+		_btn_smoke.disabled = false
+		_btn_smoke.tooltip_text = Contract.SMOKE_LOCKED_TOAST
+	elif lit:
 		_btn_smoke.tooltip_text = Contract.SMOKE_COPY
-	elif snap.smoke_fields_present():
+	elif chrome == Contract.SMOKE_CHROME_SPENT:
+		_btn_smoke.disabled = true
 		_btn_smoke.tooltip_text = Contract.SMOKE_SPENT_COPY
 	else:
+		_btn_smoke.disabled = true
 		_btn_smoke.tooltip_text = Contract.SMOKE_ABSENT_COPY
 	_apply_smoke_toast(snap)
+
+
+func _show_smoke_lock_toast(snap: Snapshot) -> void:
+	## Soft tip. Does not POST and does not spend the charge.
+	if _toast == null:
+		return
+	_toast.text = snap.smoke_lock_toast()
+	_toast.position = Vector2(180, 48)
+	_toast.size = Vector2(920, 36)
+	_toast.z_index = 45
+	_toast.z_as_relative = false
+	Chrome.apply_label(_toast, 16, Color("f7e7a8"), true)
 
 
 func _apply_smoke_toast(snap: Snapshot) -> void:
@@ -734,11 +756,16 @@ func _ensure_active_for_decoy() -> Snapshot:
 
 
 func _capture_smoke(kind: String) -> void:
-	## Three stills: lit chip, muted spent chip, active toast + soft HARD tint.
+	## Stills: lit chip, muted spent chip, active toast, locked wood, lock toast.
 	if _coach:
 		_coach.dismiss()
 	_dummy_busy = true
 	_dummy_delay = 0.0
+	if kind == "locked" or kind == "toast":
+		MockMatchServer.operative_level = Contract.SMOKE_UNLOCK_LEVEL - 1
+	else:
+		MockMatchServer.operative_level = Contract.SMOKE_UNLOCK_LEVEL
+	MockMatchServer.test_omit_operative_level = false
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 	DisplayServer.window_set_size(Vector2i(1280, 720))
 	await get_tree().process_frame
@@ -795,6 +822,8 @@ func _capture_smoke(kind: String) -> void:
 		_toast.z_index = 45
 		_toast.z_as_relative = false
 		Chrome.apply_label(_toast, 16, Color("f7e7a8"), true)
+	elif kind == "toast":
+		_show_smoke_lock_toast(snap)
 	else:
 		_toast.text = ""
 	await get_tree().process_frame
@@ -808,11 +837,18 @@ func _capture_smoke(kind: String) -> void:
 	elif kind == "active":
 		file_name = "smoke_active_toast.png"
 		tag = "SMOKE_ACTIVE"
+	elif kind == "locked":
+		file_name = "smoke_chip_locked.png"
+		tag = "SMOKE_LOCKED"
+	elif kind == "toast":
+		file_name = "smoke_lock_toast.png"
+		tag = "SMOKE_LOCK_TOAST"
 	var path := ProjectSettings.globalize_path("res://artifacts/ux/%s" % file_name)
 	var img := get_viewport().get_texture().get_image()
 	img.save_png(path)
 	var lit := bool(_btn_smoke.get_meta("smoke_lit")) if _btn_smoke and _btn_smoke.has_meta("smoke_lit") else false
-	print("SMOKE_CAPTURE ", tag, " ", path, " LIT ", lit, " ACTIVE ", snap.smoke_active(), " AVAIL ", snap.smoke_available(), " HG ", snap.you_high_ground_active())
+	var locked := bool(_btn_smoke.get_meta("smoke_locked")) if _btn_smoke and _btn_smoke.has_meta("smoke_locked") else false
+	print("SMOKE_CAPTURE ", tag, " ", path, " LIT ", lit, " LOCKED ", locked, " CHROME ", snap.smoke_chrome(), " ACTIVE ", snap.smoke_active(), " AVAIL ", snap.smoke_available(), " LEVEL ", snap.operative_level(), " HG ", snap.you_high_ground_active())
 	get_tree().quit()
 
 
@@ -1939,9 +1975,12 @@ func _on_decoy() -> void:
 
 
 func _on_smoke() -> void:
-	## Fail closed: no snapshot charge → no POST.
+	## Fail closed: locked, spent, or a missing level/charge does not POST.
 	var snap: Snapshot = ClientSession.typed_snapshot()
-	if not snap.smoke_available():
+	if snap.smoke_chrome() == Contract.SMOKE_CHROME_LOCKED:
+		_show_smoke_lock_toast(snap)
+		return
+	if snap.smoke_chrome() != Contract.SMOKE_CHROME_AVAILABLE:
 		return
 	_submit(ActionIntent.smoke())
 

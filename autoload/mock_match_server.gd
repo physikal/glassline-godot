@@ -24,6 +24,10 @@ var test_high_ground_active: Variant = null
 ## Never derived from operativeLevel or cosmetics.
 var test_exposure_floor: Variant = null
 var test_omit_exposure_floor: bool = false
+## Account operative level. Starts at L5 so the unlocked SMOKE harness stays green.
+## Below 5 the snapshot locks the charge and the action is refused. Omit drops the field.
+var operative_level: int = Contract.SMOKE_UNLOCK_LEVEL
+var test_omit_operative_level: bool = false
 ## Drop wobbleScale / shotWindowSec so the client uses Design juice locally.
 var test_omit_part_feel: bool = false
 ## Display stub for hideout. Persists across matches; tests call reset_wallet().
@@ -1294,6 +1298,8 @@ func clear_all() -> void:
 	test_exposure_floor = null
 	test_omit_exposure_floor = false
 	test_omit_part_feel = false
+	operative_level = Contract.SMOKE_UNLOCK_LEVEL
+	test_omit_operative_level = false
 	## Wallet stays — PLAY must not wipe hideout Marks. Tests call reset_wallet().
 
 
@@ -1621,6 +1627,8 @@ func _act_smoke(match_state: Dictionary, seat: String) -> ActionResult:
 	if str(match_state["phase"]) != Contract.PHASE_ACTION:
 		return _fail(match_state, seat, "awaiting end_turn")
 	var seat_state: Dictionary = match_state["seats"][seat]
+	if int(operative_level) < Contract.SMOKE_UNLOCK_LEVEL:
+		return _fail(match_state, seat, "operative level")
 	if not bool(seat_state.get("smokeAvailable", false)):
 		return _fail(match_state, seat, "smoke already used")
 	seat_state["smokeAvailable"] = false
@@ -1909,6 +1917,7 @@ func _snapshot_for_seat(match_state: Dictionary, seat: String) -> Dictionary:
 		var stored: Variant = payouts.get(seat, {})
 		if stored is Dictionary:
 			pay = stored.duplicate(true)
+	var smoke_pub := _public_operative_smoke(you)
 	var balance := account_marks if seat == Contract.SEAT_A else int(you.get("marks", 0))
 	if pay.has("marks"):
 		balance = int(pay.get("marks"))
@@ -1947,7 +1956,7 @@ func _snapshot_for_seat(match_state: Dictionary, seat: String) -> Dictionary:
 			"decoyRemaining": 1 if bool(you.get("decoyAvailable", false)) else 0,
 			"decoyHex": _decoy_hex_for_snap(you, match_state),
 			"highGroundActive": _high_ground_active_for(match_state, seat),
-			"smokeAvailable": bool(you.get("smokeAvailable", false)),
+			"smokeAvailable": bool(smoke_pub.get("available", false)),
 			"smokeActive": _smoke_active_for(match_state, seat),
 		},
 		"enemy": {
@@ -2005,10 +2014,43 @@ func _snapshot_for_seat(match_state: Dictionary, seat: String) -> Dictionary:
 			snap["graceRemainingSec"] = grace.get("remainingSec")
 			snap["grace"] = grace
 	var floor_pub := _public_exposure_floor()
+	var you_bag: Dictionary = snap["you"]
 	if bool(floor_pub.get("present", false)):
-		var you_bag: Dictionary = snap["you"]
 		you_bag["exposureFloor"] = int(floor_pub.get("value", Contract.EXPOSURE_FLOOR_START))
+	if not bool(smoke_pub.get("omit_level", false)):
+		you_bag["operativeLevel"] = int(smoke_pub.get("level", Contract.SMOKE_UNLOCK_LEVEL))
 	return _omit_part_feel(snap)
+
+
+func _public_operative_smoke(seat_state: Dictionary) -> Dictionary:
+	## Server truth for the chip. Practice does not change operative_level.
+	## A locked charge is not spent — raising the level publishes the same puff.
+	var charge := bool(seat_state.get("smokeAvailable", false))
+	if test_omit_operative_level:
+		return {
+			"omit_level": true,
+			"available": charge,
+			"locked": false,
+			"level": int(operative_level),
+			"reason": "",
+		}
+	var level := int(operative_level)
+	if level < Contract.SMOKE_UNLOCK_LEVEL:
+		## Contract: smokeAvailable is true only at operative L5+.
+		return {
+			"omit_level": false,
+			"available": false,
+			"locked": true,
+			"level": level,
+			"reason": "",
+		}
+	return {
+		"omit_level": false,
+		"available": charge,
+		"locked": false,
+		"level": level,
+		"reason": "",
+	}
 
 
 func _public_exposure_floor() -> Dictionary:

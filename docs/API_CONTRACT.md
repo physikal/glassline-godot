@@ -35,7 +35,7 @@ Source: Notion “Glassline API contract draft v0” (Godot stamp). Client types
   turnIndex, turnCap: 16, whoseTurn: a|b|null,
   phase: await_action|await_end_turn|null,
   uavRemaining: 0|1,
-  you: { seat, hex, placed, marks, exposurePct, movedLastTurn, decoyAvailable, decoyRemaining: 0|1, decoyHex?, highGroundActive, smokeAvailable?, smokeActive? },
+  you: { seat, hex, placed, marks, exposurePct, movedLastTurn, decoyAvailable, decoyRemaining: 0|1, decoyHex?, highGroundActive, smokeAvailable?, smokeActive?, operativeLevel? },
   enemy: { seat, visibleHex, softHotTurnsLeft, decoySoftHex?, smokeActive? },
   terrain: [{ q, r, type }],
   lastAction: ActionResult | null,
@@ -89,9 +89,10 @@ ActionResult =
 - Client displays server fields only — never subtracts cover from a local hex.
 
 ## SMOKE (once/match, exposure + spot only)
-LIVE tip `fa7285ba`. Intent `{ type: "smoke" }` on the existing `POST /matches/:id/actions` path. No hex (an extra hex is ignored). No Marks / IAP. Success result is exactly `{ type: "smoke" }`.
-- Snapshot `you.smokeAvailable` (bool) and `you.smokeActive` (bool or turns remaining). `enemy.smokeActive` too. Also accept `smoke_available` / `smoke_active` and any casing of those names.
-- **Fail closed:** if `smokeAvailable` is absent, the SMOKE chip stays muted and the click does not POST. If `you.smokeActive` is absent, there is no toast and no hex tint. If `enemy.smokeActive` is absent, the rival hex is not washed. Smoke never writes `enemy.visibleHex`.
+LIVE puff tip `fa7285ba`. L5 contract (Coder): exact `you.operativeLevel` and exact `you.smokeAvailable`. `smokeAvailable` is true only when `operativeLevel >= 5` and the once/match charge remains. Deployed `https://glassline-api.vercel.app` already returns those keys on `you` (level 1 → `smokeAvailable` false). No git tip SHA was readable from this client. Intent `{ type: "smoke" }` on the existing `POST /matches/:id/actions` path. No hex (an extra hex is ignored). No Marks / IAP. Practice earn stays Δ0. Success result is exactly `{ type: "smoke" }`.
+- Snapshot `you.smokeAvailable` (bool) and `you.smokeActive` (bool or turns remaining). `enemy.smokeActive` too. The puff clock still accepts `smoke_active` casing. The L5 gate does not.
+- **L5:** the chip lights only when exact `you.operativeLevel >= 5` and exact `you.smokeAvailable` is true. Below 5 the chip stays visible on the spent-wood plate and a tap toasts `Reach operative L5`. Practice XP does not level — the client never reads `xp`.
+- **Fail closed:** a missing `operativeLevel` does not light a charge. A missing `smokeAvailable` at L5+ does not invent one. Snake-case aliases do not unlock. If `you.smokeActive` is absent, there is no active toast and no hex tint. If `enemy.smokeActive` is absent, the rival hex is not washed. Smoke never writes `enemy.visibleHex`.
 - **Decoy clock:** cast → available false, active true, phase `await_end_turn`. The planting `end_turn` keeps it. The enemy's full turn keeps it. The caster's next action window still has it. The caster's next own `end_turn` clears `smokeActive`. `smokeAvailable` stays false. Rejects: `match is not active`, `not your turn`, `awaiting end_turn`, `smoke already used`.
 - Cover-only HARD for spot (−20, no stack with a real HARD cell) and exposure. Spot math stays server-owned (`spotChance` 35 open → 15 smoked or HARD).
 - **No** Attack +0.10 and no `highGroundApplied` from smoke. `you.highGroundActive` is unchanged. No IN COVER chip. UAV, Decoy, Marks, and `you.exposureFloor` stay on their own fields.

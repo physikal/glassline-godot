@@ -405,6 +405,137 @@ func _smoke_case(failed: PackedStringArray) -> void:
 	}))
 	_expect(failed, not board.smoke_tint_active() and not board.enemy_smoke_tint_active(), "S2 ended clears both tints")
 	board.free()
+	_smoke_l5_case(failed)
+
+
+func _smoke_l5_case(failed: PackedStringArray) -> void:
+	## U1–U5. Level and the charge are server fields. xp never unlocks the puff.
+	var below: Snapshot = Snapshot.from_dict({
+		"status": Contract.STATUS_ACTIVE,
+		"you": {"operativeLevel": 4, "smokeAvailable": true, "xp": 9999},
+	})
+	_expect(failed, below.operative_level() == 4, "U3 client reads operativeLevel")
+	_expect(failed, below.smoke_chrome() == Contract.SMOKE_CHROME_LOCKED, "U1 level 4 stays locked with a charge")
+	_expect(failed, below.smoke_lock_toast() == Contract.SMOKE_LOCKED_TOAST, "U2 default lock line")
+	var at_level: Snapshot = Snapshot.from_dict({
+		"status": Contract.STATUS_ACTIVE,
+		"you": {"operativeLevel": 5, "smokeAvailable": true},
+	})
+	_expect(failed, at_level.smoke_chrome() == Contract.SMOKE_CHROME_AVAILABLE, "U1 exact L5 plus smokeAvailable unlocks")
+	var alias: Snapshot = Snapshot.from_dict({
+		"status": Contract.STATUS_ACTIVE,
+		"you": {"operative_level": "5", "smoke_available": true, "xp": 9999},
+	})
+	_expect(failed, not alias.operative_level_present(), "U1 snake_case operative_level is not the field")
+	_expect(failed, alias.smoke_chrome() == Contract.SMOKE_CHROME_ABSENT, "U1 aliases do not unlock")
+	var live_l1: Snapshot = Snapshot.from_dict({
+		"status": Contract.STATUS_READY,
+		"you": {"operativeLevel": 1, "smokeAvailable": false, "smokeActive": false, "xp": 0, "marks": 0},
+	})
+	_expect(failed, live_l1.smoke_chrome() == Contract.SMOKE_CHROME_LOCKED, "U1 live L1 shape is locked")
+	_expect(failed, live_l1.smoke_lock_toast() == Contract.SMOKE_LOCKED_TOAST, "U2 lock line is Reach operative L5")
+	var spent: Snapshot = Snapshot.from_dict({
+		"status": Contract.STATUS_ACTIVE,
+		"you": {"operativeLevel": 6, "smokeAvailable": false},
+	})
+	_expect(failed, spent.smoke_chrome() == Contract.SMOKE_CHROME_SPENT, "U4 spent stays spent once unlocked")
+	var missing_level: Snapshot = Snapshot.from_dict({
+		"status": Contract.STATUS_ACTIVE,
+		"you": {"smokeAvailable": true, "xp": 5000},
+	})
+	_expect(failed, not missing_level.operative_level_present(), "U3 xp is not a level")
+	_expect(failed, missing_level.smoke_chrome() == Contract.SMOKE_CHROME_LOCKED, "U1 missing operativeLevel fail-closes")
+	var missing_both: Snapshot = Snapshot.from_dict({
+		"status": Contract.STATUS_ACTIVE,
+		"you": {"xp": 9000, "exposureFloor": 20},
+	})
+	_expect(failed, missing_both.smoke_chrome() == Contract.SMOKE_CHROME_ABSENT, "U1 missing charge and level stay absent")
+	var enemy_level: Snapshot = Snapshot.from_dict({
+		"you": {"smokeAvailable": true},
+		"enemy": {"operativeLevel": 9},
+	})
+	_expect(failed, enemy_level.smoke_chrome() == Contract.SMOKE_CHROME_LOCKED, "U3 enemy level does not unlock you")
+	var ignored: Snapshot = Snapshot.from_dict({
+		"you": {"operativeLevel": 8, "smokeAvailable": false, "smokeLockReason": "Puff waits until L5.", "smokeLocked": true},
+	})
+	_expect(failed, ignored.smoke_chrome() == Contract.SMOKE_CHROME_SPENT, "U4 a lock-reason alias does not replace spent")
+	_expect(failed, ignored.smoke_lock_toast() == Contract.SMOKE_LOCKED_TOAST, "U2 toast stays the contract line")
+	_expect(failed, Contract.MARKS_PRACTICE == 0, "U3 practice earn is Δ0")
+	var practice_low: Snapshot = Snapshot.from_dict({
+		"mode": Contract.MODE_PRACTICE,
+		"you": {"operativeLevel": 1, "xp": 4000, "smokeAvailable": true},
+	})
+	_expect(failed, practice_low.is_practice() and practice_low.smoke_chrome() == Contract.SMOKE_CHROME_LOCKED, "U3 practice XP does not unlock")
+	var practice_l5: Snapshot = Snapshot.from_dict({
+		"mode": Contract.MODE_PRACTICE,
+		"you": {"operativeLevel": 5, "smokeAvailable": true},
+	})
+	_expect(failed, practice_l5.smoke_chrome() == Contract.SMOKE_CHROME_AVAILABLE, "U3 an L5 operative keeps SMOKE in practice")
+	var locked_chip: Button = Chrome.smoke_chip()
+	Chrome.paint_smoke_chip(locked_chip, false, true)
+	_expect(failed, bool(locked_chip.get_meta("smoke_locked")) and not bool(locked_chip.get_meta("smoke_lit")), "U2 locked chip is visible wood, not lit")
+	_expect(failed, locked_chip.text == Contract.SMOKE_LABEL, "U2 chip still reads SMOKE")
+	_expect(failed, locked_chip.tooltip_text == Contract.SMOKE_LOCKED_TOAST, "U2 locked tooltip")
+	var locked_box := locked_chip.get_theme_stylebox("normal") as StyleBoxFlat
+	_expect(failed, locked_box != null and locked_box.bg_color.is_equal_approx(Chrome.SMOKE_SPENT), "U2 locked plate is the spent wood")
+	Chrome.paint_smoke_chip(locked_chip, false, false)
+	var spent_box := locked_chip.get_theme_stylebox("disabled") as StyleBoxFlat
+	_expect(failed, spent_box != null and locked_box.bg_color.is_equal_approx(spent_box.bg_color), "U4 spent dialect matches locked wood")
+	_expect(failed, locked_chip.tooltip_text == Contract.SMOKE_SPENT_COPY, "U4 spent tooltip unchanged")
+	locked_chip.free()
+	var intent := ActionIntent.smoke()
+	_expect(failed, not intent.has("marks") and not intent.has("price") and not intent.has("iap"), "U5 intent has no Marks or IAP")
+	for entry in Contract.shop_catalog_items():
+		_expect(failed, str(entry.get("id", "")).to_lower().find("smoke") < 0, "U5 catalog has no smoke SKU")
+
+	server.clear_all()
+	server.reset_wallet(11)
+	server.operative_level = 3
+	var created: Dictionary = server.create_match({"mode": Contract.MODE_PRACTICE})
+	var mid := str(created.get("matchId", ""))
+	var join_a: Dictionary = server.join(mid, Contract.create_join_token(created))
+	var pid := str(join_a.get("playerId", ""))
+	var snap: Snapshot = Snapshot.from_dict(join_a.get("snapshot", {}))
+	_expect(failed, snap.is_practice() and snap.operative_level() == 3, "U3 practice publishes the server level")
+	_expect(failed, snap.you().has("operativeLevel") and snap.you().has("smokeAvailable"), "U1 mock uses the exact keys")
+	_expect(failed, not snap.you().has("smokeLocked") and not snap.you().has("smokeLockReason"), "U1 mock does not invent a lock field")
+	_expect(failed, snap.smoke_chrome() == Contract.SMOKE_CHROME_LOCKED, "U1 practice below L5 is locked")
+	var before := int(server.account_marks)
+	server.apply_action(mid, pid, ActionIntent.select_hex(2, 2))
+	server.apply_action(mid, pid, ActionIntent.start())
+	var refused: ActionResult = server.apply_action(mid, pid, ActionIntent.smoke())
+	_expect(failed, not refused.ok and str(refused.result.get("reason", "")) == "operative level", "U1 server refuses below L5")
+	snap = Snapshot.from_dict(server.get_snapshot(mid, pid))
+	_expect(failed, snap.operative_level() == 3, "U3 practice did not level")
+	_expect(failed, server.account_marks == before and snap.you_marks() == before, "U5 lock does not spend Marks")
+	server.operative_level = Contract.SMOKE_UNLOCK_LEVEL
+	snap = Snapshot.from_dict(server.get_snapshot(mid, pid))
+	_expect(failed, snap.smoke_available() and snap.smoke_chrome() == Contract.SMOKE_CHROME_AVAILABLE, "U5 the lock did not spend the puff")
+	var cast: ActionResult = server.apply_action(mid, pid, ActionIntent.smoke())
+	var cast_snap: Snapshot = Snapshot.from_dict(cast.snapshot)
+	_expect(failed, cast.ok and cast_snap.you_marks() == before, "U4 L5 smoke still posts with no Marks")
+	var again: ActionResult = server.apply_action(mid, pid, ActionIntent.smoke())
+	_expect(failed, not again.ok, "U5 no second smoke charge")
+	server.test_omit_operative_level = true
+	var omitted: Snapshot = Snapshot.from_dict(server.get_snapshot(mid, pid))
+	_expect(failed, not omitted.operative_level_present(), "omit drops operativeLevel")
+	_expect(failed, omitted.smoke_chrome() != Contract.SMOKE_CHROME_AVAILABLE, "missing level is not available")
+	server.clear_all()
+	server.operative_level = 4
+	var pvp: Dictionary = server.create_match()
+	var pvp_id := str(pvp.get("matchId", ""))
+	var seated: Dictionary = server.join(pvp_id, pvp["joinTokens"]["a"])
+	server.join(pvp_id, pvp["joinTokens"]["b"])
+	var body := ActionIntent.smoke()
+	body["operativeLevel"] = 9
+	body["xp"] = 9999
+	body["marks"] = 50
+	var injected: ActionResult = server.apply_action(pvp_id, str(seated.get("playerId", "")), body)
+	_expect(failed, not injected.ok, "U5 client fields cannot buy smoke")
+	var after: Snapshot = Snapshot.from_dict(server.get_snapshot(pvp_id, str(seated.get("playerId", ""))))
+	_expect(failed, after.operative_level() == 4, "U3 action cannot write operativeLevel")
+	_expect(failed, not after.you().has("xp"), "U3 client does not invent xp")
+	server.clear_all()
 
 
 func _smoke_empty_hex(a: Dictionary, b: Dictionary) -> Dictionary:
@@ -4208,7 +4339,8 @@ func _exposure_floor_case(failed: PackedStringArray) -> void:
 	var after: Snapshot = Snapshot.from_dict(ended.snapshot)
 	_expect(failed, int(after.you_exposure()) == 10, "E5 exposurePct intent is stored")
 	_expect(failed, after.you_exposure_floor() == 40, "E5 action cannot write the floor")
-	_expect(failed, not after.you().has("operativeLevel"), "E5 operativeLevel is not a client field")
+	_expect(failed, int(after.operative_level()) == Contract.SMOKE_UNLOCK_LEVEL, "E5 action cannot write operativeLevel")
+	_expect(failed, int(after.you().get("operativeLevel")) != 8, "E5 injected operativeLevel is ignored")
 	_expect(failed, Contract.RECON_BASE == 0.35, "E3 RECON_BASE unchanged")
 	_expect(failed, Contract.BASE_HIT_CHANCE == 0.90, "E3 attack band unchanged")
 	_expect(failed, Contract.MARKS_PVP_WIN == 32, "E4 Marks table ★32")
