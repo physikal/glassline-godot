@@ -419,9 +419,21 @@ func _smoke_l5_case(failed: PackedStringArray) -> void:
 	_expect(failed, below.smoke_lock_toast() == Contract.SMOKE_LOCKED_TOAST, "U2 default lock line")
 	var at_level: Snapshot = Snapshot.from_dict({
 		"status": Contract.STATUS_ACTIVE,
-		"you": {"operative_level": "5", "smoke_available": true},
+		"you": {"operativeLevel": 5, "smokeAvailable": true},
 	})
-	_expect(failed, at_level.smoke_chrome() == Contract.SMOKE_CHROME_AVAILABLE, "U1 snake_case L5 unlocks")
+	_expect(failed, at_level.smoke_chrome() == Contract.SMOKE_CHROME_AVAILABLE, "U1 exact L5 plus smokeAvailable unlocks")
+	var alias: Snapshot = Snapshot.from_dict({
+		"status": Contract.STATUS_ACTIVE,
+		"you": {"operative_level": "5", "smoke_available": true, "xp": 9999},
+	})
+	_expect(failed, not alias.operative_level_present(), "U1 snake_case operative_level is not the field")
+	_expect(failed, alias.smoke_chrome() == Contract.SMOKE_CHROME_ABSENT, "U1 aliases do not unlock")
+	var live_l1: Snapshot = Snapshot.from_dict({
+		"status": Contract.STATUS_READY,
+		"you": {"operativeLevel": 1, "smokeAvailable": false, "smokeActive": false, "xp": 0, "marks": 0},
+	})
+	_expect(failed, live_l1.smoke_chrome() == Contract.SMOKE_CHROME_LOCKED, "U1 live L1 shape is locked")
+	_expect(failed, live_l1.smoke_lock_toast() == Contract.SMOKE_LOCKED_TOAST, "U2 lock line is Reach operative L5")
 	var spent: Snapshot = Snapshot.from_dict({
 		"status": Contract.STATUS_ACTIVE,
 		"you": {"operativeLevel": 6, "smokeAvailable": false},
@@ -443,15 +455,12 @@ func _smoke_l5_case(failed: PackedStringArray) -> void:
 		"enemy": {"operativeLevel": 9},
 	})
 	_expect(failed, enemy_level.smoke_chrome() == Contract.SMOKE_CHROME_LOCKED, "U3 enemy level does not unlock you")
-	var reason: Snapshot = Snapshot.from_dict({
-		"you": {"operativeLevel": 8, "smokeAvailable": false, "smokeLockReason": "Puff waits until L5."},
+	var ignored: Snapshot = Snapshot.from_dict({
+		"you": {"operativeLevel": 8, "smokeAvailable": false, "smokeLockReason": "Puff waits until L5.", "smokeLocked": true},
 	})
-	_expect(failed, reason.smoke_chrome() == Contract.SMOKE_CHROME_LOCKED, "U2 server lock reason locks the chip")
-	_expect(failed, reason.smoke_lock_toast() == "Puff waits until L5.", "U2 toast uses the server sentence")
-	var code: Snapshot = Snapshot.from_dict({
-		"you": {"operativeLevel": 2, "smokeLocked": true, "smokeLockReason": "below_l5"},
-	})
-	_expect(failed, code.smoke_lock_toast() == Contract.SMOKE_LOCKED_TOAST, "U2 machine code stays the soft line")
+	_expect(failed, ignored.smoke_chrome() == Contract.SMOKE_CHROME_SPENT, "U4 a lock-reason alias does not replace spent")
+	_expect(failed, ignored.smoke_lock_toast() == Contract.SMOKE_LOCKED_TOAST, "U2 toast stays the contract line")
+	_expect(failed, Contract.MARKS_PRACTICE == 0, "U3 practice earn is Δ0")
 	var practice_low: Snapshot = Snapshot.from_dict({
 		"mode": Contract.MODE_PRACTICE,
 		"you": {"operativeLevel": 1, "xp": 4000, "smokeAvailable": true},
@@ -488,6 +497,8 @@ func _smoke_l5_case(failed: PackedStringArray) -> void:
 	var pid := str(join_a.get("playerId", ""))
 	var snap: Snapshot = Snapshot.from_dict(join_a.get("snapshot", {}))
 	_expect(failed, snap.is_practice() and snap.operative_level() == 3, "U3 practice publishes the server level")
+	_expect(failed, snap.you().has("operativeLevel") and snap.you().has("smokeAvailable"), "U1 mock uses the exact keys")
+	_expect(failed, not snap.you().has("smokeLocked") and not snap.you().has("smokeLockReason"), "U1 mock does not invent a lock field")
 	_expect(failed, snap.smoke_chrome() == Contract.SMOKE_CHROME_LOCKED, "U1 practice below L5 is locked")
 	var before := int(server.account_marks)
 	server.apply_action(mid, pid, ActionIntent.select_hex(2, 2))

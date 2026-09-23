@@ -725,16 +725,14 @@ func _poll_once() -> void:
 		]
 	var you_live: Variant = snap.get("you", {})
 	if you_live is Dictionary:
-		fp += "|d:%s|%s|%s|h:%s|sm:%s|%s|lv:%s|lk:%s|%s" % [
+		fp += "|d:%s|%s|%s|h:%s|sm:%s|%s|lv:%s" % [
 			str(you_live.get("decoyAvailable", "")),
 			str(you_live.get("decoyRemaining", "")),
 			Contract.hex_key(you_live.get("decoyHex", null)),
 			str(you_live.get("highGroundActive", "")),
-			str(you_live.get("smokeAvailable", you_live.get("smoke_available", ""))),
+			str(you_live.get("smokeAvailable", "")),
 			str(you_live.get("smokeActive", you_live.get("smoke_active", ""))),
-			str(you_live.get("operativeLevel", you_live.get("operative_level", ""))),
-			str(you_live.get("smokeLocked", you_live.get("smoke_locked", ""))),
-			str(you_live.get("smokeLockReason", you_live.get("smoke_lock_reason", ""))),
+			str(you_live.get("operativeLevel", "")),
 		]
 	var enemy_live: Variant = snap.get("enemy", {})
 	if enemy_live is Dictionary:

@@ -2019,9 +2019,6 @@ func _snapshot_for_seat(match_state: Dictionary, seat: String) -> Dictionary:
 		you_bag["exposureFloor"] = int(floor_pub.get("value", Contract.EXPOSURE_FLOOR_START))
 	if not bool(smoke_pub.get("omit_level", false)):
 		you_bag["operativeLevel"] = int(smoke_pub.get("level", Contract.SMOKE_UNLOCK_LEVEL))
-	if bool(smoke_pub.get("locked", false)):
-		you_bag["smokeLocked"] = true
-		you_bag["smokeLockReason"] = str(smoke_pub.get("reason", Contract.SMOKE_LOCKED_TOAST))
 	return _omit_part_feel(snap)
 
 
@@ -2039,12 +2036,13 @@ func _public_operative_smoke(seat_state: Dictionary) -> Dictionary:
 		}
 	var level := int(operative_level)
 	if level < Contract.SMOKE_UNLOCK_LEVEL:
+		## Contract: smokeAvailable is true only at operative L5+.
 		return {
 			"omit_level": false,
 			"available": false,
 			"locked": true,
 			"level": level,
-			"reason": Contract.SMOKE_LOCKED_TOAST,
+			"reason": "",
 		}
 	return {
 		"omit_level": false,

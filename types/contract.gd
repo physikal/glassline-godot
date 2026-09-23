@@ -72,8 +72,8 @@ const FORFEIT_REASONS := ["forfeit", "disconnect", "disconnected", "ragequit"]
 const ABILITY_LABEL := "UAV"
 const ABILITY_SLOT := "ABILITY"
 ## Ability SMOKE — once/match toy puff. Intent `{ type: "smoke" }`, no hex.
-## Bind you.smokeAvailable / you.smokeActive / you.operativeLevel (any casing).
-## Missing level or charge → not available. HARD for exposure+spot is server-owned.
+## Bind exact you.smokeAvailable and you.operativeLevel. Missing key → not available.
+## smokeAvailable is only a charge once operativeLevel >= 5. HARD for exposure+spot is server-owned.
 ## No Attack +0.10. No IN COVER chip. No Marks buy. No IAP. Practice XP does not level.
 const SMOKE_LABEL := "SMOKE"
 const SMOKE_UNLOCK_LEVEL := 5

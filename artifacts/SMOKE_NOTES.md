@@ -21,21 +21,21 @@ LIVE source of truth: API tip `fa7285ba` on `https://glassline-api.vercel.app`.
 | Your puff | Toast `Smoke — hex is Hard this turn` and a soft HARD wash on **your** hex |
 | Rival puff | Wash only if `enemy.smokeActive` and `enemy.visibleHex` are both already set. No toast |
 
-Poll fingerprint includes `you.smokeAvailable` / `you.smokeActive`, `you.operativeLevel`, `you.smokeLocked`, `you.smokeLockReason`, and `enemy.smokeActive` so a live flip refreshes the board.
+Poll fingerprint includes exact `you.smokeAvailable`, `you.smokeActive`, exact `you.operativeLevel`, and `enemy.smokeActive` so a live flip refreshes the board.
 
 ## L5 unlock
 
-Slice: [SMOKE L5 unlock](https://www.notion.so/3e44dabdb33981a2b27ff27e4bdcba91). API baseline `4d38de3`. The client displays `you.operativeLevel` and does not invent a level from `xp` or from Practice.
+Slice: [SMOKE L5 unlock](https://www.notion.so/3e44dabdb33981a2b27ff27e4bdcba91). Coder field names are exact `you.operativeLevel` and exact `you.smokeAvailable`. `smokeAvailable` is true only when `operativeLevel >= 5` and the charge remains. Deployed `https://glassline-api.vercel.app` already returns those keys (level 1 → `smokeAvailable` false, no lock-reason field). No API git tip was readable from this repo.
 
 | Gate | Client |
 | --- | --- |
-| U1 | Chip lights only when `operativeLevel >= 5` and `smokeAvailable` is true |
-| U2 | Below L5 the chip stays visible on the Soft P2 spent-wood plate. Tap toasts `Reach operative L5`, or the server sentence in `you.smokeLockReason` |
-| U3 | `xp` is ignored. Practice does not level. An L5 snapshot stays unlocked in practice |
+| U1 | Chip lights only when exact `operativeLevel >= 5` and exact `smokeAvailable` is true |
+| U2 | Below L5 the chip stays visible on the Soft P2 spent-wood plate. Tap toasts `Reach operative L5` |
+| U3 | `xp` is ignored. Practice does not level and practice Marks stay Δ0. An L5 snapshot stays unlocked in practice |
 | U4 | Once unlocked, the once/match puff, HARD spot/exposure, no Attack +0.10, and the decoy clock are unchanged |
 | U5 | No Marks, no IAP, no catalog SKU, no second charge. A locked tap does not spend the puff |
 
-Fail closed: a named charge with no `operativeLevel` stays locked and does not POST. A missing charge with no level stays the absent chip. Mock accounts start at L5 so the existing harness stays the unlocked path; `operative_level = 4` locks and refuses with `operative level`.
+Fail closed: a charge with no exact `operativeLevel` stays locked and does not POST. Snake-case aliases do not unlock. A missing charge with no level stays the absent chip. Mock accounts start at L5 so the existing harness stays the unlocked path; `operative_level = 4` publishes `smokeAvailable` false and refuses with `operative level`.
 
 ## Decoy clock
 
