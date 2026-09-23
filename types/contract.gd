@@ -81,6 +81,11 @@ const SMOKE_UNLOCK_LEVEL := 5
 ## Toward-next is xp % XP_PER_LEVEL. There is no xpToNext field.
 ## The plate never reads you.smokeAvailable — that charge stays on the match chip.
 const XP_PER_LEVEL := 100
+## Match-end wood line. Display only — the hideout plate still owns the bar.
+## Live grant (glassline-api xpForPvpOutcome): PvP kill win +100, forfeit win +50.
+## Loss, standoff, practice, and SP jobs are 0. Not xpGranted. Not a wallet diff.
+const XP_PVP_KILL_WIN := 100
+const XP_PVP_FORFEIT_WIN := 50
 const XP_PLATE_TIP := "SMOKE · L5"
 const SMOKE_TOAST := "Smoke — hex is Hard this turn"
 const SMOKE_LOCKED_TOAST := "Reach operative L5"

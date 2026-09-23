@@ -53,6 +53,7 @@ var _grace_lbl: Label
 var _over: ColorRect
 var _over_lbl: Label
 var _over_marks: Label
+var _over_xp: Label
 var _over_reason: Label
 var _over_settle: Label
 var _over_hint: Label
@@ -134,6 +135,12 @@ func _ready() -> void:
 		_capture_end_summary_forfeit()
 	elif "--capture-end-summary-standoff" in args:
 		_capture_end_summary_standoff()
+	elif "--capture-end-xp" in args:
+		_capture_end_xp("grant")
+	elif "--capture-end-xp-level" in args:
+		_capture_end_xp("level")
+	elif "--capture-end-xp-practice" in args:
+		_capture_end_xp("practice")
 	elif "--capture-coach-tips" in args:
 		_capture_coach_tips()
 	elif "--capture-coach-dismissed" in args:
@@ -1307,6 +1314,66 @@ func _capture_end_summary_standoff() -> void:
 	await _capture_end_summary_png("res://artifacts/ux/end_summary_standoff.png", "M1_END_SUMMARY_STANDOFF")
 
 
+func _stamp_capture_xp(total: int, level: int) -> void:
+	## Ended you.xp / operativeLevel for the still. The mock does not grant XP.
+	if ClientSession.use_live_api():
+		return
+	MockMatchServer.account_xp = total
+	MockMatchServer.operative_level = level
+	MockMatchServer.test_omit_xp = false
+	MockMatchServer.test_omit_operative_level = false
+
+
+func _force_practice_end_for_capture() -> Snapshot:
+	## Toy spy sits at (6, 1). Occupy that hex and the practice hunt ends Δ0.
+	var snap: Snapshot = ClientSession.typed_snapshot()
+	if snap.status() == Contract.STATUS_READY or snap.status() == Contract.STATUS_WAITING:
+		_submit(ActionIntent.select_hex(2, 2))
+		snap = ClientSession.typed_snapshot()
+	if snap.status() == Contract.STATUS_READY:
+		_submit(ActionIntent.start())
+		snap = ClientSession.typed_snapshot()
+	if snap.status() == Contract.STATUS_ACTIVE and str(snap.phase()) == Contract.PHASE_ACTION:
+		_submit(ActionIntent.attack(6, 1))
+		snap = ClientSession.typed_snapshot()
+	return snap
+
+
+func _capture_end_xp(kind: String) -> void:
+	## PvP grant, level-up, or practice omit. XP line is under the Marks Δ.
+	await get_tree().process_frame
+	if _coach:
+		_coach.dismiss()
+	var path := "res://artifacts/ux/end_xp_pvp.png"
+	var tag := "END_XP_PVP"
+	if kind == "level":
+		_stamp_capture_xp(100, 2)
+		path = "res://artifacts/ux/end_xp_level.png"
+		tag = "END_XP_LEVEL"
+		_refresh(_force_pvp_end_for_capture())
+	elif kind == "practice":
+		_stamp_capture_xp(40, 1)
+		path = "res://artifacts/ux/end_xp_practice.png"
+		tag = "END_XP_PRACTICE"
+		_refresh(_force_practice_end_for_capture())
+	else:
+		## Forfeit win +50 from a total that stays on L1 (70 = 20 + 50).
+		_stamp_capture_xp(70, 1)
+		_force_pvp_active_for_capture()
+		if ClientSession.dummy_player_id != "":
+			MatchAPI.abandon_as(ClientSession.dummy_player_id)
+			var yours: Dictionary = MatchAPI.get_snapshot(ClientSession.match_id, ClientSession.player_id)
+			if not yours.is_empty():
+				ClientSession.apply_snapshot(yours)
+		_refresh(ClientSession.typed_snapshot())
+	if _coach:
+		_coach.dismiss()
+	_toast.text = ""
+	var painted := _over_xp.text if _over_xp else ""
+	print("END_XP_LINE ", tag, " ", painted)
+	await _capture_end_summary_png(path, tag)
+
+
 func _capture_a2_reconnect() -> void:
 	await get_tree().process_frame
 	if ClientSession.typed_snapshot().status() == Contract.STATUS_READY:
@@ -1746,6 +1813,11 @@ func _build() -> void:
 	_over_marks.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	Chrome.apply_label(_over_marks, 14, Chrome.HIGH_GOLD, true)
 	over_col.add_child(_over_marks)
+	_over_xp = Label.new()
+	_over_xp.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_over_xp.visible = false
+	Chrome.apply_label(_over_xp, 13, Chrome.XP_GREEN, true)
+	over_col.add_child(_over_xp)
 	_over_reason = Label.new()
 	_over_reason.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	Chrome.apply_label(_over_reason, 10, Chrome.CREAM, true)
@@ -2276,6 +2348,10 @@ func _show_ended(snap: Snapshot) -> void:
 	if _over_marks:
 		_over_marks.text = str(parts.get("marks", ""))
 		_over_marks.visible = str(parts.get("marks", "")) != ""
+	if _over_xp:
+		var xp_line := str(parts.get("xp", ""))
+		_over_xp.text = xp_line
+		_over_xp.visible = xp_line != ""
 	if _over_reason:
 		_over_reason.text = str(parts.get("reason", ""))
 		_over_reason.visible = str(parts.get("reason", "")) != ""

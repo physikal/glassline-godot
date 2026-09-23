@@ -294,11 +294,102 @@ static func marks_line(payload: Dictionary, you_seat: String, job: bool = false,
 	return d
 
 
+static func _ended_you_card(payload: Dictionary) -> Dictionary:
+	## Exact ended you.xp and you.operativeLevel. Same presence rules as the
+	## hideout plate. A top-level total, a snake-case alias, or one field
+	## without the other is not a line. Never derives a level from xp.
+	var you: Variant = payload.get("you", null)
+	if not (you is Dictionary):
+		return {"xp_present": false, "xp": 0, "level_present": false, "level": 0}
+	return Contract.operative_card_from_payload({"you": you})
+
+
+static func _server_xp_delta(payload: Dictionary) -> Dictionary:
+	## Exact xpDelta on the bags Marks already reads. First hit wins.
+	## xpGranted and xp_delta are not a delta — this slice does not add that API.
+	var sources: Array = []
+	for key in ["payout", "result", "lastAction"]:
+		var bag: Variant = payload.get(key, null)
+		if bag is Dictionary:
+			sources.append(bag)
+	sources.append(payload)
+	var you: Variant = payload.get("you", null)
+	if you is Dictionary:
+		sources.append(you)
+	for source in sources:
+		var dict: Dictionary = source
+		if not dict.has("xpDelta"):
+			continue
+		var n: Variant = Contract._as_operative_int(dict.get("xpDelta"))
+		if n == null:
+			continue
+		return {"present": true, "value": int(n)}
+	return {"present": false, "value": 0}
+
+
+static func table_xp_delta(payload: Dictionary, you_seat: String, job: bool = false, practice: bool = false) -> int:
+	## Outcome fields Marks earn paint already uses (endReason, winner, seat).
+	## Not ended.xp minus a cached wallet. Practice and jobs stay 0.
+	## PvP kill win +100. Forfeit win +50. Anything else 0.
+	if practice or payload_is_practice(payload):
+		return 0
+	if job or payload_is_job(payload, job):
+		return 0
+	var win: Variant = payload.get("winner", null)
+	if win == null or str(win) != you_seat:
+		return 0
+	var why := table_reason(payload, false, false)
+	if why == Contract.END_KILL:
+		return Contract.XP_PVP_KILL_WIN
+	if why == Contract.END_FORFEIT or why in Contract.FORFEIT_REASONS:
+		return Contract.XP_PVP_FORFEIT_WIN
+	return 0
+
+
+static func xp_grant(payload: Dictionary, you_seat: String, job: bool = false, practice: bool = false) -> int:
+	## Server xpDelta when one is on the ended payload. Otherwise the table above.
+	var found := _server_xp_delta(payload)
+	if bool(found.get("present", false)):
+		return int(found.get("value", 0))
+	return table_xp_delta(payload, you_seat, job, practice)
+
+
+static func xp_level_unlocked(xp: int, level: int, n: int) -> bool:
+	## Level ticked this match when the grant crosses a 100-XP boundary and
+	## you.operativeLevel is that new level. xp - N is only the boundary test
+	## on the ended total. A total smaller than N does not invent a tick.
+	if n <= 0 or xp < n:
+		return false
+	var before := Contract.operative_level_from_xp(xp - n)
+	var after := Contract.operative_level_from_xp(xp)
+	return after > before and level == after
+
+
+static func xp_line(payload: Dictionary, you_seat: String, job: bool = false, practice: bool = false) -> String:
+	## "+N XP  ·  L#" under the Marks line. Practice omits even when fields exist.
+	## Missing ended you.xp or you.operativeLevel omits. Δ0 omits. No bar.
+	if practice or payload_is_practice(payload):
+		return ""
+	var card := _ended_you_card(payload)
+	if not bool(card.get("xp_present", false)) or not bool(card.get("level_present", false)):
+		return ""
+	var n := xp_grant(payload, you_seat, job, practice)
+	if n <= 0:
+		return ""
+	var level := int(card.get("level", 0))
+	var xp := int(card.get("xp", 0))
+	var level_bit := "L%d" % level
+	if xp_level_unlocked(xp, level, n):
+		level_bit = "%s unlocked" % level_bit
+	return "  ·  ".join(PackedStringArray(["+%d XP" % n, level_bit]))
+
+
 static func overlay_parts(payload: Dictionary, you_seat: String, job: bool = false, practice: bool = false) -> Dictionary:
 	var quiet := practice or payload_is_practice(payload)
 	return {
 		"headline": end_headline(payload, you_seat, job, quiet),
 		"marks": marks_line(payload, you_seat, job, quiet),
+		"xp": xp_line(payload, you_seat, job, quiet),
 		"reason": table_reason(payload, job, quiet),
 		"delta": table_delta(payload, you_seat, job, quiet),
 		"drift": live_delta_drifts(payload, you_seat, job, quiet),
@@ -306,12 +397,15 @@ static func overlay_parts(payload: Dictionary, you_seat: String, job: bool = fal
 
 
 static func end_overlay(payload: Dictionary, you_seat: String, job: bool = false) -> String:
-	## Headline · 0/+N/-N · ★you.marks · table reason. Δ is the earn table.
+	## Headline · Marks Δ · optional XP line · table reason. Marks Δ stays the earn table.
 	var parts := overlay_parts(payload, you_seat, job)
 	var lines: PackedStringArray = [str(parts.get("headline", ""))]
 	var marks := str(parts.get("marks", ""))
 	if marks != "":
 		lines.append(marks)
+	var xp := str(parts.get("xp", ""))
+	if xp != "":
+		lines.append(xp)
 	var why := str(parts.get("reason", ""))
 	if why != "":
 		lines.append(why)

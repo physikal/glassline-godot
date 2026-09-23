@@ -105,6 +105,11 @@ LIVE puff tip `fa7285ba`. L5 contract (Coder): exact `you.operativeLevel` and ex
 ## Hideout operative plate
 Soft P2 tip `7fbd884`. Hideout refresh binds **primary** to `GET /shop/me` `you.xp`, `you.operativeLevel`, and `you.exposureFloor`. Progress on the wood chip is `xp % 100` of 100 (remaining `100 - (xp % 100)`). There is no `xpToNext` field. Below L5 the chip adds a muted tip `SMOKE · L5`. L5+ drops it. A missing `xp` or `operativeLevel` hides the plate — the client does not invent either, and does not derive a level from xp. A missing `exposureFloor` keeps the last server percent (start 50 until one arrives) and is never mapped from the level. `POST /players` and match / ended `you` are the fallback only when the shop field is absent. `you.smokeAvailable` stays match-scoped and is not copied onto the shop plate. Practice does not add XP.
 
+## Match-end XP line
+Client chrome only. No new field, no `xpGranted`. The end plate paints `+N XP  ·  L#` under the Marks Δ when ended `you.xp` and `you.operativeLevel` are both present. Practice omits the line. A missing field omits it. There is no XP bar on the plate.
+
+`N` is exact `xpDelta` when that key is already on `payout`, `result`, `lastAction`, the snapshot, or `you` (same bags as `marksDelta`). Otherwise `N` is the live grant for the same outcome Marks already paints: PvP kill win **+100**, forfeit win **+50**, everything else **0** (loss, standoff, leaver, SP job). That is not `ended.xp` minus a cached wallet. `unlocked` is only when that grant crosses a 100-XP boundary and `you.operativeLevel` is the new level. Marks Δ is unchanged.
+
 ## Realtime
 `GET /matches/:id/events` SSE → `{ event: "snapshot"|"your_turn", snapshot }`
 

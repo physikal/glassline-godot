@@ -324,13 +324,25 @@ func _ready() -> void:
 			or "--capture-forfeit-overlay" in args \
 			or "--capture-end-summary-kill" in args \
 			or "--capture-end-summary-forfeit" in args \
-			or "--capture-end-summary-standoff" in args:
+			or "--capture-end-summary-standoff" in args \
+			or "--capture-end-xp" in args \
+			or "--capture-end-xp-level" in args \
+			or "--capture-end-xp-practice" in args:
 		if "--capture-end-summary-kill" in args or "--capture-end-summary-forfeit" in args \
-				or "--capture-end-summary-standoff" in args:
+				or "--capture-end-summary-standoff" in args \
+				or "--capture-end-xp" in args or "--capture-end-xp-level" in args \
+				or "--capture-end-xp-practice" in args:
 			if not ClientSession.use_live_api():
 				MockMatchServer.reset_wallet(0)
+		if "--capture-end-xp" in args or "--capture-end-xp-level" in args \
+				or "--capture-end-xp-practice" in args:
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+			DisplayServer.window_set_size(Vector2i(1280, 720))
 		await get_tree().process_frame
-		_on_play()
+		if "--capture-end-xp-practice" in args:
+			_start_practice()
+		else:
+			_on_play()
 
 
 func _capture_lobby() -> void:
