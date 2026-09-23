@@ -27,4 +27,6 @@ Stock + barrel stack floor stays **0.75**. That holds for T3+T3 and every mixed 
 
 Same PARTS wood chips, toy glyphs, muted locked peg when unowned. Equip T3 replaces the lower tier in that slot. Owning T1 and T2 is fine. T3 does not require them. Insufficient Marks is the shared wood toast `Not enough Marks.` Buy-feel stays `Shot window looser` / `Wobble quieter`. Practice Marks stay Δ0. No hit% / spot% / exposure, no new slot, no IAP.
 
-Headless `HEADLESS_LOOP_OK` and `PART_T3_OK`. Stills: `artifacts/ux/part_t3_rows.png`, `part_t3_insufficient.png`, `part_t3_buy_toast.png`, `part_t3_equipped.png`.
+Headless `HEADLESS_LOOP_OK` and `PART_T3_OK`. Unowned T3 rows use the same locked peg mute as T1/T2.
+
+ARMORY taste stills are on hold until Soft HUD H1–H4 clears. Existing `artifacts/ux/part_t3_*.png` shots are not a taste sign-off. HUD punch-list is a separate pass.
