@@ -88,6 +88,11 @@ ActionResult =
 - Intent stays `{ type: "attack", hex }`. No IN COVER chip this slice. Guns / Marks / Decoy stay blind.
 - Client displays server fields only — never subtracts cover from a local hex.
 
+## DECOY (once/match, operative L3)
+LIVE doll tip `662dba7`. Exact `you.operativeLevel` and exact `you.decoyAvailable`. `decoyAvailable` is true only when `operativeLevel >= 3` and the once/match charge remains. Below L3 both `you.decoyAvailable` and `you.decoyRemaining` read false/0 (the charge stays unspent) and `{ type: "decoy" }` rejects `reach operative L3`. Locked ability chrome shows the tip `DECOY · L3` and a tap toasts `Reach operative L3`. No Marks, no IAP. Practice XP stays Δ0. Once unlocked, placement, miss+clear, and expiry are unchanged.
+- **L3:** the chip lights only when exact `you.operativeLevel >= 3` and exact `you.decoyAvailable` is true. Below 3 the chip stays visible on the spent-wood plate with the tip `DECOY · L3`.
+- **Fail closed:** a missing `operativeLevel` does not light a charge. A missing `decoyAvailable` at L3+ does not invent one. `decoyRemaining` and snake-case aliases do not unlock.
+
 ## SMOKE (once/match, exposure + spot only)
 LIVE puff tip `fa7285ba`. L5 contract (Coder): exact `you.operativeLevel` and exact `you.smokeAvailable`. `smokeAvailable` is true only when `operativeLevel >= 5` and the once/match charge remains. Deployed `https://glassline-api.vercel.app` already returns those keys on `you` (level 1 → `smokeAvailable` false). No git tip SHA was readable from this client. Intent `{ type: "smoke" }` on the existing `POST /matches/:id/actions` path. No hex (an extra hex is ignored). No Marks / IAP. Practice earn stays Δ0. Success result is exactly `{ type: "smoke" }`.
 - Snapshot `you.smokeAvailable` (bool) and `you.smokeActive` (bool or turns remaining). `enemy.smokeActive` too. The puff clock still accepts `smoke_active` casing. The L5 gate does not.

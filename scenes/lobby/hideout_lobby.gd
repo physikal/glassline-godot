@@ -242,7 +242,11 @@ func _ready() -> void:
 		DisplayServer.window_set_size(Vector2i(1280, 720))
 		await get_tree().process_frame
 		_on_play()
-	elif "--capture-decoy-hud" in args or "--capture-decoy-blip" in args:
+	elif "--capture-decoy-hud" in args or "--capture-decoy-blip" in args \
+			or "--capture-decoy-locked" in args or "--capture-decoy-unlocked" in args \
+			or "--capture-decoy-lock-toast" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
 		await get_tree().process_frame
 		_on_play()
 	elif "--capture-smoke-available" in args or "--capture-smoke-spent" in args \

@@ -92,9 +92,23 @@ const SMOKE_CHROME_LOCKED := "locked"
 const SMOKE_CHROME_SPENT := "spent"
 const SMOKE_CHROME_ABSENT := "absent"
 ## Ability #2 — toy doll decoy. Intent `{ type: "decoy" }`, no hex arg.
+## Bind exact you.decoyAvailable and you.operativeLevel. Missing key → not available.
+## decoyAvailable is only a charge once operativeLevel >= 3. Once unlocked: once/match,
+## adjacent empty, miss+clear, no Marks. No IAP. Practice XP does not level.
 const DECOY_LABEL := "DECOY"
 const DECOY_SLOT := "TOY DOLL"
+const DECOY_UNLOCK_LEVEL := 3
+const DECOY_TIP := "DECOY · L3"
+const DECOY_LOCKED_TOAST := "Reach operative L3"
+## LIVE reject when the action is sent below L3. The charge stays unspent.
+const DECOY_LOCKED_REASON := "reach operative L3"
 const DECOY_COPY := "Plant a toy doll on a neighbor hex. Rivals see a soft blip. Once a hunt."
+const DECOY_SPENT_COPY := "Decoy is spent."
+const DECOY_ABSENT_COPY := "Decoy is not on this hunt."
+const DECOY_CHROME_AVAILABLE := "available"
+const DECOY_CHROME_LOCKED := "locked"
+const DECOY_CHROME_SPENT := "spent"
+const DECOY_CHROME_ABSENT := "absent"
 ## HIGH GROUND — attacker HARD only. Chip binds you.highGroundActive. Never invent.
 const HIGH_GROUND_LABEL := "HIGH GROUND"
 const HIGH_GROUND_SUB := "+10%"

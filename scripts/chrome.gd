@@ -257,6 +257,45 @@ static func game_button(kind: String, text: String, bg: Color, fg: Color, min_si
 	return button
 
 
+static func paint_decoy_button(button: Button, chrome: String) -> void:
+	## Locked (below L3) uses the same grey wood plate as a locked SMOKE chip.
+	## Unlocked available / spent keep the caramel toy-doll key.
+	if button == null:
+		return
+	var locked := chrome == Contract.DECOY_CHROME_LOCKED
+	var lit := chrome == Contract.DECOY_CHROME_AVAILABLE
+	var spent := chrome == Contract.DECOY_CHROME_SPENT
+	button.set_meta("decoy_lit", lit)
+	button.set_meta("decoy_locked", locked)
+	button.text = ("%s SPENT" % Contract.DECOY_LABEL) if spent else Contract.DECOY_LABEL
+	button.add_theme_font_size_override("font_size", 20)
+	button.icon = make_icon("decoy", Color.WHITE, 30)
+	if locked:
+		button.tooltip_text = Contract.DECOY_TIP
+		var radius := 18
+		var edge := SMOKE_SPENT.lightened(0.18)
+		button.add_theme_stylebox_override("normal", flat(SMOKE_SPENT, radius, edge, 3))
+		button.add_theme_stylebox_override("hover", flat(SMOKE_SPENT.lightened(0.04), radius, edge, 3))
+		button.add_theme_stylebox_override("pressed", flat(SMOKE_SPENT.darkened(0.06), radius, edge, 3))
+		button.add_theme_stylebox_override("disabled", flat(SMOKE_SPENT, radius, edge, 3))
+		button.add_theme_color_override("font_color", SMOKE_SPENT_INK)
+		button.add_theme_color_override("font_hover_color", SMOKE_SPENT_INK)
+		button.add_theme_color_override("font_pressed_color", SMOKE_SPENT_INK)
+		button.add_theme_color_override("font_disabled_color", SMOKE_SPENT_INK)
+		for state in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
+			button.add_theme_color_override("icon_%s_color" % state, SMOKE_SPENT_INK)
+		return
+	paint_chunk_button(button, DECOY_CARAMEL, Color.WHITE)
+	for state in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
+		button.add_theme_color_override("icon_%s_color" % state, Color.WHITE)
+	if lit:
+		button.tooltip_text = Contract.DECOY_COPY
+	elif spent:
+		button.tooltip_text = Contract.DECOY_SPENT_COPY
+	else:
+		button.tooltip_text = Contract.DECOY_ABSENT_COPY
+
+
 static func smoke_chip() -> Button:
 	## Ability chrome. Lit/muted is paint_smoke_chip — never a HIGH GROUND key.
 	var button := game_button("smoke", Contract.SMOKE_LABEL, ABILITY_PURPLE, Color.WHITE, Vector2(248, 64))
@@ -367,7 +406,10 @@ static func describe_last_action(last: Dictionary) -> String:
 			var spotted: Variant = last.get("spotted", last.get("found", false))
 			return "lastAction recon  spotted=%s" % str(spotted)
 		Contract.ACT_REJECT:
-			return "lastAction reject  %s" % str(last.get("reason", ""))
+			var reason := str(last.get("reason", ""))
+			if reason == Contract.DECOY_LOCKED_REASON:
+				return Contract.DECOY_LOCKED_TOAST
+			return "lastAction reject  %s" % reason
 		Contract.ACT_UAV:
 			return "lastAction uav  revealed=%s" % str(last.get("revealed", false))
 		Contract.ACT_DECOY:

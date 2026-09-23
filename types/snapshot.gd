@@ -150,6 +150,43 @@ func smoke_lock_toast() -> String:
 	return Contract.SMOKE_LOCKED_TOAST
 
 
+func decoy_charge_exact_present() -> bool:
+	## Exact you.decoyAvailable. The L3 gate does not accept decoyRemaining or an alias.
+	return bool(_you_exact("decoyAvailable").get("present", false))
+
+
+func decoy_charge_exact() -> bool:
+	var found := _you_exact("decoyAvailable")
+	if not bool(found.get("present", false)):
+		return false
+	return _smoke_truthy(found.get("value"))
+
+
+func decoy_chrome() -> String:
+	## Lit only when exact you.operativeLevel >= 3 and exact you.decoyAvailable is true.
+	## Below L3 the chip stays locked even if a charge is also set.
+	## A missing level does not light a charge. A missing charge at L3+ is not invented.
+	var below := operative_level_present() and operative_level() < Contract.DECOY_UNLOCK_LEVEL
+	if below:
+		return Contract.DECOY_CHROME_LOCKED
+	if not operative_level_present():
+		if decoy_charge_exact():
+			return Contract.DECOY_CHROME_LOCKED
+		if decoy_charge_exact_present():
+			return Contract.DECOY_CHROME_SPENT
+		return Contract.DECOY_CHROME_ABSENT
+	if not decoy_charge_exact_present():
+		return Contract.DECOY_CHROME_ABSENT
+	if decoy_charge_exact():
+		return Contract.DECOY_CHROME_AVAILABLE
+	return Contract.DECOY_CHROME_SPENT
+
+
+func decoy_lock_toast() -> String:
+	## One soft line. LIVE reject is "reach operative L3"; the toast capitalizes it.
+	return Contract.DECOY_LOCKED_TOAST
+
+
 func enemy_smoke_active() -> bool:
 	## enemy.smokeActive only. Never you.* and never a secret hex.
 	## Missing / ended → false. Does not light your toast.

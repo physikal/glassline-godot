@@ -24,8 +24,8 @@ var test_high_ground_active: Variant = null
 ## Never derived from operativeLevel or cosmetics.
 var test_exposure_floor: Variant = null
 var test_omit_exposure_floor: bool = false
-## Account operative level. Starts at L5 so the unlocked SMOKE harness stays green.
-## Below 5 the snapshot locks the charge and the action is refused. Omit drops the field.
+## Account operative level. Starts at L5 so the unlocked SMOKE and DECOY harness stays green.
+## Below 3 the snapshot locks DECOY. Below 5 it locks SMOKE. Omit drops the field.
 var operative_level: int = Contract.SMOKE_UNLOCK_LEVEL
 var test_omit_operative_level: bool = false
 ## Account XP. Starts at the L5 boundary so the unlocked harness stays L5 with an empty bar.
@@ -1690,6 +1690,9 @@ func _act_decoy(match_state: Dictionary, seat: String) -> ActionResult:
 	if gate != "":
 		return _fail(match_state, seat, gate)
 	var seat_state: Dictionary = match_state["seats"][seat]
+	## Below L3 the charge stays unspent. LIVE reason is the tip line.
+	if int(operative_level) < Contract.DECOY_UNLOCK_LEVEL:
+		return _fail(match_state, seat, Contract.DECOY_LOCKED_REASON)
 	if not bool(seat_state.get("decoyAvailable", false)):
 		return _fail(match_state, seat, "decoy_spent")
 	var dest: Variant = _pick_decoy_hex(match_state, seat)
@@ -1944,6 +1947,7 @@ func _snapshot_for_seat(match_state: Dictionary, seat: String) -> Dictionary:
 		if stored is Dictionary:
 			pay = stored.duplicate(true)
 	var smoke_pub := _public_operative_smoke(you)
+	var decoy_pub := _public_operative_decoy(you)
 	var balance := account_marks if seat == Contract.SEAT_A else int(you.get("marks", 0))
 	if pay.has("marks"):
 		balance = int(pay.get("marks"))
@@ -1978,8 +1982,8 @@ func _snapshot_for_seat(match_state: Dictionary, seat: String) -> Dictionary:
 			"ownedParts": owned_parts.duplicate(),
 			"wobbleScale": Contract.local_wobble_scale(equipped_stock, equipped_barrel),
 			"shotWindowSec": Contract.local_shot_window_sec(equipped_optic),
-			"decoyAvailable": bool(you.get("decoyAvailable", false)),
-			"decoyRemaining": 1 if bool(you.get("decoyAvailable", false)) else 0,
+			"decoyAvailable": bool(decoy_pub.get("available", false)),
+			"decoyRemaining": int(decoy_pub.get("remaining", 0)),
 			"decoyHex": _decoy_hex_for_snap(you, match_state),
 			"highGroundActive": _high_ground_active_for(match_state, seat),
 			"smokeAvailable": bool(smoke_pub.get("available", false)),
@@ -2049,6 +2053,26 @@ func _snapshot_for_seat(match_state: Dictionary, seat: String) -> Dictionary:
 	if not test_omit_xp:
 		you_bag["xp"] = int(account_xp)
 	return _omit_part_feel(snap)
+
+
+func _public_operative_decoy(seat_state: Dictionary) -> Dictionary:
+	## Wire shape matches LIVE. Below L3 both fields read spent, but the seat charge stays.
+	## Raising the level publishes the same doll. Omit still publishes the raw charge.
+	var charge := bool(seat_state.get("decoyAvailable", false))
+	if test_omit_operative_level:
+		return {
+			"available": charge,
+			"remaining": 1 if charge else 0,
+		}
+	if int(operative_level) < Contract.DECOY_UNLOCK_LEVEL:
+		return {
+			"available": false,
+			"remaining": 0,
+		}
+	return {
+		"available": charge,
+		"remaining": 1 if charge else 0,
+	}
 
 
 func _public_operative_smoke(seat_state: Dictionary) -> Dictionary:

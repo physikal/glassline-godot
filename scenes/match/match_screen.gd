@@ -44,6 +44,7 @@ var _clock_chip: Label
 var _turn_pill: PanelContainer
 var _ability_cap: Label
 var _decoy_cap: Label
+var _decoy_tip: PanelContainer
 var _btn_start: Button
 var _btn_abandon: Button
 var _btn_end: Button
@@ -169,6 +170,12 @@ func _ready() -> void:
 		_capture_smoke("locked")
 	elif "--capture-smoke-lock-toast" in args:
 		_capture_smoke("toast")
+	elif "--capture-decoy-locked" in args:
+		_capture_decoy_lock("locked")
+	elif "--capture-decoy-unlocked" in args:
+		_capture_decoy_lock("unlocked")
+	elif "--capture-decoy-lock-toast" in args:
+		_capture_decoy_lock("toast")
 
 
 func _cmdline_is_capture(args: PackedStringArray) -> bool:
@@ -591,6 +598,36 @@ func _bind_high_ground(snap: Snapshot) -> void:
 		Chrome.paint_high_ground_chip(_high_chip, snap.you_high_ground_active())
 
 
+func _bind_decoy(snap: Snapshot) -> void:
+	## Lit only at operative L3 with a named charge. Locked stays on the wood plate and can toast.
+	if _btn_decoy == null:
+		return
+	var chrome := snap.decoy_chrome()
+	var lit := chrome == Contract.DECOY_CHROME_AVAILABLE
+	var locked := chrome == Contract.DECOY_CHROME_LOCKED
+	Chrome.paint_decoy_button(_btn_decoy, chrome)
+	if locked:
+		_btn_decoy.disabled = false
+	elif not lit:
+		_btn_decoy.disabled = true
+	if _decoy_tip:
+		_decoy_tip.visible = locked and _btn_decoy.visible
+	if _decoy_cap:
+		_decoy_cap.text = Contract.DECOY_TIP if locked else ""
+
+
+func _show_decoy_lock_toast(snap: Snapshot) -> void:
+	## Soft tip. Does not POST and does not spend the charge.
+	if _toast == null:
+		return
+	_toast.text = snap.decoy_lock_toast()
+	_toast.position = Vector2(180, 48)
+	_toast.size = Vector2(920, 36)
+	_toast.z_index = 45
+	_toast.z_as_relative = false
+	Chrome.apply_label(_toast, 16, Color("f7e7a8"), true)
+
+
 func _bind_smoke(snap: Snapshot) -> void:
 	## Lit only at operative L5 with a named charge. Locked stays on the wood plate and can toast.
 	if _btn_smoke == null:
@@ -809,6 +846,8 @@ func _capture_smoke(kind: String) -> void:
 	_btn_start.visible = false
 	if _btn_decoy:
 		_btn_decoy.visible = false
+	if _decoy_tip:
+		_decoy_tip.visible = false
 	if _btn_abandon:
 		_btn_abandon.visible = false
 	_set_actions(kind != "active")
@@ -888,6 +927,57 @@ func _smoke_drop_open() -> Snapshot:
 		_submit(ActionIntent.start())
 		snap = ClientSession.typed_snapshot()
 	return snap
+
+
+func _capture_decoy_lock(kind: String) -> void:
+	## Stills: locked L2 with the tip, unlocked L3, and the reject toast.
+	if _coach:
+		_coach.dismiss()
+	_dummy_busy = true
+	_dummy_delay = 0.0
+	if kind == "unlocked":
+		MockMatchServer.operative_level = Contract.DECOY_UNLOCK_LEVEL
+	else:
+		MockMatchServer.operative_level = Contract.DECOY_UNLOCK_LEVEL - 1
+	MockMatchServer.test_omit_operative_level = false
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+	DisplayServer.window_set_size(Vector2i(1280, 720))
+	await get_tree().process_frame
+	var snap := _ensure_active_for_decoy()
+	_dummy_busy = true
+	_dummy_delay = 0.0
+	_refresh(snap)
+	_end_panel.visible = false
+	_btn_start.visible = false
+	if _btn_abandon:
+		_btn_abandon.visible = false
+	_set_actions(true)
+	_bind_decoy(snap)
+	_status.text = ""
+	_phase.text = ""
+	if kind == "toast":
+		_show_decoy_lock_toast(snap)
+	else:
+		_toast.text = ""
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var file_name := "decoy_chip_unlocked.png"
+	var tag := "DECOY_UNLOCKED"
+	if kind == "locked":
+		file_name = "decoy_chip_locked.png"
+		tag = "DECOY_LOCKED"
+	elif kind == "toast":
+		file_name = "decoy_lock_toast.png"
+		tag = "DECOY_LOCK_TOAST"
+	var path := ProjectSettings.globalize_path("res://artifacts/ux/%s" % file_name)
+	var img := get_viewport().get_texture().get_image()
+	img.save_png(path)
+	var lit := bool(_btn_decoy.get_meta("decoy_lit")) if _btn_decoy and _btn_decoy.has_meta("decoy_lit") else false
+	var locked := bool(_btn_decoy.get_meta("decoy_locked")) if _btn_decoy and _btn_decoy.has_meta("decoy_locked") else false
+	var tip := _decoy_cap.text if _decoy_cap else ""
+	print("DECOY_CAPTURE ", tag, " ", path, " LIT ", lit, " LOCKED ", locked, " TIP ", tip, " CHROME ", snap.decoy_chrome(), " AVAIL ", snap.decoy_available(), " LEVEL ", snap.operative_level(), " TOAST ", _toast.text if _toast else "")
+	get_tree().quit()
 
 
 func _capture_decoy_hud() -> void:
@@ -1479,9 +1569,24 @@ func _build() -> void:
 	_ability_cap.visible = false
 	add_child(_ability_cap)
 
+	_decoy_tip = PanelContainer.new()
+	_decoy_tip.visible = false
+	_decoy_tip.position = Vector2(24, 500)
+	_decoy_tip.z_index = 26
+	_decoy_tip.z_as_relative = false
+	_decoy_tip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var tip_box := Chrome.flat(Chrome.SMOKE_SPENT, 10, Chrome.SMOKE_SPENT.lightened(0.18), 2)
+	tip_box.content_margin_left = 10
+	tip_box.content_margin_right = 10
+	tip_box.content_margin_top = 6
+	tip_box.content_margin_bottom = 6
+	_decoy_tip.add_theme_stylebox_override("panel", tip_box)
+	add_child(_decoy_tip)
 	_decoy_cap = Label.new()
-	_decoy_cap.visible = false
-	add_child(_decoy_cap)
+	_decoy_cap.text = Contract.DECOY_TIP
+	_decoy_cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	Chrome.apply_label(_decoy_cap, 8, Chrome.CREAM, true)
+	_decoy_tip.add_child(_decoy_cap)
 	_btn_decoy = Chrome.game_button("decoy", Contract.DECOY_LABEL, Chrome.DECOY_CARAMEL, Color.WHITE, Vector2(200, 64))
 	_btn_decoy.tooltip_text = Contract.DECOY_COPY
 	_btn_decoy.pressed.connect(_on_decoy)
@@ -1818,11 +1923,7 @@ func _refresh(snap: Snapshot) -> void:
 		_btn_uav.text = "%s SPENT" % Contract.ABILITY_SLOT
 	else:
 		_btn_uav.text = Contract.ABILITY_SLOT
-	_btn_decoy.disabled = _btn_decoy.disabled or not snap.decoy_available()
-	if not snap.decoy_available():
-		_btn_decoy.text = "%s SPENT" % Contract.DECOY_LABEL
-	else:
-		_btn_decoy.text = Contract.DECOY_LABEL
+	_bind_decoy(snap)
 	_bind_high_ground(snap)
 	_bind_smoke(snap)
 	_sync_coach(snap)
@@ -1971,6 +2072,13 @@ func _on_uav() -> void:
 
 
 func _on_decoy() -> void:
+	## Fail closed: locked, spent, or a missing level/charge does not POST.
+	var snap: Snapshot = ClientSession.typed_snapshot()
+	if snap.decoy_chrome() == Contract.DECOY_CHROME_LOCKED:
+		_show_decoy_lock_toast(snap)
+		return
+	if snap.decoy_chrome() != Contract.DECOY_CHROME_AVAILABLE:
+		return
 	_submit(ActionIntent.decoy())
 
 

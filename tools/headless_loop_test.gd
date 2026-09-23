@@ -131,6 +131,7 @@ func _run() -> int:
 	_expect(failed, server.account_marks == replay_wallet, "refused replay does not double grant")
 
 	_decoy_case(failed)
+	_decoy_l3_case(failed)
 	_smoke_case(failed)
 	_lobby_case(failed)
 	_invite_share_case(failed)
@@ -640,6 +641,153 @@ func _smoke_hard_case(failed: PackedStringArray) -> void:
 	r = server.apply_action(mid, pid_b, ActionIntent.end_turn(50))
 	r = server.apply_action(mid, pid_a, ActionIntent.smoke())
 	_expect(failed, not r.ok and str(r.result.get("reason", "")) == "smoke already used", "S1 HARD smoke already used")
+
+
+func _decoy_l3_case(failed: PackedStringArray) -> void:
+	## D1–D5 unlock. Level and the charge are server fields. xp never unlocks the doll.
+	var below: Snapshot = Snapshot.from_dict({
+		"status": Contract.STATUS_ACTIVE,
+		"you": {"operativeLevel": 2, "decoyAvailable": true, "decoyRemaining": 1, "xp": 9999},
+	})
+	_expect(failed, below.operative_level() == 2, "D1 client reads operativeLevel")
+	_expect(failed, below.decoy_chrome() == Contract.DECOY_CHROME_LOCKED, "D1 level 2 stays locked with a charge")
+	_expect(failed, below.decoy_lock_toast() == Contract.DECOY_LOCKED_TOAST, "D2 default lock line")
+	_expect(failed, Contract.DECOY_TIP == "DECOY · L3", "D2 tip copy")
+	_expect(failed, Contract.DECOY_LOCKED_TOAST == "Reach operative L3", "D2 toast copy")
+	_expect(failed, Contract.DECOY_LOCKED_REASON == "reach operative L3", "D2 live reject copy")
+	var at_level: Snapshot = Snapshot.from_dict({
+		"status": Contract.STATUS_ACTIVE,
+		"you": {"operativeLevel": 3, "decoyAvailable": true, "decoyRemaining": 1},
+	})
+	_expect(failed, at_level.decoy_chrome() == Contract.DECOY_CHROME_AVAILABLE, "D1 exact L3 plus decoyAvailable unlocks")
+	var alias: Snapshot = Snapshot.from_dict({
+		"status": Contract.STATUS_ACTIVE,
+		"you": {"operative_level": "3", "decoy_available": true, "decoyRemaining": 1, "xp": 9999},
+	})
+	_expect(failed, not alias.operative_level_present(), "D1 snake_case operative_level is not the field")
+	_expect(failed, alias.decoy_chrome() == Contract.DECOY_CHROME_ABSENT, "D1 aliases do not unlock")
+	var live_l2: Snapshot = Snapshot.from_dict({
+		"status": Contract.STATUS_READY,
+		"you": {"operativeLevel": 2, "decoyAvailable": false, "decoyRemaining": 0, "xp": 40, "marks": 0},
+	})
+	_expect(failed, live_l2.decoy_chrome() == Contract.DECOY_CHROME_LOCKED, "D1 live L2 shape is locked")
+	_expect(failed, live_l2.decoy_lock_toast() == Contract.DECOY_LOCKED_TOAST, "D2 lock line is Reach operative L3")
+	var spent: Snapshot = Snapshot.from_dict({
+		"status": Contract.STATUS_ACTIVE,
+		"you": {"operativeLevel": 4, "decoyAvailable": false, "decoyRemaining": 0},
+	})
+	_expect(failed, spent.decoy_chrome() == Contract.DECOY_CHROME_SPENT, "D4 spent stays spent once unlocked")
+	var missing_level: Snapshot = Snapshot.from_dict({
+		"status": Contract.STATUS_ACTIVE,
+		"you": {"decoyAvailable": true, "xp": 5000},
+	})
+	_expect(failed, not missing_level.operative_level_present(), "D3 xp is not a level")
+	_expect(failed, missing_level.decoy_chrome() == Contract.DECOY_CHROME_LOCKED, "D1 missing operativeLevel fail-closes")
+	var missing_both: Snapshot = Snapshot.from_dict({
+		"status": Contract.STATUS_ACTIVE,
+		"you": {"xp": 9000, "exposureFloor": 20},
+	})
+	_expect(failed, missing_both.decoy_chrome() == Contract.DECOY_CHROME_ABSENT, "D1 missing charge and level stay absent")
+	var enemy_level: Snapshot = Snapshot.from_dict({
+		"you": {"decoyAvailable": true},
+		"enemy": {"operativeLevel": 9},
+	})
+	_expect(failed, enemy_level.decoy_chrome() == Contract.DECOY_CHROME_LOCKED, "D3 enemy level does not unlock you")
+	var ignored: Snapshot = Snapshot.from_dict({
+		"you": {"operativeLevel": 6, "decoyAvailable": false, "decoyLockReason": "Doll waits until L3.", "decoyLocked": true},
+	})
+	_expect(failed, ignored.decoy_chrome() == Contract.DECOY_CHROME_SPENT, "D4 a lock-reason alias does not replace spent")
+	_expect(failed, ignored.decoy_lock_toast() == Contract.DECOY_LOCKED_TOAST, "D2 toast stays the contract line")
+	var mapped := Chrome.describe_last_action({"type": Contract.ACT_REJECT, "reason": Contract.DECOY_LOCKED_REASON})
+	_expect(failed, mapped == Contract.DECOY_LOCKED_TOAST, "D2 reject reason paints the toast")
+	_expect(failed, Contract.MARKS_PRACTICE == 0, "D3 practice earn is Δ0")
+	var practice_low: Snapshot = Snapshot.from_dict({
+		"mode": Contract.MODE_PRACTICE,
+		"you": {"operativeLevel": 2, "xp": 4000, "decoyAvailable": true},
+	})
+	_expect(failed, practice_low.is_practice() and practice_low.decoy_chrome() == Contract.DECOY_CHROME_LOCKED, "D3 practice XP does not unlock")
+	var practice_l3: Snapshot = Snapshot.from_dict({
+		"mode": Contract.MODE_PRACTICE,
+		"you": {"operativeLevel": 3, "decoyAvailable": true},
+	})
+	_expect(failed, practice_l3.decoy_chrome() == Contract.DECOY_CHROME_AVAILABLE, "D4 an L3 operative keeps DECOY in practice")
+	var locked_chip: Button = Chrome.game_button("decoy", Contract.DECOY_LABEL, Chrome.DECOY_CARAMEL, Color.WHITE, Vector2(200, 64))
+	Chrome.paint_decoy_button(locked_chip, Contract.DECOY_CHROME_LOCKED)
+	_expect(failed, bool(locked_chip.get_meta("decoy_locked")) and not bool(locked_chip.get_meta("decoy_lit")), "D2 locked chip is visible wood, not lit")
+	_expect(failed, locked_chip.text == Contract.DECOY_LABEL, "D2 chip still reads DECOY")
+	_expect(failed, locked_chip.tooltip_text == Contract.DECOY_TIP, "D2 locked tooltip is the tip")
+	var locked_box := locked_chip.get_theme_stylebox("normal") as StyleBoxFlat
+	_expect(failed, locked_box != null and locked_box.bg_color.is_equal_approx(Chrome.SMOKE_SPENT), "D2 locked plate is the spent wood")
+	Chrome.paint_decoy_button(locked_chip, Contract.DECOY_CHROME_AVAILABLE)
+	_expect(failed, bool(locked_chip.get_meta("decoy_lit")) and locked_chip.text == Contract.DECOY_LABEL, "D4 unlocked chip stays DECOY")
+	_expect(failed, locked_chip.tooltip_text == Contract.DECOY_COPY, "D4 unlocked tooltip unchanged")
+	Chrome.paint_decoy_button(locked_chip, Contract.DECOY_CHROME_SPENT)
+	_expect(failed, locked_chip.text == "%s SPENT" % Contract.DECOY_LABEL, "D4 spent label unchanged")
+	_expect(failed, locked_chip.tooltip_text == Contract.DECOY_SPENT_COPY, "D4 spent tooltip")
+	locked_chip.free()
+	var intent := ActionIntent.decoy()
+	_expect(failed, not intent.has("marks") and not intent.has("price") and not intent.has("iap") and not intent.has("hex"), "D5 intent has no Marks, IAP, or hex")
+	for entry in Contract.shop_catalog_items():
+		_expect(failed, str(entry.get("id", "")).to_lower().find("decoy") < 0, "D5 catalog has no decoy SKU")
+
+	server.clear_all()
+	server.reset_wallet(11)
+	server.operative_level = 2
+	server.account_xp = 40
+	var created: Dictionary = server.create_match({"mode": Contract.MODE_PRACTICE})
+	var mid := str(created.get("matchId", ""))
+	var join_a: Dictionary = server.join(mid, Contract.create_join_token(created))
+	var pid := str(join_a.get("playerId", ""))
+	var snap: Snapshot = Snapshot.from_dict(join_a.get("snapshot", {}))
+	_expect(failed, snap.is_practice() and snap.operative_level() == 2, "D3 practice publishes the server level")
+	_expect(failed, snap.you().has("operativeLevel") and snap.you().has("decoyAvailable"), "D1 mock uses the exact keys")
+	_expect(failed, not snap.you().has("decoyLocked") and not snap.you().has("decoyLockReason"), "D1 mock does not invent a lock field")
+	_expect(failed, snap.decoy_chrome() == Contract.DECOY_CHROME_LOCKED, "D1 practice below L3 is locked")
+	_expect(failed, not snap.decoy_available() and int(snap.you().get("decoyRemaining", -1)) == 0, "D1 below L3 the wire charge reads empty")
+	var before := int(server.account_marks)
+	var before_xp := int(server.account_xp)
+	server.apply_action(mid, pid, ActionIntent.select_hex(2, 2))
+	server.apply_action(mid, pid, ActionIntent.start())
+	var refused: ActionResult = server.apply_action(mid, pid, ActionIntent.decoy())
+	_expect(failed, not refused.ok and str(refused.result.get("reason", "")) == Contract.DECOY_LOCKED_REASON, "D1 server refuses below L3")
+	snap = Snapshot.from_dict(server.get_snapshot(mid, pid))
+	_expect(failed, snap.operative_level() == 2 and snap.xp_value() == before_xp, "D3 practice did not level")
+	_expect(failed, server.account_marks == before and snap.you_marks() == before, "D5 lock does not spend Marks")
+	_expect(failed, int(server.account_xp) == before_xp, "D3 practice XP stays Δ0")
+	server.operative_level = Contract.DECOY_UNLOCK_LEVEL
+	snap = Snapshot.from_dict(server.get_snapshot(mid, pid))
+	_expect(failed, snap.decoy_available() and snap.decoy_chrome() == Contract.DECOY_CHROME_AVAILABLE, "D5 the lock did not spend the doll")
+	var cast: ActionResult = server.apply_action(mid, pid, ActionIntent.decoy())
+	var cast_snap: Snapshot = Snapshot.from_dict(cast.snapshot)
+	_expect(failed, cast.ok and cast_snap.you_marks() == before, "D4 L3 decoy still posts with no Marks")
+	_expect(failed, cast_snap.you_decoy_hex() is Dictionary, "D4 once unlocked the doll still plants")
+	_expect(failed, int(server.account_xp) == before_xp, "D4 a decoy does not grant XP")
+	var again: ActionResult = server.apply_action(mid, pid, ActionIntent.decoy())
+	_expect(failed, not again.ok, "D4 no second decoy charge")
+	server.test_omit_operative_level = true
+	var omitted: Snapshot = Snapshot.from_dict(server.get_snapshot(mid, pid))
+	_expect(failed, not omitted.operative_level_present(), "omit drops operativeLevel")
+	_expect(failed, omitted.decoy_chrome() != Contract.DECOY_CHROME_AVAILABLE, "missing level is not available")
+	server.clear_all()
+	server.operative_level = 2
+	server.account_xp = 40
+	var pvp: Dictionary = server.create_match()
+	var pvp_id := str(pvp.get("matchId", ""))
+	var seated: Dictionary = server.join(pvp_id, pvp["joinTokens"]["a"])
+	server.join(pvp_id, pvp["joinTokens"]["b"])
+	var body := ActionIntent.decoy()
+	body["operativeLevel"] = 9
+	body["xp"] = 9999
+	body["marks"] = 50
+	body["iap"] = true
+	var injected: ActionResult = server.apply_action(pvp_id, str(seated.get("playerId", "")), body)
+	_expect(failed, not injected.ok, "D5 client fields cannot buy decoy")
+	var after: Snapshot = Snapshot.from_dict(server.get_snapshot(pvp_id, str(seated.get("playerId", ""))))
+	_expect(failed, after.operative_level() == 2, "D3 action cannot write operativeLevel")
+	_expect(failed, after.you_decoy_hex() == null, "D5 a refused decoy does not plant")
+	_expect(failed, after.xp_present() and after.xp_value() == int(server.account_xp), "D3 xp stays the account")
+	_expect(failed, after.xp_value() != 9999, "D3 injected xp is ignored")
+	server.clear_all()
 
 
 func _decoy_pick(aq: int, ar: int, bq: int, br: int) -> Vector2i:
