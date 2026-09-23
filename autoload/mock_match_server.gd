@@ -28,6 +28,10 @@ var test_omit_exposure_floor: bool = false
 ## Below 5 the snapshot locks the charge and the action is refused. Omit drops the field.
 var operative_level: int = Contract.SMOKE_UNLOCK_LEVEL
 var test_omit_operative_level: bool = false
+## Account XP. Starts at the L5 boundary so the unlocked harness stays L5 with an empty bar.
+## Practice and actions never add to it. Omit drops you.xp. Null is not used — 0 is a real total.
+var account_xp: int = Contract.xp_for_level_start(Contract.SMOKE_UNLOCK_LEVEL)
+var test_omit_xp: bool = false
 ## Drop wobbleScale / shotWindowSec so the client uses Design juice locally.
 var test_omit_part_feel: bool = false
 ## Display stub for hideout. Persists across matches; tests call reset_wallet().
@@ -294,6 +298,19 @@ func _clear_part_slot(slot: String) -> void:
 			equipped_barrel = ""
 
 
+func player_public() -> Dictionary:
+	## POST /players shape. xp and operativeLevel are server fields. No smoke charge.
+	var bag := {"marks": account_marks}
+	if not test_omit_operative_level:
+		bag["operativeLevel"] = int(operative_level)
+	if not test_omit_xp:
+		bag["xp"] = int(account_xp)
+	var floor := _public_exposure_floor()
+	if bool(floor.get("present", false)):
+		bag["exposureFloor"] = int(floor.get("value", Contract.EXPOSURE_FLOOR_START))
+	return bag
+
+
 func _shop_snapshot() -> Dictionary:
 	var bag: Dictionary = Contract.shop_catalog_stub(
 		account_marks,
@@ -305,6 +322,13 @@ func _shop_snapshot() -> Dictionary:
 		equipped_stock,
 		equipped_barrel
 	)
+	var you: Dictionary = bag.get("you", {})
+	## ShopYou carries the operative card when the fields exist. Never the match charge.
+	var card := player_public()
+	for key in ["xp", "operativeLevel", "exposureFloor"]:
+		if card.has(key):
+			you[key] = card[key]
+	bag["you"] = you
 	bag["source"] = "mock"
 	bag["wallet"] = {"marks": account_marks}
 	return _omit_part_feel(bag)
@@ -1300,6 +1324,8 @@ func clear_all() -> void:
 	test_omit_part_feel = false
 	operative_level = Contract.SMOKE_UNLOCK_LEVEL
 	test_omit_operative_level = false
+	account_xp = Contract.xp_for_level_start(Contract.SMOKE_UNLOCK_LEVEL)
+	test_omit_xp = false
 	## Wallet stays — PLAY must not wipe hideout Marks. Tests call reset_wallet().
 
 
@@ -2019,6 +2045,9 @@ func _snapshot_for_seat(match_state: Dictionary, seat: String) -> Dictionary:
 		you_bag["exposureFloor"] = int(floor_pub.get("value", Contract.EXPOSURE_FLOOR_START))
 	if not bool(smoke_pub.get("omit_level", false)):
 		you_bag["operativeLevel"] = int(smoke_pub.get("level", Contract.SMOKE_UNLOCK_LEVEL))
+	## Practice and injected action bodies do not move account_xp.
+	if not test_omit_xp:
+		you_bag["xp"] = int(account_xp)
 	return _omit_part_feel(snap)
 
 

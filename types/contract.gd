@@ -77,6 +77,11 @@ const ABILITY_SLOT := "ABILITY"
 ## No Attack +0.10. No IN COVER chip. No Marks buy. No IAP. Practice XP does not level.
 const SMOKE_LABEL := "SMOKE"
 const SMOKE_UNLOCK_LEVEL := 5
+## Hideout wood plate. Server curve is operativeLevel = 1 + floor(xp / 100).
+## Toward-next is xp % XP_PER_LEVEL. There is no xpToNext field.
+## The plate never reads you.smokeAvailable — that charge stays on the match chip.
+const XP_PER_LEVEL := 100
+const XP_PLATE_TIP := "SMOKE · L5"
 const SMOKE_TOAST := "Smoke — hex is Hard this turn"
 const SMOKE_LOCKED_TOAST := "Reach operative L5"
 const SMOKE_COPY := "Once a hunt. A toy puff — your hex counts as Hard this turn."
@@ -391,9 +396,103 @@ static func exposure_floor_or_start(value: Variant, present: bool) -> int:
 	return EXPOSURE_FLOOR_START
 
 
+static func xp_for_level_start(level: int) -> int:
+	## XP at the start of a server level. Mock L5 harness uses this so the bar is 0.
+	return maxi(0, int(level) - 1) * XP_PER_LEVEL
+
+
+static func xp_progress(xp: int) -> int:
+	## Toward next. No server field. 100 lands on 0 of the next level.
+	return maxi(0, int(xp)) % XP_PER_LEVEL
+
+
+static func xp_remaining(xp: int) -> int:
+	return XP_PER_LEVEL - xp_progress(xp)
+
+
+static func operative_level_from_xp(xp: int) -> int:
+	## Documented server curve. The hideout label prefers you.operativeLevel.
+	## SMOKE does not call this.
+	return 1 + int(floor(float(maxi(0, int(xp))) / float(XP_PER_LEVEL)))
+
+
+static func operative_card_from_payload(bag: Dictionary) -> Dictionary:
+	## Exact xp and operativeLevel. you, then the bag, then player, then snapshot.
+	## Missing, junk, negative xp, or level < 1 stay absent. Never invents a 0.
+	## Snake-case aliases and smokeAvailable are not read.
+	var xp_hit := _find_operative_number(bag, "xp")
+	var lv_hit := _find_operative_number(bag, "operativeLevel")
+	var xp_ok := bool(xp_hit.get("present", false)) and int(xp_hit.get("value", -1)) >= 0
+	var lv_ok := bool(lv_hit.get("present", false)) and int(lv_hit.get("value", 0)) >= 1
+	return {
+		"xp_present": xp_ok,
+		"xp": int(xp_hit.get("value", 0)) if xp_ok else 0,
+		"level_present": lv_ok,
+		"level": int(lv_hit.get("value", 0)) if lv_ok else 0,
+	}
+
+
+static func _find_operative_number(bag: Dictionary, key: String) -> Dictionary:
+	var sources: Array = []
+	var you_bag: Variant = bag.get("you", null)
+	if you_bag is Dictionary:
+		sources.append(you_bag)
+	sources.append(bag)
+	var player_bag: Variant = bag.get("player", null)
+	if player_bag is Dictionary:
+		sources.append(player_bag)
+	var snap: Variant = bag.get("snapshot", null)
+	if snap is Dictionary:
+		var snap_you: Variant = snap.get("you", null)
+		if snap_you is Dictionary:
+			sources.append(snap_you)
+		sources.append(snap)
+	for source in sources:
+		var dict: Dictionary = source
+		if not dict.has(key):
+			continue
+		var n: Variant = _as_operative_int(dict.get(key))
+		if n == null:
+			return {"present": false, "value": -1}
+		return {"present": true, "value": int(n)}
+	return {"present": false, "value": -1}
+
+
+static func _as_operative_int(value: Variant) -> Variant:
+	## JSON numbers only. Strings, bools, and null are not a level or an XP total.
+	if value == null or value is bool or value is String:
+		return null
+	if value is Dictionary or value is Array:
+		return null
+	if value is int or value is float:
+		return int(floor(float(value)))
+	return null
+
+
+static func exposure_floor_named(bag: Dictionary) -> bool:
+	## Exact exposureFloor on you, the bag, player, or snapshot. Absent is not 50.
+	if bag.has("exposureFloor"):
+		return true
+	var you_bag: Variant = bag.get("you", null)
+	if you_bag is Dictionary and (you_bag as Dictionary).has("exposureFloor"):
+		return true
+	var player_bag: Variant = bag.get("player", null)
+	if player_bag is Dictionary and (player_bag as Dictionary).has("exposureFloor"):
+		return true
+	var snap: Variant = bag.get("snapshot", null)
+	if snap is Dictionary:
+		if (snap as Dictionary).has("exposureFloor"):
+			return true
+		var snap_you: Variant = snap.get("you", null)
+		if snap_you is Dictionary and (snap_you as Dictionary).has("exposureFloor"):
+			return true
+	return false
+
+
 static func exposure_floor_from_payload(bag: Dictionary) -> int:
 	## Read you.exposureFloor / top-level exposureFloor / player.exposureFloor.
 	## operativeLevel, skins, guns, and poster chrome are ignored.
+	## A missing field does not invent 50 — callers keep the last server floor.
 	if bag.has("exposureFloor"):
 		return exposure_floor_or_start(bag.get("exposureFloor"), true)
 	var you_bag: Variant = bag.get("you", null)
@@ -402,6 +501,13 @@ static func exposure_floor_from_payload(bag: Dictionary) -> int:
 	var player_bag: Variant = bag.get("player", null)
 	if player_bag is Dictionary and (player_bag as Dictionary).has("exposureFloor"):
 		return exposure_floor_or_start((player_bag as Dictionary).get("exposureFloor"), true)
+	var snap: Variant = bag.get("snapshot", null)
+	if snap is Dictionary:
+		if (snap as Dictionary).has("exposureFloor"):
+			return exposure_floor_or_start((snap as Dictionary).get("exposureFloor"), true)
+		var snap_you: Variant = snap.get("you", null)
+		if snap_you is Dictionary and (snap_you as Dictionary).has("exposureFloor"):
+			return exposure_floor_or_start((snap_you as Dictionary).get("exposureFloor"), true)
 	return EXPOSURE_FLOOR_START
 
 

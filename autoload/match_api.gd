@@ -25,7 +25,10 @@ func using_live() -> bool:
 func create_player() -> Dictionary:
 	if using_live():
 		return LiveMatchClient.create_player()
-	return {"playerId": "p_mock", "token": "tok_mock", "marks": MockMatchServer.account_marks}
+	var card: Dictionary = MockMatchServer.player_public()
+	card["playerId"] = "p_mock"
+	card["token"] = "tok_mock"
+	return card
 
 
 func ensure_player(force_new: bool = false) -> Dictionary:
