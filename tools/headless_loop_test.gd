@@ -149,6 +149,7 @@ func _run() -> int:
 	_shop_sink3_case(failed)
 	_gun_chrome_case(failed)
 	_part_sink_case(failed)
+	_part_t2_case(failed)
 	_optic_joystick_case(failed)
 	_chrome_reconfirm_case(failed)
 	_match_board_chrome_case(failed)
@@ -1732,7 +1733,7 @@ func _shop_sink2_case(failed: PackedStringArray) -> void:
 	_expect(failed, live_two.name_of(Contract.SHOP_BANDANA_ITEM_ID) == "Bandana Skin (stub)", "prefer LIVE bandana name")
 	_expect(failed, live_two.has_item(Contract.SHOP_POSTER_ITEM_ID), "LIVE two-SKU merge appends poster")
 	_expect(failed, live_two.has_item(Contract.GUN_RAILFRAME), "LIVE two-SKU merge appends gun SKUs")
-	_expect(failed, live_two.items.size() == 9, "LIVE two-SKU merge is nine ARMORY rows")
+	_expect(failed, live_two.items.size() == 12, "LIVE two-SKU merge keeps skins, guns, and T1+T2 parts")
 
 	var session = SessionScript.new()
 	session.apply_shop(catalog)
@@ -1817,7 +1818,7 @@ func _shop_sink3_case(failed: PackedStringArray) -> void:
 	_expect(failed, listed.has_item(Contract.SHOP_POSTER_ITEM_ID), "S3.1 catalog has poster")
 	_expect(failed, listed.price_of(Contract.SHOP_POSTER_ITEM_ID) == 150, "S3.1 GD price 150")
 	_expect(failed, listed.name_of(Contract.SHOP_POSTER_ITEM_ID) == Contract.SHOP_POSTER_ITEM_NAME, "S3.1 name HIDEOUT POSTER")
-	_expect(failed, listed.items.size() == 9, "S3.6 nine catalog rows (skins + poster + guns + parts)")
+	_expect(failed, listed.items.size() == 12, "S3.6 catalog rows (skins + poster + guns + T1/T2 parts)")
 	_expect(failed, listed.has_item(Contract.GUN_FIELDBOLT), "S3.6 Fieldbolt catalog row")
 	_expect(failed, listed.balance() < 150, "S3.3 ★24 cannot afford ★150")
 	_expect(failed, not Shop.row_buy_enabled(false, listed.balance() >= 150), "S3.3 BUY disabled when Marks < 150")
@@ -1840,7 +1841,7 @@ func _shop_sink3_case(failed: PackedStringArray) -> void:
 	}))
 	_expect(failed, live_three.name_of(Contract.SHOP_POSTER_ITEM_ID) == "Hideout Poster (stub)", "prefer LIVE poster name")
 	_expect(failed, live_three.has_item(Contract.GUN_CRESCENT), "LIVE three-SKU merge appends gun SKUs")
-	_expect(failed, live_three.items.size() == 9, "prefer LIVE names; append missing gun and part SKUs")
+	_expect(failed, live_three.items.size() == 12, "prefer LIVE names; append missing gun and T1/T2 part SKUs")
 
 	var session = SessionScript.new()
 	session.apply_shop(catalog)
@@ -1960,7 +1961,7 @@ func _gun_chrome_case(failed: PackedStringArray) -> void:
 	server.reset_wallet(80)
 	var catalog: Dictionary = server.get_shop()
 	var listed = Shop.from_any(catalog)
-	_expect(failed, listed.items.size() == 9, "G1 nine catalog rows (skins + poster + guns + parts)")
+	_expect(failed, listed.items.size() == 12, "G1 catalog rows (skins + poster + guns + T1/T2 parts)")
 	_expect(failed, listed.has_item(Contract.GUN_FIELDBOLT), "G1 Fieldbolt catalog row")
 	_expect(failed, listed.has_item(Contract.GUN_RAILFRAME), "G1 Railframe catalog row")
 	_expect(failed, listed.has_item(Contract.GUN_CRESCENT), "G1 Crescent catalog row")
@@ -2348,6 +2349,157 @@ func _part_sink_case(failed: PackedStringArray) -> void:
 	session.free()
 
 
+func _part_t2_case(failed: PackedStringArray) -> void:
+	## T2 ladder on the same gun-part spine. Equip replaces T1. Attack reads server feel.
+	var before := failed.size()
+	server.clear_all()
+	server.reset_wallet(Contract.MOCK_WALLET_STUB)
+	var listed = Shop.from_any(server.get_shop())
+	_expect(failed, listed.has_item(Contract.PART_OPTIC_T2), "T2 optic catalog row")
+	_expect(failed, listed.has_item(Contract.PART_STOCK_T2), "T2 stock catalog row")
+	_expect(failed, listed.has_item(Contract.PART_BARREL_T2), "T2 barrel catalog row")
+	_expect(failed, listed.price_of(Contract.PART_OPTIC) == 75, "T2 leaves optic T1 at ★75")
+	_expect(failed, listed.price_of(Contract.PART_STOCK) == 100, "T2 leaves stock T1 at ★100")
+	_expect(failed, listed.price_of(Contract.PART_BARREL) == 125, "T2 leaves barrel T1 at ★125")
+	_expect(failed, listed.price_of(Contract.PART_OPTIC_T2) == 150, "T2 optic ★150")
+	_expect(failed, listed.price_of(Contract.PART_STOCK_T2) == 175, "T2 stock ★175")
+	_expect(failed, listed.price_of(Contract.PART_BARREL_T2) == 200, "T2 barrel ★200")
+	_expect(failed, listed.name_of(Contract.PART_OPTIC_T2) == "OPTIC T2", "T2 optic name")
+	_expect(failed, listed.name_of(Contract.PART_STOCK_T2) == "STOCK T2", "T2 stock name")
+	_expect(failed, listed.name_of(Contract.PART_BARREL_T2) == "BARREL T2", "T2 barrel name")
+	_expect(failed, str(listed.item_for(Contract.PART_OPTIC_T2).get("kind", "")) == "gun-part", "T2 kind gun-part")
+	_expect(failed, int(listed.item_for(Contract.PART_BARREL_T2).get("tier", 0)) == 2, "T2 tier field")
+	_expect(failed, Contract.canonical_part_id(Contract.PART_OPTIC_T2) == Contract.PART_OPTIC_T2, "T2 optic id stays distinct")
+	_expect(failed, Contract.canonical_part_id(Contract.PART_OPTIC) == Contract.PART_OPTIC, "T1 optic id stays distinct")
+	_expect(failed, Contract.part_slot(Contract.PART_OPTIC_T2) == Contract.PART_SLOT_OPTIC, "T2 optic shares the optic slot")
+	_expect(failed, Contract.part_slot(Contract.PART_STOCK_T2) == Contract.part_slot(Contract.PART_STOCK), "T2 stock shares the stock slot")
+	_expect(failed, Contract.part_buy_toast(Contract.PART_OPTIC_T2) == Contract.PART_TOAST_WINDOW, "T2 optic toast is the window line")
+	_expect(failed, Contract.part_buy_toast(Contract.PART_STOCK_T2) == Contract.PART_TOAST_WOBBLE, "T2 stock toast is the wobble line")
+	_expect(failed, Contract.part_buy_toast(Contract.PART_BARREL_T2) == Contract.PART_TOAST_WOBBLE, "T2 barrel toast is the wobble line")
+	var row_copy := Contract.part_name(Contract.PART_OPTIC_T2) + Contract.part_name(Contract.PART_STOCK_T2) + Contract.part_name(Contract.PART_BARREL_T2) + Contract.part_buy_toast(Contract.PART_OPTIC_T2) + Contract.part_row_status(true, true, true) + Contract.part_row_status(false, false, false)
+	var banned := row_copy.to_lower()
+	_expect(failed, banned.find("hit") < 0 and banned.find("spot") < 0 and banned.find("exposure") < 0 and banned.find("%") < 0, "T2 row copy has no combat percents")
+	_expect(failed, is_equal_approx(Contract.local_shot_window_sec(Contract.PART_OPTIC_T2), 1.55), "T2 optic window 1.55")
+	_expect(failed, is_equal_approx(Contract.local_shot_window_sec(Contract.PART_OPTIC), 1.4), "T1 optic window stays 1.4")
+	_expect(failed, is_equal_approx(Contract.local_wobble_scale(Contract.PART_STOCK_T2, ""), 0.75), "T2 stock wobble 0.75")
+	_expect(failed, is_equal_approx(Contract.local_wobble_scale("", Contract.PART_BARREL_T2), 0.85), "T2 barrel wobble 0.85")
+	_expect(failed, is_equal_approx(Contract.local_wobble_scale(Contract.PART_STOCK_T2, Contract.PART_BARREL_T2), 0.75), "T2 stack cap 0.75")
+	_expect(failed, is_equal_approx(Contract.local_wobble_scale(Contract.PART_STOCK, Contract.PART_BARREL_T2), 0.75), "T1 stock + T2 barrel cap 0.75")
+	_expect(failed, is_equal_approx(Contract.local_wobble_scale(Contract.PART_STOCK_T2, Contract.PART_BARREL), 0.75), "T2 stock + T1 barrel cap 0.75")
+	_expect(failed, is_equal_approx(Contract.local_wobble_scale(true, false), 0.80), "T1 bool stock wobble stays 0.80")
+
+	var lagged = Shop.from_any(Contract.merge_live_shop_catalog({
+		"items": [{"id": "gun_part_optic", "name": "OPTIC", "price": 75, "kind": "gun-part", "tier": 1}],
+	}))
+	_expect(failed, lagged.has_item(Contract.PART_OPTIC_T2), "T2 lag still shows optic T2 row")
+	_expect(failed, not lagged.catalog_pending(Contract.PART_STOCK_T2), "omitted T2 stock stays buyable")
+	var live_t2 = Shop.from_any(Contract.merge_live_shop_catalog({
+		"items": [
+			{"id": "gun_part_optic_t2", "name": "OPTIC T2", "price": 150, "kind": "gun-part", "tier": 2},
+			{"id": "gun_part_stock_t2", "name": "STOCK T2", "price": 175, "kind": "gun-part", "tier": 2},
+			{"id": "gun_part_barrel_t2", "name": "BARREL T2", "price": 200, "kind": "gun-part", "tier": 2},
+		],
+	}))
+	_expect(failed, live_t2.price_of(Contract.PART_OPTIC_T2) == 150, "T2 prefer LIVE optic price")
+	_expect(failed, live_t2.name_of(Contract.PART_STOCK_T2) == "STOCK T2", "T2 prefer LIVE stock name")
+	_expect(failed, str(live_t2.item_for(Contract.PART_BARREL_T2).get("kind", "")) == "gun-part", "T2 live kind gun-part")
+
+	var session = SessionScript.new()
+	session.apply_shop(server.get_shop())
+	var poor: Dictionary = server.buy_shop(Contract.PART_OPTIC_T2, Contract.new_client_buy_id())
+	_expect(failed, str(poor.get("error", "")) == Contract.SHOP_ERR_INSUFFICIENT, "T2 insufficient optic")
+	session.bind_marks(999)
+	session.apply_shop(poor)
+	_expect(failed, session.marks == 24, "T2 402 rebinds snapshot marks")
+	_expect(failed, not session.owns_part(Contract.PART_OPTIC_T2), "T2 402 does not grant optic")
+
+	server.reset_wallet(900)
+	session.apply_shop(server.get_shop())
+	session.apply_shop(server.buy_shop(Contract.PART_OPTIC, "t2-optic-t1"))
+	_expect(failed, session.is_equipped(Contract.PART_OPTIC), "T2 setup wears T1 optic")
+	_expect(failed, is_equal_approx(session.feel_shot_window_sec, 1.4), "T2 setup server window is T1 1.4")
+	var optic_id := "00000000-0000-4000-8000-0000000000t2"
+	var bought: Dictionary = server.buy_shop(Contract.PART_OPTIC_T2, optic_id)
+	session.apply_shop(bought)
+	_expect(failed, session.marks == 675, "T2 optic 900-75-150 from snapshot")
+	_expect(failed, session.owns_part(Contract.PART_OPTIC) and session.owns_part(Contract.PART_OPTIC_T2), "T2 own both optic tiers")
+	_expect(failed, session.is_equipped(Contract.PART_OPTIC_T2), "T2 optic replaces T1")
+	_expect(failed, not session.is_equipped(Contract.PART_OPTIC), "T1 optic stays owned, not worn")
+	_expect(failed, is_equal_approx(session.feel_shot_window_sec, 1.55), "T2 server window 1.55")
+	_expect(failed, is_equal_approx(session.attack_wobble_scale(), 1.0), "T2 optic does not change wobble")
+	var replay: Dictionary = server.buy_shop(Contract.PART_OPTIC_T2, optic_id)
+	_expect(failed, bool(replay.get("ok", false)) and server.account_marks == 675, "T2 optic clientBuyId idempotent")
+	var back: Dictionary = server.equip_cosmetic(Contract.PART_OPTIC, Contract.PART_SLOT_OPTIC)
+	session.apply_shop(back)
+	_expect(failed, session.is_equipped(Contract.PART_OPTIC) and not session.is_equipped(Contract.PART_OPTIC_T2), "T2 re-equip T1 optic")
+	_expect(failed, is_equal_approx(session.feel_shot_window_sec, 1.4), "T2 worn id picks T1 window")
+	_expect(failed, session.marks == 675, "T2 equip does not touch marks")
+	session.apply_shop(server.equip_cosmetic(Contract.PART_OPTIC_T2, Contract.PART_SLOT_OPTIC))
+	_expect(failed, session.is_equipped(Contract.PART_OPTIC_T2), "T2 equip wears optic T2 again")
+	_expect(failed, is_equal_approx(session.feel_shot_window_sec, 1.55), "T2 re-equip window 1.55")
+
+	server.clear_all()
+	server.reset_wallet(200)
+	session.apply_shop(server.get_shop())
+	session.apply_shop(server.buy_shop(Contract.PART_BARREL_T2, "t2-barrel-only"))
+	_expect(failed, session.owns_part(Contract.PART_BARREL_T2) and not session.owns_part(Contract.PART_BARREL), "T2 barrel without T1")
+	_expect(failed, session.is_equipped(Contract.PART_BARREL_T2), "T2 barrel auto-equip")
+	_expect(failed, is_equal_approx(session.attack_wobble_scale(), 0.85), "T2 barrel-only wobble 0.85")
+	_expect(failed, is_equal_approx(session.feel_shot_window_sec, 1.2), "T2 barrel does not change window")
+	server.reset_wallet(500)
+	session.apply_shop(server.get_shop())
+	session.apply_shop(server.buy_shop(Contract.PART_STOCK_T2, "t2-stock-only"))
+	_expect(failed, not session.owns_part(Contract.PART_STOCK), "T2 stock without T1")
+	_expect(failed, is_equal_approx(session.attack_wobble_scale(), 0.75), "T2 stock wobble 0.75")
+	session.apply_shop(server.buy_shop(Contract.PART_BARREL, "t2-barrel-t1"))
+	_expect(failed, session.is_equipped(Contract.PART_STOCK_T2) and session.is_equipped(Contract.PART_BARREL), "T2 stock stays when T1 barrel equips")
+	_expect(failed, is_equal_approx(session.attack_wobble_scale(), 0.75), "T2 stock + T1 barrel cap 0.75")
+	session.apply_shop(server.buy_shop(Contract.PART_BARREL_T2, "t2-barrel-up"))
+	_expect(failed, session.is_equipped(Contract.PART_BARREL_T2) and session.owns_part(Contract.PART_BARREL), "T2 barrel replaces T1 barrel")
+	_expect(failed, is_equal_approx(session.attack_wobble_scale(), 0.75), "T2 stock + T2 barrel stays 0.75")
+	_expect(failed, session.equipped_gun_id() == Contract.GUN_FIELDBOLT, "T2 parts do not clobber gun")
+
+	var local = SessionScript.new()
+	local.owned_parts = [Contract.PART_OPTIC_T2, Contract.PART_STOCK_T2, Contract.PART_BARREL_T2]
+	local.equipped_optic = Contract.PART_OPTIC_T2
+	local.equipped_stock = Contract.PART_STOCK_T2
+	local.equipped_barrel = Contract.PART_BARREL_T2
+	local.apply_shop({"you": {"marks": 10, "equippedOpticId": Contract.PART_OPTIC_T2, "equippedStockId": Contract.PART_STOCK_T2, "equippedBarrelId": Contract.PART_BARREL_T2}})
+	_expect(failed, local.equipped_optic_id() == Contract.PART_OPTIC_T2, "T2 omitted feel keeps the equipped id")
+	_expect(failed, not local.feel_wobble_from_server and not local.feel_window_from_server, "T2 omitted feel is not server")
+	_expect(failed, is_equal_approx(local.attack_wobble_scale(), 1.0), "T2 omitted wobble stays 1")
+	_expect(failed, is_equal_approx(local.feel_shot_window_sec, 1.2), "T2 omitted window stays 1.2")
+	local.apply_shop({"you": {"marks": 10, "wobbleScale": 0.75, "shotWindowSec": 1.55, "equippedOpticId": Contract.PART_OPTIC_T2, "equippedStockId": Contract.PART_STOCK_T2, "equippedBarrelId": Contract.PART_BARREL_T2}})
+	_expect(failed, local.feel_window_from_server and is_equal_approx(local.attack_shot_window_sec(), 1.55), "T2 attack window is server 1.55")
+	_expect(failed, local.feel_wobble_from_server and is_equal_approx(local.attack_wobble_scale(), 0.75), "T2 attack wobble is server 0.75")
+	var named: Snapshot = Snapshot.from_dict({"you": {"equippedOpticId": "gun_part_optic_t2", "equippedStockId": "gun_part_stock_t2", "equippedBarrelId": null, "wobbleScale": 0.75, "shotWindowSec": 1.55}})
+	_expect(failed, named.you_equipped_optic_id() == Contract.PART_OPTIC_T2, "T2 snapshot optic id")
+	_expect(failed, named.you_equipped_stock_id() == Contract.PART_STOCK_T2, "T2 snapshot stock id")
+	_expect(failed, named.you_equipped_barrel_id() == "", "T2 snapshot null barrel")
+	_expect(failed, is_equal_approx(float(named.you_shot_window_sec()), 1.55), "T2 snapshot shotWindowSec")
+	_expect(failed, is_equal_approx(float(named.you_wobble_scale()), 0.75), "T2 snapshot wobbleScale")
+	var session_src := FileAccess.get_file_as_string("res://autoload/client_session.gd")
+	var optic_src := FileAccess.get_file_as_string("res://scenes/optic/optic_overlay.gd")
+	var match_src := FileAccess.get_file_as_string("res://scenes/match/match_screen.gd")
+	var lobby_src := FileAccess.get_file_as_string("res://scenes/lobby/hideout_lobby.gd")
+	for src in [session_src, optic_src, match_src, lobby_src]:
+		_expect(failed, src.find("local_wobble_scale") < 0 and src.find("local_shot_window_sec") < 0, "T2 client does not author feel")
+		_expect(failed, src.find("SHOT_WINDOW_OPTIC_T2") < 0 and src.find("WOBBLE_STOCK_T2") < 0 and src.find("WOBBLE_BARREL_T2") < 0, "T2 client does not bake ladder juice")
+	local.free()
+
+	var practice: Dictionary = _part_practice_run(2)
+	_expect(failed, bool(practice.get("ok", false)), "T2 practice loop ok")
+	_expect(failed, _part_delta(practice.get("kill_delta")) == Contract.MARKS_PRACTICE, "T2 practice Marks Δ0")
+	_expect(failed, bool(practice.get("wallet_held", false)), "T2 practice does not grant")
+	_expect(failed, bool(practice.get("feel_window", false)), "T2 practice window 1.55")
+	_expect(failed, bool(practice.get("feel_wobble", false)), "T2 practice wobble 0.75")
+	_expect(failed, bool(practice.get("chance_formula", false)), "T2 practice hitChance ignores parts")
+	server.reset_wallet(Contract.MOCK_WALLET_STUB)
+	session.free()
+	if failed.size() == before:
+		print("PART_T2_OK")
+
+
 func _part_delta(value: Variant) -> int:
 	if value == null:
 		return -999
@@ -2369,10 +2521,14 @@ func _part_chance_ok(last: Variant) -> bool:
 	return is_equal_approx(float(last.get("hitChance", -1.0)), expect)
 
 
-func _part_combat_run(kitted: bool) -> Dictionary:
+func _part_combat_run(kitted: bool, tier: int = 1) -> Dictionary:
 	server.clear_all()
-	server.reset_wallet(400)
-	if kitted:
+	server.reset_wallet(800 if tier >= 2 else 400)
+	if kitted and tier >= 2:
+		server.buy_shop(Contract.PART_OPTIC_T2, "part-run-o2")
+		server.buy_shop(Contract.PART_STOCK_T2, "part-run-s2")
+		server.buy_shop(Contract.PART_BARREL_T2, "part-run-b2")
+	elif kitted:
 		server.buy_shop(Contract.PART_OPTIC, "part-run-o")
 		server.buy_shop(Contract.PART_STOCK, "part-run-s")
 		server.buy_shop(Contract.PART_BARREL, "part-run-b")
@@ -2414,12 +2570,17 @@ func _part_combat_run(kitted: bool) -> Dictionary:
 	}
 
 
-func _part_practice_run() -> Dictionary:
+func _part_practice_run(tier: int = 1) -> Dictionary:
 	server.clear_all()
-	server.reset_wallet(400)
-	server.buy_shop(Contract.PART_OPTIC, "part-prac-o")
-	server.buy_shop(Contract.PART_STOCK, "part-prac-s")
-	server.buy_shop(Contract.PART_BARREL, "part-prac-b")
+	server.reset_wallet(800 if tier >= 2 else 400)
+	if tier >= 2:
+		server.buy_shop(Contract.PART_OPTIC_T2, "part-prac-o2")
+		server.buy_shop(Contract.PART_STOCK_T2, "part-prac-s2")
+		server.buy_shop(Contract.PART_BARREL_T2, "part-prac-b2")
+	else:
+		server.buy_shop(Contract.PART_OPTIC, "part-prac-o")
+		server.buy_shop(Contract.PART_STOCK, "part-prac-s")
+		server.buy_shop(Contract.PART_BARREL, "part-prac-b")
 	var created: Dictionary = server.create_match({"mode": Contract.MODE_PRACTICE})
 	var mid := str(created.get("matchId", ""))
 	var join_a: Dictionary = server.join(mid, Contract.create_join_token(created))
@@ -2434,7 +2595,7 @@ func _part_practice_run() -> Dictionary:
 		"ok": bool(kill.ok),
 		"kill_delta": kill_snap.marks_delta(),
 		"wallet_held": int(server.account_marks) == wallet_before,
-		"feel_window": kill_snap.you_shot_window_sec() != null and is_equal_approx(float(kill_snap.you_shot_window_sec()), 1.4),
+		"feel_window": kill_snap.you_shot_window_sec() != null and is_equal_approx(float(kill_snap.you_shot_window_sec()), 1.55 if tier >= 2 else 1.4),
 		"feel_wobble": kill_snap.you_wobble_scale() != null and is_equal_approx(float(kill_snap.you_wobble_scale()), 0.75),
 		"chance_formula": _part_chance_ok(kill_last),
 	}
