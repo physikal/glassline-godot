@@ -581,7 +581,7 @@ func _capture_gun_armory_three_row() -> void:
 
 
 func _capture_gun_rack_dynamic() -> void:
-	## Owned painted + equipped highlight · locked silhouettes.
+	## Fieldbolt equipped · Railframe owned · Crescent locked. Green pegs.
 	if not ClientSession.use_live_api():
 		MockMatchServer.reset_wallet(200)
 		MockMatchServer.buy_shop(Contract.GUN_RAILFRAME, "ux-rack-rail")
@@ -1011,7 +1011,7 @@ func _make_shop_line(item: Dictionary) -> PanelContainer:
 
 
 func _build_gun_rack() -> void:
-	## Plate-cropped family stamps. Owned painted · locked silhouette · equipped gold.
+	## Plate-cropped family stamps. State is a painted green peg on the bolt.
 	_gun_rack = Control.new()
 	_gun_rack.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_gun_rack.set_anchors_preset(PRESET_FULL_RECT)
@@ -1036,25 +1036,26 @@ func _refresh_gun_rack() -> void:
 	for family in Contract.gun_family_ids():
 		var gid := str(family)
 		var state := ClientSession.gun_slot_state(gid)
+		var hang := ArtPack.rack_position(gid)
+		var hang_size := ArtPack.rack_size(gid)
 		var stamp := TextureRect.new()
-		stamp.texture = ArtPack.rifle_texture(gid, "locked" if state == "locked" else "owned")
+		## Painted plate for every state. The grey locked wash read as a dark peg.
+		stamp.texture = ArtPack.rifle_texture(gid, "owned")
+		stamp.modulate = Chrome.rack_bolt_modulate(state)
 		stamp.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		stamp.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		## 1:1 on the painted bolt. Aspect-fit in a taller slot ghosted a second gun.
 		stamp.stretch_mode = TextureRect.STRETCH_SCALE
-		stamp.position = ArtPack.rack_position(gid)
-		stamp.size = ArtPack.rack_size(gid)
+		stamp.position = hang
+		stamp.size = hang_size
 		stamp.mouse_filter = Control.MOUSE_FILTER_STOP
 		stamp.gui_input.connect(_on_rack_stamp_input.bind(gid))
 		_gun_rack.add_child(stamp)
-		if state == "equipped":
-			var glow := ColorRect.new()
-			glow.color = Color(Chrome.HIGH_GOLD, 0.0)
-			glow.position = ArtPack.rack_position(gid) + Vector2(-6, ArtPack.rack_size(gid).y - 4)
-			glow.size = Vector2(ArtPack.rack_size(gid).x + 12, 5)
-			glow.color = Chrome.HIGH_GOLD
-			glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			_gun_rack.add_child(glow)
+		var peg := Chrome.rack_peg(state)
+		var peg_size := Vector2(10, 20)
+		peg.position = hang + Vector2(2, maxf(0.0, (hang_size.y - peg_size.y) * 0.46))
+		peg.size = peg_size
+		_gun_rack.add_child(peg)
 	if _gun_hands:
 		var family := ClientSession.equipped_gun_id()
 		_gun_hands.texture = ArtPack.rifle_held_texture()

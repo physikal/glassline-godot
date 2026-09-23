@@ -38,6 +38,11 @@ const UNKNOWN := Color("2c2c34")
 const FIRE_ORANGE := Color("f0a020")
 const P1 := Color("3ecf8e")
 const P2 := Color("f08a2a")
+## Hideout rack state. Painted green pegs — lobby-canon bolt language.
+## Lit leaf / mid plate / deep green. Not a gold strip, not a grey wash.
+const RACK_PEG_EQUIPPED := Color("7dce78")
+const RACK_PEG_OWNED := Color("4e9a68")
+const RACK_PEG_LOCKED := Color("2a5640")
 const HEX_LINE := Color("f2e6c4")
 const _ArtPack := preload("res://scripts/art_pack.gd")
 
@@ -96,6 +101,44 @@ static func armory_debug_ribbon() -> String:
 
 static func rack_debug_ribbon() -> String:
 	return "RACK  ·  Fieldbolt equipped  ·  Railframe owned  ·  Crescent locked  ·  visual only"
+
+
+static func rack_peg_color(state: String) -> Color:
+	## Equipped is the lit leaf. Owned is the mid plate green. Locked stays deep green.
+	match state:
+		"equipped":
+			return RACK_PEG_EQUIPPED
+		"owned":
+			return RACK_PEG_OWNED
+		_:
+			return RACK_PEG_LOCKED
+
+
+static func rack_bolt_modulate(state: String) -> Color:
+	## Theme the existing painted bolt. Locked is a green darken, not the grey wash.
+	match state:
+		"equipped":
+			return Color(1.0, 1.06, 0.94)
+		"locked", "empty":
+			return Color(0.62, 0.78, 0.58)
+		_:
+			return Color.WHITE
+
+
+static func rack_peg(state: String) -> Panel:
+	## Short painted dowel on the bolt. No EQUIPPED / OWNED / LOCKED strip.
+	var peg := Panel.new()
+	peg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	peg.custom_minimum_size = Vector2(10, 20)
+	var fill := rack_peg_color(state)
+	var box := flat(fill, 4, fill.darkened(0.42), 2)
+	box.content_margin_left = 0
+	box.content_margin_right = 0
+	box.content_margin_top = 0
+	box.content_margin_bottom = 0
+	peg.add_theme_stylebox_override("panel", box)
+	peg.set_meta("rack_peg_state", state)
+	return peg
 
 
 static func chunk_button(text: String, bg: Color, fg: Color, min_size: Vector2 = Vector2(220, 64)) -> Button:

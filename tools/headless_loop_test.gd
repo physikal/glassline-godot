@@ -2231,6 +2231,26 @@ func _chrome_reconfirm_case(failed: PackedStringArray) -> void:
 	_expect(failed, optic_src.find("optic-attack.jpg") >= 0, "Attack optic uses the landscape plate")
 	_expect(failed, optic_src.find("z_index = 36") >= 0, "landscape plate draws above hex faces")
 	_expect(failed, optic_src.find("hex_tile") < 0 and optic_src.find("hex_stamp") < 0, "optic does not stamp a hex through the scope")
+	## Soft P2: rack state is painted green pegs. No gold EQUIPPED / OWNED / LOCKED strips.
+	var hud_src := FileAccess.get_file_as_string("res://scenes/lobby/hideout_lobby.gd")
+	var rack_at := hud_src.find("func _refresh_gun_rack")
+	var rack_fn := hud_src.substr(rack_at, hud_src.find("func _on_rack_stamp_input") - rack_at)
+	_expect(failed, rack_fn.find("HIGH_GOLD") < 0, "rack refresh has no gold strip")
+	_expect(failed, rack_fn.find("\"EQUIPPED\"") < 0 and rack_fn.find("\"OWNED\"") < 0 and rack_fn.find("\"LOCKED\"") < 0, "rack has no state text strips")
+	_expect(failed, rack_fn.find("rack_peg") >= 0, "rack paints a state peg")
+	_expect(failed, rack_fn.find("rifle_texture(gid, \"owned\")") >= 0, "rack keeps the painted bolt")
+	_expect(failed, rack_fn.find("\"locked\" if state") < 0, "rack does not swap in the grey wash")
+	var equipped_peg: Color = Chrome.rack_peg_color("equipped")
+	var owned_peg: Color = Chrome.rack_peg_color("owned")
+	var locked_peg: Color = Chrome.rack_peg_color("locked")
+	_expect(failed, equipped_peg.g > equipped_peg.r and equipped_peg.g > equipped_peg.b, "equipped peg is painted green")
+	_expect(failed, owned_peg.g > owned_peg.r and owned_peg.g > owned_peg.b, "owned peg is painted green")
+	_expect(failed, locked_peg.g > locked_peg.r and locked_peg.g > locked_peg.b, "locked peg is painted green")
+	_expect(failed, equipped_peg.g > owned_peg.g and owned_peg.g > locked_peg.g, "peg greens read equipped > owned > locked")
+	_expect(failed, equipped_peg != Chrome.HIGH_GOLD and owned_peg != Chrome.HIGH_GOLD and locked_peg != Chrome.HIGH_GOLD, "pegs are not gold strips")
+	var locked_mod: Color = Chrome.rack_bolt_modulate("locked")
+	_expect(failed, locked_mod.g > locked_mod.r and locked_mod.g >= locked_mod.b, "locked bolt modulate stays green")
+	_expect(failed, Chrome.rack_bolt_modulate("owned") == Color.WHITE, "owned bolt keeps the plate paint")
 
 
 func _match_board_chrome_case(failed: PackedStringArray) -> void:
