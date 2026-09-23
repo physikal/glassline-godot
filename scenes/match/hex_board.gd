@@ -113,7 +113,9 @@ func _sync_faces() -> void:
 			var tile: Texture2D = Chrome.hex_tile(cell_kind(q, r))
 			s.texture = tile
 			if tile and tile.get_width() >= 24:
-				s.scale = Vector2(w / float(tile.get_width()), h / float(tile.get_height()))
+				## Stamps carry transparent padding. Bleed so neighbors meet and the desk does not show as a slab.
+				var bleed := 1.26
+				s.scale = Vector2(w / float(tile.get_width()), h / float(tile.get_height())) * bleed
 				s.visible = true
 			else:
 				s.visible = false

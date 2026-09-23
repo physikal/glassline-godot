@@ -44,6 +44,7 @@ const RACK_PEG_EQUIPPED := Color("7dce78")
 const RACK_PEG_OWNED := Color("4e9a68")
 const RACK_PEG_LOCKED := Color("2a5640")
 const HEX_LINE := Color("f2e6c4")
+const RAIL_CHIP_SIZE := Vector2(92, 64)
 const _ArtPack := preload("res://scripts/art_pack.gd")
 
 
@@ -257,6 +258,38 @@ static func game_button(kind: String, text: String, bg: Color, fg: Color, min_si
 	return button
 
 
+static func rail_chip(kind: String, text: String, bg: Color, fg: Color) -> Button:
+	## Compact ability-rail key. Words stay readable under the ABILITY label.
+	var button := _styled_button(text, bg, fg, RAIL_CHIP_SIZE, 12, 8)
+	button.set_meta("rail_chip", true)
+	button.clip_text = false
+	if kind != "":
+		button.icon = make_icon(kind, fg, 14)
+		button.add_theme_constant_override("h_separation", 2)
+		button.add_theme_constant_override("icon_max_width", 14)
+	_tighten_rail_chip(button)
+	return button
+
+
+static func _tighten_rail_chip(button: Button) -> void:
+	if button == null or not bool(button.get_meta("rail_chip", false)):
+		return
+	button.custom_minimum_size = RAIL_CHIP_SIZE
+	button.size = RAIL_CHIP_SIZE
+	button.add_theme_font_size_override("font_size", 8)
+	button.add_theme_constant_override("icon_max_width", 14)
+	button.add_theme_constant_override("h_separation", 2)
+	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+		var box := button.get_theme_stylebox(state)
+		if box is StyleBoxFlat:
+			var tight := (box as StyleBoxFlat).duplicate()
+			tight.content_margin_left = 2
+			tight.content_margin_right = 2
+			tight.content_margin_top = 2
+			tight.content_margin_bottom = 2
+			button.add_theme_stylebox_override(state, tight)
+
+
 static func paint_decoy_button(button: Button, chrome: String) -> void:
 	## Locked (below L3) uses the same grey wood plate as a locked SMOKE chip.
 	## Unlocked available / spent keep the caramel toy-doll key.
@@ -267,9 +300,14 @@ static func paint_decoy_button(button: Button, chrome: String) -> void:
 	var spent := chrome == Contract.DECOY_CHROME_SPENT
 	button.set_meta("decoy_lit", lit)
 	button.set_meta("decoy_locked", locked)
-	button.text = ("%s SPENT" % Contract.DECOY_LABEL) if spent else Contract.DECOY_LABEL
-	button.add_theme_font_size_override("font_size", 20)
-	button.icon = make_icon("decoy", Color.WHITE, 30)
+	if spent and bool(button.get_meta("rail_chip", false)):
+		button.text = "%s\nSPENT" % Contract.DECOY_LABEL
+	elif spent:
+		button.text = "%s SPENT" % Contract.DECOY_LABEL
+	else:
+		button.text = Contract.DECOY_LABEL
+	button.add_theme_font_size_override("font_size", 8 if bool(button.get_meta("rail_chip", false)) else 20)
+	button.icon = make_icon("decoy", Color.WHITE, 14 if bool(button.get_meta("rail_chip", false)) else 30)
 	if locked:
 		button.tooltip_text = Contract.DECOY_TIP
 		var radius := 18
@@ -284,6 +322,7 @@ static func paint_decoy_button(button: Button, chrome: String) -> void:
 		button.add_theme_color_override("font_disabled_color", SMOKE_SPENT_INK)
 		for state in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
 			button.add_theme_color_override("icon_%s_color" % state, SMOKE_SPENT_INK)
+		_tighten_rail_chip(button)
 		return
 	paint_chunk_button(button, DECOY_CARAMEL, Color.WHITE)
 	for state in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
@@ -294,6 +333,7 @@ static func paint_decoy_button(button: Button, chrome: String) -> void:
 		button.tooltip_text = Contract.DECOY_SPENT_COPY
 	else:
 		button.tooltip_text = Contract.DECOY_ABSENT_COPY
+	_tighten_rail_chip(button)
 
 
 static func smoke_chip() -> Button:
@@ -316,7 +356,8 @@ static func paint_smoke_chip(button: Button, available: bool, locked: bool = fal
 	var fg := Color.WHITE if lit else SMOKE_SPENT_INK
 	paint_chunk_button(button, bg, fg)
 	## One white puff. Locked and spent multiply it by the grey ink — no second texture.
-	button.icon = make_icon("smoke", Color.WHITE, 30)
+	var icon_px := 14 if bool(button.get_meta("rail_chip", false)) else 30
+	button.icon = make_icon("smoke", Color.WHITE, icon_px)
 	var icon_tint := Color.WHITE if lit else SMOKE_SPENT_INK
 	for state in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
 		button.add_theme_color_override("icon_%s_color" % state, icon_tint)
@@ -339,6 +380,7 @@ static func paint_smoke_chip(button: Button, available: bool, locked: bool = fal
 		button.tooltip_text = Contract.SMOKE_LOCKED_TOAST
 	else:
 		button.tooltip_text = Contract.SMOKE_SPENT_COPY
+	_tighten_rail_chip(button)
 
 
 static func high_ground_chip(active: bool = false) -> Control:

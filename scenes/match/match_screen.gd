@@ -183,6 +183,8 @@ func _ready() -> void:
 		_capture_decoy_lock("unlocked")
 	elif "--capture-decoy-lock-toast" in args:
 		_capture_decoy_lock("toast")
+	elif "--capture-hud-punch" in args:
+		_capture_hud_punch()
 
 
 func _cmdline_is_capture(args: PackedStringArray) -> bool:
@@ -617,22 +619,16 @@ func _bind_decoy(snap: Snapshot) -> void:
 		_btn_decoy.disabled = false
 	elif not lit:
 		_btn_decoy.disabled = true
+	## Lock line is a tap toast. The legend and header do not keep a sticky tip.
 	if _decoy_tip:
-		_decoy_tip.visible = locked and _btn_decoy.visible
+		_decoy_tip.visible = false
 	if _decoy_cap:
-		_decoy_cap.text = Contract.DECOY_TIP if locked else ""
+		_decoy_cap.text = ""
 
 
 func _show_decoy_lock_toast(snap: Snapshot) -> void:
 	## Soft tip. Does not POST and does not spend the charge.
-	if _toast == null:
-		return
-	_toast.text = snap.decoy_lock_toast()
-	_toast.position = Vector2(180, 48)
-	_toast.size = Vector2(920, 36)
-	_toast.z_index = 45
-	_toast.z_as_relative = false
-	Chrome.apply_label(_toast, 16, Color("f7e7a8"), true)
+	_place_lock_toast(snap.decoy_lock_toast())
 
 
 func _bind_smoke(snap: Snapshot) -> void:
@@ -659,14 +655,7 @@ func _bind_smoke(snap: Snapshot) -> void:
 
 func _show_smoke_lock_toast(snap: Snapshot) -> void:
 	## Soft tip. Does not POST and does not spend the charge.
-	if _toast == null:
-		return
-	_toast.text = snap.smoke_lock_toast()
-	_toast.position = Vector2(180, 48)
-	_toast.size = Vector2(920, 36)
-	_toast.z_index = 45
-	_toast.z_as_relative = false
-	Chrome.apply_label(_toast, 16, Color("f7e7a8"), true)
+	_place_lock_toast(snap.smoke_lock_toast())
 
 
 func _apply_smoke_toast(snap: Snapshot) -> void:
@@ -679,8 +668,8 @@ func _apply_smoke_toast(snap: Snapshot) -> void:
 		_toast.z_index = 45
 		_toast.z_as_relative = false
 		return
-	_toast.position = Vector2(240, 580)
-	_toast.size = Vector2(800, 28)
+	_toast.position = Vector2(160, 688)
+	_toast.size = Vector2(960, 28)
 	_toast.z_index = 0
 
 
@@ -936,8 +925,71 @@ func _smoke_drop_open() -> Snapshot:
 	return snap
 
 
+func _capture_hud_punch() -> void:
+	## H1–H4 stills. Layout only: rail, toast, board, legend.
+	if _coach:
+		_coach.dismiss()
+	_dummy_busy = true
+	_dummy_delay = 0.0
+	MockMatchServer.operative_level = Contract.SMOKE_UNLOCK_LEVEL
+	MockMatchServer.test_omit_operative_level = false
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+	DisplayServer.window_set_size(Vector2i(1280, 720))
+	await get_tree().process_frame
+	var snap := _smoke_drop_open()
+	_refresh(snap)
+	_end_panel.visible = false
+	_btn_start.visible = false
+	if _btn_abandon:
+		_btn_abandon.visible = false
+	_status.text = ""
+	_phase.text = ""
+	_toast.text = ""
+	_set_actions(true)
+	_bind_decoy(snap)
+	_bind_smoke(snap)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	_save_hud_png("res://artifacts/ux/hud_h1_ability_rail.png", "H1_RAIL")
+	var full := get_viewport().get_texture().get_image()
+	var board := full.get_region(Rect2i(260, 90, 900, 470))
+	var legend := full.get_region(Rect2i(0, 430, 280, 250))
+	board.save_png(ProjectSettings.globalize_path("res://artifacts/ux/hud_h3_board.png"))
+	legend.save_png(ProjectSettings.globalize_path("res://artifacts/ux/hud_h4_legend.png"))
+	print("H3_BOARD ", ProjectSettings.globalize_path("res://artifacts/ux/hud_h3_board.png"))
+	print("H4_LEGEND ", ProjectSettings.globalize_path("res://artifacts/ux/hud_h4_legend.png"))
+	MockMatchServer.operative_level = Contract.DECOY_UNLOCK_LEVEL - 1
+	var fresh: Dictionary = MatchAPI.get_snapshot(ClientSession.match_id, ClientSession.player_id)
+	if not fresh.is_empty():
+		ClientSession.apply_snapshot(fresh)
+	snap = ClientSession.typed_snapshot()
+	_refresh(snap)
+	_end_panel.visible = false
+	_btn_start.visible = false
+	_status.text = ""
+	_phase.text = ""
+	_set_actions(true)
+	_bind_decoy(snap)
+	_bind_smoke(snap)
+	_show_decoy_lock_toast(snap)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	_save_hud_png("res://artifacts/ux/hud_h2_lock_toast.png", "H2_TOAST")
+	print("HUD_PUNCH LEVEL ", snap.operative_level(), " DECOY ", snap.decoy_chrome(), " SMOKE ", snap.smoke_chrome(), " TOAST ", _toast.text if _toast else "", " TOAST_Y ", _toast.position.y if _toast else -1)
+	get_tree().quit()
+
+
+func _save_hud_png(res_path: String, tag: String) -> void:
+	var img := get_viewport().get_texture().get_image()
+	var path := ProjectSettings.globalize_path(res_path)
+	img.save_png(path)
+	print("HUD_PUNCH ", tag, " ", path)
+
+
 func _capture_decoy_lock(kind: String) -> void:
-	## Stills: locked L2 with the tip, unlocked L3, and the reject toast.
+	## Stills: locked L2 chip, unlocked L3, and the toast (not a header plate).
 	if _coach:
 		_coach.dismiss()
 	_dummy_busy = true
@@ -1523,16 +1575,7 @@ func _build() -> void:
 	_legend_hover.visible = not _plate_hud
 	add_child(_legend_hover)
 
-	if _plate_hud:
-		## Cover the plate's printed map so only hash-revealed stamps show.
-		var cover := ColorRect.new()
-		## Desk wood under the hexes — not a grey edge overlay.
-		cover.color = Color("20160e")
-		cover.position = Vector2(300, 118)
-		cover.size = Vector2(820, 430)
-		cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		add_child(cover)
-	else:
+	if not _plate_hud:
 		var well := ColorRect.new()
 		well.color = Color(0.07, 0.05, 0.04, 0.12)
 		well.position = Vector2(210, 128)
@@ -1578,11 +1621,14 @@ func _build() -> void:
 		_btn_recon.position = Vector2(330, 572)
 		_btn_recon.pressed.connect(_on_recon)
 		add_child(_btn_recon)
-		_btn_uav = Chrome.plate_hotspot(Vector2(290, 104))
-		_btn_uav.position = Vector2(630, 572)
-		_btn_uav.tooltip_text = "Ability — UAV Sweep. Posts type: uav."
-		_btn_uav.pressed.connect(_on_uav)
-		add_child(_btn_uav)
+		## Painted ABILITY key becomes the rail. Chips do not float over the board.
+		var ability_mat := ColorRect.new()
+		ability_mat.color = Color("1c1208")
+		ability_mat.position = Vector2(618, 568)
+		ability_mat.size = Vector2(304, 108)
+		ability_mat.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(ability_mat)
+		_mount_ability_rail(self, true)
 		## Cover the plate's 4th action key. Chip binds you.highGroundActive.
 		var high_stamp := ColorRect.new()
 		high_stamp.color = Color("1c1208")
@@ -1618,10 +1664,7 @@ func _build() -> void:
 		_btn_recon = Chrome.game_button("recon", "RECON", Chrome.RECON_BLUE, Color.WHITE, Vector2(248, 76))
 		_btn_recon.pressed.connect(_on_recon)
 		row.add_child(_btn_recon)
-		_btn_uav = Chrome.game_button("ability", Contract.ABILITY_SLOT, Chrome.ABILITY_PURPLE, Color.WHITE, Vector2(248, 76))
-		_btn_uav.tooltip_text = "Ability — UAV Sweep. Posts type: uav."
-		_btn_uav.pressed.connect(_on_uav)
-		row.add_child(_btn_uav)
+		_mount_ability_rail(row, false)
 		_btn_high = Button.new()
 		_btn_high.visible = false
 		_btn_high.disabled = true
@@ -1632,40 +1675,7 @@ func _build() -> void:
 		_high_chip = Chrome.high_ground_chip(false)
 		_high_chip.position = Vector2(1024, 598)
 		add_child(_high_chip)
-	_ability_cap = Label.new()
-	_ability_cap.visible = false
-	add_child(_ability_cap)
-
-	_decoy_tip = PanelContainer.new()
-	_decoy_tip.visible = false
-	_decoy_tip.position = Vector2(24, 500)
-	_decoy_tip.z_index = 26
-	_decoy_tip.z_as_relative = false
-	_decoy_tip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var tip_box := Chrome.flat(Chrome.SMOKE_SPENT, 10, Chrome.SMOKE_SPENT.lightened(0.18), 2)
-	tip_box.content_margin_left = 10
-	tip_box.content_margin_right = 10
-	tip_box.content_margin_top = 6
-	tip_box.content_margin_bottom = 6
-	_decoy_tip.add_theme_stylebox_override("panel", tip_box)
-	add_child(_decoy_tip)
-	_decoy_cap = Label.new()
-	_decoy_cap.text = Contract.DECOY_TIP
-	_decoy_cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	Chrome.apply_label(_decoy_cap, 8, Chrome.CREAM, true)
-	_decoy_tip.add_child(_decoy_cap)
-	_btn_decoy = Chrome.game_button("decoy", Contract.DECOY_LABEL, Chrome.DECOY_CARAMEL, Color.WHITE, Vector2(200, 64))
-	_btn_decoy.tooltip_text = Contract.DECOY_COPY
-	_btn_decoy.pressed.connect(_on_decoy)
-	_btn_decoy.position = Vector2(24, 548)
-	add_child(_btn_decoy)
-	## Ability chrome. Sits above the painted ABILITY key. UAV hotspot stays put.
-	_btn_smoke = Chrome.smoke_chip()
-	_btn_smoke.position = Vector2(620, 492)
-	_btn_smoke.z_index = 24
-	_btn_smoke.z_as_relative = false
-	_btn_smoke.pressed.connect(_on_smoke)
-	add_child(_btn_smoke)
+	## Ability chips are mounted in _mount_ability_rail. No free-float keys.
 
 	## Soft P2: rematch-ready START is a centered drop cue, not tucked under P2.
 	_btn_start = Chrome.chunk_button("START", Chrome.PLAY_GREEN, Color.WHITE, Vector2(320, 56))
@@ -1730,8 +1740,8 @@ func _build() -> void:
 	end_col.add_child(_btn_end)
 
 	_toast = Label.new()
-	_toast.position = Vector2(240, 580)
-	_toast.size = Vector2(800, 28)
+	_toast.position = Vector2(160, 688)
+	_toast.size = Vector2(960, 28)
 	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	Chrome.apply_label(_toast, 10, Color("f7e7a8"), true)
 	add_child(_toast)
@@ -1853,6 +1863,57 @@ func _build() -> void:
 	_btn_hideout = Chrome.chunk_button("HIDEOUT", Chrome.PLAY_GREEN, Color.WHITE, Vector2(240, 56))
 	_btn_hideout.pressed.connect(_go_hideout)
 	over_col.add_child(_btn_hideout)
+
+
+func _mount_ability_rail(parent: Control, plate: bool) -> void:
+	## One rail under the ABILITY label. UAV / DECOY / SMOKE never free-float.
+	var rail := VBoxContainer.new()
+	rail.name = "AbilityRail"
+	rail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rail.add_theme_constant_override("separation", 2)
+	rail.alignment = BoxContainer.ALIGNMENT_CENTER
+	if plate:
+		rail.position = Vector2(624, 574)
+		rail.custom_minimum_size = Vector2(292, 96)
+		rail.size = Vector2(292, 96)
+	else:
+		rail.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		rail.custom_minimum_size = Vector2(300, 88)
+	parent.add_child(rail)
+	_ability_cap = Label.new()
+	_ability_cap.text = Contract.ABILITY_SLOT
+	_ability_cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_ability_cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	Chrome.apply_label(_ability_cap, 8, Chrome.CREAM, true)
+	rail.add_child(_ability_cap)
+	var chips := HBoxContainer.new()
+	chips.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	chips.alignment = BoxContainer.ALIGNMENT_CENTER
+	chips.add_theme_constant_override("separation", 6)
+	rail.add_child(chips)
+	_btn_uav = Chrome.rail_chip("ability", Contract.ABILITY_LABEL, Chrome.ABILITY_PURPLE, Color.WHITE)
+	_btn_uav.tooltip_text = "Ability — UAV Sweep. Posts type: uav."
+	_btn_uav.pressed.connect(_on_uav)
+	chips.add_child(_btn_uav)
+	_btn_decoy = Chrome.rail_chip("decoy", Contract.DECOY_LABEL, Chrome.DECOY_CARAMEL, Color.WHITE)
+	_btn_decoy.tooltip_text = Contract.DECOY_COPY
+	_btn_decoy.pressed.connect(_on_decoy)
+	chips.add_child(_btn_decoy)
+	_btn_smoke = Chrome.rail_chip("smoke", Contract.SMOKE_LABEL, Chrome.ABILITY_PURPLE, Color.WHITE)
+	_btn_smoke.pressed.connect(_on_smoke)
+	chips.add_child(_btn_smoke)
+
+
+func _place_lock_toast(line: String) -> void:
+	## Toast band under the action row. Never sticky under the player plate.
+	if _toast == null:
+		return
+	_toast.text = line
+	_toast.position = Vector2(160, 688)
+	_toast.size = Vector2(960, 28)
+	_toast.z_index = 46
+	_toast.z_as_relative = false
+	Chrome.apply_label(_toast, 11, Color("f7e7a8"), true)
 
 
 func _add_player_card(is_you: bool) -> void:
@@ -1992,9 +2053,9 @@ func _refresh(snap: Snapshot) -> void:
 		AudioJuice.notice_last_action(last)
 	_btn_uav.disabled = _btn_uav.disabled or snap.uav_remaining() <= 0
 	if snap.uav_remaining() <= 0:
-		_btn_uav.text = "%s SPENT" % Contract.ABILITY_SLOT
+		_btn_uav.text = "%s\nSPENT" % Contract.ABILITY_LABEL
 	else:
-		_btn_uav.text = Contract.ABILITY_SLOT
+		_btn_uav.text = Contract.ABILITY_LABEL
 	_bind_decoy(snap)
 	_bind_high_ground(snap)
 	_bind_smoke(snap)

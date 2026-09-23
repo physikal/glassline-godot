@@ -49,7 +49,7 @@ Slice mirrors SMOKE L5. LIVE tip `662dba7` on `https://glassline-api.vercel.app`
 | Gate | Client |
 | --- | --- |
 | D1 | Chip lights only when exact `operativeLevel >= 3` and exact `decoyAvailable` is true |
-| D2 | Below L3 the chip stays visible on the Soft P2 spent-wood plate. Tip `DECOY · L3`. Tap toasts `Reach operative L3` |
+| D2 | Below L3 the chip stays visible on the Soft P2 spent-wood plate, in the ability rail under ABILITY. Tap toasts `Reach operative L3` (toast only — not a sticky header or legend plate). Tooltip still reads `DECOY · L3` |
 | D3 | `xp` is ignored. Practice does not level and practice Marks stay Δ0. An L3 snapshot stays unlocked in practice |
 | D4 | Once unlocked, once/match, adjacent empty, miss+clear, and expiry are unchanged |
 | D5 | No Marks, no IAP, no catalog SKU, no second charge. A locked tap does not spend the doll |
@@ -77,7 +77,7 @@ Headless: `godot --headless --path . -s res://tools/headless_loop_test.gd` → `
 | `Snapshot.decoy_available()` / `you_decoy_hex()` / `enemy_decoy_soft_hex()` | Read snapshot only; null on `ended` |
 | `MockMatchServer._act_decoy` | Place, spend, `await_end_turn` |
 | `LiveMatchClient.apply_action` | POSTs the dict; poll fp includes decoy hexes |
-| Match HUD | Caramel **DECOY** button, tooltip *Plant a toy doll on a neighbor hex…* |
+| Match HUD | Caramel **DECOY** chip in the ability rail under **ABILITY**, beside UAV and SMOKE. Tooltip *Plant a toy doll on a neighbor hex…* |
 | Hex board | Own `DOLL` dashed cream/teal; enemy soft `BLIP` peach. Cleared on `decoyCleared` / expiry / match end |
 
 ## Stills
