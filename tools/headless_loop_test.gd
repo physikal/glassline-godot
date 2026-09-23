@@ -164,6 +164,7 @@ func _run() -> int:
 	_terrain_coach_case(failed)
 	_gear_strip_case(failed)
 	_exposure_floor_case(failed)
+	_operative_xp_plate_case(failed)
 	_practice_case(failed)
 	_journal_case(failed)
 
@@ -534,7 +535,8 @@ func _smoke_l5_case(failed: PackedStringArray) -> void:
 	_expect(failed, not injected.ok, "U5 client fields cannot buy smoke")
 	var after: Snapshot = Snapshot.from_dict(server.get_snapshot(pvp_id, str(seated.get("playerId", ""))))
 	_expect(failed, after.operative_level() == 4, "U3 action cannot write operativeLevel")
-	_expect(failed, not after.you().has("xp"), "U3 client does not invent xp")
+	_expect(failed, after.xp_present() and after.xp_value() == int(server.account_xp), "U3 xp stays the account")
+	_expect(failed, after.xp_value() != 9999, "U3 injected xp is ignored")
 	server.clear_all()
 
 
@@ -4363,6 +4365,137 @@ func _exposure_floor_case(failed: PackedStringArray) -> void:
 	server.test_exposure_floor = null
 	server.test_omit_exposure_floor = false
 	server.equipped_cosmetic = ""
+
+
+func _operative_xp_plate_case(failed: PackedStringArray) -> void:
+	## Hideout plate. Server xp + operativeLevel. Bar is xp % 100. No smoke charge.
+	_expect(failed, Contract.XP_PER_LEVEL == 100, "XP step is 100")
+	_expect(failed, Contract.XP_PLATE_TIP == "SMOKE · L5", "soft tip copy")
+	_expect(failed, Contract.xp_progress(0) == 0 and Contract.xp_remaining(0) == 100, "L1 start is 0 toward next")
+	_expect(failed, Contract.xp_progress(240) == 40 and Contract.xp_remaining(240) == 60, "240 is 40 toward next")
+	_expect(failed, Contract.xp_progress(100) == 0 and Contract.xp_remaining(100) == 100, "100 opens the next level empty")
+	_expect(failed, Contract.xp_progress(599) == 99 and Contract.xp_remaining(599) == 1, "599 leaves 1")
+	_expect(failed, Contract.operative_level_from_xp(0) == 1, "curve L1")
+	_expect(failed, Contract.operative_level_from_xp(100) == 2, "curve L2")
+	_expect(failed, Contract.operative_level_from_xp(499) == 5, "curve L5")
+	var bait: Snapshot = Snapshot.from_dict({
+		"status": Contract.STATUS_ACTIVE,
+		"you": {"xp": 9999, "smokeAvailable": true},
+	})
+	_expect(failed, bait.xp_present() and bait.xp_value() == 9999, "exact you.xp is readable")
+	_expect(failed, not bait.operative_level_present(), "xp does not invent a level")
+	_expect(failed, bait.smoke_chrome() == Contract.SMOKE_CHROME_LOCKED, "xp does not unlock SMOKE")
+	var alias: Snapshot = Snapshot.from_dict({"you": {"XP": 50, "operative_level": 9}})
+	_expect(failed, not alias.xp_present() and not alias.operative_level_present(), "aliases are not the fields")
+
+	var Plate := load("res://scenes/lobby/operative_plate.gd")
+	var plate = Plate.new()
+	plate.bind(true, 1, true, 0)
+	_expect(failed, plate.visible and plate.level_text() == "L1", "L1 label")
+	_expect(failed, plate.tip_visible() and plate.tip_text() == Contract.XP_PLATE_TIP, "L1 shows the soft tip")
+	_expect(failed, plate.progress() == 0 and plate.remaining() == 100 and plate.fill_ratio() == 0.0, "L1 bar empty")
+	plate.bind(true, 4, true, 355)
+	_expect(failed, plate.level_text() == "L4" and plate.tip_visible(), "L4 still tips")
+	_expect(failed, plate.progress() == 55 and plate.remaining() == 45, "L4 bar is xp % 100")
+	plate.bind(true, 5, true, 420)
+	_expect(failed, plate.level_text() == "L5" and not plate.tip_visible() and plate.tip_text() == "", "L5 drops the tip")
+	_expect(failed, plate.progress() == 20 and plate.remaining() == 80, "L5 bar still shows toward next")
+	plate.bind(true, 8, true, 799)
+	_expect(failed, not plate.tip_visible() and plate.progress() == 99, "L8 stays quiet with a full-looking bar")
+	plate.bind(false, 9, true, 450)
+	_expect(failed, plate.level_text() == "" and not plate.tip_visible() and plate.progress() == 50, "xp alone does not invent L or the tip")
+	plate.bind(true, 2, false, 0)
+	_expect(failed, plate.level_text() == "L2" and plate.tip_visible() and plate.progress() == -1, "level alone does not invent 0 XP")
+	plate.bind(false, 0, false, 0)
+	_expect(failed, not plate.visible, "unbound plate stays hidden")
+	plate.free()
+
+	var session = SessionScript.new()
+	_expect(failed, not session.xp_present and not session.operative_level_present, "fresh session invents nothing")
+	session.bind_player({"playerId": "p_xp", "token": "tok_xp", "marks": 3})
+	_expect(failed, not session.xp_present and not session.operative_level_present, "players without the card stays unbound")
+	_expect(failed, session.marks == 3, "marks still bind")
+	session.bind_player({
+		"playerId": "p_xp",
+		"token": "tok_xp",
+		"marks": 3,
+		"xp": 40,
+		"operativeLevel": 1,
+		"exposureFloor": 50,
+	})
+	_expect(failed, session.xp_present and session.xp == 40 and session.operative_level == 1, "POST /players binds the card")
+	_expect(failed, session.operative_source == "players", "source is players")
+	session.apply_shop({
+		"marks": 9,
+		"equipped": Contract.SHOP_BANDANA_ITEM_ID,
+		"you": {"marks": 9, "smokeAvailable": true},
+	})
+	_expect(failed, session.xp == 40 and session.operative_level == 1, "shop without the card keeps players")
+	_expect(failed, session.marks == 9, "shop marks still bind")
+	_expect(failed, session.operative_source == "players", "omitted ShopYou does not claim the source")
+	session.apply_shop({"you": {"marks": 9, "xp": 250, "operativeLevel": 3, "exposureFloor": 40}})
+	_expect(failed, session.xp == 250 and session.operative_level == 3, "ShopYou overwrites the card")
+	_expect(failed, session.operative_source == "shop", "source is shop")
+	_expect(failed, session.exposure_floor == 40, "ShopYou exposureFloor is preferred")
+	session.apply_shop({"you": {"operative_level": 9, "XP": 1, "marks": 9}})
+	_expect(failed, session.operative_level == 3 and session.xp == 250, "shop aliases do not bind")
+	session.apply_snapshot({"you": {"marks": 9, "xp": 80, "operativeLevel": 1, "exposureFloor": 50}})
+	_expect(failed, session.xp == 80 and session.operative_level == 1 and session.operative_source == "match", "match you binds")
+	session.apply_snapshot({"you": {"marks": 9, "exposureFloor": 50}})
+	_expect(failed, session.xp == 80 and session.operative_level == 1, "match omit does not wipe the card")
+	session.apply_snapshot({"you": {"xp": -5, "operativeLevel": 0}})
+	_expect(failed, session.xp == 80 and session.operative_level == 1, "junk xp and L0 do not replace")
+	var parsed = Shop.from_any({"you": {"xp": 10, "operativeLevel": 2, "smokeAvailable": true, "marks": 1}})
+	_expect(failed, parsed.xp_present and parsed.xp == 10 and parsed.operative_level == 2, "shop parser reads the card")
+	_expect(failed, not parsed.has_method("smoke_available"), "shop type has no smoke charge")
+	session.free()
+
+	server.clear_all()
+	var shop_bag: Dictionary = server.get_shop()
+	var shop_you: Dictionary = shop_bag.get("you", {})
+	_expect(failed, int(shop_you.get("operativeLevel", -1)) == Contract.SMOKE_UNLOCK_LEVEL, "mock ShopYou level")
+	_expect(failed, int(shop_you.get("xp", -1)) == Contract.xp_for_level_start(Contract.SMOKE_UNLOCK_LEVEL), "mock ShopYou xp at the L5 boundary")
+	_expect(failed, not shop_you.has("smokeAvailable"), "shop plate does not carry the match charge")
+	server.operative_level = 1
+	server.account_xp = 40
+	server.reset_wallet(7)
+	var created: Dictionary = server.create_match({"mode": Contract.MODE_PRACTICE})
+	var mid := str(created.get("matchId", ""))
+	var join_a: Dictionary = server.join(mid, Contract.create_join_token(created))
+	var pid := str(join_a.get("playerId", ""))
+	var before_xp := int(server.account_xp)
+	var before_level := int(server.operative_level)
+	server.apply_action(mid, pid, ActionIntent.select_hex(2, 2))
+	server.apply_action(mid, pid, ActionIntent.start())
+	var match_state: Dictionary = server._matches[mid]
+	var bot_seat: Dictionary = match_state["seats"][Contract.SEAT_B]
+	var bot_hex: Dictionary = {}
+	if bot_seat.get("hex") is Dictionary:
+		bot_hex = bot_seat["hex"]
+	var killed: ActionResult = server.apply_action(mid, pid, ActionIntent.attack(int(bot_hex.get("q", -1)), int(bot_hex.get("r", -1))))
+	var snap: Snapshot = Snapshot.from_dict(killed.snapshot)
+	_expect(failed, killed.ok and snap.status() == Contract.STATUS_ENDED, "practice kill ends")
+	_expect(failed, snap.marks_delta() == Contract.MARKS_PRACTICE, "practice Marks stay Δ0")
+	_expect(failed, int(server.account_xp) == before_xp and snap.xp_value() == before_xp, "practice XP stays Δ0")
+	_expect(failed, int(server.operative_level) == before_level and snap.operative_level() == before_level, "practice does not level")
+	var injected := ActionIntent.end_turn(50.0)
+	injected["xp"] = 9999
+	injected["operativeLevel"] = 9
+	server.apply_action(mid, pid, injected)
+	_expect(failed, int(server.account_xp) == before_xp and int(server.operative_level) == before_level, "a body cannot write account xp")
+	server.test_omit_xp = true
+	server.test_omit_operative_level = true
+	var session_keep = SessionScript.new()
+	session_keep.apply_snapshot({"you": {"xp": 15, "operativeLevel": 1, "marks": 1, "exposureFloor": 50}})
+	session_keep.apply_shop(server.get_shop())
+	_expect(failed, session_keep.xp == 15 and session_keep.operative_level == 1, "omitted ShopYou keeps the match card")
+	_expect(failed, session_keep.operative_source == "match", "omit does not switch the source")
+	session_keep.free()
+	var plate_src := FileAccess.get_file_as_string("res://scenes/lobby/operative_plate.gd")
+	_expect(failed, plate_src.find("smokeAvailable") < 0, "plate script does not name the match charge")
+	server.clear_all()
+	server.test_omit_xp = false
+	server.test_omit_operative_level = false
 
 
 func _journal_end(mode: String, winner: String, reason: String) -> Dictionary:

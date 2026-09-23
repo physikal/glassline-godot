@@ -55,6 +55,13 @@ var feel_window_from_server: bool = false
 ## Display cache of server you.exposureFloor. Missing payload → start 50.
 ## Never written back. Cosmetics and operativeLevel do not compute it.
 var exposure_floor: int = Contract.EXPOSURE_FLOOR_START
+## Hideout plate. Absent until POST /players, match you, or ShopYou names the field.
+## Never invented. ShopYou wins on the next hideout refresh when it carries them.
+var xp: int = 0
+var xp_present: bool = false
+var operative_level: int = 0
+var operative_level_present: bool = false
+var operative_source: String = ""
 ## -1 follow project/env/export; 0 mock; 1 live
 var live_override: int = -1
 
@@ -89,6 +96,19 @@ func bind_exposure_floor_payload(bag: Dictionary) -> void:
 	exposure_floor = Contract.exposure_floor_from_payload(bag)
 
 
+func _bind_operative_card(bag: Dictionary, source: String) -> void:
+	## Present fields only. Missing keys do not zero XP or invent L1.
+	var card := Contract.operative_card_from_payload(bag)
+	if bool(card.get("xp_present", false)):
+		xp = int(card.get("xp", 0))
+		xp_present = true
+		operative_source = source
+	if bool(card.get("level_present", false)):
+		operative_level = int(card.get("level", 0))
+		operative_level_present = true
+		operative_source = source
+
+
 func bind_player(bag: Dictionary) -> void:
 	## Keep the POST /players token. Marks bind only if the payload has them.
 	var token := str(bag.get("token", ""))
@@ -100,6 +120,7 @@ func bind_player(bag: Dictionary) -> void:
 	if bag.has("marks"):
 		bind_marks(int(bag.get("marks")))
 	bind_exposure_floor_payload(bag)
+	_bind_operative_card(bag, "players")
 
 
 func persist_player() -> void:
@@ -179,6 +200,9 @@ func apply_shop(bag: Dictionary) -> void:
 	_sync_part_stub()
 	_bind_part_feel(bag)
 	bind_exposure_floor_payload(bag)
+	## ShopYou xp / operativeLevel overwrite the players or match cache when named.
+	## A catalog that omits them leaves the last server numbers alone.
+	_bind_operative_card(bag, "shop")
 
 
 func owns_cosmetic(item_id: String) -> bool:
@@ -429,6 +453,7 @@ func apply_snapshot(snap: Dictionary) -> void:
 	else:
 		bind_marks(0)
 	bind_exposure_floor_payload(snap)
+	_bind_operative_card(snap, "match")
 	var payout = MarksPayout.from_any(snap)
 	var why: String = MarksPayout.display_reason(snap, is_job())
 	if payout.has_delta() or why != "":

@@ -10,6 +10,7 @@ const Queue := preload("res://types/queue.gd")
 const ExposureDoll := preload("res://scenes/match/exposure_doll.gd")
 const JournalPlate := preload("res://scenes/lobby/journal_plate.gd")
 const GearStrip := preload("res://scenes/lobby/gear_strip.gd")
+const OperativePlate := preload("res://scenes/lobby/operative_plate.gd")
 const InviteShare := preload("res://scripts/invite_share.gd")
 const LobbyPaste := preload("res://scripts/lobby_paste.gd")
 
@@ -17,6 +18,7 @@ var _bg: TextureRect
 var _wood_covers: Array[ColorRect] = []
 var _toast: Label
 var _marks: Label
+var _xp_plate: OperativePlate
 var _last_pay: Label
 var _mode_lbl: Label
 var _mode_btn: Button
@@ -298,6 +300,16 @@ func _ready() -> void:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 		DisplayServer.window_set_size(Vector2i(1280, 720))
 		await _capture_gear(false, true)
+	elif "--capture-xp-plate-tip" in args or "--capture-xp-plate-l5" in args \
+			or "--capture-xp-plate-progress" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		var plate_kind := "progress"
+		if "--capture-xp-plate-tip" in args:
+			plate_kind = "tip"
+		elif "--capture-xp-plate-l5" in args:
+			plate_kind = "l5"
+		await _capture_xp_plate(plate_kind)
 	elif "--capture-exposure-floor-50" in args or "--capture-exposure-floor-step" in args \
 			or "--capture-exposure-floor-tip" in args:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
@@ -1140,23 +1152,8 @@ func _build_top_bar() -> void:
 	Chrome.apply_label(handle, 11, Chrome.CREAM, true)
 	id_col.add_child(handle)
 
-	var xp_track := Panel.new()
-	xp_track.custom_minimum_size = Vector2(132, 10)
-	xp_track.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var track_box := Chrome.flat(Color("14110e"), 6, Color("2a2018"), 1)
-	track_box.content_margin_left = 0
-	track_box.content_margin_right = 0
-	track_box.content_margin_top = 0
-	track_box.content_margin_bottom = 0
-	xp_track.add_theme_stylebox_override("panel", track_box)
-	id_col.add_child(xp_track)
-
-	var xp_fill := ColorRect.new()
-	xp_fill.color = Chrome.XP_GREEN
-	xp_fill.position = Vector2(2, 2)
-	xp_fill.size = Vector2(84, 6)
-	xp_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	xp_track.add_child(xp_fill)
+	_xp_plate = OperativePlate.new()
+	left.add_child(_xp_plate)
 
 	var marks_chip := Chrome.pill_chip(Chrome.INK, Chrome.HIGH_GOLD)
 	left.add_child(marks_chip)
@@ -1834,9 +1831,46 @@ func _bind_shop() -> void:
 	_refresh_shop()
 
 
+func _refresh_operative() -> void:
+	if _xp_plate:
+		_xp_plate.bind_from_session()
+
+
+func _capture_xp_plate(kind: String) -> void:
+	## Mock stamps server xp + operativeLevel. The plate does not invent either.
+	if _shop_row:
+		_shop_row.visible = false
+	if not ClientSession.use_live_api():
+		MockMatchServer.test_omit_xp = false
+		MockMatchServer.test_omit_operative_level = false
+		if kind == "tip":
+			MockMatchServer.operative_level = 4
+			MockMatchServer.account_xp = 318
+		elif kind == "l5":
+			MockMatchServer.operative_level = 5
+			MockMatchServer.account_xp = 400
+		else:
+			MockMatchServer.operative_level = 2
+			MockMatchServer.account_xp = 164
+	_bind_shop()
+	_refresh_marks()
+	var path := "res://artifacts/ux/xp_plate_progress.png"
+	var tag := "XP_PLATE_PROGRESS"
+	if kind == "tip":
+		path = "res://artifacts/ux/xp_plate_l4_tip.png"
+		tag = "XP_PLATE_L4_TIP"
+	elif kind == "l5":
+		path = "res://artifacts/ux/xp_plate_l5.png"
+		tag = "XP_PLATE_L5"
+	if _xp_plate:
+		print("XP_PLATE ", tag, " LEVEL ", _xp_plate.level_text(), " TIP ", _xp_plate.tip_visible(), " ", _xp_plate.tip_text(), " FILL ", _xp_plate.fill_ratio(), " PROG ", _xp_plate.progress(), " LEFT ", _xp_plate.remaining())
+	await _capture_named(path, tag)
+
+
 func _refresh_marks() -> void:
 	if _marks:
 		_marks.text = Chrome.marks_chip_text(ClientSession.marks)
+	_refresh_operative()
 	if _last_pay:
 		if ClientSession.last_payout.is_empty():
 			_last_pay.text = ""

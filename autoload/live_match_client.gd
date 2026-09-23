@@ -64,11 +64,15 @@ func ensure_player(force_new: bool = false) -> Dictionary:
 	if not force_new and ClientSession.player_bearer() != "":
 		var auth: Dictionary = auth_dev(ClientSession.player_bearer())
 		if auth.has("playerId") and str(auth.get("error", "")) == "":
-			ClientSession.bind_player({
+			var kept := {
 				"playerId": auth.get("playerId", ""),
 				"token": ClientSession.player_bearer(),
 				"marks": auth.get("marks", ClientSession.marks),
-			})
+			}
+			for key in ["xp", "operativeLevel", "exposureFloor"]:
+				if auth.has(key):
+					kept[key] = auth.get(key)
+			ClientSession.bind_player(kept)
 			return auth
 	var created: Dictionary = create_player()
 	if created.has("token"):

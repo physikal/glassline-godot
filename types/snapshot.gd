@@ -97,6 +97,22 @@ func operative_level() -> int:
 	return _operative_level_number(found.get("value"))
 
 
+func xp_present() -> bool:
+	## Exact you.xp. Does not unlock SMOKE and does not imply a level.
+	var found := _you_exact("xp")
+	if not bool(found.get("present", false)):
+		return false
+	var n: Variant = Contract._as_operative_int(found.get("value"))
+	return n != null and int(n) >= 0
+
+
+func xp_value() -> int:
+	## Exact you.xp. Missing or junk → -1. The hideout bar uses the session bind.
+	if not xp_present():
+		return -1
+	return int(Contract._as_operative_int(you().get("xp")))
+
+
 func smoke_charge_exact_present() -> bool:
 	## Exact you.smokeAvailable. The L5 gate does not accept an alias.
 	return bool(_you_exact("smokeAvailable").get("present", false))

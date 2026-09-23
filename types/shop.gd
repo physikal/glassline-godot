@@ -32,6 +32,11 @@ var owned_parts_present: bool = false
 var wobble_present: bool = false
 var window_present: bool = false
 var purchase_id: String = ""
+## ShopYou xp / operativeLevel when the payload names them. Absent stays unbound.
+var xp: int = 0
+var xp_present: bool = false
+var operative_level: int = 0
+var operative_level_present: bool = false
 
 
 static func from_any(payload: Variant):
@@ -114,6 +119,11 @@ static func from_any(payload: Variant):
 		var part_id := Contract.canonical_part_id(str(owned_id))
 		if part_id != "" and not parsed.owned_parts.has(part_id):
 			parsed.owned_parts.append(part_id)
+	var card := Contract.operative_card_from_payload(bag)
+	parsed.xp_present = bool(card.get("xp_present", false))
+	parsed.xp = int(card.get("xp", 0)) if parsed.xp_present else 0
+	parsed.operative_level_present = bool(card.get("level_present", false))
+	parsed.operative_level = int(card.get("level", 0)) if parsed.operative_level_present else 0
 	return parsed
 
 
