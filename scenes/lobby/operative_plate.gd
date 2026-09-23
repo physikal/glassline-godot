@@ -1,7 +1,8 @@
 extends PanelContainer
 ## Hideout wood chip. Level + XP toward next. Soft “SMOKE · L5” under L5.
-## Paints the four values the hideout already bound. Does not read the session,
-## the match smoke charge, or grant XP.
+## A second wood chip names the next exposure floor from operativeLevel only.
+## Paints the values the hideout already bound. Does not read the session,
+## the match smoke charge, the live floor percent, or grant XP.
 
 const Chrome := preload("res://scripts/chrome.gd")
 const Contract := preload("res://types/contract.gd")
@@ -14,6 +15,8 @@ var _track: Panel
 var _fill: ColorRect
 var _tip_chip: PanelContainer
 var _tip: Label
+var _floor_tip_chip: PanelContainer
+var _floor_tip: Label
 
 
 func _init() -> void:
@@ -71,6 +74,17 @@ func _init() -> void:
 	_tip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_tip_chip.add_child(_tip)
 
+	_floor_tip_chip = Chrome.pill_chip(Chrome.WOOD_MID, Chrome.WOOD)
+	_floor_tip_chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(_floor_tip_chip)
+	_floor_tip = Label.new()
+	_floor_tip.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_floor_tip.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_floor_tip.custom_minimum_size = Vector2(TRACK_W, 0)
+	Chrome.apply_label(_floor_tip, 8, Chrome.CREAM, true)
+	_floor_tip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_floor_tip_chip.add_child(_floor_tip)
+
 	visible = false
 	set_meta("xp_progress", -1)
 	set_meta("xp_remaining", -1)
@@ -91,6 +105,8 @@ func bind(level_present: bool, level: int, xp_present: bool, xp: int) -> void:
 		_fill.size = Vector2.ZERO
 		_tip.text = ""
 		_tip_chip.visible = false
+		_floor_tip.text = ""
+		_floor_tip_chip.visible = false
 		tooltip_text = ""
 		set_meta("xp_progress", -1)
 		set_meta("xp_remaining", -1)
@@ -111,6 +127,9 @@ func bind(level_present: bool, level: int, xp_present: bool, xp: int) -> void:
 	var show_tip := level < Contract.SMOKE_UNLOCK_LEVEL
 	_tip.text = Contract.XP_PLATE_TIP if show_tip else ""
 	_tip_chip.visible = show_tip
+	var floor_copy := Contract.next_exposure_floor_tip(level)
+	_floor_tip.text = floor_copy
+	_floor_tip_chip.visible = floor_copy != ""
 
 
 func level_text() -> String:
@@ -125,6 +144,16 @@ func tip_text() -> String:
 	if not tip_visible():
 		return ""
 	return _tip.text
+
+
+func floor_tip_visible() -> bool:
+	return _floor_tip_chip != null and _floor_tip_chip.visible and visible
+
+
+func floor_tip_text() -> String:
+	if not floor_tip_visible():
+		return ""
+	return _floor_tip.text
 
 
 func progress() -> int:

@@ -87,6 +87,11 @@ const XP_PER_LEVEL := 100
 const XP_PVP_KILL_WIN := 100
 const XP_PVP_FORFEIT_WIN := 50
 const XP_PLATE_TIP := "SMOKE · L5"
+## Hideout XP plate only. Next exposure-floor copy from operativeLevel.
+## Not you.exposureFloor, not a live percent, not match HUD.
+const EXPOSURE_NEXT_TIP_L5 := "Exposure floor · L5 · 40%"
+const EXPOSURE_NEXT_TIP_L10 := "Exposure floor · L10 · 30%"
+const EXPOSURE_NEXT_TIP_L15 := "Exposure floor · L15 · 20%"
 const SMOKE_TOAST := "Smoke — hex is Hard this turn"
 const SMOKE_LOCKED_TOAST := "Reach operative L5"
 const SMOKE_COPY := "Once a hunt. A toy puff — your hex counts as Hard this turn."
@@ -427,6 +432,19 @@ static func exposure_floor_or_start(value: Variant, present: bool) -> int:
 	if n == 50 or n == 40 or n == 30 or n == 20:
 		return n
 	return EXPOSURE_FLOOR_START
+
+
+static func next_exposure_floor_tip(level: int) -> String:
+	## Hideout wood chip. Bands are the locked copy, not a floor calculation.
+	## L15+ and anything below L1 omit. Missing operativeLevel never reaches here.
+	var n := int(level)
+	if n >= 1 and n <= 4:
+		return EXPOSURE_NEXT_TIP_L5
+	if n >= 5 and n <= 9:
+		return EXPOSURE_NEXT_TIP_L10
+	if n >= 10 and n <= 14:
+		return EXPOSURE_NEXT_TIP_L15
+	return ""
 
 
 static func xp_for_level_start(level: int) -> int:
