@@ -709,6 +709,7 @@ func _capture_smoke(kind: String) -> void:
 			_submit(ActionIntent.smoke())
 			snap = ClientSession.typed_snapshot()
 	if kind == "spent":
+		## Decoy clock: enemy end_turn keeps the puff. The caster's next end_turn clears it.
 		if str(snap.phase()) == Contract.PHASE_END_TURN and str(snap.whose_turn()) == ClientSession.seat:
 			_submit_as(ClientSession.player_id, ActionIntent.end_turn(Contract.DEFAULT_EXPOSURE))
 			snap = ClientSession.typed_snapshot()
@@ -717,9 +718,7 @@ func _capture_smoke(kind: String) -> void:
 			var draw: Dictionary = MatchAPI.get_snapshot(ClientSession.match_id, dummy)
 			var dsnap: Snapshot = Snapshot.from_dict(draw)
 			if str(dsnap.phase()) == Contract.PHASE_ACTION:
-				var miss := Contract.hex_dict(0, 0)
-				if Contract.same_hex(miss, dsnap.you_hex()) or Contract.same_hex(miss, snap.you_hex()):
-					miss = Contract.hex_dict(8, 6)
+				var miss := _smoke_miss_hex(dsnap.you_hex(), snap.you_hex())
 				_submit_as(dummy, ActionIntent.attack(int(miss["q"]), int(miss["r"])))
 				draw = MatchAPI.get_snapshot(ClientSession.match_id, dummy)
 				dsnap = Snapshot.from_dict(draw)
@@ -729,6 +728,14 @@ func _capture_smoke(kind: String) -> void:
 			if not fresh.is_empty():
 				ClientSession.apply_snapshot(fresh)
 			snap = ClientSession.typed_snapshot()
+		if snap.smoke_active() and str(snap.whose_turn()) == ClientSession.seat:
+			if str(snap.phase()) == Contract.PHASE_ACTION:
+				var mine := _smoke_miss_hex(snap.you_hex(), null)
+				_submit(ActionIntent.attack(int(mine["q"]), int(mine["r"])))
+				snap = ClientSession.typed_snapshot()
+			if str(snap.phase()) == Contract.PHASE_END_TURN:
+				_submit(ActionIntent.end_turn(Contract.DEFAULT_EXPOSURE))
+				snap = ClientSession.typed_snapshot()
 	_dummy_busy = true
 	_dummy_delay = 0.0
 	_refresh(snap)
@@ -768,6 +775,18 @@ func _capture_smoke(kind: String) -> void:
 	var lit := bool(_btn_smoke.get_meta("smoke_lit")) if _btn_smoke and _btn_smoke.has_meta("smoke_lit") else false
 	print("SMOKE_CAPTURE ", tag, " ", path, " LIT ", lit, " ACTIVE ", snap.smoke_active(), " AVAIL ", snap.smoke_available(), " HG ", snap.you_high_ground_active())
 	get_tree().quit()
+
+
+func _smoke_miss_hex(a: Variant, b: Variant) -> Dictionary:
+	for q in Contract.BOARD_Q:
+		for r in Contract.BOARD_R:
+			var cand := Contract.hex_dict(q, r)
+			if a != null and Contract.same_hex(cand, a):
+				continue
+			if b != null and Contract.same_hex(cand, b):
+				continue
+			return cand
+	return Contract.hex_dict(0, 0)
 
 
 func _smoke_drop_open() -> Snapshot:

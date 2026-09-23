@@ -21,6 +21,7 @@ var _enemy_hex: Variant = null
 var _own_decoy: Variant = null
 var _enemy_decoy: Variant = null
 var _smoke_tint: bool = false
+var _enemy_smoke_tint: bool = false
 var _selected: Variant = null
 var _hover: Variant = null
 var _highlights: Dictionary = {} # "q,r" -> Color
@@ -53,10 +54,13 @@ func apply_snapshot(snap: Snapshot, selected: Variant = null, extra_highlights: 
 	_own_decoy = snap.you_decoy_hex()
 	_enemy_decoy = snap.enemy_decoy_soft_hex()
 	_smoke_tint = snap.smoke_active()
+	## Rival puff only on a hex the snapshot already revealed. Never invent one.
+	_enemy_smoke_tint = snap.enemy_smoke_active() and snap.enemy_visible_hex() != null
 	if snap.status() == Contract.STATUS_ENDED:
 		_own_decoy = null
 		_enemy_decoy = null
 		_smoke_tint = false
+		_enemy_smoke_tint = false
 	_selected = selected
 	_highlights = extra_highlights
 	_preview_tokens = snap.status() == Contract.STATUS_READY
@@ -155,12 +159,19 @@ func render_ink(layer: CanvasItem) -> void:
 				layer.draw_arc(center, HEX_SIZE * 0.72, 0.0, TAU, 28, _highlights[key], 3.0, true)
 	if _smoke_tint and _you_hex != null:
 		_draw_smoke_tint(layer, _center_of(_you_hex))
+	if _enemy_smoke_tint and _enemy_hex != null and not Contract.same_hex(_enemy_hex, _you_hex):
+		_draw_smoke_tint(layer, _center_of(_enemy_hex))
 	_draw_tokens_on(layer)
 
 
 func smoke_tint_active() -> bool:
 	## Soft HARD wash on your hex while you.smokeActive. Not a terrain rewrite.
 	return _smoke_tint and _you_hex != null
+
+
+func enemy_smoke_tint_active() -> bool:
+	## Only when enemy.smokeActive and visibleHex were both named.
+	return _enemy_smoke_tint and _enemy_hex != null
 
 
 func _paint_fallback(center: Vector2, kind: String, fill: Color) -> void:

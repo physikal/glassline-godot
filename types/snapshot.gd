@@ -84,6 +84,19 @@ func smoke_fields_present() -> bool:
 	return bool(_smoke_field("smokeAvailable").get("present", false))
 
 
+func enemy_smoke_active() -> bool:
+	## enemy.smokeActive only. Never you.* and never a secret hex.
+	## Missing / ended → false. Does not light your toast.
+	if status() == Contract.STATUS_ENDED:
+		return false
+	var bag := enemy()
+	for key in bag.keys():
+		var norm := str(key).to_lower().replace("_", "")
+		if norm == "smokeactive":
+			return _smoke_truthy(bag[key])
+	return false
+
+
 func _smoke_field(canonical: String) -> Dictionary:
 	## you.* first, then top-level. smokeAvailable / smoke_available / SmokeAvailable.
 	var want := canonical.to_lower().replace("_", "")

@@ -1,0 +1,92 @@
+SMOKE_BASE https://glassline-api.vercel.app
+PASS  GET /health
+PASS  POST /players
+PASS  S1 fresh match seated
+PASS  S1 smoke before the hunt is active
+HUNT  hard/open A 0,0 B 1,6 m_cb2bba6c86ec45cd96f3c4c55465b11f
+PASS  hunted HARD/OPEN
+HARD_OCCUPY {"type": "attack", "hit": true, "kill": true, "decoyCleared": false, "highGroundApplied": true, "coverApplied": false, "hitChance": 1}
+PASS  S3 real HARD hitChance 1
+PASS  S3 real HARD highGroundApplied
+PASS  S3 real HARD did not invent smoke
+PASS  S3 real HARD flag
+HUNT  open/brush A 0,0 B 8,6 m_51ef4fee780e4ea09f31a04e49319055
+BRUSH_MISS 200 {"type": "attack", "hit": false, "kill": false, "decoyCleared": false, "highGroundApplied": false, "coverApplied": false, "hitChance": 0}
+BRUSH_SMOKE 200 {"type": "smoke"}
+PASS  S4 enemy smoke before the brush shot
+PASS  S4 brush hunt still active
+BRUSH_OCCUPY {"type": "attack", "hit": true, "kill": true, "decoyCleared": false, "highGroundApplied": false, "coverApplied": true, "hitChance": 0.8}
+PASS  S4 brush cover still applies
+PASS  S4 brush hitChance 0.80
+PASS  S4 brush smoke is not HIGH GROUND
+HUNT  open/open A 0,0 B 8,6 m_688fb2c03ec34b198609d37d13230a2a
+PASS  hunted OPEN/OPEN
+PASS  S1 smokeAvailable true
+PASS  S1 smokeActive false
+PASS  S1 OPEN is not HIGH GROUND
+PASS  S4 decoy available before smoke
+PASS  S4 UAV available before smoke
+PASS  S5 exposurePct 50 before smoke
+PASS  S5 exposureFloor 50 before smoke
+PASS  S1 off-turn
+PASS  S1 smoke accepted
+PASS  S1 result is exactly { type: smoke }
+PASS  S1 phase await_end_turn
+PASS  S1 smokeAvailable false
+PASS  S1 smokeActive true
+PASS  S3 smoke does not light HIGH GROUND
+PASS  S4 decoy untouched
+PASS  S4 UAV untouched
+PASS  S4 marks untouched
+PASS  S5 floor untouched on cast
+PASS  S1 cast does not reveal
+PASS  S1 enemy.smokeActive
+PASS  S4 rival charge untouched
+PASS  S1 enemy.visibleHex stays null
+PASS  S1 second cast waits
+PASS  S2 planting end keeps the puff
+PASS  S5 floor stays 50 on planting end
+PASS  S2 smoked spotChance 15
+PASS  S2 recon sees enemy.smokeActive
+PASS  S2 a real spot may name the hex
+PASS  S2 enemy end_turn
+PASS  S2 still live after the enemy turn
+PASS  S2 caster's next window
+PASS  S2 still live on the next action
+PASS  S2 cleared on the next own end_turn
+PASS  S2 charge stays spent
+PASS  S5 floor stays 50 after expiry
+PASS  S1 smoke already used
+HUNT  open/open A 1,0 B 1,6 m_86f8502b38d44bdc9d5db4bd433d59b1
+PASS  hunted a second OPEN/OPEN for spot 35 and occupy
+PASS  S2 OPEN spotChance 35
+PASS  S3 puff live before occupy
+PASS  S3 smoker is not HIGH GROUND
+SMOKE_OCCUPY {"type": "attack", "hit": false, "kill": false, "decoyCleared": false, "highGroundApplied": false, "coverApplied": false, "hitChance": 0.9}
+PASS  S3 occupy accepted
+PASS  S3 hitChance 0.90
+PASS  S3 highGroundApplied false
+PASS  S3 coverApplied false on OPEN
+PASS  S3 snapshot HG stays false
+NOTE  hunt 8 seat failed 1,0 vs 0,0
+NOTE  hunt 9 seat failed 1,0 vs 5,3
+HUNT  open/hard A 2,0 B 8,6 m_6ad73deeb28c480698234487239bf270
+PASS  hunted OPEN/HARD
+HARD_MISS 200 {"type": "attack", "hit": false, "kill": false, "decoyCleared": false, "highGroundApplied": false, "coverApplied": false, "hitChance": 0}
+PASS  S2 HARD defender smokeActive
+PASS  S3 defender HARD stays HIGH GROUND
+PASS  S5 HARD doll floor 50
+PASS  S2 HARD+smoke spotChance stays 15
+PASS  S2 stacked recon sees enemy smoke
+PASS  S4 practice mode
+PASS  S4 practice smokeAvailable
+PASS  S4 practice smokeActive false
+PASS  S4 practice rival is the bot
+PASS  S4 practice smoke ok
+PASS  S4 practice smokeActive
+PASS  S4 practice smoke spends no Marks
+PASS  S4 practice planting end keeps the puff
+PASS  S5 practice exposurePct 50
+PASS  S4 practice smoke does not end the hunt
+PASS_N 76 FAIL_N 0
+LIVE_SMOKE_ABILITY_OK

@@ -1519,32 +1519,36 @@ func _act_uav(match_state: Dictionary, seat: String) -> ActionResult:
 
 func _act_smoke(match_state: Dictionary, seat: String) -> ActionResult:
 	## Once/match. Flags only — attack hit chance does not read smokeLive.
-	var gate := _need_own_action(match_state, seat)
-	if gate != "":
-		return _fail(match_state, seat, gate)
+	## LIVE result is exactly { type: "smoke" }. Extra hex in the body is ignored.
+	if match_state["status"] != Contract.STATUS_ACTIVE:
+		return _fail(match_state, seat, "match is not active")
+	if str(match_state["whoseTurn"]) != seat:
+		return _fail(match_state, seat, "not your turn")
+	if str(match_state["phase"]) != Contract.PHASE_ACTION:
+		return _fail(match_state, seat, "awaiting end_turn")
 	var seat_state: Dictionary = match_state["seats"][seat]
 	if not bool(seat_state.get("smokeAvailable", false)):
-		return _fail(match_state, seat, "smoke_spent")
+		return _fail(match_state, seat, "smoke already used")
 	seat_state["smokeAvailable"] = false
 	seat_state["smokeLive"] = true
 	seat_state["smokeHold"] = true
 	match_state["phase"] = Contract.PHASE_END_TURN
-	_set_last(match_state, {"type": Contract.ACT_SMOKE, "seat": seat, "active": true})
+	_set_last(match_state, {"type": Contract.ACT_SMOKE})
 	return _ok(match_state, seat)
 
 
 func _tick_smoke(match_state: Dictionary, ending_seat: String) -> void:
-	## Caster's planting end_turn keeps the puff. The enemy end_turn clears it.
-	for key in [Contract.SEAT_A, Contract.SEAT_B]:
-		var seat_state: Dictionary = match_state["seats"][key]
-		if not bool(seat_state.get("smokeLive", false)):
-			continue
-		if key == ending_seat:
-			if bool(seat_state.get("smokeHold", false)):
-				seat_state["smokeHold"] = false
-		else:
-			seat_state["smokeLive"] = false
-			seat_state["smokeHold"] = false
+	## Decoy clock. Only the seat who is ending ticks their own puff.
+	## Planting end_turn clears the hold and keeps the puff live.
+	## That seat's next own end_turn clears it. The enemy end_turn does not.
+	var seat_state: Dictionary = match_state["seats"][ending_seat]
+	if not bool(seat_state.get("smokeLive", false)):
+		return
+	if bool(seat_state.get("smokeHold", false)):
+		seat_state["smokeHold"] = false
+	else:
+		seat_state["smokeLive"] = false
+		seat_state["smokeHold"] = false
 
 
 func _smoke_active_for(match_state: Dictionary, seat: String) -> bool:
@@ -1851,6 +1855,7 @@ func _snapshot_for_seat(match_state: Dictionary, seat: String) -> Dictionary:
 			"visibleHex": visible,
 			"softHotTurnsLeft": int(intel.get("softHotTurnsLeft", 0)),
 			"decoySoftHex": _decoy_hex_for_snap(match_state["seats"][other], match_state),
+			"smokeActive": _smoke_active_for(match_state, other),
 			"disconnectedAt": _disconnected_iso(match_state["seats"][other]),
 		},
 		"terrain": terrain,
