@@ -1,24 +1,24 @@
 # Hideout operative XP plate
 
-Client base `80c3e94`. Coder field tip `20c1b2a`.
+Client base `80c3e94`. Field names from Coder `20c1b2a`. Soft P2 ShopYou is LIVE at tip `7fbd884`.
 
-Wood chip on the hideout: server `operativeLevel`, an XP bar toward the next 100, and a muted `SMOKE · L5` tip while the level is under 5. L5+ drops the tip. No rank chrome. The match SMOKE chip is unchanged and still ignores `xp`.
+Wood chip on the hideout: server `operativeLevel`, an XP bar of `xp % 100` toward 100, and a muted `SMOKE · L5` tip while the level is under 5. L5+ drops the tip. No rank chrome. The match SMOKE chip is unchanged and still ignores `xp`.
 
 ## Sources
 
-| Source | When |
+| Source | Role |
 | --- | --- |
-| `POST /players` | `ClientSession.bind_player` — exact `xp`, `operativeLevel`, `exposureFloor` |
-| Match / ended `you` | `apply_snapshot` — same keys on `you` |
-| `GET /shop/me` ShopYou | Hideout refresh **prefers** these when the keys are present |
+| `GET /shop/me` `you` | **Primary.** Hideout calls this on every refresh. `you.xp`, `you.operativeLevel`, `you.exposureFloor` |
+| `POST /players` | Fallback only when that shop field is absent |
+| Match / ended `you` | Fallback only when that shop field is absent |
 
-A missing key does not invent a total, a level, or Marks, and does not wipe a card already bound. Snake-case aliases are ignored. Level on the chip is the server `operativeLevel`, not `1 + floor(xp / 100)` computed in place of a missing field. That formula is the server curve only. Toward-next has no server field: progress `xp % 100`, remaining `100 - (xp % 100)`.
+A missing shop key does not invent a total, a level, a floor, or Marks, and does not wipe a fallback card. Snake-case aliases are ignored. The chip needs both `xp` and `operativeLevel`. One without the other hides the plate. The label is the server level, not `1 + floor(xp / 100)` filled in locally. Toward-next has no server field: progress `xp % 100`, remaining `100 - (xp % 100)`.
 
-`you.smokeAvailable` stays on the match snapshot. It is not copied onto ShopYou and the plate does not read it.
+`you.smokeAvailable` stays on the match snapshot. It is not on ShopYou and the plate does not read it.
 
-## Soft P2 / ShopYou
+## Soft P2
 
-The slice called ShopYou pending. Probed `https://glassline-api.vercel.app` on 2026-09-23: `GET /shop/me` `you` already includes `xp`, `operativeLevel`, and `exposureFloor` (fresh player `0` / `1` / `50`) and does **not** include `smokeAvailable`. `POST /players` returns the same three fields at the top level. A practice snapshot `you` returns them plus the match charge. Hideout refresh therefore prefers ShopYou today. If a payload omits the keys, the client keeps the last players or match card.
+Tip `7fbd884` is LIVE. `GET /shop/me` `you` carries `xp`, `operativeLevel`, and `exposureFloor`. A fresh player on `https://glassline-api.vercel.app` is `0` / `1` / `50`. ShopYou does not include `smokeAvailable`.
 
 ## Practice
 

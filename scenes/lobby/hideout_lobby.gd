@@ -1822,18 +1822,30 @@ func _bind_wallet() -> void:
 
 
 func _bind_shop() -> void:
+	## Catalog first. The operative plate then binds GET /shop/me as primary.
 	var bag: Dictionary = MatchAPI.get_shop()
 	ClientSession.apply_shop(bag)
-	if ClientSession.use_live_api():
-		var me: Dictionary = MatchAPI.get_shop_me()
-		if str(me.get("error", "")) == "":
-			ClientSession.apply_shop(me)
+	_bind_shop_me()
 	_refresh_shop()
+
+
+func _bind_shop_me() -> void:
+	## Primary card: you.xp, you.operativeLevel, you.exposureFloor.
+	## Absent keys do not invent; POST /players and match you stay as fallback.
+	var me: Dictionary = MatchAPI.get_shop_me()
+	if str(me.get("error", "")) != "":
+		return
+	ClientSession.apply_shop(me)
 
 
 func _refresh_operative() -> void:
 	if _xp_plate:
-		_xp_plate.bind_from_session()
+		_xp_plate.bind(
+			ClientSession.operative_level_present,
+			ClientSession.operative_level,
+			ClientSession.xp_present,
+			ClientSession.xp
+		)
 
 
 func _capture_xp_plate(kind: String) -> void:

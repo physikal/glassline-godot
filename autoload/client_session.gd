@@ -91,8 +91,10 @@ func bind_marks(balance: int) -> void:
 
 
 func bind_exposure_floor_payload(bag: Dictionary) -> void:
-	## Read the server percent when the payload carries it. Otherwise 50.
-	## Does not write a percent and does not read operativeLevel.
+	## Named you.exposureFloor replaces the cache. A missing key keeps the last
+	## server percent (start 50 until one arrives). Never mapped from operativeLevel.
+	if not Contract.exposure_floor_named(bag):
+		return
 	exposure_floor = Contract.exposure_floor_from_payload(bag)
 
 
@@ -200,8 +202,8 @@ func apply_shop(bag: Dictionary) -> void:
 	_sync_part_stub()
 	_bind_part_feel(bag)
 	bind_exposure_floor_payload(bag)
-	## ShopYou xp / operativeLevel overwrite the players or match cache when named.
-	## A catalog that omits them leaves the last server numbers alone.
+	## GET /shop/me is the hideout primary. Named xp / operativeLevel replace the
+	## players or match fallback. Omitted keys stay on that fallback — never invented.
 	_bind_operative_card(bag, "shop")
 
 

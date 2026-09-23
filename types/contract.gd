@@ -469,9 +469,30 @@ static func _as_operative_int(value: Variant) -> Variant:
 	return null
 
 
+static func exposure_floor_named(bag: Dictionary) -> bool:
+	## Exact exposureFloor on you, the bag, player, or snapshot. Absent is not 50.
+	if bag.has("exposureFloor"):
+		return true
+	var you_bag: Variant = bag.get("you", null)
+	if you_bag is Dictionary and (you_bag as Dictionary).has("exposureFloor"):
+		return true
+	var player_bag: Variant = bag.get("player", null)
+	if player_bag is Dictionary and (player_bag as Dictionary).has("exposureFloor"):
+		return true
+	var snap: Variant = bag.get("snapshot", null)
+	if snap is Dictionary:
+		if (snap as Dictionary).has("exposureFloor"):
+			return true
+		var snap_you: Variant = snap.get("you", null)
+		if snap_you is Dictionary and (snap_you as Dictionary).has("exposureFloor"):
+			return true
+	return false
+
+
 static func exposure_floor_from_payload(bag: Dictionary) -> int:
 	## Read you.exposureFloor / top-level exposureFloor / player.exposureFloor.
 	## operativeLevel, skins, guns, and poster chrome are ignored.
+	## A missing field does not invent 50 — callers keep the last server floor.
 	if bag.has("exposureFloor"):
 		return exposure_floor_or_start(bag.get("exposureFloor"), true)
 	var you_bag: Variant = bag.get("you", null)
@@ -480,6 +501,13 @@ static func exposure_floor_from_payload(bag: Dictionary) -> int:
 	var player_bag: Variant = bag.get("player", null)
 	if player_bag is Dictionary and (player_bag as Dictionary).has("exposureFloor"):
 		return exposure_floor_or_start((player_bag as Dictionary).get("exposureFloor"), true)
+	var snap: Variant = bag.get("snapshot", null)
+	if snap is Dictionary:
+		if (snap as Dictionary).has("exposureFloor"):
+			return exposure_floor_or_start((snap as Dictionary).get("exposureFloor"), true)
+		var snap_you: Variant = snap.get("you", null)
+		if snap_you is Dictionary and (snap_you as Dictionary).has("exposureFloor"):
+			return exposure_floor_or_start((snap_you as Dictionary).get("exposureFloor"), true)
 	return EXPOSURE_FLOOR_START
 
 
