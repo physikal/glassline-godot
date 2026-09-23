@@ -28,19 +28,21 @@ const TILE_UNKNOWN := "res://assets/art_v2/hex_unknown_tile.png"
 const MATCH_BOARD := "res://assets/canon/match-board-canon.jpg"
 const MATCH_BOARD_FALLBACK := "res://assets/canon/hex-map.jpg"
 
-## Plate-pixel hang points on the 1280×720 hideout (olive / tan / teal).
+## Plate-pixel hang boxes on 1280×720 lobby-canon.jpg.
+## Each rect is the painted bolt the crop was lifted from — not a letterboxed slot.
+## Crescent's body starts 6px under the old wood margin. Hands are the small bolt, not the torso box.
 const RACK_POS := {
 	"gun_fieldbolt": Vector2(24, 192),
 	"gun_railframe": Vector2(24, 252),
-	"gun_crescent": Vector2(24, 312),
+	"gun_crescent": Vector2(24, 318),
 }
 const RACK_SIZE := {
 	"gun_fieldbolt": Vector2(268, 56),
 	"gun_railframe": Vector2(268, 56),
-	"gun_crescent": Vector2(268, 56),
+	"gun_crescent": Vector2(268, 50),
 }
-const HELD_POS := Vector2(600, 320)
-const HELD_SIZE := Vector2(228, 88)
+const HELD_POS := Vector2(628, 348)
+const HELD_SIZE := Vector2(192, 52)
 
 
 static func tex(path: String) -> Texture2D:
