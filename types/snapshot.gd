@@ -84,6 +84,87 @@ func smoke_fields_present() -> bool:
 	return bool(_smoke_field("smokeAvailable").get("present", false))
 
 
+func operative_level_present() -> bool:
+	## you.operativeLevel / operative_level / any casing. xp is not a level.
+	return bool(_you_or_top_field("operativeLevel").get("present", false))
+
+
+func operative_level() -> int:
+	## Named server field only. Missing → -1. Never derived from xp or the gear floor.
+	var found := _you_or_top_field("operativeLevel")
+	if not bool(found.get("present", false)):
+		return -1
+	return _operative_level_number(found.get("value"))
+
+
+func smoke_lock_reason() -> String:
+	## Server sentence when it names one. Bool flags are not copy.
+	for name in ["smokeLockReason", "smokeLockedReason"]:
+		var found := _you_or_top_field(name)
+		if not bool(found.get("present", false)):
+			continue
+		var text := _smoke_reason_text(found.get("value"))
+		if text != "":
+			return text
+	var flag := _you_or_top_field("smokeLocked")
+	if bool(flag.get("present", false)):
+		var value: Variant = flag.get("value")
+		if value is String:
+			var text := str(value).strip_edges()
+			var low := text.to_lower()
+			if text != "" and low not in ["0", "1", "true", "false", "yes", "no"]:
+				return text
+	return ""
+
+
+func smoke_locked_flag() -> bool:
+	var found := _you_or_top_field("smokeLocked")
+	if not bool(found.get("present", false)):
+		return false
+	return _smoke_truthy(found.get("value"))
+
+
+func smoke_explicitly_locked() -> bool:
+	if smoke_locked_flag():
+		return true
+	return smoke_lock_reason() != ""
+
+
+func smoke_chrome() -> String:
+	## Lit only when the charge is named and operativeLevel is at least L5.
+	## Below L5, a lock flag/reason, or a charge with no level stays locked.
+	## Spent wood is a used charge once the level is known and not a lock.
+	var below := operative_level_present() and operative_level() < Contract.SMOKE_UNLOCK_LEVEL
+	if smoke_explicitly_locked() or below:
+		return Contract.SMOKE_CHROME_LOCKED
+	if not operative_level_present():
+		if smoke_available():
+			return Contract.SMOKE_CHROME_LOCKED
+		if smoke_fields_present():
+			return Contract.SMOKE_CHROME_SPENT
+		return Contract.SMOKE_CHROME_ABSENT
+	if not smoke_fields_present():
+		return Contract.SMOKE_CHROME_ABSENT
+	if smoke_available():
+		return Contract.SMOKE_CHROME_AVAILABLE
+	return Contract.SMOKE_CHROME_SPENT
+
+
+func smoke_lock_toast() -> String:
+	## Default line, or the server sentence when it already reads as copy.
+	var reason := smoke_lock_reason()
+	if reason == "":
+		return Contract.SMOKE_LOCKED_TOAST
+	if reason == Contract.SMOKE_LOCKED_TOAST:
+		return reason
+	var folded := reason.to_lower().replace("_", "").replace("-", "").replace(" ", "")
+	if folded in ["operativel5", "operativelevel", "belowl5", "belowoperativelevel", "reachoperativel5", "smokelocked", "locked", "level"]:
+		return Contract.SMOKE_LOCKED_TOAST
+	if reason.find(" ") >= 0:
+		return reason
+	return Contract.SMOKE_LOCKED_TOAST
+
+
 func enemy_smoke_active() -> bool:
 	## enemy.smokeActive only. Never you.* and never a secret hex.
 	## Missing / ended → false. Does not light your toast.
@@ -99,6 +180,12 @@ func enemy_smoke_active() -> bool:
 
 func _smoke_field(canonical: String) -> Dictionary:
 	## you.* first, then top-level. smokeAvailable / smoke_available / SmokeAvailable.
+	return _you_or_top_field(canonical)
+
+
+func _you_or_top_field(canonical: String) -> Dictionary:
+	## you.* first, then top-level. Underscores and casing do not matter.
+	## Does not read enemy.*, xp, or exposureFloor.
 	var want := canonical.to_lower().replace("_", "")
 	var bags: Array = [you(), raw]
 	for bag in bags:
@@ -110,6 +197,26 @@ func _smoke_field(canonical: String) -> Dictionary:
 			if norm == want:
 				return {"present": true, "value": dict[key]}
 	return {"present": false}
+
+
+func _operative_level_number(value: Variant) -> int:
+	if value == null or value is bool:
+		return -1
+	if value is int or value is float:
+		return int(value)
+	if value is String:
+		var text := str(value).strip_edges()
+		if text.is_valid_int():
+			return int(text)
+		if text.is_valid_float():
+			return int(float(text))
+	return -1
+
+
+func _smoke_reason_text(value: Variant) -> String:
+	if value == null:
+		return ""
+	return str(value).strip_edges()
 
 
 func _smoke_truthy(value: Variant) -> bool:

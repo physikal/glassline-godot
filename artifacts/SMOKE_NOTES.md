@@ -16,12 +16,26 @@ LIVE source of truth: API tip `fa7285ba` on `https://glassline-api.vercel.app`.
 | `Snapshot.smoke_available()` | `you.smokeAvailable`, or `smoke_available`, or any casing. Missing → **false** |
 | `Snapshot.smoke_active()` | `you.smokeActive` bool or turns-remaining `> 0`. Same casing tolerance. Missing or match ended → **false** |
 | `Snapshot.enemy_smoke_active()` | `enemy.smokeActive` only. Does not read `you.*` and does not invent `visibleHex` |
-| Match HUD | **SMOKE** chip (same toy puff) above the painted ABILITY key. Available is lit hot purple. Spent, or a missing field, is grey muted wood |
-| Click | Posts only when `smoke_available()`. Otherwise no-op |
+| Match HUD | **SMOKE** chip (same toy puff) above the painted ABILITY key. Available is lit hot purple. Locked (below L5) and spent share the grey muted wood plate |
+| Click | Posts only when `smoke_chrome()` is available (L5 and a named charge). Locked tap toasts. Spent / absent do not POST |
 | Your puff | Toast `Smoke — hex is Hard this turn` and a soft HARD wash on **your** hex |
 | Rival puff | Wash only if `enemy.smokeActive` and `enemy.visibleHex` are both already set. No toast |
 
-Poll fingerprint includes `you.smokeAvailable` / `you.smokeActive` and `enemy.smokeActive` so a live flip refreshes the board.
+Poll fingerprint includes `you.smokeAvailable` / `you.smokeActive`, `you.operativeLevel`, `you.smokeLocked`, `you.smokeLockReason`, and `enemy.smokeActive` so a live flip refreshes the board.
+
+## L5 unlock
+
+Slice: [SMOKE L5 unlock](https://www.notion.so/3e44dabdb33981a2b27ff27e4bdcba91). API baseline `4d38de3`. The client displays `you.operativeLevel` and does not invent a level from `xp` or from Practice.
+
+| Gate | Client |
+| --- | --- |
+| U1 | Chip lights only when `operativeLevel >= 5` and `smokeAvailable` is true |
+| U2 | Below L5 the chip stays visible on the Soft P2 spent-wood plate. Tap toasts `Reach operative L5`, or the server sentence in `you.smokeLockReason` |
+| U3 | `xp` is ignored. Practice does not level. An L5 snapshot stays unlocked in practice |
+| U4 | Once unlocked, the once/match puff, HARD spot/exposure, no Attack +0.10, and the decoy clock are unchanged |
+| U5 | No Marks, no IAP, no catalog SKU, no second charge. A locked tap does not spend the puff |
+
+Fail closed: a named charge with no `operativeLevel` stays locked and does not POST. A missing charge with no level stays the absent chip. Mock accounts start at L5 so the existing harness stays the unlocked path; `operative_level = 4` locks and refuses with `operative level`.
 
 ## Decoy clock
 
@@ -54,11 +68,15 @@ If the snapshot does not name `smokeAvailable`, the chip stays muted and the pre
 | Chip available | `artifacts/ux/smoke_chip_available.png` |
 | Chip spent / muted | `artifacts/ux/smoke_chip_spent.png` |
 | Active toast + tint | `artifacts/ux/smoke_active_toast.png` |
+| Chip locked below L5 | `artifacts/ux/smoke_chip_locked.png` |
+| Lock toast | `artifacts/ux/smoke_lock_toast.png` |
 
 ```
 /tmp/godot --path . --resolution 1280x720 -- --capture-smoke-available
 /tmp/godot --path . --resolution 1280x720 -- --capture-smoke-spent
 /tmp/godot --path . --resolution 1280x720 -- --capture-smoke-active
+/tmp/godot --path . --resolution 1280x720 -- --capture-smoke-locked
+/tmp/godot --path . --resolution 1280x720 -- --capture-smoke-lock-toast
 ```
 
 Headless: `godot --headless --path . -s res://tools/headless_loop_test.gd` → `HEADLESS_LOOP_OK`.

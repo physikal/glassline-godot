@@ -264,25 +264,26 @@ static func smoke_chip() -> Button:
 	return button
 
 
-static func paint_smoke_chip(button: Button, available: bool) -> void:
-	## Lit hot purple only while snapshot smokeAvailable.
-	## Spent and missing fields stay grey wood. Same puff; theme mutes it.
+static func paint_smoke_chip(button: Button, available: bool, locked: bool = false) -> void:
+	## Lit hot purple only while the charge is unlocked.
+	## Locked (below L5) and spent share the Soft P2 grey wood plate. Same puff.
 	if button == null:
 		return
-	button.set_meta("smoke_lit", available)
+	var lit := available and not locked
+	button.set_meta("smoke_lit", lit)
+	button.set_meta("smoke_locked", locked and not lit)
 	button.text = Contract.SMOKE_LABEL
-	var bg := ABILITY_PURPLE if available else SMOKE_SPENT
-	var fg := Color.WHITE if available else SMOKE_SPENT_INK
+	var bg := ABILITY_PURPLE if lit else SMOKE_SPENT
+	var fg := Color.WHITE if lit else SMOKE_SPENT_INK
 	paint_chunk_button(button, bg, fg)
-	## One white puff. Spent multiplies it by the grey ink — no second texture.
+	## One white puff. Locked and spent multiply it by the grey ink — no second texture.
 	button.icon = make_icon("smoke", Color.WHITE, 30)
-	var icon_tint := Color.WHITE if available else SMOKE_SPENT_INK
+	var icon_tint := Color.WHITE if lit else SMOKE_SPENT_INK
 	for state in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
 		button.add_theme_color_override("icon_%s_color" % state, icon_tint)
-	if not available:
-		## The HUD shows this chip disabled once the charge is gone.
-		## Keep the plate and the label on the grey wood — do not darken
-		## back toward purple or fade the word out.
+	if not lit:
+		## Locked stays tappable. Spent is disabled. Both keep this wood plate —
+		## do not darken it back toward purple or fade the word out.
 		var radius := 18
 		var edge := SMOKE_SPENT.lightened(0.18)
 		button.add_theme_stylebox_override("normal", flat(SMOKE_SPENT, radius, edge, 3))
@@ -293,7 +294,12 @@ static func paint_smoke_chip(button: Button, available: bool) -> void:
 		button.add_theme_color_override("font_hover_color", SMOKE_SPENT_INK)
 		button.add_theme_color_override("font_pressed_color", SMOKE_SPENT_INK)
 		button.add_theme_color_override("font_disabled_color", SMOKE_SPENT_INK)
-	button.tooltip_text = Contract.SMOKE_COPY if available else Contract.SMOKE_SPENT_COPY
+	if lit:
+		button.tooltip_text = Contract.SMOKE_COPY
+	elif locked:
+		button.tooltip_text = Contract.SMOKE_LOCKED_TOAST
+	else:
+		button.tooltip_text = Contract.SMOKE_SPENT_COPY
 
 
 static func high_ground_chip(active: bool = false) -> Control:

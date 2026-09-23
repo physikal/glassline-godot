@@ -72,13 +72,20 @@ const FORFEIT_REASONS := ["forfeit", "disconnect", "disconnected", "ragequit"]
 const ABILITY_LABEL := "UAV"
 const ABILITY_SLOT := "ABILITY"
 ## Ability SMOKE — once/match toy puff. Intent `{ type: "smoke" }`, no hex.
-## Bind you.smokeAvailable / you.smokeActive (any casing). Missing → chip muted, no-op.
-## HARD for exposure+spot is server-owned. No Attack +0.10. No IN COVER chip.
+## Bind you.smokeAvailable / you.smokeActive / you.operativeLevel (any casing).
+## Missing level or charge → not available. HARD for exposure+spot is server-owned.
+## No Attack +0.10. No IN COVER chip. No Marks buy. No IAP. Practice XP does not level.
 const SMOKE_LABEL := "SMOKE"
+const SMOKE_UNLOCK_LEVEL := 5
 const SMOKE_TOAST := "Smoke — hex is Hard this turn"
+const SMOKE_LOCKED_TOAST := "Reach operative L5"
 const SMOKE_COPY := "Once a hunt. A toy puff — your hex counts as Hard this turn."
 const SMOKE_SPENT_COPY := "Smoke is spent."
 const SMOKE_ABSENT_COPY := "Smoke is not on this hunt."
+const SMOKE_CHROME_AVAILABLE := "available"
+const SMOKE_CHROME_LOCKED := "locked"
+const SMOKE_CHROME_SPENT := "spent"
+const SMOKE_CHROME_ABSENT := "absent"
 ## Ability #2 — toy doll decoy. Intent `{ type: "decoy" }`, no hex arg.
 const DECOY_LABEL := "DECOY"
 const DECOY_SLOT := "TOY DOLL"
