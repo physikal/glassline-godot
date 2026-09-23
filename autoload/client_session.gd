@@ -43,6 +43,15 @@ var equipped_decor: String = ""
 ## Visual gun rack. Starter Fieldbolt owned-by-default until Coder gun SKUs.
 var owned_guns: Array = [Contract.GUN_FIELDBOLT]
 var equipped_gun: String = Contract.GUN_FIELDBOLT
+## Gun parts. Empty id = bare default. Feel is chrome, never a hit roll.
+var owned_parts: Array = []
+var equipped_optic: String = ""
+var equipped_stock: String = ""
+var equipped_barrel: String = ""
+var feel_wobble_scale: float = Contract.WOBBLE_SCALE_BASE
+var feel_shot_window_ms: int = Contract.SHOT_WINDOW_BASE_MS
+var feel_wobble_from_server: bool = false
+var feel_window_from_server: bool = false
 ## Display cache of server you.exposureFloor. Missing payload → start 50.
 ## Never written back. Cosmetics and operativeLevel do not compute it.
 var exposure_floor: int = Contract.EXPOSURE_FLOOR_START
@@ -152,14 +161,31 @@ func apply_shop(bag: Dictionary) -> void:
 				owned_guns.append(gun_id)
 	if shop.equipped_gun_present:
 		equipped_gun = str(shop.equipped_gun)
+	if shop.owned_parts_present:
+		owned_parts = shop.owned_parts.duplicate()
+	else:
+		for pid in shop.owned_parts:
+			var part_id := str(pid)
+			if part_id != "" and not owned_parts.has(part_id):
+				owned_parts.append(part_id)
+	if shop.equipped_optic_present:
+		equipped_optic = str(shop.equipped_optic)
+	if shop.equipped_stock_present:
+		equipped_stock = str(shop.equipped_stock)
+	if shop.equipped_barrel_present:
+		equipped_barrel = str(shop.equipped_barrel)
 	_sync_cosmetic_flags()
 	_sync_gun_stub()
+	_sync_part_stub()
+	_bind_part_feel(bag)
 	bind_exposure_floor_payload(bag)
 
 
 func owns_cosmetic(item_id: String) -> bool:
 	if Contract.is_gun_chrome(item_id):
 		return owns_gun(item_id)
+	if Contract.is_part_chrome(item_id):
+		return owns_part(item_id)
 	return owned_cosmetics.has(item_id)
 
 
@@ -167,6 +193,9 @@ func is_equipped(item_id: String) -> bool:
 	if Contract.is_gun_chrome(item_id):
 		var gid := Contract.canonical_gun_id(item_id)
 		return gid != "" and Contract.canonical_gun_id(equipped_gun) == gid and owns_gun(gid)
+	if Contract.is_part_chrome(item_id):
+		var pid := Contract.canonical_part_id(item_id)
+		return pid != "" and _equipped_part(Contract.part_slot(pid)) == pid and owns_part(pid)
 	if Contract.is_decor_chrome(item_id):
 		return equipped_decor == item_id
 	return equipped_cosmetic == item_id
@@ -176,11 +205,18 @@ func bind_equip_local(item_id: String, slot: String = "") -> void:
 	## Visual toggle after a successful mock persist / LIVE local-only equip.
 	var use_gun := slot == Contract.GUN_SLOT or Contract.is_gun_chrome(item_id)
 	var use_decor := slot == "decor" or Contract.is_decor_chrome(item_id)
+	var use_part := Contract.is_part_slot(slot) or Contract.is_part_chrome(item_id)
 	if item_id != "" and not owns_cosmetic(item_id):
 		return
 	if use_gun:
 		equipped_gun = Contract.canonical_gun_id(item_id)
 		_sync_gun_stub()
+		return
+	if use_part:
+		var part_slot := slot if Contract.is_part_slot(slot) else Contract.part_slot(item_id)
+		_set_equipped_part(part_slot, Contract.canonical_part_id(item_id))
+		_sync_part_stub()
+		_bind_part_feel({})
 		return
 	if use_decor:
 		equipped_decor = item_id
@@ -226,6 +262,122 @@ func equipped_gun_id() -> String:
 	return gid if owns_gun(gid) else Contract.GUN_FIELDBOLT
 
 
+func _sync_part_stub() -> void:
+	for item_id in owned_cosmetics:
+		var harvested := Contract.canonical_part_id(str(item_id))
+		if harvested != "" and not owned_parts.has(harvested):
+			owned_parts.append(harvested)
+	equipped_optic = _kept_part(equipped_optic)
+	equipped_stock = _kept_part(equipped_stock)
+	equipped_barrel = _kept_part(equipped_barrel)
+
+
+func _kept_part(item_id: String) -> String:
+	var pid := Contract.canonical_part_id(item_id)
+	if pid == "":
+		return ""
+	return pid if owns_part(pid) else ""
+
+
+func owns_part(item_id: String) -> bool:
+	var pid := Contract.canonical_part_id(item_id)
+	if pid == "":
+		return false
+	return owned_parts.has(pid) or owned_cosmetics.has(pid)
+
+
+func _equipped_part(slot: String) -> String:
+	match slot:
+		Contract.PART_SLOT_OPTIC:
+			return Contract.canonical_part_id(equipped_optic)
+		Contract.PART_SLOT_STOCK:
+			return Contract.canonical_part_id(equipped_stock)
+		Contract.PART_SLOT_BARREL:
+			return Contract.canonical_part_id(equipped_barrel)
+		_:
+			return ""
+
+
+func _set_equipped_part(slot: String, item_id: String) -> void:
+	match slot:
+		Contract.PART_SLOT_OPTIC:
+			equipped_optic = item_id
+		Contract.PART_SLOT_STOCK:
+			equipped_stock = item_id
+		Contract.PART_SLOT_BARREL:
+			equipped_barrel = item_id
+
+
+func equipped_optic_id() -> String:
+	return _kept_part(equipped_optic)
+
+
+func equipped_stock_id() -> String:
+	return _kept_part(equipped_stock)
+
+
+func equipped_barrel_id() -> String:
+	return _kept_part(equipped_barrel)
+
+
+func part_slot_state(item_id: String) -> String:
+	var pid := Contract.canonical_part_id(item_id)
+	if pid == "":
+		return "empty"
+	if _equipped_part(Contract.part_slot(pid)) == pid and owns_part(pid):
+		return "equipped"
+	if owns_part(pid):
+		return "owned"
+	return "empty"
+
+
+func attack_wobble_scale() -> float:
+	## Server wobbleScale when the snapshot named a number. Else Design juice.
+	return feel_wobble_scale
+
+
+func attack_shot_window_sec() -> float:
+	return float(feel_shot_window_ms) / 1000.0
+
+
+func _bind_part_feel(bag: Dictionary) -> void:
+	var you: Dictionary = {}
+	var named: Variant = bag.get("you", {})
+	if named is Dictionary:
+		you = named
+	var root: Dictionary = bag
+	var snap: Variant = bag.get("snapshot", null)
+	if snap is Dictionary and not snap.is_empty():
+		root = snap
+		var snap_you: Variant = root.get("you", {})
+		if you.is_empty() and snap_you is Dictionary:
+			you = snap_you
+	var wobble_present := false
+	var wobble_value: Variant = null
+	if you.has("wobbleScale") and Contract.feel_number(you.get("wobbleScale")):
+		wobble_present = true
+		wobble_value = you.get("wobbleScale")
+	elif root.has("wobbleScale") and Contract.feel_number(root.get("wobbleScale")) and not you.has("wobbleScale"):
+		wobble_present = true
+		wobble_value = root.get("wobbleScale")
+	var window_present := false
+	var window_value: Variant = null
+	if you.has("shotWindowMs") and Contract.feel_number(you.get("shotWindowMs")):
+		window_present = true
+		window_value = you.get("shotWindowMs")
+	elif root.has("shotWindowMs") and Contract.feel_number(root.get("shotWindowMs")) and not you.has("shotWindowMs"):
+		window_present = true
+		window_value = root.get("shotWindowMs")
+	feel_wobble_from_server = wobble_present
+	feel_window_from_server = window_present
+	feel_wobble_scale = Contract.resolve_wobble_scale(
+		wobble_present, wobble_value, equipped_stock_id() != "", equipped_barrel_id() != ""
+	)
+	feel_shot_window_ms = Contract.resolve_shot_window_ms(
+		window_present, window_value, equipped_optic_id() != ""
+	)
+
+
 func gun_slot_state(item_id: String) -> String:
 	## Highlight uses the worn id. Hands / optic still fall back via equipped_gun_id().
 	var gid := Contract.canonical_gun_id(item_id)
@@ -259,7 +411,10 @@ func apply_snapshot(snap: Dictionary) -> void:
 		bind_marks(int(you.get("marks", 0)))
 		if you.has("owned") or you.has("equipped") or you.has("equippedSkinId") \
 				or you.has("equippedDecorId") or you.has("cosmetics") \
-				or you.has("equippedGunId") or you.has("ownedGuns") or you.has("ownedGunIds"):
+				or you.has("equippedGunId") or you.has("ownedGuns") or you.has("ownedGunIds") \
+				or you.has("equippedOpticId") or you.has("equippedStockId") or you.has("equippedBarrelId") \
+				or you.has("ownedParts") or you.has("ownedPartIds") \
+				or you.has("wobbleScale") or you.has("shotWindowMs"):
 			apply_shop({
 				"you": you,
 				"owned": you.get("owned", owned_cosmetics),
@@ -268,6 +423,12 @@ func apply_snapshot(snap: Dictionary) -> void:
 				"equippedDecorId": you.get("equippedDecorId", equipped_decor),
 				"equippedGunId": you.get("equippedGunId", equipped_gun),
 				"ownedGuns": you.get("ownedGuns", you.get("ownedGunIds", owned_guns)),
+				"equippedOpticId": you.get("equippedOpticId", null) if you.has("equippedOpticId") else equipped_optic,
+				"equippedStockId": you.get("equippedStockId", null) if you.has("equippedStockId") else equipped_stock,
+				"equippedBarrelId": you.get("equippedBarrelId", null) if you.has("equippedBarrelId") else equipped_barrel,
+				"ownedParts": you.get("ownedParts", you.get("ownedPartIds", owned_parts)),
+				"wobbleScale": you.get("wobbleScale", null) if you.has("wobbleScale") else null,
+				"shotWindowMs": you.get("shotWindowMs", null) if you.has("shotWindowMs") else null,
 			})
 	else:
 		bind_marks(0)

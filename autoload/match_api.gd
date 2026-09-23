@@ -111,6 +111,18 @@ func get_shop() -> Dictionary:
 					body["equippedGunId"] = you.get("equippedGunId")
 				if you.has("ownedGuns"):
 					body["ownedGuns"] = you.get("ownedGuns")
+				if you.has("equippedOpticId"):
+					body["equippedOpticId"] = you.get("equippedOpticId")
+				if you.has("equippedStockId"):
+					body["equippedStockId"] = you.get("equippedStockId")
+				if you.has("equippedBarrelId"):
+					body["equippedBarrelId"] = you.get("equippedBarrelId")
+				if you.has("ownedParts"):
+					body["ownedParts"] = you.get("ownedParts")
+				if you.has("wobbleScale"):
+					body["wobbleScale"] = you.get("wobbleScale")
+				if you.has("shotWindowMs"):
+					body["shotWindowMs"] = you.get("shotWindowMs")
 			if me.has("owned"):
 				body["owned"] = me.get("owned")
 			if me.has("ownedGuns"):

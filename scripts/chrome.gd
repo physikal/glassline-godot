@@ -125,6 +125,33 @@ static func rack_bolt_modulate(state: String) -> Color:
 			return Color.WHITE
 
 
+static func part_slot_chip(item_id: String, state: String) -> PanelContainer:
+	## Wood chip + toy glyph + green peg. No gold EQUIPPED strip. No combat copy.
+	var equipped := state == "equipped"
+	var chip := pill_chip(Color("24160f") if equipped else Color("1a140f"), Color("3d2a1c"))
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	chip.add_child(row)
+	var peg := rack_peg(state if state != "" else "empty")
+	peg.custom_minimum_size = Vector2(8, 16)
+	row.add_child(peg)
+	var icon := TextureRect.new()
+	var ink := CREAM if equipped else Color(0.72, 0.66, 0.54, 0.85)
+	icon.texture = make_icon(Contract.part_glyph(item_id), ink, 18)
+	icon.custom_minimum_size = Vector2(18, 18)
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(icon)
+	var label := Label.new()
+	label.text = Contract.part_name(item_id)
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	apply_label(label, 8, ink, true)
+	row.add_child(label)
+	chip.set_meta("part_state", state)
+	return chip
+
+
 static func rack_peg(state: String) -> Panel:
 	## Short painted dowel on the bolt. No EQUIPPED / OWNED / LOCKED strip.
 	var peg := Panel.new()
@@ -489,6 +516,12 @@ static func make_icon(kind: String, color: Color, px: int = 28) -> Texture2D:
 			_icon_speaker(img, color, false)
 		"speaker_off", "mute":
 			_icon_speaker(img, color, true)
+		"part_optic", "optic":
+			_icon_toy_optic(img, color)
+		"part_stock", "stock":
+			_icon_toy_stock(img, color)
+		"part_barrel", "barrel":
+			_icon_toy_barrel(img, color)
 		_:
 			_icon_star(img, color)
 	return ImageTexture.create_from_image(img)
@@ -689,6 +722,28 @@ static func _icon_high_ground(img: Image, color: Color) -> void:
 	_fill_rect(img, 12, 14, 12, 4, color)
 	_fill_rect(img, 10, 20, 8, 6, color)
 	_fill_rect(img, 8, 22, 12, 4, color)
+
+
+static func _icon_toy_optic(img: Image, color: Color) -> void:
+	## Round toy glass. A spyglass lens, not a mil-dot scope.
+	_stroke_circle(img, 14, 14, 9, color)
+	_fill_circle(img, 14, 14, 5, color)
+	_fill_circle(img, 12, 12, 2, Color("f4efe4"))
+	_fill_rect(img, 20, 16, 6, 3, color)
+
+
+static func _icon_toy_stock(img: Image, color: Color) -> void:
+	## Chunky wooden shoulder rest. Cozy block, not a rifle stock schematic.
+	_fill_rect(img, 6, 8, 16, 8, color)
+	_fill_rect(img, 8, 16, 10, 8, color)
+	_fill_rect(img, 16, 14, 6, 4, WOOD)
+
+
+static func _icon_toy_barrel(img: Image, color: Color) -> void:
+	## Short toy tube with a rounded cap. Not a muzzle device.
+	_fill_rect(img, 4, 12, 16, 5, color)
+	_fill_circle(img, 21, 14, 4, color)
+	_fill_rect(img, 6, 13, 4, 2, Color("f4efe4"))
 
 
 static func _icon_leaf(img: Image, color: Color) -> void:

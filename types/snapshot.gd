@@ -355,6 +355,57 @@ func you_equipped_gun_id() -> String:
 	return ""
 
 
+func you_equipped_part_id(key: String) -> String:
+	## Caller-scoped part id. Empty unless the snapshot named that key. Never invent.
+	var you_state := you()
+	if you_state.has(key):
+		return Contract.canonical_part_id(_as_item_id(you_state.get(key)))
+	var cosmetics: Variant = you_state.get("cosmetics", {})
+	if cosmetics is Dictionary and cosmetics.has(key):
+		return Contract.canonical_part_id(_as_item_id(cosmetics.get(key)))
+	return ""
+
+
+func you_equipped_optic_id() -> String:
+	return you_equipped_part_id("equippedOpticId")
+
+
+func you_equipped_stock_id() -> String:
+	return you_equipped_part_id("equippedStockId")
+
+
+func you_equipped_barrel_id() -> String:
+	return you_equipped_part_id("equippedBarrelId")
+
+
+func you_wobble_scale() -> Variant:
+	## Server you.wobbleScale only. Null when omitted or not a number.
+	return _you_feel_number("wobbleScale")
+
+
+func you_shot_window_ms() -> Variant:
+	## Server you.shotWindowMs only. Null when omitted or not a number.
+	return _you_feel_number("shotWindowMs")
+
+
+func _you_feel_number(key: String) -> Variant:
+	var you_state := you()
+	if not you_state.has(key):
+		return null
+	var value: Variant = you_state.get(key)
+	if not Contract.feel_number(value):
+		return null
+	return value
+
+
+func _as_item_id(value: Variant) -> String:
+	if value == null:
+		return ""
+	if value is Dictionary:
+		return str(value.get("itemId", value.get("id", "")))
+	return str(value)
+
+
 func you_equipped_skin_id() -> String:
 	## Caller-scoped chrome id. Empty unless the snapshot named it. Never invent.
 	var you_state := you()

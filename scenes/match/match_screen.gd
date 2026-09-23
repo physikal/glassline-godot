@@ -105,6 +105,8 @@ func _ready() -> void:
 		_capture_equip_doll()
 	elif "--capture-gun-equipped-optic" in args:
 		_capture_gun_equipped_optic()
+	elif "--capture-part-optic-feel" in args:
+		_capture_part_optic_feel()
 	elif "--capture-art-hex" in args:
 		_capture_art_hex()
 	elif "--capture-art-operative-doll" in args:
@@ -616,6 +618,42 @@ func _apply_smoke_toast(snap: Snapshot) -> void:
 	_toast.z_index = 0
 
 
+func _bind_doll_parts(snap: Snapshot) -> void:
+	if _exposure_doll == null or not _exposure_doll.has_method("bind_parts"):
+		return
+	var optic := snap.you_equipped_optic_id() if snap.you().has("equippedOpticId") else ClientSession.equipped_optic_id()
+	var stock := snap.you_equipped_stock_id() if snap.you().has("equippedStockId") else ClientSession.equipped_stock_id()
+	var barrel := snap.you_equipped_barrel_id() if snap.you().has("equippedBarrelId") else ClientSession.equipped_barrel_id()
+	_exposure_doll.bind_parts(optic, stock, barrel)
+
+
+func _capture_part_optic_feel() -> void:
+	## Optic lengthens the glass bar. Stock/barrel quiet the figure. Hit stays server-side.
+	if _coach:
+		_coach.dismiss()
+	await get_tree().process_frame
+	_submit(ActionIntent.select_hex(2, 2))
+	await get_tree().process_frame
+	if ClientSession.dummy_player_id != "":
+		MatchAPI.apply_action(ClientSession.match_id, ClientSession.dummy_player_id, ActionIntent.select_hex(7, 5))
+		await get_tree().process_frame
+	_submit(ActionIntent.start())
+	await get_tree().process_frame
+	_optic.open_for(Contract.hex_dict(4, 3), Contract.TYPE_BRUSH, true, ClientSession.equipped_gun_id())
+	if _optic.has_method("pose_feel_for_capture"):
+		_optic.pose_feel_for_capture()
+	if _optic.has_method("pose_joystick_for_capture"):
+		_optic.pose_joystick_for_capture()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	var path := ProjectSettings.globalize_path("res://artifacts/ux/part_optic_feel.png")
+	img.save_png(path)
+	print("PART_OPTIC_FEEL ", path)
+	get_tree().quit()
+
+
 func _bind_server_exposure(snap: Snapshot) -> void:
 	## Doll % is server you.exposureFloor. Missing field fail-closes to 50.
 	## NEXT label + slider use that same floor as baseline and minimum.
@@ -629,6 +667,7 @@ func _bind_server_exposure(snap: Snapshot) -> void:
 		if skin == "" and not snap.you().has("equippedSkinId") and not snap.you().has("equipped"):
 			skin = ClientSession.equipped_cosmetic
 		_exposure_doll.bind_equipped(skin)
+		_bind_doll_parts(snap)
 	if _exposure:
 		var snapped: Dictionary = Contract.snap_next_exposure(
 			floor, float(_exposure.value), _next_baseline, _next_player_raised

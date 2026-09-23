@@ -21,12 +21,19 @@ var gun_family: String = Contract.GUN_FIELDBOLT
 var _zoom := "MID"
 var _time := 0.0
 var _stick := Vector2.ZERO
+var _amp := 1.2
+var _window_sec := 1.2
+var _window_left := 1.2
+var _feel_frozen := false
 var _figure: Control
 var _note: Label
 var _area: Label
 var _joystick: Control
 var _family_stamp: TextureRect
 var _family_lbl: Label
+var _feel_bar: ColorRect
+var _feel_fill: ColorRect
+var _feel_lbl: Label
 
 
 func _ready() -> void:
@@ -53,6 +60,8 @@ func open_for(hex: Dictionary, terrain: String, show_figure: bool, family: Strin
 		gun_family = ClientSession.equipped_gun_id() if ClientSession else Contract.GUN_FIELDBOLT
 	if _note:
 		_note.text = ""
+	_feel_frozen = false
+	_apply_feel()
 	_refresh_family()
 	_refresh_area()
 	visible = true
@@ -62,6 +71,16 @@ func pose_joystick_for_capture() -> void:
 	## Nudge the thumb so the still reads as a stick, not the plate plus-pad.
 	if _joystick and _joystick.has_method("pose"):
 		_joystick.pose(Vector2(0.62, -0.38))
+
+
+func pose_feel_for_capture() -> void:
+	## Freeze the glass bar full and the figure at peak wobble so a still can read the juice.
+	_apply_feel()
+	_feel_frozen = true
+	_time = 1.5708 / 3.1
+	_window_left = _window_sec
+	_paint_feel_bar()
+	_paint_wobble()
 
 
 func show_server_result(note: String) -> void:
@@ -78,13 +97,56 @@ func close() -> void:
 
 
 func _process(delta: float) -> void:
-	if not visible:
+	if not visible or _feel_frozen:
 		return
 	_time += delta
-	if _figure:
-		var amp := 1.2
-		var wobble := Vector2(sin(_time * 3.1), cos(_time * 2.4)) * amp
-		_figure.position = Vector2(628, 268) + wobble + _stick * 36.0
+	if _window_left > 0.0:
+		_window_left = maxf(0.0, _window_left - delta)
+		_paint_feel_bar()
+	_paint_wobble()
+
+
+func _apply_feel() -> void:
+	## Chrome only. Server wobbleScale / shotWindowMs when present; else Design numbers.
+	## Never writes hit, spot, or exposure.
+	var scale := Contract.WOBBLE_SCALE_BASE
+	var window_ms := Contract.SHOT_WINDOW_BASE_MS
+	if ClientSession:
+		scale = ClientSession.attack_wobble_scale()
+		window_ms = ClientSession.feel_shot_window_ms
+	_amp = 1.2 * scale
+	_window_sec = maxf(0.2, float(window_ms) / 1000.0)
+	_window_left = _window_sec
+	var optic_on := _window_sec > 1.25
+	var quiet := scale < 0.99
+	if _feel_bar:
+		_feel_bar.visible = optic_on
+	if _feel_fill:
+		_feel_fill.visible = optic_on
+	if _feel_lbl:
+		if optic_on:
+			_feel_lbl.text = Contract.PART_TOAST_WINDOW
+		elif quiet:
+			_feel_lbl.text = Contract.PART_TOAST_WOBBLE
+		else:
+			_feel_lbl.text = ""
+		_feel_lbl.visible = _feel_lbl.text != ""
+	_paint_feel_bar()
+
+
+func _paint_wobble() -> void:
+	if _figure == null:
+		return
+	var wobble := Vector2(sin(_time * 3.1), cos(_time * 2.4)) * _amp
+	_figure.position = Vector2(628, 268) + wobble + _stick * 36.0
+
+
+func _paint_feel_bar() -> void:
+	if _feel_fill == null or _window_sec <= 0.0:
+		return
+	var full := 280.0 * (_window_sec / 1.4)
+	var ratio := clampf(_window_left / _window_sec, 0.0, 1.0)
+	_feel_fill.size = Vector2(full * ratio, 10)
 
 
 func _on_stick(value: Vector2) -> void:
@@ -184,6 +246,29 @@ func _build() -> void:
 	_family_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	Chrome.apply_label(_family_lbl, 8, Chrome.HIGH_GOLD, true)
 	add_child(_family_lbl)
+
+	## Shot-window juice. Hidden until an optic part lengthens the glass. Not a hit meter.
+	_feel_bar = ColorRect.new()
+	_feel_bar.color = Color("24160f")
+	_feel_bar.position = Vector2(500, 620)
+	_feel_bar.size = Vector2(280, 14)
+	_feel_bar.visible = false
+	_feel_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_feel_bar)
+	_feel_fill = ColorRect.new()
+	_feel_fill.color = Color("c9a24a")
+	_feel_fill.position = Vector2(502, 622)
+	_feel_fill.size = Vector2(276, 10)
+	_feel_fill.visible = false
+	_feel_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_feel_fill)
+	_feel_lbl = Label.new()
+	_feel_lbl.position = Vector2(500, 636)
+	_feel_lbl.size = Vector2(280, 24)
+	_feel_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_feel_lbl.visible = false
+	Chrome.apply_label(_feel_lbl, 10, Color("f0e3b0"), true)
+	add_child(_feel_lbl)
 
 	_refresh_family()
 	_refresh_area()

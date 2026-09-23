@@ -47,6 +47,8 @@ var _buying_id: String = ""
 var _gun_rack: Control
 var _gun_hands: TextureRect
 var _gun_kicker: Label
+var _part_kicker: Label
+var _part_chips: HBoxContainer
 var _wallet_row: HBoxContainer
 var _taste_doll: ExposureDoll
 var _dock_quick: Button
@@ -202,6 +204,22 @@ func _ready() -> void:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 		DisplayServer.window_set_size(Vector2i(1280, 720))
 		await _capture_gun_equipped_optic()
+	elif "--capture-part-armory" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await _capture_part_armory()
+	elif "--capture-part-equipped" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await _capture_part_equipped()
+	elif "--capture-part-buy-toast" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await _capture_part_buy_toast()
+	elif "--capture-part-optic-feel" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await _capture_part_optic_feel()
 	elif "--capture-art-hex" in args or "--capture-art-optic" in args:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 		DisplayServer.window_set_size(Vector2i(1280, 720))
@@ -597,6 +615,90 @@ func _capture_gun_rack_dynamic() -> void:
 	await _capture_named("res://artifacts/ux/gun_rack_dynamic.png", "GUN_RACK_DYNAMIC")
 
 
+func _capture_part_armory() -> void:
+	## Third Marks row: Optic ★75 · Stock ★100 · Barrel ★125. No combat copy.
+	if not ClientSession.use_live_api():
+		MockMatchServer.reset_wallet(24)
+	_bind_wallet()
+	_bind_shop()
+	_refresh_marks()
+	_refresh_shop()
+	if _shop_row:
+		_shop_row.visible = true
+		_shop_row.offset_top = -360
+		_shop_row.offset_bottom = -88
+	_hide_non_part_shop_rows()
+	_toast_msg("")
+	await _capture_named("res://artifacts/ux/part_armory_row.png", "PART_ARMORY_ROW")
+
+
+func _capture_part_equipped() -> void:
+	if not ClientSession.use_live_api():
+		MockMatchServer.reset_wallet(400)
+		MockMatchServer.buy_shop(Contract.PART_OPTIC, "ux-part-optic")
+		MockMatchServer.buy_shop(Contract.PART_STOCK, "ux-part-stock")
+		MockMatchServer.buy_shop(Contract.PART_BARREL, "ux-part-barrel")
+	_bind_wallet()
+	_bind_shop()
+	_refresh_marks()
+	_refresh_shop()
+	if _shop_row:
+		_shop_row.visible = false
+	_refresh_part_chips()
+	_toast_msg("")
+	await _capture_named("res://artifacts/ux/part_equipped_chips.png", "PART_EQUIPPED_CHIPS")
+
+
+func _capture_part_buy_toast() -> void:
+	if not ClientSession.use_live_api():
+		MockMatchServer.reset_wallet(200)
+	_bind_wallet()
+	_bind_shop()
+	_refresh_marks()
+	_refresh_shop()
+	if _shop_row:
+		_shop_row.visible = true
+		_shop_row.offset_top = -360
+		_shop_row.offset_bottom = -88
+	_hide_non_part_shop_rows()
+	await get_tree().process_frame
+	_on_shop_primary(Contract.PART_OPTIC)
+	await get_tree().process_frame
+	await _capture_named("res://artifacts/ux/part_buy_toast.png", "PART_BUY_TOAST")
+
+
+func _capture_part_optic_feel() -> void:
+	if not ClientSession.use_live_api():
+		MockMatchServer.reset_wallet(400)
+		MockMatchServer.buy_shop(Contract.PART_OPTIC, "ux-feel-optic")
+		MockMatchServer.buy_shop(Contract.PART_STOCK, "ux-feel-stock")
+	_bind_wallet()
+	_bind_shop()
+	_refresh_marks()
+	_refresh_shop()
+	await get_tree().process_frame
+	_start_match(Contract.MODE_PVP)
+
+
+func _hide_non_part_shop_rows() -> void:
+	if _shop_col == null:
+		return
+	for child in _shop_col.get_children():
+		if child == _part_kicker:
+			child.visible = true
+			continue
+		if child is Label:
+			(child as CanvasItem).visible = false
+			continue
+		var matched := false
+		for item_id in _shop_lines.keys():
+			if Contract.is_part_chrome(str(item_id)) and _shop_lines[item_id].get("row", null) == child:
+				matched = true
+				break
+		if child is CanvasItem:
+			(child as CanvasItem).visible = matched
+
+
 func _capture_gun_equipped_optic() -> void:
 	## Attack optic family matches equipped Railframe (not hardcoded Fieldbolt).
 	if not ClientSession.use_live_api():
@@ -616,8 +718,8 @@ func _hide_non_gun_shop_rows() -> void:
 	for child in _shop_col.get_children():
 		if child == _gun_kicker:
 			continue
-		if child is Label and str((child as Label).text) == "ARMORY":
-			(child as Label).text = "ARMORY"
+		if child is Label and child != _gun_kicker:
+			(child as CanvasItem).visible = str((child as Label).text) == "ARMORY"
 			continue
 		var matched := false
 		for item_id in _shop_lines.keys():
@@ -958,6 +1060,16 @@ func _build_shop_row() -> void:
 		if item is Dictionary and Contract.is_gun_chrome(str(item.get("id", ""))):
 			_shop_col.add_child(_make_shop_line(item))
 
+	_part_kicker = Label.new()
+	_part_kicker.text = "PARTS"
+	_part_kicker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	Chrome.apply_label(_part_kicker, 8, Chrome.HIGH_GOLD, true)
+	_shop_col.add_child(_part_kicker)
+
+	for item in Contract.shop_catalog_items():
+		if item is Dictionary and Contract.is_part_chrome(str(item.get("id", ""))):
+			_shop_col.add_child(_make_shop_line(item))
+
 
 func _make_shop_line(item: Dictionary) -> PanelContainer:
 	var item_id := str(item.get("id", item.get("itemId", "")))
@@ -977,6 +1089,14 @@ func _make_shop_line(item: Dictionary) -> PanelContainer:
 	line.alignment = BoxContainer.ALIGNMENT_CENTER
 	line.add_theme_constant_override("separation", 16)
 	col.add_child(line)
+
+	if Contract.is_part_chrome(item_id):
+		var glyph := TextureRect.new()
+		glyph.texture = Chrome.make_icon(Contract.part_glyph(item_id), Chrome.HIGH_GOLD, 22)
+		glyph.custom_minimum_size = Vector2(22, 22)
+		glyph.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		line.add_child(glyph)
 
 	var name_lbl := Label.new()
 	name_lbl.text = str(item.get("name", ""))
@@ -1025,6 +1145,11 @@ func _build_gun_rack() -> void:
 	_gun_hands.size = ArtPack.HELD_SIZE
 	_gun_hands.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_gun_hands)
+	_part_chips = HBoxContainer.new()
+	_part_chips.position = Vector2(24, 392)
+	_part_chips.add_theme_constant_override("separation", 8)
+	_part_chips.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_part_chips)
 
 
 func _refresh_gun_rack() -> void:
@@ -1061,6 +1186,7 @@ func _refresh_gun_rack() -> void:
 		_gun_hands.texture = ArtPack.rifle_held_texture()
 		_gun_hands.modulate = ArtPack.optic_accent(family)
 		_gun_hands.visible = true
+	_refresh_part_chips()
 
 
 func _on_rack_stamp_input(event: InputEvent, item_id: String) -> void:
@@ -1074,6 +1200,19 @@ func _on_rack_stamp_input(event: InputEvent, item_id: String) -> void:
 			_on_equip_toggle(item_id)
 		return
 	_toast_msg("Buy %s in ARMORY  ·  visual only" % Contract.gun_family_name(item_id))
+
+
+func _refresh_part_chips() -> void:
+	## Equipped slot chips beside the rack. Green peg, toy glyph, no gold strip.
+	if _part_chips == null:
+		return
+	for child in _part_chips.get_children():
+		child.queue_free()
+	for family in Contract.part_ids():
+		var pid := str(family)
+		if ClientSession.part_slot_state(pid) != "equipped":
+			continue
+		_part_chips.add_child(Chrome.part_slot_chip(pid, "equipped"))
 
 
 func _build_jobs_panel() -> void:
@@ -1594,19 +1733,28 @@ func _refresh_shop() -> void:
 		var equipped: bool = ClientSession.is_equipped(str(item_id))
 		var can_buy: bool = int(ClientSession.marks) >= price
 		var buying: bool = _buying_id == str(item_id)
+		var part := Contract.is_part_chrome(str(item_id))
+		var pending := false
+		if part:
+			pending = bool(bag.catalog_pending(str(item_id))) and not owned
 		if btn:
 			btn.text = Shop.row_action_text(owned, equipped)
-			btn.disabled = not Shop.row_buy_enabled(owned, can_buy, buying)
+			btn.disabled = pending or not Shop.row_buy_enabled(owned, can_buy, buying)
 			if equipped:
 				Chrome.paint_chunk_button(btn, Color("2a241c"), Chrome.HIGH_GOLD)
 			elif owned:
 				Chrome.paint_chunk_button(btn, Chrome.TEAL, Color.WHITE)
-			elif can_buy:
+			elif can_buy and not pending:
 				Chrome.paint_chunk_button(btn, Chrome.LOADOUT_BLUE, Color.WHITE)
 			else:
 				Chrome.paint_chunk_button(btn, Color("3a322c"), Color(0.72, 0.68, 0.58, 0.70))
 		if status:
-			status.text = Shop.row_status_text(owned, can_buy, equipped)
+			if pending:
+				status.text = ""
+			elif part:
+				status.text = Contract.part_row_status(owned, can_buy, equipped)
+			else:
+				status.text = Shop.row_status_text(owned, can_buy, equipped)
 	_refresh_bg()
 	_refresh_gun_rack()
 
@@ -1625,8 +1773,12 @@ func _ensure_shop_lines(items: Array) -> void:
 		if item_id == "" or _shop_lines.has(item_id):
 			continue
 		var line := _make_shop_line(entry)
-		if Contract.is_gun_chrome(item_id) and _gun_kicker != null:
+		if Contract.is_part_chrome(item_id) and _part_kicker != null:
 			_shop_col.add_child(line)
+		elif Contract.is_gun_chrome(item_id) and _gun_kicker != null:
+			_shop_col.add_child(line)
+			if _part_kicker != null:
+				_shop_col.move_child(line, _part_kicker.get_index())
 		elif _gun_kicker != null:
 			_shop_col.add_child(line)
 			_shop_col.move_child(line, _gun_kicker.get_index())
@@ -1636,6 +1788,10 @@ func _ensure_shop_lines(items: Array) -> void:
 
 func _on_shop_primary(item_id: String) -> void:
 	if _buying_id != "":
+		return
+	var catalog = Shop.from_any(MatchAPI.get_shop())
+	if Contract.is_part_chrome(item_id) and catalog.catalog_pending(item_id) and not ClientSession.owns_cosmetic(item_id):
+		## Catalog omitted the part. Row stays muted. Do not POST.
 		return
 	if ClientSession.owns_cosmetic(item_id):
 		_on_equip_toggle(item_id)
@@ -1669,9 +1825,12 @@ func _on_shop_primary(item_id: String) -> void:
 		_toast_msg("ARMORY rejected  ·  %s" % shop.error)
 	else:
 		if status:
-			status.text = Contract.SHOP_EQUIPPED_COPY
-		## Soft P2: no floating Bought / wearing / visual stack — ARMORY row is the one line.
-		_toast_msg("")
+			status.text = Contract.part_row_status(true, true, true) if Contract.is_part_chrome(item_id) else Contract.SHOP_EQUIPPED_COPY
+		## Parts get one soft feel line. Skins / guns keep the row as the only status.
+		if Contract.is_part_chrome(item_id):
+			_toast_msg(Contract.part_buy_toast(item_id))
+		else:
+			_toast_msg("")
 	_refresh_shop()
 
 
@@ -1686,6 +1845,8 @@ func _on_equip_toggle(item_id: String) -> void:
 		slot = Contract.GUN_SLOT
 	elif Contract.is_decor_chrome(item_id):
 		slot = "decor"
+	elif Contract.is_part_chrome(item_id):
+		slot = Contract.part_slot(item_id)
 	var body: Dictionary = MatchAPI.equip_cosmetic(next_id, slot)
 	var shop = Shop.from_any(body)
 	if shop.ok:
