@@ -24,6 +24,8 @@ var test_high_ground_active: Variant = null
 ## Never derived from operativeLevel or cosmetics.
 var test_exposure_floor: Variant = null
 var test_omit_exposure_floor: bool = false
+## Drop wobbleScale / shotWindowSec so the client uses Design juice locally.
+var test_omit_part_feel: bool = false
 ## Display stub for hideout. Persists across matches; tests call reset_wallet().
 var account_marks: int = Contract.MOCK_WALLET_STUB
 ## Cosmetic ledger (visual only). Never touches combat / hit / exposure.
@@ -32,6 +34,11 @@ var equipped_cosmetic: String = ""
 var equipped_decor: String = ""
 var owned_guns: Array = [Contract.GUN_FIELDBOLT]
 var equipped_gun: String = Contract.GUN_FIELDBOLT
+## Soft-feel parts. Slots coexist with skin / decor / gun. Never touch hit math.
+var owned_parts: Array = []
+var equipped_optic: String = ""
+var equipped_stock: String = ""
+var equipped_barrel: String = ""
 var _shop_receipts: Dictionary = {}
 ## POST /jobs complete receipts keyed by clientJobId — replay does not grant again.
 var _job_receipts: Dictionary = {}
@@ -112,6 +119,10 @@ func reset_wallet(value: int = Contract.MOCK_WALLET_STUB) -> void:
 	equipped_decor = ""
 	owned_guns = [Contract.GUN_FIELDBOLT]
 	equipped_gun = Contract.GUN_FIELDBOLT
+	owned_parts = []
+	equipped_optic = ""
+	equipped_stock = ""
+	equipped_barrel = ""
 	owned_cosmetics.append(Contract.GUN_FIELDBOLT)
 	_shop_receipts.clear()
 	_job_receipts.clear()
@@ -146,7 +157,8 @@ func buy_shop(item_id: String, client_buy_id: String = "") -> Dictionary:
 		if client_buy_id != "":
 			_shop_receipts[client_buy_id] = starter.duplicate(true)
 		return starter
-	if owned_cosmetics.has(item_id) or (Contract.is_gun_chrome(item_id) and owned_guns.has(item_id)):
+	if owned_cosmetics.has(item_id) or (Contract.is_gun_chrome(item_id) and owned_guns.has(item_id)) \
+			or (Contract.is_part_chrome(item_id) and owned_parts.has(item_id)):
 		return _shop_reject(Contract.SHOP_ERR_ALREADY_OWNED)
 	var price := int(listed.get("price", Contract.shop_item_price(item_id)))
 	if account_marks < price:
@@ -154,11 +166,15 @@ func buy_shop(item_id: String, client_buy_id: String = "") -> Dictionary:
 	account_marks -= price
 	if not owned_cosmetics.has(item_id):
 		owned_cosmetics.append(item_id)
-	## Last *paid* buy auto-equips that slot only. Skin, decor, and gun coexist.
+	## Last *paid* buy auto-equips that slot only. Skin, decor, gun, and parts coexist.
 	if Contract.is_gun_chrome(item_id):
 		if not owned_guns.has(item_id):
 			owned_guns.append(item_id)
 		equipped_gun = item_id
+	elif Contract.is_part_chrome(item_id):
+		if not owned_parts.has(item_id):
+			owned_parts.append(item_id)
+		_set_part_slot(item_id)
 	elif Contract.is_decor_chrome(item_id):
 		equipped_decor = item_id
 	else:
@@ -174,6 +190,15 @@ func equip_cosmetic(item_id: String, slot: String = "") -> Dictionary:
 	## Same id is a no-op (idempotent). Marks untouched. Slots never clobber each other.
 	var use_gun := slot == Contract.GUN_SLOT or Contract.is_gun_chrome(item_id)
 	var use_decor := slot == "decor" or Contract.is_decor_chrome(item_id)
+	var use_part := Contract.is_part_slot(slot) or Contract.is_part_chrome(item_id)
+	var part_slot := slot if Contract.is_part_slot(slot) else Contract.part_slot(item_id)
+	if item_id == "" and use_part:
+		_clear_part_slot(part_slot)
+		return _shop_ok({
+			"type": "equip",
+			"itemId": null,
+			"slot": part_slot,
+		})
 	if item_id == "" and use_gun:
 		equipped_gun = ""
 		return _shop_ok({
@@ -204,9 +229,19 @@ func equip_cosmetic(item_id: String, slot: String = "") -> Dictionary:
 	if listed.is_empty():
 		return _shop_reject(Contract.SHOP_ERR_UNKNOWN_ITEM)
 	var owned_ok := owned_cosmetics.has(item_id) \
-			or (use_gun and (owned_guns.has(item_id) or item_id == Contract.GUN_FIELDBOLT))
+			or (use_gun and (owned_guns.has(item_id) or item_id == Contract.GUN_FIELDBOLT)) \
+			or (use_part and owned_parts.has(item_id))
 	if not owned_ok:
 		return _shop_reject(Contract.SHOP_ERR_NOT_OWNED)
+	if use_part:
+		if not owned_parts.has(item_id):
+			owned_parts.append(item_id)
+		_set_part_slot(item_id)
+		return _shop_ok({
+			"type": "equip",
+			"itemId": item_id,
+			"slot": part_slot,
+		})
 	if use_gun:
 		equipped_gun = item_id
 		if not owned_guns.has(item_id):
@@ -235,13 +270,59 @@ func equip_cosmetic(item_id: String, slot: String = "") -> Dictionary:
 	})
 
 
+func _set_part_slot(item_id: String) -> void:
+	match Contract.part_slot(item_id):
+		Contract.PART_SLOT_OPTIC:
+			equipped_optic = item_id
+		Contract.PART_SLOT_STOCK:
+			equipped_stock = item_id
+		Contract.PART_SLOT_BARREL:
+			equipped_barrel = item_id
+
+
+func _clear_part_slot(slot: String) -> void:
+	match slot:
+		Contract.PART_SLOT_OPTIC:
+			equipped_optic = ""
+		Contract.PART_SLOT_STOCK:
+			equipped_stock = ""
+		Contract.PART_SLOT_BARREL:
+			equipped_barrel = ""
+
+
 func _shop_snapshot() -> Dictionary:
 	var bag: Dictionary = Contract.shop_catalog_stub(
-		account_marks, owned_cosmetics, equipped_cosmetic, equipped_decor, equipped_gun
+		account_marks,
+		owned_cosmetics,
+		equipped_cosmetic,
+		equipped_decor,
+		equipped_gun,
+		equipped_optic,
+		equipped_stock,
+		equipped_barrel
 	)
 	bag["source"] = "mock"
 	bag["wallet"] = {"marks": account_marks}
+	return _omit_part_feel(bag)
+
+
+func _omit_part_feel(bag: Dictionary) -> Dictionary:
+	if not test_omit_part_feel:
+		return bag
+	bag.erase("wobbleScale")
+	bag.erase("shotWindowSec")
+	var you: Variant = bag.get("you", {})
+	if you is Dictionary:
+		you.erase("wobbleScale")
+		you.erase("shotWindowSec")
 	return bag
+
+
+func _feel_field(snap: Dictionary, key: String) -> Variant:
+	var you: Variant = snap.get("you", {})
+	if you is Dictionary and you.has(key):
+		return you.get(key)
+	return null
 
 
 func _shop_ok(result: Dictionary = {}) -> Dictionary:
@@ -260,6 +341,12 @@ func _shop_ok(result: Dictionary = {}) -> Dictionary:
 		"equippedSkinId": skin,
 		"equippedDecorId": decor,
 		"equippedGunId": gun,
+		"equippedOpticId": equipped_optic if equipped_optic != "" else null,
+		"equippedStockId": equipped_stock if equipped_stock != "" else null,
+		"equippedBarrelId": equipped_barrel if equipped_barrel != "" else null,
+		"ownedParts": owned_parts.duplicate(),
+		"wobbleScale": _feel_field(snap, "wobbleScale"),
+		"shotWindowSec": _feel_field(snap, "shotWindowSec"),
 		"marks": account_marks,
 		"result": result,
 	}
@@ -279,6 +366,12 @@ func _shop_reject(reason: String) -> Dictionary:
 		"equippedSkinId": equipped_cosmetic if equipped_cosmetic != "" else null,
 		"equippedDecorId": equipped_decor if equipped_decor != "" else null,
 		"equippedGunId": equipped_gun if equipped_gun != "" else null,
+		"equippedOpticId": equipped_optic if equipped_optic != "" else null,
+		"equippedStockId": equipped_stock if equipped_stock != "" else null,
+		"equippedBarrelId": equipped_barrel if equipped_barrel != "" else null,
+		"ownedParts": owned_parts.duplicate(),
+		"wobbleScale": _feel_field(snap, "wobbleScale"),
+		"shotWindowSec": _feel_field(snap, "shotWindowSec"),
 		"marks": account_marks,
 		"result": {"type": Contract.ACT_REJECT, "reason": reason},
 	}
@@ -1200,6 +1293,7 @@ func clear_all() -> void:
 	test_high_ground_active = null
 	test_exposure_floor = null
 	test_omit_exposure_floor = false
+	test_omit_part_feel = false
 	## Wallet stays — PLAY must not wipe hideout Marks. Tests call reset_wallet().
 
 
@@ -1843,6 +1937,12 @@ func _snapshot_for_seat(match_state: Dictionary, seat: String) -> Dictionary:
 			"equippedDecorId": equipped_decor if equipped_decor != "" else null,
 			"equippedGunId": equipped_gun if equipped_gun != "" else null,
 			"ownedGuns": owned_guns.duplicate(),
+			"equippedOpticId": equipped_optic if equipped_optic != "" else null,
+			"equippedStockId": equipped_stock if equipped_stock != "" else null,
+			"equippedBarrelId": equipped_barrel if equipped_barrel != "" else null,
+			"ownedParts": owned_parts.duplicate(),
+			"wobbleScale": Contract.local_wobble_scale(equipped_stock != "", equipped_barrel != ""),
+			"shotWindowSec": Contract.local_shot_window_sec(equipped_optic != ""),
 			"decoyAvailable": bool(you.get("decoyAvailable", false)),
 			"decoyRemaining": 1 if bool(you.get("decoyAvailable", false)) else 0,
 			"decoyHex": _decoy_hex_for_snap(you, match_state),
@@ -1908,7 +2008,7 @@ func _snapshot_for_seat(match_state: Dictionary, seat: String) -> Dictionary:
 	if bool(floor_pub.get("present", false)):
 		var you_bag: Dictionary = snap["you"]
 		you_bag["exposureFloor"] = int(floor_pub.get("value", Contract.EXPOSURE_FLOOR_START))
-	return snap
+	return _omit_part_feel(snap)
 
 
 func _public_exposure_floor() -> Dictionary:

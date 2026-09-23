@@ -159,12 +159,16 @@ func equip_cosmetic(item_id: String, slot: String = "") -> Dictionary:
 	var payload: Dictionary = {}
 	var use_gun := slot == Contract.GUN_SLOT or Contract.is_gun_chrome(item_id)
 	var use_decor := slot == "decor" or Contract.is_decor_chrome(item_id)
+	var use_part := Contract.is_part_slot(slot) or Contract.is_part_chrome(item_id)
+	var part_slot := slot if Contract.is_part_slot(slot) else Contract.part_slot(item_id)
 	if item_id == "":
 		payload["itemId"] = null
 		if use_gun:
 			payload["slot"] = Contract.GUN_SLOT
 		elif use_decor:
 			payload["slot"] = "decor"
+		elif use_part:
+			payload["slot"] = part_slot
 		else:
 			payload["slot"] = "skin"
 	else:

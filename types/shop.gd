@@ -12,6 +12,12 @@ var equipped: String = ""
 var equipped_decor: String = ""
 var equipped_gun: String = ""
 var owned_guns: Array = []
+var equipped_optic: String = ""
+var equipped_stock: String = ""
+var equipped_barrel: String = ""
+var owned_parts: Array = []
+var wobble_scale: Variant = null
+var shot_window_sec: Variant = null
 var error: String = ""
 var ok: bool = true
 var owned_present: bool = false
@@ -19,6 +25,12 @@ var equipped_present: bool = false
 var equipped_decor_present: bool = false
 var equipped_gun_present: bool = false
 var owned_guns_present: bool = false
+var equipped_optic_present: bool = false
+var equipped_stock_present: bool = false
+var equipped_barrel_present: bool = false
+var owned_parts_present: bool = false
+var wobble_present: bool = false
+var window_present: bool = false
 var purchase_id: String = ""
 
 
@@ -42,12 +54,26 @@ static func from_any(payload: Variant):
 	parsed.equipped_decor = _read_equipped_decor(bag, root)
 	parsed.equipped_gun = _read_equipped_gun(bag, root)
 	parsed.owned_guns = _read_owned_guns(bag, root)
+	parsed.equipped_optic = _read_equipped_part(bag, root, "equippedOpticId")
+	parsed.equipped_stock = _read_equipped_part(bag, root, "equippedStockId")
+	parsed.equipped_barrel = _read_equipped_part(bag, root, "equippedBarrelId")
+	parsed.owned_parts = _read_owned_parts(bag, root)
 	parsed.marks = _read_marks(bag, root)
+	var wobble := _read_feel(bag, root, "wobbleScale")
+	var window := _read_feel(bag, root, "shotWindowSec")
+	parsed.wobble_present = bool(wobble.get("present", false))
+	parsed.window_present = bool(window.get("present", false))
+	parsed.wobble_scale = wobble.get("value", null)
+	parsed.shot_window_sec = window.get("value", null)
 	parsed.owned_present = _has_owned(bag, root)
 	parsed.equipped_present = _has_equipped(bag, root)
 	parsed.equipped_decor_present = _has_equipped_decor(bag, root)
 	parsed.equipped_gun_present = _has_equipped_gun(bag, root)
 	parsed.owned_guns_present = _has_owned_guns(bag, root)
+	parsed.equipped_optic_present = _has_part_field(bag, root, "equippedOpticId")
+	parsed.equipped_stock_present = _has_part_field(bag, root, "equippedStockId")
+	parsed.equipped_barrel_present = _has_part_field(bag, root, "equippedBarrelId")
+	parsed.owned_parts_present = _has_owned_parts(bag, root)
 	parsed.purchase_id = str(bag.get("purchaseId", root.get("purchaseId", "")))
 	## LIVE buy 200: { ok, you.marks, purchaseId, item } — infer owned/equip.
 	## Do not mark owned_present — apply_shop merges so a second SKU does not wipe the first.
@@ -72,6 +98,12 @@ static func from_any(payload: Variant):
 				if not parsed.equipped_gun_present and gid != "":
 					parsed.equipped_gun = gid
 					parsed.equipped_gun_present = true
+			elif Contract.is_part_chrome(bought_id):
+				var pid := Contract.canonical_part_id(bought_id)
+				if pid != "" and not parsed.owned_parts.has(pid):
+					parsed.owned_parts.append(pid)
+				if pid != "" and not _part_slot_present(parsed, pid):
+					_infer_part_equip(parsed, pid)
 			elif not parsed.equipped_present:
 				parsed.equipped = bought_id
 				parsed.equipped_present = true
@@ -79,6 +111,9 @@ static func from_any(payload: Variant):
 		var harvested := Contract.canonical_gun_id(str(owned_id))
 		if harvested != "" and not parsed.owned_guns.has(harvested):
 			parsed.owned_guns.append(harvested)
+		var part_id := Contract.canonical_part_id(str(owned_id))
+		if part_id != "" and not parsed.owned_parts.has(part_id):
+			parsed.owned_parts.append(part_id)
 	return parsed
 
 
@@ -354,6 +389,126 @@ static func _has_equipped_gun(bag: Dictionary, root: Dictionary) -> bool:
 	return false
 
 
+static func _part_slot_present(parsed, part_id: String) -> bool:
+	match Contract.part_slot(part_id):
+		Contract.PART_SLOT_OPTIC:
+			return parsed.equipped_optic_present
+		Contract.PART_SLOT_STOCK:
+			return parsed.equipped_stock_present
+		Contract.PART_SLOT_BARREL:
+			return parsed.equipped_barrel_present
+		_:
+			return true
+
+
+static func _infer_part_equip(parsed, part_id: String) -> void:
+	match Contract.part_slot(part_id):
+		Contract.PART_SLOT_OPTIC:
+			parsed.equipped_optic = part_id
+			parsed.equipped_optic_present = true
+		Contract.PART_SLOT_STOCK:
+			parsed.equipped_stock = part_id
+			parsed.equipped_stock_present = true
+		Contract.PART_SLOT_BARREL:
+			parsed.equipped_barrel = part_id
+			parsed.equipped_barrel_present = true
+
+
+static func _read_equipped_part(bag: Dictionary, root: Dictionary, key: String) -> String:
+	## Optional Coder you.equippedOpticId / Stock / Barrel. Absent → empty, not invented.
+	for source in [bag, root]:
+		var you: Variant = source.get("you", {})
+		if you is Dictionary and you.has(key):
+			return Contract.canonical_part_id(_as_id(you.get(key, null)))
+		var cosmetics: Variant = {}
+		if you is Dictionary:
+			cosmetics = you.get("cosmetics", {})
+		if cosmetics is Dictionary and cosmetics.has(key):
+			return Contract.canonical_part_id(_as_id(cosmetics.get(key, null)))
+		if source.has(key):
+			return Contract.canonical_part_id(_as_id(source.get(key, null)))
+		var shop: Variant = source.get("shop", {})
+		if shop is Dictionary and shop.has(key):
+			return Contract.canonical_part_id(_as_id(shop.get(key, null)))
+	return ""
+
+
+static func _read_owned_parts(bag: Dictionary, root: Dictionary) -> Array:
+	var found: Array = []
+	for source in [bag, root]:
+		var you: Variant = source.get("you", {})
+		if you is Dictionary:
+			found = _as_part_id_list(you.get("ownedParts", you.get("ownedPartIds", [])))
+			if not found.is_empty():
+				return found
+			var cosmetics: Variant = you.get("cosmetics", {})
+			if cosmetics is Dictionary:
+				found = _as_part_id_list(cosmetics.get("ownedParts", cosmetics.get("ownedPartIds", [])))
+				if not found.is_empty():
+					return found
+		found = _as_part_id_list(source.get("ownedParts", source.get("ownedPartIds", [])))
+		if not found.is_empty():
+			return found
+		var shop: Variant = source.get("shop", {})
+		if shop is Dictionary:
+			found = _as_part_id_list(shop.get("ownedParts", shop.get("ownedPartIds", [])))
+			if not found.is_empty():
+				return found
+	return []
+
+
+static func _as_part_id_list(value: Variant) -> Array:
+	var ids: Array = []
+	for item_id in _as_id_list(value):
+		var pid := Contract.canonical_part_id(str(item_id))
+		if pid != "" and not ids.has(pid):
+			ids.append(pid)
+	return ids
+
+
+static func _has_part_field(bag: Dictionary, root: Dictionary, key: String) -> bool:
+	for source in [bag, root]:
+		var you: Variant = source.get("you", {})
+		if you is Dictionary and you.has(key):
+			return true
+		if source.has(key):
+			return true
+		var shop: Variant = source.get("shop", {})
+		if shop is Dictionary and shop.has(key):
+			return true
+	return false
+
+
+static func _has_owned_parts(bag: Dictionary, root: Dictionary) -> bool:
+	for source in [bag, root]:
+		var you: Variant = source.get("you", {})
+		if you is Dictionary and (you.has("ownedParts") or you.has("ownedPartIds")):
+			return true
+		if source.has("ownedParts") or source.has("ownedPartIds"):
+			return true
+		var shop: Variant = source.get("shop", {})
+		if shop is Dictionary and (shop.has("ownedParts") or shop.has("ownedPartIds")):
+			return true
+	return false
+
+
+static func _read_feel(bag: Dictionary, root: Dictionary, key: String) -> Dictionary:
+	## wobbleScale / shotWindowSec. Missing key is not a number. Null stays missing.
+	for source in [bag, root]:
+		var you: Variant = source.get("you", {})
+		if you is Dictionary and you.has(key):
+			var named: Variant = you.get(key)
+			if Contract.feel_number(named):
+				return {"present": true, "value": named}
+			return {"present": false, "value": null}
+		if source.has(key):
+			var top: Variant = source.get(key)
+			if Contract.feel_number(top):
+				return {"present": true, "value": top}
+			return {"present": false, "value": null}
+	return {"present": false, "value": null}
+
+
 static func _has_owned_guns(bag: Dictionary, root: Dictionary) -> bool:
 	for source in [bag, root]:
 		var you: Variant = source.get("you", {})
@@ -424,6 +579,8 @@ func name_of(item_id: String) -> String:
 		fallback = Contract.SHOP_POSTER_ITEM_NAME
 	elif Contract.is_gun_chrome(want):
 		fallback = Contract.gun_family_name(want)
+	elif Contract.is_part_chrome(want):
+		fallback = Contract.part_name(want)
 	return str(item.get("name", fallback))
 
 
@@ -463,6 +620,15 @@ func is_unavailable() -> bool:
 
 func can_afford() -> bool:
 	return balance() >= price()
+
+
+func catalog_pending(item_id: String) -> bool:
+	## Gap-filled part row. Visible, but buy must not POST until the catalog lists it.
+	var want := Contract._canonical_shop_id(item_id)
+	for entry in items:
+		if entry is Dictionary and _as_id(entry) == want:
+			return bool(entry.get("pending", false))
+	return false
 
 
 static func row_action_text(owned: bool, equipped: bool = false) -> String:

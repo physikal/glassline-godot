@@ -148,6 +148,7 @@ func _run() -> int:
 	_shop_sink2_case(failed)
 	_shop_sink3_case(failed)
 	_gun_chrome_case(failed)
+	_part_sink_case(failed)
 	_optic_joystick_case(failed)
 	_chrome_reconfirm_case(failed)
 	_match_board_chrome_case(failed)
@@ -1731,7 +1732,7 @@ func _shop_sink2_case(failed: PackedStringArray) -> void:
 	_expect(failed, live_two.name_of(Contract.SHOP_BANDANA_ITEM_ID) == "Bandana Skin (stub)", "prefer LIVE bandana name")
 	_expect(failed, live_two.has_item(Contract.SHOP_POSTER_ITEM_ID), "LIVE two-SKU merge appends poster")
 	_expect(failed, live_two.has_item(Contract.GUN_RAILFRAME), "LIVE two-SKU merge appends gun SKUs")
-	_expect(failed, live_two.items.size() == 6, "LIVE two-SKU merge is six ARMORY rows")
+	_expect(failed, live_two.items.size() == 9, "LIVE two-SKU merge is nine ARMORY rows")
 
 	var session = SessionScript.new()
 	session.apply_shop(catalog)
@@ -1816,7 +1817,7 @@ func _shop_sink3_case(failed: PackedStringArray) -> void:
 	_expect(failed, listed.has_item(Contract.SHOP_POSTER_ITEM_ID), "S3.1 catalog has poster")
 	_expect(failed, listed.price_of(Contract.SHOP_POSTER_ITEM_ID) == 150, "S3.1 GD price 150")
 	_expect(failed, listed.name_of(Contract.SHOP_POSTER_ITEM_ID) == Contract.SHOP_POSTER_ITEM_NAME, "S3.1 name HIDEOUT POSTER")
-	_expect(failed, listed.items.size() == 6, "S3.6 six catalog rows (skins + poster + guns)")
+	_expect(failed, listed.items.size() == 9, "S3.6 nine catalog rows (skins + poster + guns + parts)")
 	_expect(failed, listed.has_item(Contract.GUN_FIELDBOLT), "S3.6 Fieldbolt catalog row")
 	_expect(failed, listed.balance() < 150, "S3.3 ★24 cannot afford ★150")
 	_expect(failed, not Shop.row_buy_enabled(false, listed.balance() >= 150), "S3.3 BUY disabled when Marks < 150")
@@ -1839,7 +1840,7 @@ func _shop_sink3_case(failed: PackedStringArray) -> void:
 	}))
 	_expect(failed, live_three.name_of(Contract.SHOP_POSTER_ITEM_ID) == "Hideout Poster (stub)", "prefer LIVE poster name")
 	_expect(failed, live_three.has_item(Contract.GUN_CRESCENT), "LIVE three-SKU merge appends gun SKUs")
-	_expect(failed, live_three.items.size() == 6, "prefer LIVE names; append missing gun SKUs")
+	_expect(failed, live_three.items.size() == 9, "prefer LIVE names; append missing gun and part SKUs")
 
 	var session = SessionScript.new()
 	session.apply_shop(catalog)
@@ -1959,7 +1960,7 @@ func _gun_chrome_case(failed: PackedStringArray) -> void:
 	server.reset_wallet(80)
 	var catalog: Dictionary = server.get_shop()
 	var listed = Shop.from_any(catalog)
-	_expect(failed, listed.items.size() == 6, "G1 six catalog rows (skins + poster + guns)")
+	_expect(failed, listed.items.size() == 9, "G1 nine catalog rows (skins + poster + guns + parts)")
 	_expect(failed, listed.has_item(Contract.GUN_FIELDBOLT), "G1 Fieldbolt catalog row")
 	_expect(failed, listed.has_item(Contract.GUN_RAILFRAME), "G1 Railframe catalog row")
 	_expect(failed, listed.has_item(Contract.GUN_CRESCENT), "G1 Crescent catalog row")
@@ -2189,6 +2190,238 @@ func _gun_combat_run(gun_id: String) -> Dictionary:
 		"recon_base": Contract.RECON_BASE,
 		"pvp_win": Contract.MARKS_PVP_WIN,
 		"snap_gun": miss_snap.you_equipped_gun_id(),
+	}
+
+
+func _part_sink_case(failed: PackedStringArray) -> void:
+	## Optic / Stock / Barrel on the shop spine. Feel is chrome. Kill math stays put.
+	server.clear_all()
+	server.reset_wallet(Contract.MOCK_WALLET_STUB)
+	var listed = Shop.from_any(server.get_shop())
+	_expect(failed, listed.has_item(Contract.PART_OPTIC), "P optic catalog row")
+	_expect(failed, listed.has_item(Contract.PART_STOCK), "P stock catalog row")
+	_expect(failed, listed.has_item(Contract.PART_BARREL), "P barrel catalog row")
+	_expect(failed, listed.price_of(Contract.PART_OPTIC) == 75, "P optic ★75")
+	_expect(failed, listed.price_of(Contract.PART_STOCK) == 100, "P stock ★100")
+	_expect(failed, listed.price_of(Contract.PART_BARREL) == 125, "P barrel ★125")
+	_expect(failed, listed.name_of(Contract.PART_OPTIC) == "OPTIC", "P optic name")
+	_expect(failed, not Shop.row_buy_enabled(false, listed.balance() >= 75), "P ★24 cannot buy optic")
+	var row_copy := Contract.part_row_status(true, true, true) + Contract.part_row_status(true, true, false) + Contract.part_row_status(false, false, false) + Contract.PART_TOAST_WINDOW + Contract.PART_TOAST_WOBBLE
+	var banned := row_copy.to_lower()
+	_expect(failed, banned.find("hit") < 0 and banned.find("spot") < 0 and banned.find("exposure") < 0 and banned.find("%") < 0, "P row copy has no combat percents")
+	_expect(failed, is_equal_approx(Contract.local_wobble_scale(true, false), 0.80), "P stock wobble −20%")
+	_expect(failed, is_equal_approx(Contract.local_wobble_scale(false, true), 0.90), "P barrel wobble −10%")
+	_expect(failed, is_equal_approx(Contract.local_wobble_scale(true, true), 0.75), "P stack wobble cap −25%")
+	_expect(failed, is_equal_approx(Contract.local_shot_window_sec(false), 1.2), "P base window 1.2s")
+	_expect(failed, is_equal_approx(Contract.local_shot_window_sec(true), 1.4), "P optic window 1.4s")
+	_expect(failed, Contract.PART_OPTIC == "gun_part_optic" and Contract.PART_KIND == "gun-part", "P live part ids")
+	_expect(failed, is_equal_approx(Contract.local_wobble_scale(false, false), 1.0), "P bare wobble")
+	_expect(failed, Contract.part_buy_toast(Contract.PART_OPTIC) == Contract.PART_TOAST_WINDOW, "P optic toast")
+	_expect(failed, Contract.part_buy_toast(Contract.PART_STOCK) == Contract.PART_TOAST_WOBBLE, "P stock toast")
+	_expect(failed, Contract.part_buy_toast(Contract.PART_BARREL) == Contract.PART_TOAST_WOBBLE, "P barrel toast")
+
+	var lagged = Shop.from_any(Contract.merge_live_shop_catalog({
+		"items": [{"id": "skin_hideout_stub", "name": "Hideout Skin (stub)", "price": 50, "kind": "skin"}],
+	}))
+	_expect(failed, lagged.has_item(Contract.PART_OPTIC), "P lag still shows optic row")
+	_expect(failed, not lagged.catalog_pending(Contract.PART_OPTIC), "P omitted optic stays buyable")
+	_expect(failed, not lagged.catalog_pending(Contract.PART_BARREL), "P omitted barrel stays buyable")
+	_expect(failed, not lagged.catalog_pending(Contract.GUN_RAILFRAME), "P gun lag stays buyable")
+	var live_parts = Shop.from_any(Contract.merge_live_shop_catalog({
+		"items": [
+			{"id": "gun_part_optic", "name": "OPTIC", "price": 75, "kind": "gun-part"},
+			{"id": "gun_part_stock", "name": "STOCK", "price": 100, "kind": "gun-part"},
+			{"id": "gun_part_barrel", "name": "BARREL", "price": 125, "kind": "gun-part"},
+		],
+	}))
+	_expect(failed, not live_parts.catalog_pending(Contract.PART_OPTIC), "P live optic is wired")
+	_expect(failed, live_parts.name_of(Contract.PART_OPTIC) == "OPTIC", "P prefer LIVE optic name")
+	_expect(failed, live_parts.price_of(Contract.PART_OPTIC) == 75, "P live optic price")
+	_expect(failed, str(live_parts.item_for(Contract.PART_OPTIC).get("kind", "")) == "gun-part", "P live kind gun-part")
+
+	var session = SessionScript.new()
+	session.apply_shop(server.get_shop())
+	_expect(failed, session.equipped_optic_id() == "", "P default optic empty")
+	_expect(failed, is_equal_approx(session.attack_wobble_scale(), 1.0), "P default wobble 1")
+	_expect(failed, is_equal_approx(session.feel_shot_window_sec, 1.2), "P default window from server 1.2")
+	_expect(failed, session.feel_wobble_from_server, "P mock snapshot names wobbleScale")
+	var poor: Dictionary = server.buy_shop(Contract.PART_OPTIC, Contract.new_client_buy_id())
+	_expect(failed, str(poor.get("error", "")) == Contract.SHOP_ERR_INSUFFICIENT, "P insufficient optic")
+	_expect(failed, server.account_marks == 24, "P 402 does not debit")
+	session.bind_marks(999)
+	session.apply_shop(poor)
+	_expect(failed, session.marks == 24, "P 402 rebinds snapshot marks")
+	_expect(failed, not session.owns_part(Contract.PART_OPTIC), "P 402 does not grant optic")
+
+	server.reset_wallet(400)
+	session.apply_shop(server.get_shop())
+	var optic_id := "00000000-0000-4000-8000-0000000000p1"
+	var bought: Dictionary = server.buy_shop(Contract.PART_OPTIC, optic_id)
+	session.bind_marks(400)
+	session.apply_shop(bought)
+	_expect(failed, session.marks == 325, "P optic 400-75 from snapshot")
+	_expect(failed, session.owns_part(Contract.PART_OPTIC), "P owns optic")
+	_expect(failed, session.is_equipped(Contract.PART_OPTIC), "P optic auto-equip")
+	_expect(failed, is_equal_approx(session.feel_shot_window_sec, 1.4), "P server window 1.4")
+	_expect(failed, is_equal_approx(session.attack_wobble_scale(), 1.0), "P optic does not change wobble")
+	var replay: Dictionary = server.buy_shop(Contract.PART_OPTIC, optic_id)
+	_expect(failed, bool(replay.get("ok", false)) and server.account_marks == 325, "P optic clientBuyId idempotent")
+	session.apply_shop(server.buy_shop(Contract.PART_STOCK, "part-stock"))
+	session.apply_shop(server.buy_shop(Contract.PART_BARREL, "part-barrel"))
+	_expect(failed, session.marks == 100, "P 325-100-125 from snapshot")
+	_expect(failed, session.is_equipped(Contract.PART_STOCK) and session.is_equipped(Contract.PART_BARREL), "P stock and barrel equipped")
+	_expect(failed, session.is_equipped(Contract.PART_OPTIC), "P optic slot survives stock buy")
+	_expect(failed, is_equal_approx(session.attack_wobble_scale(), 0.75), "P server stack wobble 0.75")
+	_expect(failed, is_equal_approx(session.feel_shot_window_sec, 1.4), "P barrel does not change window")
+	_expect(failed, session.equipped_gun_id() == Contract.GUN_FIELDBOLT, "P parts do not clobber gun")
+	var off: Dictionary = server.equip_cosmetic("", Contract.PART_SLOT_STOCK)
+	session.apply_shop(off)
+	_expect(failed, session.equipped_stock_id() == "", "P unequip stock")
+	_expect(failed, session.is_equipped(Contract.PART_BARREL) and session.is_equipped(Contract.PART_OPTIC), "P other slots stay")
+	_expect(failed, is_equal_approx(session.attack_wobble_scale(), 0.90), "P barrel-only wobble 0.90")
+	_expect(failed, session.marks == 100, "P equip does not touch marks")
+	var refuse: Dictionary = server.equip_cosmetic(Contract.PART_STOCK, Contract.PART_SLOT_STOCK)
+	_expect(failed, bool(refuse.get("ok", false)), "P re-equip stock")
+	server.owned_parts.erase(Contract.PART_STOCK)
+	server.owned_cosmetics.erase(Contract.PART_STOCK)
+	var denied: Dictionary = server.equip_cosmetic(Contract.PART_STOCK, Contract.PART_SLOT_STOCK)
+	_expect(failed, str(denied.get("error", "")) == Contract.SHOP_ERR_NOT_OWNED, "P unowned stock rejected")
+
+	## C2: omitted feel stays bare. Equipped ids do not author window or wobble.
+	var local = SessionScript.new()
+	local.owned_parts = [Contract.PART_OPTIC, Contract.PART_STOCK, Contract.PART_BARREL]
+	local.equipped_optic = Contract.PART_OPTIC
+	local.equipped_stock = Contract.PART_STOCK
+	local.equipped_barrel = Contract.PART_BARREL
+	local.apply_shop({"you": {"marks": 10, "equippedOpticId": Contract.PART_OPTIC, "equippedStockId": Contract.PART_STOCK, "equippedBarrelId": Contract.PART_BARREL}})
+	_expect(failed, not local.feel_wobble_from_server and not local.feel_window_from_server, "C2 omitted feel is not server")
+	_expect(failed, is_equal_approx(local.attack_wobble_scale(), 1.0), "C2 omitted wobble stays 1")
+	_expect(failed, is_equal_approx(local.feel_shot_window_sec, 1.2), "C2 omitted window stays 1.2")
+	var session_src := FileAccess.get_file_as_string("res://autoload/client_session.gd")
+	var optic_src := FileAccess.get_file_as_string("res://scenes/optic/optic_overlay.gd")
+	_expect(failed, session_src.find("local_wobble_scale") < 0 and session_src.find("local_shot_window_sec") < 0, "C2 session does not author feel")
+	_expect(failed, optic_src.find("local_wobble_scale") < 0 and optic_src.find("local_shot_window_sec") < 0, "C2 optic does not author feel")
+	local.apply_shop({"you": {"marks": 10, "wobbleScale": 0.55, "shotWindowSec": 0.9, "equippedOpticId": null, "equippedStockId": null, "equippedBarrelId": null}})
+	_expect(failed, local.feel_wobble_from_server and is_equal_approx(local.attack_wobble_scale(), 0.55), "P server wobble wins")
+	_expect(failed, local.feel_window_from_server and is_equal_approx(local.feel_shot_window_sec, 0.9), "P server window wins")
+	_expect(failed, local.equipped_optic_id() == "", "P null optic id is default")
+	var bare: Snapshot = Snapshot.from_dict({"you": {"seat": "a", "marks": 0}})
+	_expect(failed, bare.you_equipped_optic_id() == "" and bare.you_wobble_scale() == null and bare.you_shot_window_sec() == null, "P missing snapshot fields fail closed")
+	var named: Snapshot = Snapshot.from_dict({"you": {"equippedOpticId": "gun_part_optic", "equippedStockId": null, "wobbleScale": 0.8, "shotWindowSec": 1.4}})
+	_expect(failed, named.you_equipped_optic_id() == Contract.PART_OPTIC, "P snapshot optic id")
+	_expect(failed, named.you_equipped_stock_id() == "", "P snapshot null stock")
+	_expect(failed, is_equal_approx(float(named.you_wobble_scale()), 0.8), "P snapshot wobbleScale")
+	_expect(failed, is_equal_approx(float(named.you_shot_window_sec()), 1.4), "P snapshot shotWindowSec")
+	local.free()
+
+	## Combat parity: parts do not move hit / spot / exposure / practice Marks.
+	var plain: Dictionary = _part_combat_run(false)
+	var kitted: Dictionary = _part_combat_run(true)
+	var practice: Dictionary = _part_practice_run()
+	_expect(failed, bool(plain.get("ok", false)) and bool(kitted.get("ok", false)) and bool(practice.get("ok", false)), "P combat loops ok")
+	for key in ["miss_hit", "miss_chance", "kill_hit", "kill_delta", "spotted", "exposure_floor"]:
+		_expect(failed, plain.get(key) == kitted.get(key), "P parity %s" % key)
+	_expect(failed, bool(plain.get("chance_formula", false)) and bool(kitted.get("chance_formula", false)), "P hitChance is the occupy formula")
+	_expect(failed, _part_delta(kitted.get("kill_delta")) == Contract.MARKS_PVP_WIN, "P PvP kill still ★25")
+	_expect(failed, _part_delta(practice.get("kill_delta")) == Contract.MARKS_PRACTICE, "P practice Marks Δ0")
+	_expect(failed, bool(practice.get("wallet_held", false)), "P practice does not grant")
+	_expect(failed, bool(practice.get("feel_window", false)), "C4 practice window 1.4")
+	_expect(failed, bool(practice.get("feel_wobble", false)), "C4 practice wobble 0.75")
+	_expect(failed, bool(practice.get("chance_formula", false)), "P practice hitChance ignores parts")
+	_expect(failed, Contract.BASE_HIT_CHANCE == 0.90 and Contract.RECON_BASE == 0.35 and Contract.BRUSH_COVER_HIT == 0.10, "P hit and spot constants unchanged")
+	server.reset_wallet(Contract.MOCK_WALLET_STUB)
+	session.free()
+
+
+func _part_delta(value: Variant) -> int:
+	if value == null:
+		return -999
+	return int(value)
+
+
+func _part_chance_ok(last: Variant) -> bool:
+	if not (last is Dictionary):
+		return false
+	var high := bool(last.get("highGroundApplied", false))
+	var cover := bool(last.get("coverApplied", false))
+	var hit := bool(last.get("hit", false))
+	var base := Contract.BASE_HIT_CHANCE if hit else 0.0
+	var expect := clampf(
+		base + (Contract.HIGH_GROUND_HIT if high else 0.0) - (Contract.BRUSH_COVER_HIT if cover else 0.0),
+		0.0,
+		1.0
+	)
+	return is_equal_approx(float(last.get("hitChance", -1.0)), expect)
+
+
+func _part_combat_run(kitted: bool) -> Dictionary:
+	server.clear_all()
+	server.reset_wallet(400)
+	if kitted:
+		server.buy_shop(Contract.PART_OPTIC, "part-run-o")
+		server.buy_shop(Contract.PART_STOCK, "part-run-s")
+		server.buy_shop(Contract.PART_BARREL, "part-run-b")
+	var created: Dictionary = server.create_match()
+	var mid := str(created.get("matchId", ""))
+	var tokens: Dictionary = created.get("joinTokens", {})
+	var join_a: Dictionary = server.join(mid, str(tokens.get("a", "")))
+	var join_b: Dictionary = server.join(mid, str(tokens.get("b", "")))
+	var pid_a := str(join_a.get("playerId", ""))
+	var pid_b := str(join_b.get("playerId", ""))
+	server.apply_action(mid, pid_a, ActionIntent.select_hex(2, 2))
+	server.apply_action(mid, pid_b, ActionIntent.select_hex(7, 5))
+	server.apply_action(mid, pid_a, ActionIntent.start())
+	server.test_recon_roll = 0.1
+	var recon: ActionResult = server.apply_action(mid, pid_a, ActionIntent.recon(7, 5))
+	var recon_last: Variant = Snapshot.from_dict(recon.snapshot).last_action()
+	server.apply_action(mid, pid_a, ActionIntent.end_turn(50))
+	## B must spend the action phase before end_turn. Empty recon — rival stays on (7, 5).
+	server.apply_action(mid, pid_b, ActionIntent.recon(0, 0))
+	server.apply_action(mid, pid_b, ActionIntent.end_turn(40))
+	var miss: ActionResult = server.apply_action(mid, pid_a, ActionIntent.attack(0, 0))
+	var miss_snap: Snapshot = Snapshot.from_dict(miss.snapshot)
+	var miss_last: Variant = miss_snap.last_action()
+	server.apply_action(mid, pid_a, ActionIntent.end_turn(50))
+	server.apply_action(mid, pid_b, ActionIntent.recon(1, 0))
+	server.apply_action(mid, pid_b, ActionIntent.end_turn(40))
+	var kill: ActionResult = server.apply_action(mid, pid_a, ActionIntent.attack(7, 5))
+	var kill_snap: Snapshot = Snapshot.from_dict(kill.snapshot)
+	var kill_last: Variant = kill_snap.last_action()
+	return {
+		"ok": bool(miss.ok) and bool(kill.ok) and bool(recon.ok),
+		"miss_hit": miss_last is Dictionary and miss_last.get("hit") == false,
+		"miss_chance": miss_last.get("hitChance", null) if miss_last is Dictionary else null,
+		"kill_hit": kill_last is Dictionary and kill_last.get("hit") == true,
+		"kill_delta": kill_snap.marks_delta(),
+		"spotted": recon_last is Dictionary and bool(recon_last.get("spotted", false)),
+		"exposure_floor": int(miss_snap.you_exposure_floor()),
+		"chance_formula": _part_chance_ok(miss_last) and _part_chance_ok(kill_last),
+	}
+
+
+func _part_practice_run() -> Dictionary:
+	server.clear_all()
+	server.reset_wallet(400)
+	server.buy_shop(Contract.PART_OPTIC, "part-prac-o")
+	server.buy_shop(Contract.PART_STOCK, "part-prac-s")
+	server.buy_shop(Contract.PART_BARREL, "part-prac-b")
+	var created: Dictionary = server.create_match({"mode": Contract.MODE_PRACTICE})
+	var mid := str(created.get("matchId", ""))
+	var join_a: Dictionary = server.join(mid, Contract.create_join_token(created))
+	var pid_a := str(join_a.get("playerId", ""))
+	var wallet_before := int(server.account_marks)
+	server.apply_action(mid, pid_a, ActionIntent.select_hex(2, 2))
+	server.apply_action(mid, pid_a, ActionIntent.start())
+	var kill: ActionResult = server.apply_action(mid, pid_a, ActionIntent.attack(6, 1))
+	var kill_snap: Snapshot = Snapshot.from_dict(kill.snapshot)
+	var kill_last: Variant = kill_snap.last_action()
+	return {
+		"ok": bool(kill.ok),
+		"kill_delta": kill_snap.marks_delta(),
+		"wallet_held": int(server.account_marks) == wallet_before,
+		"feel_window": kill_snap.you_shot_window_sec() != null and is_equal_approx(float(kill_snap.you_shot_window_sec()), 1.4),
+		"feel_wobble": kill_snap.you_wobble_scale() != null and is_equal_approx(float(kill_snap.you_wobble_scale()), 0.75),
+		"chance_formula": _part_chance_ok(kill_last),
 	}
 
 

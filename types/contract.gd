@@ -143,6 +143,34 @@ const GUN_CRESCENT_PRICE := 200
 const GUN_STARTER_COPY := "STARTER"
 const GUN_VISUAL_COPY := "visual only"
 
+## Gun parts — same /shop spine. Soft feel only (wobble / shot window).
+## Never hit% · spot% · exposure floor · HIGH GROUND · BRUSH · Marks earn.
+## One equipped id per slot. Null snapshot id = the bare default.
+const PART_OPTIC := "gun_part_optic"
+const PART_STOCK := "gun_part_stock"
+const PART_BARREL := "gun_part_barrel"
+const PART_OPTIC_NAME := "OPTIC"
+const PART_STOCK_NAME := "STOCK"
+const PART_BARREL_NAME := "BARREL"
+const PART_KIND := "gun-part"
+const PART_SLOT_OPTIC := "optic"
+const PART_SLOT_STOCK := "stock"
+const PART_SLOT_BARREL := "barrel"
+const PART_OPTIC_PRICE := 75
+const PART_STOCK_PRICE := 100
+const PART_BARREL_PRICE := 125
+## LIVE b5ba339. Optic is window-only. Stock 0.8, Barrel 0.9, stack 0.75.
+const SHOT_WINDOW_BASE_SEC := 1.2
+const SHOT_WINDOW_OPTIC_SEC := 1.4
+const WOBBLE_SCALE_BASE := 1.0
+const WOBBLE_STOCK_SCALE := 0.80
+const WOBBLE_BARREL_SCALE := 0.90
+const WOBBLE_STACK_FLOOR := 0.75
+const PART_TOAST_WINDOW := "Shot window looser"
+const PART_TOAST_WOBBLE := "Wobble quieter"
+const PART_OWNED_COPY := "OWNED"
+const PART_EQUIPPED_COPY := "Wearing this"
+
 ## Locked GD earn table (2026-09-18). Mock display grants only; LIVE ledger is Coder.
 const MARKS_PVP_WIN := 25
 const MARKS_PVP_LOSS := 3
@@ -519,6 +547,18 @@ static func shop_gun_crescent_item() -> Dictionary:
 	return _shop_item(GUN_CRESCENT, GUN_CRESCENT_NAME, GUN_KIND, GUN_CRESCENT_PRICE)
 
 
+static func shop_part_optic_item() -> Dictionary:
+	return _shop_item(PART_OPTIC, PART_OPTIC_NAME, PART_KIND, PART_OPTIC_PRICE)
+
+
+static func shop_part_stock_item() -> Dictionary:
+	return _shop_item(PART_STOCK, PART_STOCK_NAME, PART_KIND, PART_STOCK_PRICE)
+
+
+static func shop_part_barrel_item() -> Dictionary:
+	return _shop_item(PART_BARREL, PART_BARREL_NAME, PART_KIND, PART_BARREL_PRICE)
+
+
 static func _shop_item(item_id: String, item_name: String, kind: String, price: int) -> Dictionary:
 	return {
 		"id": item_id,
@@ -541,6 +581,9 @@ static func shop_catalog_items() -> Array:
 		shop_gun_fieldbolt_item(),
 		shop_gun_railframe_item(),
 		shop_gun_crescent_item(),
+		shop_part_optic_item(),
+		shop_part_stock_item(),
+		shop_part_barrel_item(),
 	]
 
 
@@ -569,6 +612,9 @@ static func _canonical_shop_id(item_id: String) -> String:
 	var gun := canonical_gun_id(item_id)
 	if gun != "":
 		return gun
+	var part := canonical_part_id(item_id)
+	if part != "":
+		return part
 	return item_id
 
 
@@ -607,6 +653,126 @@ static func canonical_gun_id(item_id: String) -> String:
 			return ""
 
 
+static func part_ids() -> Array:
+	return [PART_OPTIC, PART_STOCK, PART_BARREL]
+
+
+static func is_part_chrome(item_id: String) -> bool:
+	return canonical_part_id(item_id) != ""
+
+
+static func is_part_slot(slot: String) -> bool:
+	return slot in [PART_SLOT_OPTIC, PART_SLOT_STOCK, PART_SLOT_BARREL]
+
+
+static func canonical_part_id(item_id: String) -> String:
+	## LIVE ids gun_part_*. kind gun-part. Never a skin, decor, or gun slot.
+	match str(item_id):
+		PART_OPTIC, "part_optic", "optic", "toy_optic", "glass_optic":
+			return PART_OPTIC
+		PART_STOCK, "part_stock", "stock", "toy_stock", "shoulder_stock":
+			return PART_STOCK
+		PART_BARREL, "part_barrel", "barrel", "toy_barrel":
+			return PART_BARREL
+		_:
+			return ""
+
+
+static func part_slot(item_id: String) -> String:
+	match canonical_part_id(item_id):
+		PART_OPTIC:
+			return PART_SLOT_OPTIC
+		PART_STOCK:
+			return PART_SLOT_STOCK
+		PART_BARREL:
+			return PART_SLOT_BARREL
+		_:
+			return ""
+
+
+static func part_name(item_id: String) -> String:
+	match canonical_part_id(item_id):
+		PART_STOCK:
+			return PART_STOCK_NAME
+		PART_BARREL:
+			return PART_BARREL_NAME
+		PART_OPTIC:
+			return PART_OPTIC_NAME
+		_:
+			return ""
+
+
+static func part_glyph(item_id: String) -> String:
+	## Toy-spy icon kind for Chrome.make_icon. Not a mil-sim part plate.
+	match part_slot(item_id):
+		PART_SLOT_STOCK:
+			return "part_stock"
+		PART_SLOT_BARREL:
+			return "part_barrel"
+		PART_SLOT_OPTIC:
+			return "part_optic"
+		_:
+			return "star"
+
+
+static func part_buy_toast(item_id: String) -> String:
+	## Soft feel line. Practice hunts stay silent on Marks — this is hideout buy only.
+	if part_slot(item_id) == PART_SLOT_OPTIC:
+		return PART_TOAST_WINDOW
+	if part_slot(item_id) in [PART_SLOT_STOCK, PART_SLOT_BARREL]:
+		return PART_TOAST_WOBBLE
+	return ""
+
+
+static func part_row_status(owned: bool, can_buy: bool, equipped: bool) -> String:
+	## No hit / spot / exposure copy. Feel lives on the buy toast and the optic.
+	if owned:
+		return PART_EQUIPPED_COPY if equipped else PART_OWNED_COPY
+	if not can_buy:
+		return SHOP_INSUFFICIENT_COPY
+	return ""
+
+
+static func local_wobble_scale(stock_on: bool, barrel_on: bool) -> float:
+	## Mock snapshot table, matching LIVE. The client does not call this for Attack chrome.
+	if stock_on and barrel_on:
+		return WOBBLE_STACK_FLOOR
+	if stock_on:
+		return WOBBLE_STOCK_SCALE
+	if barrel_on:
+		return WOBBLE_BARREL_SCALE
+	return WOBBLE_SCALE_BASE
+
+
+static func local_shot_window_sec(optic_on: bool) -> float:
+	## Mock snapshot table, matching LIVE. The client does not call this for Attack chrome.
+	return SHOT_WINDOW_OPTIC_SEC if optic_on else SHOT_WINDOW_BASE_SEC
+
+
+static func feel_number(value: Variant) -> bool:
+	if value == null:
+		return false
+	if value is int or value is float:
+		return true
+	if value is String and str(value).is_valid_float():
+		return true
+	return false
+
+
+static func resolve_wobble_scale(present: bool, value: Variant) -> float:
+	## C2: you.wobbleScale only. Missing / null stays the bare 1. Equipped ids do not author it.
+	if present and feel_number(value):
+		return float(value)
+	return WOBBLE_SCALE_BASE
+
+
+static func resolve_shot_window_sec(present: bool, value: Variant) -> float:
+	## C2: you.shotWindowSec only. Missing / null stays 1.2. Equipped ids do not author it.
+	if present and feel_number(value):
+		return float(value)
+	return SHOT_WINDOW_BASE_SEC
+
+
 static func gun_family_name(item_id: String) -> String:
 	match canonical_gun_id(item_id):
 		GUN_RAILFRAME:
@@ -624,7 +790,10 @@ static func shop_catalog_stub(
 	owned: Array = [],
 	equipped: String = "",
 	equipped_decor: String = "",
-	equipped_gun: String = GUN_FIELDBOLT
+	equipped_gun: String = GUN_FIELDBOLT,
+	equipped_optic: String = "",
+	equipped_stock: String = "",
+	equipped_barrel: String = ""
 ) -> Dictionary:
 	var owned_ids: Array = owned.duplicate()
 	if not owned_ids.has(GUN_FIELDBOLT):
@@ -633,37 +802,62 @@ static func shop_catalog_stub(
 	var decor: Variant = equipped_decor if equipped_decor != "" else null
 	var gun_id := canonical_gun_id(equipped_gun)
 	var gun: Variant = gun_id if gun_id != "" else null
+	var optic_id := canonical_part_id(equipped_optic)
+	var stock_id := canonical_part_id(equipped_stock)
+	var barrel_id := canonical_part_id(equipped_barrel)
+	var optic: Variant = optic_id if optic_id != "" else null
+	var stock: Variant = stock_id if stock_id != "" else null
+	var barrel: Variant = barrel_id if barrel_id != "" else null
 	var owned_gun_ids: Array = []
+	var owned_part_ids: Array = []
 	for item_id in owned_ids:
 		var gid := canonical_gun_id(str(item_id))
 		if gid != "" and not owned_gun_ids.has(gid):
 			owned_gun_ids.append(gid)
+		var pid := canonical_part_id(str(item_id))
+		if pid != "" and not owned_part_ids.has(pid):
+			owned_part_ids.append(pid)
 	if not owned_gun_ids.has(GUN_FIELDBOLT):
 		owned_gun_ids.append(GUN_FIELDBOLT)
+	var wobble := local_wobble_scale(stock_id != "", barrel_id != "")
+	var window_sec := local_shot_window_sec(optic_id != "")
 	return {
 		"items": shop_catalog_items(),
 		"you": {
 			"marks": marks,
 			"owned": owned_ids,
 			"ownedGuns": owned_gun_ids,
+			"ownedParts": owned_part_ids,
 			"equipped": skin,
 			"equippedSkinId": skin,
 			"equippedDecorId": decor,
 			"equippedGunId": gun,
+			"equippedOpticId": optic,
+			"equippedStockId": stock,
+			"equippedBarrelId": barrel,
+			"wobbleScale": wobble,
+			"shotWindowSec": window_sec,
 		},
 		"owned": owned_ids,
 		"ownedGuns": owned_gun_ids,
+		"ownedParts": owned_part_ids,
 		"equipped": skin,
 		"equippedSkinId": skin,
 		"equippedDecorId": decor,
 		"equippedGunId": gun,
+		"equippedOpticId": optic,
+		"equippedStockId": stock,
+		"equippedBarrelId": barrel,
+		"wobbleScale": wobble,
+		"shotWindowSec": window_sec,
 		"marks": marks,
 	}
 
 
 static func merge_live_shop_catalog(live: Dictionary) -> Dictionary:
 	## Prefer LIVE names/prices when Coder lists a SKU. Append any missing
-	## mock row so ARMORY still shows skins / poster / gun SKUs.
+	## mock row so ARMORY still shows skins / poster / guns / parts.
+	## LIVE lists gun_part_* — those rows buy on the shop spine.
 	var out: Dictionary = live.duplicate(true)
 	var items: Variant = out.get("items", [])
 	if not (items is Array):
@@ -674,13 +868,13 @@ static func merge_live_shop_catalog(live: Dictionary) -> Dictionary:
 		if not (entry is Dictionary):
 			continue
 		merged.append(entry)
-		var iid := str(entry.get("id", entry.get("itemId", "")))
+		var iid := _canonical_shop_id(str(entry.get("id", entry.get("itemId", ""))))
 		if iid != "" and not ids.has(iid):
 			ids.append(iid)
 	for stub in shop_catalog_items():
 		var sid := str(stub.get("id", ""))
 		if sid != "" and not ids.has(sid):
-			merged.append(stub)
+			merged.append(stub.duplicate(true))
 	out["items"] = merged
 	return out
 

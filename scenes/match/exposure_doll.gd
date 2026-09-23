@@ -8,12 +8,16 @@ const Contract := preload("res://types/contract.gd")
 
 var exposure_pct: float = 50.0
 var equipped_skin_id: String = ""
+var _part_optic: String = ""
+var _part_stock: String = ""
+var _part_barrel: String = ""
 var _paper: ColorRect
 var _frame: ColorRect
 var _banner: ColorRect
 var _body: TextureRect
 var _cover: ColorRect
 var _pct: Label
+var _parts: HBoxContainer
 
 
 func _ready() -> void:
@@ -48,6 +52,14 @@ func displayed_floor() -> int:
 
 func exposure_label() -> String:
 	return Contract.EXPOSURE_FLOOR_LABEL % displayed_floor()
+
+
+func bind_parts(optic_id: String, stock_id: String, barrel_id: String) -> void:
+	## Equipped slot chips. Empty ids stay off the doll. Never a combat readout.
+	_part_optic = optic_id
+	_part_stock = stock_id
+	_part_barrel = barrel_id
+	_refresh_parts()
 
 
 func bind_equipped(item_id: String) -> void:
@@ -123,6 +135,40 @@ func _build() -> void:
 	_pct.clip_text = false
 	Chrome.apply_label(_pct, 8, Chrome.INK, true)
 	add_child(_pct)
+
+	_parts = HBoxContainer.new()
+	_parts.set_anchors_preset(PRESET_BOTTOM_WIDE)
+	_parts.offset_left = 8
+	_parts.offset_right = -8
+	_parts.offset_top = -28
+	_parts.offset_bottom = -6
+	_parts.alignment = BoxContainer.ALIGNMENT_CENTER
+	_parts.add_theme_constant_override("separation", 4)
+	_parts.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_parts.visible = false
+	add_child(_parts)
+
+
+func _refresh_parts() -> void:
+	if _parts == null:
+		return
+	for child in _parts.get_children():
+		child.queue_free()
+	var any := false
+	for item_id in [_part_optic, _part_stock, _part_barrel]:
+		if item_id == "":
+			continue
+		any = true
+		var icon := TextureRect.new()
+		icon.texture = Chrome.make_icon(Contract.part_glyph(item_id), Chrome.CREAM, 16)
+		icon.custom_minimum_size = Vector2(16, 16)
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_parts.add_child(icon)
+		var peg := Chrome.rack_peg("equipped")
+		peg.custom_minimum_size = Vector2(6, 14)
+		_parts.add_child(peg)
+	_parts.visible = any
 
 
 func _refresh() -> void:
