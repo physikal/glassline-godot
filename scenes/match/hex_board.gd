@@ -103,8 +103,8 @@ func _build_faces() -> void:
 func _sync_faces() -> void:
 	if _faces.is_empty():
 		_build_faces()
-	var w := HEX_SIZE * 1.7320508
-	var h := HEX_SIZE * 2.0
+	var cell_w := HEX_SIZE * 1.7320508
+	var cell_h := HEX_SIZE * 2.0
 	for q in Contract.BOARD_Q:
 		for r in Contract.BOARD_R:
 			var key := "%d,%d" % [q, r]
@@ -113,9 +113,12 @@ func _sync_faces() -> void:
 			var tile: Texture2D = Chrome.hex_tile(cell_kind(q, r))
 			s.texture = tile
 			if tile and tile.get_width() >= 24:
-				## Stamps carry transparent padding. Bleed so neighbors meet and the desk does not show as a slab.
-				var bleed := 1.26
-				s.scale = Vector2(w / float(tile.get_width()), h / float(tile.get_height())) * bleed
+				## Fit the pointy mask to the cell (extract hex_alpha_mask radius).
+				## Scaling the padded texture past the cell stacked the next UNKNOWN mark on this one.
+				var radius := minf(float(tile.get_width()), float(tile.get_height())) * 0.5 - 0.6
+				var mask_w := radius * 1.7320508
+				var mask_h := radius * 2.0
+				s.scale = Vector2(cell_w / mask_w, cell_h / mask_h)
 				s.visible = true
 			else:
 				s.visible = false

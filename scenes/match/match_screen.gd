@@ -1583,6 +1583,21 @@ func _build() -> void:
 		well.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(well)
 
+	if _plate_hud:
+		## The match plate paints its own hex illustration. Cover it with desk
+		## wood so only the live 9×7 sits on the table — not a second grid, and
+		## not a grey slab under the cells.
+		var desk_cover := TextureRect.new()
+		desk_cover.texture = Chrome.make_wood_texture(640, 320)
+		desk_cover.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		desk_cover.stretch_mode = TextureRect.STRETCH_TILE
+		desk_cover.position = Vector2(286, 104)
+		desk_cover.size = Vector2(960, 456)
+		## Match the plate's dark desk so the cover does not read as a panel.
+		desk_cover.modulate = Color(0.48, 0.45, 0.40)
+		desk_cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(desk_cover)
+
 	_board_host = Control.new()
 	if _plate_hud:
 		_board_host.position = Vector2(300, 108)
