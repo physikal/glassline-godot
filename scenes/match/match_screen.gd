@@ -945,6 +945,8 @@ func _capture_hud_punch() -> void:
 	_status.text = ""
 	_phase.text = ""
 	_toast.text = ""
+	## Unrevealed board, keys at full weight so the floating ink reads.
+	_set_actions(true)
 	await get_tree().process_frame
 	await get_tree().process_frame
 	await RenderingServer.frame_post_draw
@@ -970,8 +972,8 @@ func _capture_hud_punch() -> void:
 	rail_band.save_png(ProjectSettings.globalize_path("res://artifacts/ux/hud_ability_rail.png"))
 	print("HUD_RAIL ", ProjectSettings.globalize_path("res://artifacts/ux/hud_ability_rail.png"))
 	var full := get_viewport().get_texture().get_image()
-	var board := full.get_region(Rect2i(260, 90, 900, 470))
-	var legend := full.get_region(Rect2i(0, 430, 280, 250))
+	var board := full.get_region(Rect2i(240, 110, 980, 470))
+	var legend := full.get_region(Rect2i(0, 160, 260, 280))
 	board.save_png(ProjectSettings.globalize_path("res://artifacts/ux/hud_h3_board.png"))
 	legend.save_png(ProjectSettings.globalize_path("res://artifacts/ux/hud_h4_legend.png"))
 	print("H3_BOARD ", ProjectSettings.globalize_path("res://artifacts/ux/hud_h3_board.png"))
@@ -1480,76 +1482,66 @@ func _build() -> void:
 	var Art := preload("res://scripts/art_pack.gd")
 	var plate_tex: Texture2D = Art.match_board_plate()
 	_plate_hud = plate_tex != null
-	if _plate_hud:
-		var plate := TextureRect.new()
-		plate.texture = plate_tex
-		plate.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		plate.stretch_mode = TextureRect.STRETCH_SCALE
-		plate.set_anchors_preset(PRESET_FULL_RECT)
-		plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		add_child(plate)
-	else:
-		var desk := TextureRect.new()
-		desk.texture = Chrome.make_wood_texture(320, 180)
-		desk.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		desk.stretch_mode = TextureRect.STRETCH_SCALE
-		desk.set_anchors_preset(PRESET_FULL_RECT)
-		desk.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		add_child(desk)
-		var wash := ColorRect.new()
-		wash.color = Color(0.08, 0.04, 0.03, 0.10)
-		wash.set_anchors_preset(PRESET_FULL_RECT)
-		wash.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		add_child(wash)
-		var top := ColorRect.new()
-		top.color = Color(0.08, 0.05, 0.04, 0.55)
-		top.set_anchors_and_offsets_preset(PRESET_TOP_WIDE)
-		top.offset_bottom = 96
-		add_child(top)
+	if not _plate_hud:
+		push_warning("match-board plate missing; floating HUD still draws")
+	## Desk only. The baked jpg is the wood-tray dialect (header bar, inset
+	## legend, button tray). Do not blit it — chrome is floating plates.
+	var desk := TextureRect.new()
+	desk.texture = Chrome.make_wood_texture(480, 270)
+	desk.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	desk.stretch_mode = TextureRect.STRETCH_SCALE
+	desk.set_anchors_preset(PRESET_FULL_RECT)
+	desk.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	desk.modulate = Color(0.82, 0.74, 0.64)
+	add_child(desk)
 
-	if _plate_hud:
-		_you_chip = Label.new()
-		_rival_chip = Label.new()
-		_you_chip.visible = false
-		_rival_chip.visible = false
-		add_child(_you_chip)
-		add_child(_rival_chip)
+	_add_float_player_card(true)
+	_add_float_player_card(false)
+	var reticle := TextureRect.new()
+	reticle.texture = Chrome.make_icon("attack", Color("7ec8e8"), 72)
+	reticle.position = Vector2(604, 2)
+	reticle.size = Vector2(72, 72)
+	reticle.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	reticle.z_index = 4
+	add_child(reticle)
+	var title := Label.new()
+	if ClientSession.is_practice():
+		title.text = "PRACTICE"
+	elif ClientSession.is_job():
+		title.text = "SP JOB"
 	else:
-		_add_player_card(true)
-		_add_player_card(false)
-		var reticle := TextureRect.new()
-		reticle.texture = Chrome.make_icon("attack", Color.WHITE, 28)
-		reticle.position = Vector2(430, 18)
-		reticle.size = Vector2(36, 36)
-		reticle.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		add_child(reticle)
-		var title := Label.new()
-		if ClientSession.is_practice():
-			title.text = "PRACTICE"
-		elif ClientSession.is_job():
-			title.text = "SP JOB"
-		else:
-			title.text = "Glassline"
-		title.position = Vector2(0, 10)
-		title.size = Vector2(1280, 36)
-		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		Chrome.apply_label(title, 20, Color.WHITE, true)
-		add_child(title)
+		title.text = "Glassline"
+	title.position = Vector2(440, 18)
+	title.size = Vector2(400, 40)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.z_index = 5
+	Chrome.apply_label(title, 20, Color.WHITE, true)
+	add_child(title)
 
+	var clock_plate := PanelContainer.new()
+	clock_plate.position = Vector2(12, 108)
+	clock_plate.size = Vector2(176, 48)
+	clock_plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	clock_plate.z_index = 5
+	Chrome.paint_float_panel(clock_plate, Color("1c140e"), 14, 4)
+	add_child(clock_plate)
+	var clock_row := HBoxContainer.new()
+	clock_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	clock_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	clock_row.add_theme_constant_override("separation", 8)
+	clock_plate.add_child(clock_row)
 	_clock_icon = TextureRect.new()
-	_clock_icon.texture = Chrome.make_icon("clock", Chrome.CREAM, 28)
-	_clock_icon.position = Vector2(24, 104)
-	_clock_icon.size = Vector2(24, 24)
+	_clock_icon.texture = Chrome.make_icon("clock", Chrome.CREAM, 22)
+	_clock_icon.custom_minimum_size = Vector2(22, 22)
+	_clock_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_clock_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_clock_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_clock_icon.visible = not _plate_hud
-	add_child(_clock_icon)
+	clock_row.add_child(_clock_icon)
 	_clock_chip = Label.new()
 	_clock_chip.text = "01:30"
-	_clock_chip.position = Vector2(52, 104)
-	_clock_chip.size = Vector2(160, 28)
-	Chrome.apply_label(_clock_chip, 14, Chrome.CREAM, true)
-	_clock_chip.visible = not _plate_hud
-	add_child(_clock_chip)
+	_clock_chip.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	Chrome.apply_label(_clock_chip, 13, Chrome.CREAM, true)
+	clock_row.add_child(_clock_chip)
 	_grace_lbl = Label.new()
 	_grace_lbl.text = ""
 	_grace_lbl.position = Vector2(52, 132)
@@ -1565,63 +1557,34 @@ func _build() -> void:
 	_btn_abandon.visible = false
 	add_child(_btn_abandon)
 
-	_turn_pill = Chrome.pill_chip(Color(0.08, 0.06, 0.05, 0.92), Color("f0e3b0"))
-	_turn_pill.position = Vector2(540, 50)
-	_turn_pill.visible = not _plate_hud
+	_turn_pill = PanelContainer.new()
+	_turn_pill.position = Vector2(568, 102)
+	_turn_pill.size = Vector2(148, 36)
+	_turn_pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_turn_pill.z_index = 5
+	Chrome.paint_float_panel(_turn_pill, Color("1c140e"), 12, 4)
 	add_child(_turn_pill)
 	_turn = Label.new()
 	_turn.text = "TURN  1"
 	_turn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_turn.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	Chrome.apply_label(_turn, 10, Chrome.CREAM, true)
 	_turn_pill.add_child(_turn)
 
-	if not _plate_hud:
-		var legend := VBoxContainer.new()
-		legend.position = Vector2(16, 168)
-		legend.add_theme_constant_override("separation", 12)
-		add_child(legend)
-		_legend_row(legend, Contract.TYPE_OPEN, "OPEN")
-		_legend_row(legend, Contract.TYPE_BRUSH, "BRUSH")
-		_legend_row(legend, Contract.TYPE_HARD, "HARD")
-		_legend_row(legend, "unknown", "UNKNOWN")
+	_mount_float_legend()
 
 	_legend_hover = Label.new()
-	_legend_hover.position = Vector2(16, 380)
-	_legend_hover.size = Vector2(200, 80)
+	_legend_hover.position = Vector2(16, 420)
+	_legend_hover.size = Vector2(210, 64)
 	_legend_hover.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	Chrome.apply_label(_legend_hover, 8, Chrome.CREAM, true)
-	_legend_hover.visible = not _plate_hud
 	add_child(_legend_hover)
 
-	if not _plate_hud:
-		var well := ColorRect.new()
-		well.color = Color(0.07, 0.05, 0.04, 0.12)
-		well.position = Vector2(210, 128)
-		well.size = Vector2(860, 478)
-		well.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		add_child(well)
-
-	if _plate_hud:
-		## Hide the baked hex illustration without cutting the header / turn
-		## bar (that bar ends ~y=118). Grain, not a flat well — a flat rect
-		## read as an inset wood tray beside the legend.
-		var desk_cover := TextureRect.new()
-		desk_cover.texture = Chrome.grain_texture(Chrome.DESK_WELL)
-		desk_cover.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-		desk_cover.stretch_mode = TextureRect.STRETCH_SCALE
-		desk_cover.position = Vector2(248, 122)
-		desk_cover.size = Vector2(990, 436)
-		desk_cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		add_child(desk_cover)
-
 	_board_host = Control.new()
-	if _plate_hud:
-		## Center hex sits in the host. Top points land on y≈122, under the header.
-		_board_host.position = Vector2(250, 124)
-		_board_host.size = Vector2(940, 436)
-	else:
-		_board_host.position = Vector2(220, 132)
-		_board_host.size = Vector2(840, 470)
+	## Center hex sits in the host. Top points land under the header.
+	## Same seat as the cleared 9×7 — do not shove the grid into a tray.
+	_board_host.position = Vector2(250, 124)
+	_board_host.size = Vector2(940, 436)
 	_board_host.mouse_filter = Control.MOUSE_FILTER_STOP
 	_board_host.gui_input.connect(_on_board_input)
 	add_child(_board_host)
@@ -1644,76 +1607,29 @@ func _build() -> void:
 	Chrome.apply_label(_phase, 8, Chrome.TEAL, true)
 	add_child(_phase)
 
-	if _plate_hud:
-		_btn_attack = Chrome.plate_hotspot(Vector2(284, 104))
-		_btn_attack.position = Vector2(36, 572)
-		_btn_attack.pressed.connect(_on_attack)
-		add_child(_btn_attack)
-		_btn_recon = Chrome.plate_hotspot(Vector2(290, 104))
-		_btn_recon.position = Vector2(330, 572)
-		_btn_recon.pressed.connect(_on_recon)
-		add_child(_btn_recon)
-		## Painted ABILITY key becomes the rail. Grain hides the bake so the
-		## chips float on the desk instead of sitting in a flat wood tray.
-		var ability_mat := TextureRect.new()
-		ability_mat.texture = Chrome.grain_texture(Chrome.DESK)
-		ability_mat.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-		ability_mat.stretch_mode = TextureRect.STRETCH_SCALE
-		ability_mat.position = Vector2(610, 560)
-		ability_mat.size = Vector2(320, 148)
-		ability_mat.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		add_child(ability_mat)
-		_mount_ability_rail(self, true)
-		## Baked HIGH GROUND paint stays covered. The live chip is the chunky
-		## floating plate (stacked hexes, thick outline). +10% only when lit.
-		var high_back := TextureRect.new()
-		high_back.texture = Chrome.grain_texture(Chrome.DESK, 64, 64)
-		high_back.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-		high_back.stretch_mode = TextureRect.STRETCH_SCALE
-		high_back.position = Vector2(928, 560)
-		high_back.size = Vector2(324, 140)
-		high_back.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		add_child(high_back)
-		_high_chip = Chrome.high_ground_chip(false)
-		_high_chip.position = Vector2(936, 568)
-		_high_chip.z_index = 4
-		add_child(_high_chip)
-		_btn_high = Button.new()
-		_btn_high.visible = false
-		_btn_high.disabled = true
-		add_child(_btn_high)
-		_high_cap = Label.new()
-		_high_cap.visible = false
-		add_child(_high_cap)
-	else:
-		var bottom := ColorRect.new()
-		bottom.color = Color(0.10, 0.06, 0.04, 0.72)
-		bottom.set_anchors_and_offsets_preset(PRESET_BOTTOM_WIDE)
-		bottom.offset_top = -118
-		add_child(bottom)
-		var row := HBoxContainer.new()
-		row.position = Vector2(24, 612)
-		row.size = Vector2(1232, 92)
-		row.alignment = BoxContainer.ALIGNMENT_CENTER
-		row.add_theme_constant_override("separation", 14)
-		add_child(row)
-		_btn_attack = Chrome.game_button("attack", "ATTACK", Chrome.ATTACK_RED, Color.WHITE, Vector2(248, 76))
-		_btn_attack.pressed.connect(_on_attack)
-		row.add_child(_btn_attack)
-		_btn_recon = Chrome.game_button("recon", "RECON", Chrome.RECON_BLUE, Color.WHITE, Vector2(248, 76))
-		_btn_recon.pressed.connect(_on_recon)
-		row.add_child(_btn_recon)
-		_mount_ability_rail(row, false)
-		_btn_high = Button.new()
-		_btn_high.visible = false
-		_btn_high.disabled = true
-		add_child(_btn_high)
-		_high_cap = Label.new()
-		_high_cap.visible = false
-		add_child(_high_cap)
-		_high_chip = Chrome.high_ground_chip(false)
-		_high_chip.position = Vector2(960, 590)
-		add_child(_high_chip)
+	_btn_attack = Chrome.game_button("attack", "ATTACK", Chrome.ATTACK_RED, Color.WHITE, Vector2(220, 84))
+	_btn_attack.position = Vector2(12, 588)
+	_btn_attack.z_index = 4
+	_btn_attack.pressed.connect(_on_attack)
+	add_child(_btn_attack)
+	_btn_recon = Chrome.game_button("recon", "RECON", Chrome.RECON_BLUE, Color.WHITE, Vector2(220, 84))
+	_btn_recon.position = Vector2(248, 588)
+	_btn_recon.z_index = 4
+	_btn_recon.pressed.connect(_on_recon)
+	add_child(_btn_recon)
+	## Soft rail stays UAV / DECOY / SMOKE under ABILITY. No wood-tray mat.
+	_mount_ability_rail(self, true)
+	_high_chip = Chrome.high_ground_chip(false)
+	_high_chip.position = Vector2(960, 572)
+	_high_chip.z_index = 4
+	add_child(_high_chip)
+	_btn_high = Button.new()
+	_btn_high.visible = false
+	_btn_high.disabled = true
+	add_child(_btn_high)
+	_high_cap = Label.new()
+	_high_cap.visible = false
+	add_child(_high_cap)
 	## Ability chips are mounted in _mount_ability_rail. No free-float keys.
 
 	## Soft P2: rematch-ready START is a centered drop cue, not tucked under P2.
@@ -1784,8 +1700,10 @@ func _build() -> void:
 	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	Chrome.apply_label(_toast, 10, Color("f7e7a8"), true)
 	add_child(_toast)
-	_mute_btn = Chrome.dock_button(Chrome.mute_button_text(AudioJuice.muted), Chrome.INK, Chrome.CREAM, Vector2(108, 32))
-	_mute_btn.position = Vector2(1156, 12)
+	_mute_btn = Chrome.dock_button(Chrome.mute_button_text(AudioJuice.muted), Chrome.INK, Chrome.CREAM, Vector2(96, 36))
+	Chrome.paint_float_key(_mute_btn)
+	_mute_btn.position = Vector2(1172, 10)
+	_mute_btn.z_index = 6
 	_mute_btn.tooltip_text = Chrome.mute_button_tip(AudioJuice.muted)
 	_mute_btn.pressed.connect(_toggle_mute)
 	add_child(_mute_btn)
@@ -1912,9 +1830,10 @@ func _mount_ability_rail(parent: Control, plate: bool) -> void:
 	rail.add_theme_constant_override("separation", 2)
 	rail.alignment = BoxContainer.ALIGNMENT_CENTER
 	if plate:
-		rail.position = Vector2(624, 574)
-		rail.custom_minimum_size = Vector2(292, 96)
-		rail.size = Vector2(292, 96)
+		rail.position = Vector2(488, 576)
+		rail.custom_minimum_size = Vector2(300, 100)
+		rail.size = Vector2(300, 100)
+		rail.z_index = 4
 	else:
 		rail.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		rail.custom_minimum_size = Vector2(300, 88)
@@ -1955,28 +1874,6 @@ func _place_lock_toast(line: String) -> void:
 	Chrome.apply_label(_toast, 11, Color("f7e7a8"), true)
 
 
-func _add_player_card(is_you: bool) -> void:
-	var origin := Vector2(16, 12) if is_you else Vector2(980, 12)
-	var face := TextureRect.new()
-	face.texture = Chrome.make_face("p1" if is_you else "p2", 44)
-	face.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	face.position = origin
-	face.size = Vector2(44, 44)
-	face.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(face)
-
-	var chip := Label.new()
-	chip.position = origin + Vector2(52, 4)
-	chip.size = Vector2(230, 48)
-	chip.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	Chrome.apply_label(chip, 11, Chrome.CREAM, true)
-	add_child(chip)
-	if is_you:
-		_you_chip = chip
-	else:
-		_rival_chip = chip
-
-
 func _legend_row(parent: VBoxContainer, kind: String, text: String) -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
@@ -1990,9 +1887,82 @@ func _legend_row(parent: VBoxContainer, kind: String, text: String) -> void:
 	row.add_child(stamp)
 	var lbl := Label.new()
 	lbl.text = text
-	Chrome.apply_label(lbl, 8, Chrome.CREAM, true)
+	Chrome.apply_label(lbl, 11, Chrome.CREAM, true)
 	row.add_child(lbl)
 	parent.add_child(row)
+
+
+func _mount_float_legend() -> void:
+	## Dark plate over the desk. Not an inset column in the wood.
+	var plate := PanelContainer.new()
+	plate.position = Vector2(10, 168)
+	plate.size = Vector2(224, 248)
+	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	plate.z_index = 4
+	Chrome.paint_float_panel(plate, Color("1c140e"), 16, 5)
+	add_child(plate)
+	var legend := VBoxContainer.new()
+	legend.add_theme_constant_override("separation", 10)
+	legend.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	plate.add_child(legend)
+	_legend_row(legend, Contract.TYPE_OPEN, "OPEN")
+	_legend_row(legend, Contract.TYPE_BRUSH, "BRUSH")
+	_legend_row(legend, Contract.TYPE_HARD, "HARD")
+	_legend_row(legend, "unknown", "UNKNOWN")
+
+
+func _add_float_player_card(is_you: bool) -> void:
+	var panel := PanelContainer.new()
+	panel.position = Vector2(12, 8) if is_you else Vector2(930, 8)
+	panel.size = Vector2(280, 86) if is_you else Vector2(228, 86)
+	panel.custom_minimum_size = panel.size
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.z_index = 5
+	Chrome.paint_float_panel(panel, Color("1c140e"), 14, 5)
+	add_child(panel)
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 10)
+	panel.add_child(row)
+	var face := TextureRect.new()
+	face.texture = Chrome.make_face("p1" if is_you else "p2", 52)
+	face.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	face.custom_minimum_size = Vector2(52, 52)
+	face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	face.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	face.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var col := VBoxContainer.new()
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col.add_theme_constant_override("separation", 4)
+	var chip := Label.new()
+	chip.custom_minimum_size = Vector2(150, 36)
+	chip.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	if not is_you:
+		chip.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	Chrome.apply_label(chip, 11, Chrome.CREAM, true)
+	col.add_child(chip)
+	var bar := Panel.new()
+	bar.custom_minimum_size = Vector2(148, 12)
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var bar_fill := Color("2f9ed8") if is_you else Color("e8872a")
+	var bar_box := Chrome.flat(bar_fill, 6, Color(0, 0, 0, 0.45), 2)
+	bar_box.content_margin_left = 0
+	bar_box.content_margin_right = 0
+	bar_box.content_margin_top = 0
+	bar_box.content_margin_bottom = 0
+	bar_box.shadow_size = 0
+	bar.add_theme_stylebox_override("panel", bar_box)
+	col.add_child(bar)
+	if is_you:
+		row.add_child(face)
+		row.add_child(col)
+		_you_chip = chip
+	else:
+		row.add_child(col)
+		row.add_child(face)
+		_rival_chip = chip
 
 
 func _on_match_event(player_id: String, _event_name: String, snapshot: Dictionary) -> void:
