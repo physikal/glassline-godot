@@ -3594,16 +3594,18 @@ func _match_board_chrome_case(failed: PackedStringArray) -> void:
 	_expect(failed, chip.custom_minimum_size.y >= 100.0, "HIGH GROUND chip is heavy plate weight")
 	var hg_icon: TextureRect = chip.get_meta("high_icon") if chip.has_meta("high_icon") else null
 	_expect(failed, hg_icon != null and hg_icon.custom_minimum_size.y >= 70.0, "HIGH GROUND icon fills the toast")
-	var hg_box := chip.get_theme_stylebox("panel") as StyleBoxFlat
-	_expect(failed, hg_box != null and hg_box.get_border_width(SIDE_TOP) >= 5, "HIGH GROUND outline is thick ink")
-	_expect(failed, hg_box != null and hg_box.shadow_size >= 6, "HIGH GROUND drops a shadow")
+	var hg_box: StyleBox = chip.get_theme_stylebox("panel")
+	_expect(failed, hg_box != null and bool(hg_box.get_meta("chunk_bevel", false)), "HIGH GROUND is chunky bevel chrome")
+	_expect(failed, hg_box != null and int(hg_box.get_meta("bevel_ink", 0)) >= 5, "HIGH GROUND outline is thick ink")
+	_expect(failed, hg_box != null and int(hg_box.get_meta("blur_shadow", 1)) == 0, "HIGH GROUND has no blurry drop shadow")
 	var parked_lbl: Label = chip.get_meta("high_label") if chip.has_meta("high_label") else null
 	_expect(failed, parked_lbl != null and parked_lbl.text.find("+10%") < 0, "parked HIGH GROUND omits +10%")
 	chip.free()
 	var atk: Button = Chrome.game_button("attack", "ATTACK", Chrome.ATTACK_RED, Color.WHITE, Vector2(220, 84))
-	var atk_box := atk.get_theme_stylebox("normal") as StyleBoxFlat
-	_expect(failed, atk_box != null and atk_box.get_border_width(SIDE_LEFT) >= 5, "ATTACK key has thick ink")
-	_expect(failed, atk_box != null and atk_box.shadow_size >= 6, "ATTACK key floats over the desk")
+	var atk_box: StyleBox = atk.get_theme_stylebox("normal")
+	_expect(failed, atk_box != null and bool(atk_box.get_meta("chunk_bevel", false)), "ATTACK key is chunky bevel chrome")
+	_expect(failed, atk_box != null and int(atk_box.get_meta("bevel_ink", 0)) >= 5, "ATTACK key has thick ink")
+	_expect(failed, atk_box != null and int(atk_box.get_meta("blur_shadow", 1)) == 0, "ATTACK key has no blurry drop shadow")
 	atk.free()
 	var screen_src := FileAccess.get_file_as_string("res://scenes/match/match_screen.gd")
 	_expect(failed, screen_src.find("Vector2(250, 96)") < 0, "board well does not cut the header")

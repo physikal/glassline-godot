@@ -63,6 +63,10 @@ var _btn_decline: Button
 var _btn_hideout: Button
 var _you_chip: Label
 var _rival_chip: Label
+var _you_level: Label
+var _rival_level: Label
+## Locked plate parks RivalSniper at star 18. Snapshot has no enemy marks field.
+const PLATE_RIVAL_STAR := 18
 var _coach: FirstHuntCoach
 var _terrain: TerrainCoach
 var _floor_tip: ExposureFloorTip
@@ -185,6 +189,8 @@ func _ready() -> void:
 		_capture_decoy_lock("toast")
 	elif "--capture-hud-punch" in args:
 		_capture_hud_punch()
+	elif "--capture-soft-hud" in args:
+		_capture_soft_hud()
 
 
 func _cmdline_is_capture(args: PackedStringArray) -> bool:
@@ -1001,6 +1007,76 @@ func _capture_hud_punch() -> void:
 	get_tree().quit()
 
 
+func _capture_soft_hud() -> void:
+	## Revealed OPEN / BRUSH / HARD interior. UNKNOWN stays on the rim.
+	if _coach:
+		_coach.dismiss()
+	_dummy_busy = true
+	_dummy_delay = 0.0
+	MockMatchServer.operative_level = Contract.SMOKE_UNLOCK_LEVEL
+	MockMatchServer.test_omit_operative_level = false
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+	DisplayServer.window_set_size(Vector2i(1280, 720))
+	await get_tree().process_frame
+	var snap: Snapshot = ClientSession.typed_snapshot()
+	if snap.status() == Contract.STATUS_READY or snap.status() == Contract.STATUS_WAITING or snap.status() == "":
+		_submit(ActionIntent.select_hex(2, 2))
+		await get_tree().process_frame
+		if ClientSession.dummy_player_id != "":
+			MatchAPI.apply_action(ClientSession.match_id, ClientSession.dummy_player_id, ActionIntent.select_hex(6, 4))
+			await get_tree().process_frame
+		snap = ClientSession.typed_snapshot()
+	if snap.status() == Contract.STATUS_READY:
+		_submit(ActionIntent.start())
+		await get_tree().process_frame
+	if not ClientSession.use_live_api() and ClientSession.match_id != "":
+		MockMatchServer.reveal_inner_for_art(ClientSession.match_id)
+		_apply_server_reconnect()
+	snap = ClientSession.typed_snapshot()
+	_refresh(snap)
+	_end_panel.visible = false
+	_btn_start.visible = false
+	if _btn_abandon:
+		_btn_abandon.visible = false
+	_status.text = ""
+	_phase.text = ""
+	_toast.text = ""
+	if _legend_hover:
+		_legend_hover.text = ""
+	if _clock_chip:
+		_clock_chip.text = "01:30"
+	if _turn:
+		_turn.text = "TURN  1"
+	_set_actions(true)
+	_bind_decoy(snap)
+	_bind_smoke(snap)
+	_bind_high_ground(snap)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var root := "res://artifacts/ux/soft_hud_dialect"
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(root))
+	_save_hud_png(root + "/full_plate.png", "SOFT_FULL")
+	var full := get_viewport().get_texture().get_image()
+	full.get_region(Rect2i(0, 0, 1280, 130)).save_png(ProjectSettings.globalize_path(root + "/top_chrome.png"))
+	full.get_region(Rect2i(0, 96, 220, 280)).save_png(ProjectSettings.globalize_path(root + "/legend_timer.png"))
+	full.get_region(Rect2i(200, 100, 900, 480)).save_png(ProjectSettings.globalize_path(root + "/board_full.png"))
+	full.get_region(Rect2i(0, 540, 1280, 180)).save_png(ProjectSettings.globalize_path(root + "/ability_rail.png"))
+	full.get_region(Rect2i(900, 540, 380, 180)).save_png(ProjectSettings.globalize_path(root + "/high_ground.png"))
+	full.get_region(Rect2i(1100, 180, 180, 200)).save_png(ProjectSettings.globalize_path(root + "/table_corner.png"))
+	var counts := {"open": 0, "brush": 0, "hard": 0, "unknown": 0}
+	for cell in snap.terrain():
+		var kind := str(cell.get("type", "unknown"))
+		if counts.has(kind):
+			counts[kind] = int(counts[kind]) + 1
+		else:
+			counts["unknown"] = int(counts["unknown"]) + 1
+	var revealed := int(counts["open"]) + int(counts["brush"]) + int(counts["hard"])
+	print("SOFT_HUD_TERRAIN open ", counts["open"], " brush ", counts["brush"], " hard ", counts["hard"], " listed ", revealed)
+	print("SOFT_HUD_STILLS ", ProjectSettings.globalize_path(root))
+	get_tree().quit()
+
+
 func _save_hud_png(res_path: String, tag: String) -> void:
 	var img := get_viewport().get_texture().get_image()
 	var path := ProjectSettings.globalize_path(res_path)
@@ -1487,7 +1563,7 @@ func _build() -> void:
 	## Desk only. The baked jpg is the wood-tray dialect (header bar, inset
 	## legend, button tray). Do not blit it — chrome is floating plates.
 	var desk := TextureRect.new()
-	desk.texture = Chrome.make_match_desk(480, 270)
+	desk.texture = Chrome.make_match_desk(1280, 720)
 	desk.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	desk.stretch_mode = TextureRect.STRETCH_SCALE
 	desk.set_anchors_preset(PRESET_FULL_RECT)
@@ -1498,9 +1574,9 @@ func _build() -> void:
 	_add_float_player_card(false)
 	## Ring sits behind the word. The word is the header, centered, not a left logo.
 	var reticle := TextureRect.new()
-	reticle.texture = Chrome.make_wordmark_ring(140)
-	reticle.position = Vector2(570, -4)
-	reticle.size = Vector2(140, 140)
+	reticle.texture = Chrome.make_wordmark_ring(168)
+	reticle.position = Vector2(556, 0)
+	reticle.size = Vector2(168, 168)
 	reticle.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	reticle.z_index = 3
 	add_child(reticle)
@@ -1511,6 +1587,28 @@ func _build() -> void:
 		title.text = "SP JOB"
 	else:
 		title.text = "Glassline"
+	var title_bold := Label.new()
+	title_bold.text = title.text
+	title_bold.position = Vector2(342, 18)
+	title_bold.size = Vector2(600, 64)
+	title_bold.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_bold.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	title_bold.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	title_bold.z_index = 6
+	Chrome.apply_label(title_bold, 32, Color.WHITE, true)
+	title_bold.add_theme_constant_override("outline_size", 0)
+	add_child(title_bold)
+	var title_shadow := Label.new()
+	title_shadow.text = title.text
+	title_shadow.position = Vector2(344, 22)
+	title_shadow.size = Vector2(600, 64)
+	title_shadow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_shadow.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	title_shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	title_shadow.z_index = 5
+	Chrome.apply_label(title_shadow, 32, Color("0c0a08"), true)
+	title_shadow.add_theme_constant_override("outline_size", 0)
+	add_child(title_shadow)
 	title.position = Vector2(340, 18)
 	title.size = Vector2(600, 64)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1518,15 +1616,16 @@ func _build() -> void:
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	title.z_index = 6
 	Chrome.apply_label(title, 32, Color.WHITE, true)
-	title.add_theme_constant_override("outline_size", 6)
+	title.add_theme_constant_override("outline_size", 3)
+	title.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
 	add_child(title)
 
 	var clock_plate := PanelContainer.new()
-	clock_plate.position = Vector2(8, 100)
-	clock_plate.size = Vector2(168, 46)
+	clock_plate.position = Vector2(8, 104)
+	clock_plate.size = Vector2(176, 52)
 	clock_plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	clock_plate.z_index = 5
-	_paint_tight_plate(clock_plate, Color("100e0c"), 16, 5, 10, 6)
+	_paint_tight_plate(clock_plate, Color("16120e"), 14, 5, 10, 6)
 	add_child(clock_plate)
 	var clock_row := HBoxContainer.new()
 	clock_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1534,8 +1633,8 @@ func _build() -> void:
 	clock_row.add_theme_constant_override("separation", 8)
 	clock_plate.add_child(clock_row)
 	_clock_icon = TextureRect.new()
-	_clock_icon.texture = Chrome.make_icon("clock", Color("7ec8e8"), 26)
-	_clock_icon.custom_minimum_size = Vector2(26, 26)
+	_clock_icon.texture = Chrome.make_icon("clock", Color("5ee7f5"), 34)
+	_clock_icon.custom_minimum_size = Vector2(34, 34)
 	_clock_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_clock_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_clock_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1565,7 +1664,7 @@ func _build() -> void:
 	_turn_pill.size = Vector2(168, 34)
 	_turn_pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_turn_pill.z_index = 5
-	_paint_tight_plate(_turn_pill, Color("100e0c"), 12, 4, 8, 4)
+	_paint_tight_plate(_turn_pill, Color("16120e"), 12, 4, 8, 4)
 	add_child(_turn_pill)
 	_turn = Label.new()
 	_turn.text = "TURN  1"
@@ -1610,20 +1709,20 @@ func _build() -> void:
 	Chrome.apply_label(_phase, 8, Chrome.TEAL, true)
 	add_child(_phase)
 
-	_btn_attack = Chrome.game_button("attack", "ATTACK", Chrome.ATTACK_RED, Color.WHITE, Vector2(220, 84))
-	_btn_attack.position = Vector2(12, 588)
+	_btn_attack = Chrome.game_button("attack", "ATTACK", Chrome.ATTACK_RED, Color.WHITE, Vector2(224, 92))
+	_btn_attack.position = Vector2(12, 584)
 	_btn_attack.z_index = 4
 	_btn_attack.pressed.connect(_on_attack)
 	add_child(_btn_attack)
-	_btn_recon = Chrome.game_button("recon", "RECON", Chrome.RECON_BLUE, Color.WHITE, Vector2(220, 84))
-	_btn_recon.position = Vector2(248, 588)
+	_btn_recon = Chrome.game_button("recon", "RECON", Chrome.RECON_BLUE, Color.WHITE, Vector2(224, 92))
+	_btn_recon.position = Vector2(248, 584)
 	_btn_recon.z_index = 4
 	_btn_recon.pressed.connect(_on_recon)
 	add_child(_btn_recon)
 	## Soft rail stays UAV / DECOY / SMOKE under ABILITY. No wood-tray mat.
 	_mount_ability_rail(self, true)
 	_high_chip = Chrome.high_ground_chip(false)
-	_high_chip.position = Vector2(968, 572)
+	_high_chip.position = Vector2(928, 568)
 	_high_chip.size = Vector2(300, 112)
 	_high_chip.z_index = 4
 	add_child(_high_chip)
@@ -1833,9 +1932,9 @@ func _mount_ability_rail(parent: Control, plate: bool) -> void:
 	rail.add_theme_constant_override("separation", 2)
 	rail.alignment = BoxContainer.ALIGNMENT_CENTER
 	if plate:
-		rail.position = Vector2(488, 576)
-		rail.custom_minimum_size = Vector2(300, 100)
-		rail.size = Vector2(300, 100)
+		rail.position = Vector2(476, 568)
+		rail.custom_minimum_size = Vector2(340, 112)
+		rail.size = Vector2(340, 112)
 		rail.z_index = 4
 	else:
 		rail.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -1845,7 +1944,7 @@ func _mount_ability_rail(parent: Control, plate: bool) -> void:
 	_ability_cap.text = Contract.ABILITY_SLOT
 	_ability_cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_ability_cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	Chrome.apply_label(_ability_cap, 8, Chrome.CREAM, true)
+	Chrome.apply_label(_ability_cap, 11, Chrome.CREAM, true)
 	rail.add_child(_ability_cap)
 	var chips := HBoxContainer.new()
 	chips.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1883,7 +1982,7 @@ func _legend_row(parent: VBoxContainer, kind: String, text: String) -> void:
 	var stamp := TextureRect.new()
 	stamp.texture = Chrome.hex_legend_tex(kind)
 	stamp.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	stamp.custom_minimum_size = Vector2(26, 24)
+	stamp.custom_minimum_size = Vector2(34, 32)
 	stamp.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	stamp.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	stamp.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1896,7 +1995,10 @@ func _legend_row(parent: VBoxContainer, kind: String, text: String) -> void:
 
 
 func _paint_tight_plate(panel: Control, bg: Color, radius: int, border_px: int, margin_h: int, margin_v: int) -> void:
-	var box := Chrome.float_box(bg, radius, border_px)
+	var sz := panel.size
+	if sz.x < 8.0:
+		sz = panel.custom_minimum_size
+	var box := Chrome.float_box(bg, radius, border_px, sz)
 	box.content_margin_left = margin_h
 	box.content_margin_right = margin_h
 	box.content_margin_top = margin_v
@@ -1908,11 +2010,11 @@ func _mount_float_legend() -> void:
 	## Slim dark plate over the desk. Names only — not the wood-tray subtitle column.
 	var plate := PanelContainer.new()
 	plate.position = Vector2(8, 156)
-	plate.size = Vector2(176, 168)
+	plate.size = Vector2(188, 196)
 	plate.custom_minimum_size = plate.size
 	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	plate.z_index = 4
-	_paint_tight_plate(plate, Color("100e0c"), 14, 5, 10, 6)
+	_paint_tight_plate(plate, Color("16120e"), 14, 5, 10, 8)
 	add_child(plate)
 	var legend := VBoxContainer.new()
 	legend.add_theme_constant_override("separation", 4)
@@ -1926,56 +2028,80 @@ func _mount_float_legend() -> void:
 
 func _add_float_player_card(is_you: bool) -> void:
 	var panel := PanelContainer.new()
-	panel.position = Vector2(8, 8) if is_you else Vector2(968, 8)
-	panel.size = Vector2(300, 84) if is_you else Vector2(236, 84)
+	panel.position = Vector2(8, 8) if is_you else Vector2(948, 8)
+	panel.size = Vector2(300, 92)
 	panel.custom_minimum_size = panel.size
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.z_index = 5
-	_paint_tight_plate(panel, Color("100e0c"), 16, 6, 10, 8)
+	_paint_tight_plate(panel, Color("16120e"), 14, 6, 8, 6)
 	add_child(panel)
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 10)
+	row.add_theme_constant_override("separation", 8)
 	panel.add_child(row)
 	var face := TextureRect.new()
-	face.texture = Chrome.make_face("p1" if is_you else "p2", 52)
+	face.texture = Chrome.make_plate_portrait("p1" if is_you else "p2", 64)
 	face.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	face.custom_minimum_size = Vector2(56, 56)
+	face.custom_minimum_size = Vector2(64, 64)
 	face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	face.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	face.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var col := VBoxContainer.new()
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	col.add_theme_constant_override("separation", 4)
+	col.add_theme_constant_override("separation", 3)
 	var chip := Label.new()
-	chip.custom_minimum_size = Vector2(150, 36)
+	chip.custom_minimum_size = Vector2(160, 22)
 	chip.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	if not is_you:
 		chip.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	Chrome.apply_label(chip, 11, Chrome.CREAM, true)
+	Chrome.apply_label(chip, 12, Chrome.CREAM, true)
 	col.add_child(chip)
+	var star_row := HBoxContainer.new()
+	star_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	star_row.add_theme_constant_override("separation", 6)
+	if not is_you:
+		star_row.alignment = BoxContainer.ALIGNMENT_END
+	var star := TextureRect.new()
+	var star_col := Color("3ec8e0") if is_you else Color("f0c44a")
+	star.texture = Chrome.make_icon("star", star_col, 18)
+	star.custom_minimum_size = Vector2(18, 18)
+	star.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	star.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	star.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var level := Label.new()
+	level.text = "24" if is_you else str(PLATE_RIVAL_STAR)
+	level.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	Chrome.apply_label(level, 14, star_col, true)
+	if is_you:
+		star_row.add_child(star)
+		star_row.add_child(level)
+	else:
+		star_row.add_child(star)
+		star_row.add_child(level)
+	col.add_child(star_row)
 	var bar := Panel.new()
-	bar.custom_minimum_size = Vector2(148, 12)
+	bar.custom_minimum_size = Vector2(168, 18)
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var bar_fill := Color("2f9ed8") if is_you else Color("e8872a")
-	var bar_box := Chrome.flat(bar_fill, 6, Color(0, 0, 0, 0.45), 2)
+	var bar_fill := Color("2eb8e6") if is_you else Color("f08a2a")
+	var bar_box := Chrome.bevel_style(bar_fill, Vector2(168, 18), 8, 3)
 	bar_box.content_margin_left = 0
 	bar_box.content_margin_right = 0
 	bar_box.content_margin_top = 0
 	bar_box.content_margin_bottom = 0
-	bar_box.shadow_size = 0
 	bar.add_theme_stylebox_override("panel", bar_box)
 	col.add_child(bar)
 	if is_you:
 		row.add_child(face)
 		row.add_child(col)
 		_you_chip = chip
+		_you_level = level
 	else:
 		row.add_child(col)
 		row.add_child(face)
 		_rival_chip = chip
+		_rival_level = level
 
 
 func _on_match_event(player_id: String, _event_name: String, snapshot: Dictionary) -> void:
@@ -1991,13 +2117,17 @@ func _refresh(snap: Snapshot) -> void:
 	_bind_server_exposure(snap)
 	_sync_practice_bot(snap)
 	_board.apply_snapshot(snap, _selected, _highlights(snap))
-	_you_chip.text = "%s\n%s" % [ClientSession.HANDLE, Chrome.marks_star_text(snap.you_marks())]
+	_you_chip.text = ClientSession.HANDLE
+	if _you_level:
+		_you_level.text = str(snap.you_marks())
 	if _practice_rival(snap):
 		_rival_chip.text = Contract.PRACTICE_RIVAL
 	elif ClientSession.is_job() or snap.is_job():
 		_rival_chip.text = "BOT"
 	else:
 		_rival_chip.text = ClientSession.RIVAL
+	if _rival_level:
+		_rival_level.text = str(PLATE_RIVAL_STAR)
 	if _practice_chip:
 		_practice_chip.visible = _practice_rival(snap)
 		_practice_chip.text = Contract.PRACTICE_CHIP
