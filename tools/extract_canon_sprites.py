@@ -154,6 +154,83 @@ def apply_hex_mask(img: Image.Image) -> Image.Image:
     return out
 
 
+## Measured on match-board-canon.jpg. Same-row ? centers sit ~98px apart
+## (flat-to-flat). A 94×108 window centered between rows pulled the neighbor
+## border and a second ? into the mask, which tiled as a stair-stack.
+BOARD_PITCH = 98.0
+BOARD_HEX_CENTERS = {
+    "hex_open": (472, 216),
+    "hex_brush": (664, 216),
+    "hex_hard": (712, 300),
+    "hex_unknown": (517, 150),
+}
+
+
+def isolate_board_hex(plate: Image.Image, cx: float, cy: float, pitch: float = BOARD_PITCH) -> Image.Image:
+    """One pointy face. Width is flat-to-flat, height is point-to-point."""
+    width = int(round(pitch))
+    height = int(round(2.0 * pitch / math.sqrt(3.0)))
+    left = int(round(cx - width / 2.0))
+    top = int(round(cy - height / 2.0))
+    raw = plate.crop((left, top, left + width, top + height))
+    mask = Image.new("L", (width, height), 0)
+    draw = ImageDraw.Draw(mask)
+    rad = width / math.sqrt(3.0)
+    ccx = (width - 1) / 2.0
+    ccy = (height - 1) / 2.0
+    pts = []
+    for i in range(6):
+        ang = math.radians(60.0 * i - 30.0)
+        pts.append((ccx + rad * math.cos(ang), ccy + rad * math.sin(ang)))
+    draw.polygon(pts, fill=255)
+    out = raw.convert("RGBA")
+    out.putalpha(mask)
+    return out
+
+
+def _pointy_edge_distance(x: float, y: float, width: int, height: int) -> float:
+    """Pixel distance inside a pointy-top hex. Negative is outside."""
+    size = height / 2.0
+    dx = abs(x - (width - 1) / 2.0)
+    dy = abs(y - (height - 1) / 2.0)
+    apothem = size * math.sqrt(3.0) / 2.0
+    flat = apothem - dx
+    slant = apothem - (dx * 0.5 + dy * math.sqrt(3.0) / 2.0)
+    return min(flat, slant)
+
+
+def flatten_board_hex(src: Image.Image, face: tuple[int, int, int], outline: tuple[int, int, int] = (14, 12, 10)) -> Image.Image:
+    """Shared edge is one thin line. Drop the north shadow cap and neighbor bleed.
+
+    The UNKNOWN crop's top point included the turn-bar black, which tiled as a
+    stair / shingle. Interior paint (the ?, bushes, rocks) stays. The rim is a
+    uniform face color plus a 3px outline on every side.
+    """
+    width, height = src.size
+    px = src.load()
+    out = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    op = out.load()
+    stroke = 3.0
+    # Deep enough to eat the turn-bar black that sat in the UNKNOWN north point.
+    # The ? / bush / rock paint lives further in (edge distance ~37+).
+    rim = 30.0
+    fr, fg, fb = face
+    or_, og, ob = outline
+    for y in range(height):
+        for x in range(width):
+            dist = _pointy_edge_distance(x, y, width, height)
+            if dist < 0.0:
+                continue
+            if dist < stroke:
+                op[x, y] = (or_, og, ob, 255)
+            elif dist < rim:
+                op[x, y] = (fr, fg, fb, 255)
+            else:
+                r, g, b, a = px[x, y]
+                op[x, y] = (r, g, b, 255 if a else 255)
+    return out
+
+
 def extract_hex(hex_map: Image.Image) -> None:
     ## Tileable OPEN/BRUSH/HARD/? stamps from the match-board / hex-map plate.
     ## One face per kind — not a unique full-map painting.
@@ -171,17 +248,19 @@ def extract_hex(hex_map: Image.Image) -> None:
         raw = crop(hex_map, box, f"{name}_legend_raw")
         save_sprite(apply_hex_mask(raw), f"{name}_legend.png")
 
-    ## One tileable board face per kind — not unique per-hex map crops.
-    board = {
-        "hex_open": box_at(469, 218, 47, 54),
-        "hex_brush": box_at(656, 218, 47, 54),
-        "hex_hard": box_at(796, 299, 47, 54),
-        ## 328 landed the ? on the right edge, so tiled UNKNOWN marks stacked into the next cell.
-        "hex_unknown": box_at(360, 297, 47, 54),
+    ## One tileable board face per kind. Center is the painted hex, pitch is
+    ## the canon flat-to-flat gap, so the mask does not swallow the neighbor.
+    ## Then flatten the rim so a north cap / neighbor pixel cannot shingle.
+    face_colors = {
+        "hex_open": (206, 160, 88),
+        "hex_brush": (78, 112, 36),
+        "hex_hard": (132, 128, 120),
+        "hex_unknown": (42, 43, 44),
     }
-    for name, box in board.items():
-        raw = crop(hex_map, box, f"{name}_board_raw")
-        save_sprite(apply_hex_mask(raw), f"{name}_tile.png")
+    for name, center in BOARD_HEX_CENTERS.items():
+        face = isolate_board_hex(hex_map, center[0], center[1])
+        face = flatten_board_hex(face, face_colors[name])
+        save_sprite(face, f"{name}_tile.png")
 
     ## Clump-only overlays from the same brush / hard faces.
     brush = crop(hex_map, box_at(656, 218, 22, 20), "brush_clump_raw")
