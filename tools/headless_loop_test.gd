@@ -2466,6 +2466,7 @@ func _rug_floor_case(failed: PackedStringArray) -> void:
 	_expect(failed, equip_body.find("Contract.rug_toast(next_id != \"\")") >= 0, "rug equip/unequip toast")
 	_expect(failed, buy_body.find("AudioJuice") < 0 and equip_body.find("AudioJuice") < 0, "rug buy/equip stays mute")
 	_expect(failed, lobby_src.find("make_hideout_rug") >= 0, "hideout floor binds a rug sprite")
+	_expect(failed, lobby_src.find("stamp_hideout_rug") >= 0, "rug art stamps onto the floor planks")
 
 	var session = SessionScript.new()
 	session.apply_shop(catalog)
