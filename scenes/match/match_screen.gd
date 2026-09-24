@@ -973,7 +973,7 @@ func _capture_hud_punch() -> void:
 	print("HUD_RAIL ", ProjectSettings.globalize_path("res://artifacts/ux/hud_ability_rail.png"))
 	var full := get_viewport().get_texture().get_image()
 	var board := full.get_region(Rect2i(240, 110, 980, 470))
-	var legend := full.get_region(Rect2i(0, 160, 260, 280))
+	var legend := full.get_region(Rect2i(0, 148, 210, 200))
 	board.save_png(ProjectSettings.globalize_path("res://artifacts/ux/hud_h3_board.png"))
 	legend.save_png(ProjectSettings.globalize_path("res://artifacts/ux/hud_h4_legend.png"))
 	print("H3_BOARD ", ProjectSettings.globalize_path("res://artifacts/ux/hud_h3_board.png"))
@@ -1487,22 +1487,22 @@ func _build() -> void:
 	## Desk only. The baked jpg is the wood-tray dialect (header bar, inset
 	## legend, button tray). Do not blit it — chrome is floating plates.
 	var desk := TextureRect.new()
-	desk.texture = Chrome.make_wood_texture(480, 270)
+	desk.texture = Chrome.make_match_desk(480, 270)
 	desk.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	desk.stretch_mode = TextureRect.STRETCH_SCALE
 	desk.set_anchors_preset(PRESET_FULL_RECT)
 	desk.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	desk.modulate = Color(0.82, 0.74, 0.64)
 	add_child(desk)
 
 	_add_float_player_card(true)
 	_add_float_player_card(false)
+	## Ring sits behind the word. The word is the header, centered, not a left logo.
 	var reticle := TextureRect.new()
-	reticle.texture = Chrome.make_icon("attack", Color("7ec8e8"), 72)
-	reticle.position = Vector2(604, 2)
-	reticle.size = Vector2(72, 72)
+	reticle.texture = Chrome.make_wordmark_ring(140)
+	reticle.position = Vector2(570, -4)
+	reticle.size = Vector2(140, 140)
 	reticle.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	reticle.z_index = 4
+	reticle.z_index = 3
 	add_child(reticle)
 	var title := Label.new()
 	if ClientSession.is_practice():
@@ -1511,19 +1511,22 @@ func _build() -> void:
 		title.text = "SP JOB"
 	else:
 		title.text = "Glassline"
-	title.position = Vector2(440, 18)
-	title.size = Vector2(400, 40)
+	title.position = Vector2(340, 18)
+	title.size = Vector2(600, 64)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.z_index = 5
-	Chrome.apply_label(title, 20, Color.WHITE, true)
+	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	title.z_index = 6
+	Chrome.apply_label(title, 32, Color.WHITE, true)
+	title.add_theme_constant_override("outline_size", 6)
 	add_child(title)
 
 	var clock_plate := PanelContainer.new()
-	clock_plate.position = Vector2(12, 108)
-	clock_plate.size = Vector2(176, 48)
+	clock_plate.position = Vector2(8, 100)
+	clock_plate.size = Vector2(168, 46)
 	clock_plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	clock_plate.z_index = 5
-	Chrome.paint_float_panel(clock_plate, Color("1c140e"), 14, 4)
+	_paint_tight_plate(clock_plate, Color("100e0c"), 16, 5, 10, 6)
 	add_child(clock_plate)
 	var clock_row := HBoxContainer.new()
 	clock_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1531,8 +1534,8 @@ func _build() -> void:
 	clock_row.add_theme_constant_override("separation", 8)
 	clock_plate.add_child(clock_row)
 	_clock_icon = TextureRect.new()
-	_clock_icon.texture = Chrome.make_icon("clock", Chrome.CREAM, 22)
-	_clock_icon.custom_minimum_size = Vector2(22, 22)
+	_clock_icon.texture = Chrome.make_icon("clock", Color("7ec8e8"), 26)
+	_clock_icon.custom_minimum_size = Vector2(26, 26)
 	_clock_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_clock_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_clock_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1540,7 +1543,7 @@ func _build() -> void:
 	_clock_chip = Label.new()
 	_clock_chip.text = "01:30"
 	_clock_chip.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	Chrome.apply_label(_clock_chip, 13, Chrome.CREAM, true)
+	Chrome.apply_label(_clock_chip, 14, Chrome.CREAM, true)
 	clock_row.add_child(_clock_chip)
 	_grace_lbl = Label.new()
 	_grace_lbl.text = ""
@@ -1558,11 +1561,11 @@ func _build() -> void:
 	add_child(_btn_abandon)
 
 	_turn_pill = PanelContainer.new()
-	_turn_pill.position = Vector2(568, 102)
-	_turn_pill.size = Vector2(148, 36)
+	_turn_pill.position = Vector2(556, 104)
+	_turn_pill.size = Vector2(168, 34)
 	_turn_pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_turn_pill.z_index = 5
-	Chrome.paint_float_panel(_turn_pill, Color("1c140e"), 12, 4)
+	_paint_tight_plate(_turn_pill, Color("100e0c"), 12, 4, 8, 4)
 	add_child(_turn_pill)
 	_turn = Label.new()
 	_turn.text = "TURN  1"
@@ -1620,7 +1623,8 @@ func _build() -> void:
 	## Soft rail stays UAV / DECOY / SMOKE under ABILITY. No wood-tray mat.
 	_mount_ability_rail(self, true)
 	_high_chip = Chrome.high_ground_chip(false)
-	_high_chip.position = Vector2(960, 572)
+	_high_chip.position = Vector2(968, 572)
+	_high_chip.size = Vector2(300, 112)
 	_high_chip.z_index = 4
 	add_child(_high_chip)
 	_btn_high = Button.new()
@@ -1700,10 +1704,9 @@ func _build() -> void:
 	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	Chrome.apply_label(_toast, 10, Color("f7e7a8"), true)
 	add_child(_toast)
-	_mute_btn = Chrome.dock_button(Chrome.mute_button_text(AudioJuice.muted), Chrome.INK, Chrome.CREAM, Vector2(96, 36))
-	Chrome.paint_float_key(_mute_btn)
-	_mute_btn.position = Vector2(1172, 10)
-	_mute_btn.z_index = 6
+	_mute_btn = Chrome.gear_button(AudioJuice.muted)
+	_mute_btn.position = Vector2(1216, 16)
+	_mute_btn.z_index = 7
 	_mute_btn.tooltip_text = Chrome.mute_button_tip(AudioJuice.muted)
 	_mute_btn.pressed.connect(_toggle_mute)
 	add_child(_mute_btn)
@@ -1876,33 +1879,43 @@ func _place_lock_toast(line: String) -> void:
 
 func _legend_row(parent: VBoxContainer, kind: String, text: String) -> void:
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
+	row.add_theme_constant_override("separation", 6)
 	var stamp := TextureRect.new()
 	stamp.texture = Chrome.hex_legend_tex(kind)
 	stamp.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	stamp.custom_minimum_size = Vector2(40, 36)
+	stamp.custom_minimum_size = Vector2(26, 24)
 	stamp.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	stamp.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	stamp.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(stamp)
 	var lbl := Label.new()
 	lbl.text = text
-	Chrome.apply_label(lbl, 11, Chrome.CREAM, true)
+	Chrome.apply_label(lbl, 10, Chrome.CREAM, true)
 	row.add_child(lbl)
 	parent.add_child(row)
 
 
+func _paint_tight_plate(panel: Control, bg: Color, radius: int, border_px: int, margin_h: int, margin_v: int) -> void:
+	var box := Chrome.float_box(bg, radius, border_px)
+	box.content_margin_left = margin_h
+	box.content_margin_right = margin_h
+	box.content_margin_top = margin_v
+	box.content_margin_bottom = margin_v
+	panel.add_theme_stylebox_override("panel", box)
+
+
 func _mount_float_legend() -> void:
-	## Dark plate over the desk. Not an inset column in the wood.
+	## Slim dark plate over the desk. Names only — not the wood-tray subtitle column.
 	var plate := PanelContainer.new()
-	plate.position = Vector2(10, 168)
-	plate.size = Vector2(224, 248)
+	plate.position = Vector2(8, 156)
+	plate.size = Vector2(176, 168)
+	plate.custom_minimum_size = plate.size
 	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	plate.z_index = 4
-	Chrome.paint_float_panel(plate, Color("1c140e"), 16, 5)
+	_paint_tight_plate(plate, Color("100e0c"), 14, 5, 10, 6)
 	add_child(plate)
 	var legend := VBoxContainer.new()
-	legend.add_theme_constant_override("separation", 10)
+	legend.add_theme_constant_override("separation", 4)
 	legend.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	plate.add_child(legend)
 	_legend_row(legend, Contract.TYPE_OPEN, "OPEN")
@@ -1913,12 +1926,12 @@ func _mount_float_legend() -> void:
 
 func _add_float_player_card(is_you: bool) -> void:
 	var panel := PanelContainer.new()
-	panel.position = Vector2(12, 8) if is_you else Vector2(930, 8)
-	panel.size = Vector2(280, 86) if is_you else Vector2(228, 86)
+	panel.position = Vector2(8, 8) if is_you else Vector2(968, 8)
+	panel.size = Vector2(300, 84) if is_you else Vector2(236, 84)
 	panel.custom_minimum_size = panel.size
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.z_index = 5
-	Chrome.paint_float_panel(panel, Color("1c140e"), 14, 5)
+	_paint_tight_plate(panel, Color("100e0c"), 16, 6, 10, 8)
 	add_child(panel)
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1928,7 +1941,7 @@ func _add_float_player_card(is_you: bool) -> void:
 	var face := TextureRect.new()
 	face.texture = Chrome.make_face("p1" if is_you else "p2", 52)
 	face.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	face.custom_minimum_size = Vector2(52, 52)
+	face.custom_minimum_size = Vector2(56, 56)
 	face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	face.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	face.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2238,7 +2251,7 @@ func _on_smoke() -> void:
 func _toggle_mute() -> void:
 	AudioJuice.toggle_mute()
 	if _mute_btn:
-		_mute_btn.text = Chrome.mute_button_text(AudioJuice.muted)
+		Chrome.paint_gear_button(_mute_btn, AudioJuice.muted)
 		_mute_btn.tooltip_text = Chrome.mute_button_tip(AudioJuice.muted)
 
 

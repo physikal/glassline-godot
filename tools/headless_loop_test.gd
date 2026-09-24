@@ -3592,9 +3592,13 @@ func _match_board_chrome_case(failed: PackedStringArray) -> void:
 	var chip: Control = Chrome.high_ground_chip(false)
 	_expect(failed, chip != null and not (chip is Button), "HIGH GROUND is a chip, not an action key")
 	_expect(failed, chip.custom_minimum_size.y >= 100.0, "HIGH GROUND chip is heavy plate weight")
+	var hg_icon: TextureRect = chip.get_meta("high_icon") if chip.has_meta("high_icon") else null
+	_expect(failed, hg_icon != null and hg_icon.custom_minimum_size.y >= 70.0, "HIGH GROUND icon fills the toast")
 	var hg_box := chip.get_theme_stylebox("panel") as StyleBoxFlat
 	_expect(failed, hg_box != null and hg_box.get_border_width(SIDE_TOP) >= 5, "HIGH GROUND outline is thick ink")
 	_expect(failed, hg_box != null and hg_box.shadow_size >= 6, "HIGH GROUND drops a shadow")
+	var parked_lbl: Label = chip.get_meta("high_label") if chip.has_meta("high_label") else null
+	_expect(failed, parked_lbl != null and parked_lbl.text.find("+10%") < 0, "parked HIGH GROUND omits +10%")
 	chip.free()
 	var atk: Button = Chrome.game_button("attack", "ATTACK", Chrome.ATTACK_RED, Color.WHITE, Vector2(220, 84))
 	var atk_box := atk.get_theme_stylebox("normal") as StyleBoxFlat
@@ -3603,8 +3607,13 @@ func _match_board_chrome_case(failed: PackedStringArray) -> void:
 	atk.free()
 	var screen_src := FileAccess.get_file_as_string("res://scenes/match/match_screen.gd")
 	_expect(failed, screen_src.find("Vector2(250, 96)") < 0, "board well does not cut the header")
+	_expect(failed, screen_src.find("Vector2(250, 124)") >= 0, "board host stays on the cleared honeycomb seat")
 	_expect(failed, screen_src.find("plate.texture = plate_tex") < 0, "HUD does not blit the wood-tray plate")
 	_expect(failed, screen_src.find("func _mount_float_legend") >= 0, "legend is a floating plate")
+	_expect(failed, screen_src.find("Vector2(224, 248)") < 0, "legend is a slim plate, not a tall tray column")
+	_expect(failed, screen_src.find("make_wordmark_ring") >= 0, "Glassline sits on a centered crosshair")
+	_expect(failed, screen_src.find("gear_button") >= 0, "corner control is a gear, not a sound pill")
+	_expect(failed, screen_src.find("apply_label(title, 32") >= 0, "Glassline wordmark is display size")
 
 
 func _high_ground_case(failed: PackedStringArray) -> void:
