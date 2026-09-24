@@ -1577,11 +1577,11 @@ func _build() -> void:
 	## Locked-plate Glassline lettering with the reticle through the word.
 	var wordmark := TextureRect.new()
 	wordmark.texture = Art.wordmark_plate()
-	wordmark.position = Vector2(465, -2)
-	wordmark.size = Vector2(350, 150)
+	wordmark.position = Vector2(450, -4)
+	wordmark.size = Vector2(380, 162)
 	wordmark.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	wordmark.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	wordmark.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	wordmark.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	wordmark.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	wordmark.z_index = 6
 	wordmark.visible = not ClientSession.is_practice() and not ClientSession.is_job()
@@ -1689,20 +1689,20 @@ func _build() -> void:
 	Chrome.apply_label(_phase, 8, Chrome.TEAL, true)
 	add_child(_phase)
 
-	_btn_attack = Chrome.game_button("attack", "ATTACK", Chrome.ATTACK_RED, Color.WHITE, Vector2(224, 92))
-	_btn_attack.position = Vector2(12, 584)
+	_btn_attack = Chrome.game_button("attack", "ATTACK", Chrome.ATTACK_RED, Color.WHITE, Vector2(224, 108))
+	_btn_attack.position = Vector2(12, 586)
 	_btn_attack.z_index = 4
 	_btn_attack.pressed.connect(_on_attack)
 	add_child(_btn_attack)
-	_btn_recon = Chrome.game_button("recon", "RECON", Chrome.RECON_BLUE, Color.WHITE, Vector2(224, 92))
-	_btn_recon.position = Vector2(248, 584)
+	_btn_recon = Chrome.game_button("recon", "RECON", Chrome.RECON_BLUE, Color.WHITE, Vector2(224, 108))
+	_btn_recon.position = Vector2(248, 586)
 	_btn_recon.z_index = 4
 	_btn_recon.pressed.connect(_on_recon)
 	add_child(_btn_recon)
 	## Soft rail stays UAV / DECOY / SMOKE under ABILITY. No wood-tray mat.
 	_mount_ability_rail(self, true)
 	_high_chip = Chrome.high_ground_chip(false)
-	_high_chip.position = Vector2(928, 568)
+	_high_chip.position = Vector2(928, 582)
 	_high_chip.size = Vector2(300, 112)
 	_high_chip.z_index = 4
 	add_child(_high_chip)
@@ -1914,9 +1914,9 @@ func _mount_ability_rail(parent: Control, plate: bool) -> void:
 	rail.alignment = BoxContainer.ALIGNMENT_CENTER
 	if plate:
 		## Sits in the gap between RECON and HIGH GROUND. Chip row matches ATTACK height.
-		rail.position = Vector2(484, 564)
-		rail.custom_minimum_size = Vector2(432, 120)
-		rail.size = Vector2(432, 120)
+		rail.position = Vector2(484, 556)
+		rail.custom_minimum_size = Vector2(432, 140)
+		rail.size = Vector2(432, 140)
 		rail.z_index = 4
 	else:
 		rail.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -2024,7 +2024,7 @@ func _add_float_player_card(is_you: bool) -> void:
 	panel.add_child(row)
 	var face := TextureRect.new()
 	face.texture = Chrome.make_plate_portrait("p1" if is_you else "p2", 72)
-	face.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	face.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	face.custom_minimum_size = Vector2(72, 72)
 	face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	face.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED

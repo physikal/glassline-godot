@@ -119,7 +119,7 @@ func _sync_faces() -> void:
 				## Tight pointy stamp: width is flat-to-flat, height is point-to-point.
 				## Fit that face to the cell. One pixel of overlap closes the seam
 				## without stacking a second north cap onto the neighbor.
-				var overlap := 1.0
+				var overlap := 3.0
 				s.scale = Vector2(
 					(cell_w + overlap) / float(tile.get_width()),
 					(cell_h + overlap) / float(tile.get_height())

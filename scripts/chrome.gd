@@ -45,11 +45,11 @@ const RACK_PEG_OWNED := Color("4e9a68")
 const RACK_PEG_LOCKED := Color("2a5640")
 const HEX_LINE := Color("f2e6c4")
 ## Same height and ink as the ATTACK / RECON keys. Width is the three-chip split.
-const RAIL_CHIP_SIZE := Vector2(138, 92)
-const RAIL_FONT := 11
-const RAIL_ICON := 36
-const RAIL_INK := 8
-const RAIL_RADIUS := 16
+const RAIL_CHIP_SIZE := Vector2(140, 108)
+const RAIL_FONT := 12
+const RAIL_ICON := 40
+const RAIL_INK := 10
+const RAIL_RADIUS := 18
 ## Plate table under the baked ABILITY / HIGH GROUND keys. Matches the
 ## action-row wood so a cover does not read as a darker rivet panel.
 const DESK := Color("3a2a1a")
@@ -255,7 +255,7 @@ static func paint_float_key(button: Button) -> void:
 	var box := button.get_theme_stylebox("normal")
 	if box is StyleBoxFlat:
 		bg = (box as StyleBoxFlat).bg_color
-	_apply_bevel_button(button, bg, 16, 8)
+	_apply_bevel_button(button, bg, 18, 10)
 
 
 static func bevel_style(bg: Color, size: Vector2, radius: int = 14, border_px: int = 5) -> StyleBoxTexture:
@@ -403,11 +403,11 @@ static func action_button(kind: String, text: String, bg: Color, fg: Color, min_
 
 static func game_button(kind: String, text: String, bg: Color, fg: Color, min_size: Vector2 = Vector2(248, 76)) -> Button:
 	## Chunky floating match key — thick ink, drop shadow, not a wood-tray inset.
-	var button := _styled_button(text, bg, fg, min_size, 16, 13)
+	var button := _styled_button(text, bg, fg, min_size, 18, 14)
 	if kind != "":
-		button.icon = make_icon(kind, fg, 46)
+		button.icon = make_icon(kind, fg, 48)
 		button.add_theme_constant_override("h_separation", 10)
-		button.add_theme_constant_override("icon_max_width", 46)
+		button.add_theme_constant_override("icon_max_width", 48)
 	paint_float_key(button)
 	return button
 
@@ -736,45 +736,23 @@ static func grain_texture(base: Color, width: int = 128, height: int = 128) -> T
 
 
 static func make_match_desk(width: int = 1280, height: int = 720) -> Texture2D:
-	## Warmer solid wood/stone from the locked plate's brown, not black slats.
-	## Not a blit of the wood-tray match-board jpg.
+	## Locked-plate desk bricks, tiled. Not a procedural brown and not the wood-tray jpg.
+	var src := Image.new()
 	var img := Image.create(width, height, false, Image.FORMAT_RGB8)
-	var noise := FastNoiseLite.new()
-	noise.seed = 11
-	noise.noise_type = FastNoiseLite.TYPE_SIMPLEX
-	noise.frequency = 0.012
-	var grain := FastNoiseLite.new()
-	grain.seed = 27
-	grain.noise_type = FastNoiseLite.TYPE_SIMPLEX
-	grain.frequency = 0.05
-	var seams: Array[int] = []
-	var cursor := 18
-	var step := 0
-	while cursor < height:
-		seams.append(cursor)
-		step += 1
-		cursor += 70 + (step * 23) % 48
-	for y in height:
-		var on_seam := false
-		for s in seams:
-			if absi(y - s) == 0:
-				on_seam = true
-				break
-		for x in width:
-			var n := noise.get_noise_2d(float(x), float(y))
-			var g := grain.get_noise_2d(float(x) * 0.4, float(y))
-			## Plate wood sits near (62, 40, 24). Keep it warm and mostly solid.
-			var r := 0.26 + n * 0.045 + g * 0.02
-			var gv := 0.16 + n * 0.03 + g * 0.012
-			var b := 0.09 + n * 0.018 + g * 0.008
-			if on_seam:
-				r *= 0.78
-				gv *= 0.76
-				b *= 0.74
-			if n > 0.62:
-				r -= 0.015
-				b += 0.012
-			img.set_pixel(x, y, Color(clampf(r, 0.0, 1.0), clampf(gv, 0.0, 1.0), clampf(b, 0.0, 1.0)))
+	if src.load("res://assets/art_v2/desk_plate.png") != OK:
+		img.fill(Color("3a2618"))
+		return ImageTexture.create_from_image(img)
+	var sw := src.get_width()
+	var sh := src.get_height()
+	var y := 0
+	while y < height:
+		var x := 0
+		var copy_h := mini(sh, height - y)
+		while x < width:
+			var copy_w := mini(sw, width - x)
+			img.blit_rect(src, Rect2i(0, 0, copy_w, copy_h), Vector2i(x, y))
+			x += sw
+		y += sh
 	return ImageTexture.create_from_image(img)
 
 
@@ -1000,7 +978,7 @@ static func make_plate_portrait(kind: String, px: int = 64) -> Texture2D:
 			if src.is_compressed():
 				src.decompress()
 			var side := px - inner * 2 - 2
-			src.resize(side, side, Image.INTERPOLATE_NEAREST)
+			src.resize(side, side, Image.INTERPOLATE_LANCZOS)
 			_blit_round(img, src, inner + 1, inner + 1, 8)
 	return ImageTexture.create_from_image(img)
 

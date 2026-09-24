@@ -3611,7 +3611,7 @@ func _match_board_chrome_case(failed: PackedStringArray) -> void:
 	atk.free()
 	var rail: Button = Chrome.rail_chip("ability", Contract.ABILITY_LABEL, Chrome.ABILITY_PURPLE, Color.WHITE)
 	var rail_box: StyleBox = rail.get_theme_stylebox("normal")
-	_expect(failed, rail.custom_minimum_size.y == 92.0, "ability rail chip matches ATTACK height")
+	_expect(failed, rail.custom_minimum_size.y == 108.0, "ability rail chip matches ATTACK height")
 	_expect(failed, rail_box != null and bool(rail_box.get_meta("chunk_bevel", false)), "ability rail chip is chunky bevel chrome")
 	_expect(failed, rail_box != null and int(rail_box.get_meta("bevel_ink", 0)) >= 6, "ability rail chip matches ATTACK ink")
 	_expect(failed, rail_box != null and int(rail_box.get_meta("blur_shadow", 1)) == 0, "ability rail chip has no blurry drop shadow")
