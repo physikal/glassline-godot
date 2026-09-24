@@ -6,6 +6,7 @@ extends Node2D
 const HexMath := preload("res://scripts/hex_math.gd")
 const Contract := preload("res://types/contract.gd")
 const Chrome := preload("res://scripts/chrome.gd")
+const ArtPack := preload("res://scripts/art_pack.gd")
 const Snapshot := preload("res://types/snapshot.gd")
 
 signal hex_clicked(q: int, r: int)
@@ -30,11 +31,13 @@ var _highlights: Dictionary = {} # "q,r" -> Color
 var _origin := Vector2.ZERO
 var _preview_tokens: bool = true
 var _faces: Dictionary = {}
+var _flush: Sprite2D
 var _ink: Node2D
 
 
 func _ready() -> void:
 	_origin = HexMath.axial_to_pixel(4, 3, HEX_SIZE)
+	_build_flush()
 	_build_faces()
 	_ink = preload("res://scenes/match/hex_ink.gd").new()
 	_ink.board = self
@@ -89,14 +92,34 @@ func cell_kind(q: int, r: int) -> String:
 	return "unknown"
 
 
+func _build_flush() -> void:
+	## One plate sample for the whole 9×7, clipped to a single outer mask.
+	## Pixel (445, 244) of board_flush.png is board-local (0, 0).
+	_flush = Sprite2D.new()
+	_flush.name = "BoardFlush"
+	_flush.centered = false
+	_flush.texture = ArtPack.board_flush()
+	_flush.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	_flush.z_index = 1
+	_flush.z_as_relative = true
+	_flush.position = Vector2(-445, -244)
+	_flush.visible = _flush.texture != null
+	add_child(_flush)
+
+
+func _cell_on_flush(q: int, r: int) -> bool:
+	return _flush != null and _flush.visible and _flush.texture != null and cell_kind(q, r) == ArtPack.plate_kind(q, r)
+
+
 func _build_faces() -> void:
 	## Sprite2D (not draw_texture_rect) — Compatibility/llvmpipe paints alpha as white.
+	## Shown only where the live kind leaves the flush plate.
 	for q in Contract.BOARD_Q:
 		for r in Contract.BOARD_R:
 			var s := Sprite2D.new()
 			s.centered = true
 			s.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-			s.z_index = 1
+			s.z_index = 2
 			s.z_as_relative = true
 			add_child(s)
 			_faces["%d,%d" % [q, r]] = s
@@ -112,10 +135,13 @@ func _sync_faces() -> void:
 			var key := "%d,%d" % [q, r]
 			var s: Sprite2D = _faces[key]
 			s.position = HexMath.axial_to_pixel(q, r, HEX_SIZE) - _origin
+			var on_flush := _cell_on_flush(q, r)
 			var tile: Texture2D = Chrome.hex_face(q, r, cell_kind(q, r))
 			s.texture = tile
 			s.modulate = Color.WHITE
-			if tile and tile.get_width() >= 24:
+			if on_flush:
+				s.visible = false
+			elif tile and tile.get_width() >= 24:
 				## Expanded plate sample. Overlap is the same pixels on both sides of
 				## a shared edge, so the honeycomb closes without a doubled rim.
 				var overlap := 8.0
@@ -130,11 +156,13 @@ func _sync_faces() -> void:
 
 func _draw() -> void:
 	_sync_faces()
-	## Full hex under every face. A hairline crack shows terrain, not the desk.
+	## Flush cells are one masked sprite. A per-cell underlay would redraw the saw edge.
 	var corners := HexMath.hex_corners(HEX_SIZE + 1.5)
 	var fallback_corners := HexMath.hex_corners(HEX_SIZE - 1.2)
 	for q in Contract.BOARD_Q:
 		for r in Contract.BOARD_R:
+			if _cell_on_flush(q, r):
+				continue
 			var center := HexMath.axial_to_pixel(q, r, HEX_SIZE) - _origin
 			var key := "%d,%d" % [q, r]
 			var kind := cell_kind(q, r)
@@ -165,11 +193,11 @@ func render_ink(layer: CanvasItem) -> void:
 			for p in corners:
 				body.append(center + p)
 			var face: Sprite2D = _faces.get(key)
-			var stamp_visible := face != null and face.visible
+			var stamp_visible := (face != null and face.visible) or _cell_on_flush(q, r)
 			var selected := Contract.same_hex(_selected, Contract.hex_dict(q, r))
 			var hovered := Contract.same_hex(_hover, Contract.hex_dict(q, r))
-			## The stamp's own edge is the shared honeycomb line. A second inset
-			## stroke on every cell read as a stair / shingle. Hover and select still ring.
+			## The flush mask is the shared edge. A second inset stroke on every
+			## cell read as a stair / shingle. Hover and select still ring.
 			if not stamp_visible or selected or hovered:
 				var outline := Color(0.10, 0.08, 0.07, 0.88)
 				if selected:

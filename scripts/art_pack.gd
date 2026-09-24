@@ -47,6 +47,8 @@ const TILE_UNKNOWN_VARS := [
 const FACE_PLATE_P1 := "res://assets/art_v2/face_plate_p1.png"
 const FACE_PLATE_P2 := "res://assets/art_v2/face_plate_p2.png"
 const WORDMARK_PLATE := "res://assets/art_v2/wordmark_plate.png"
+## One painted 9×7. Pixel (445, 244) is the board-local origin.
+const BOARD_FLUSH := "res://assets/art_v2/board_flush.png"
 ## Locked-plate 9×7, row-major. o/b/h/u = OPEN/BRUSH/HARD/UNKNOWN.
 const PLATE_LAYOUT := "uboobohbhhoobhohbhhoobhbohbbhbboobbhhbhbbohbohhhbohbohuuhhbboou"
 const MATCH_BOARD := "res://assets/canon/match-board-canon.jpg"
@@ -153,6 +155,11 @@ static func plate_kind(q: int, r: int) -> String:
 static func plate_cell(q: int, r: int) -> Texture2D:
 	## Flush crop of that plate hex. No extra painted rim.
 	return tex("res://assets/art_v2/plate_hex/%d_%d.png" % [q, r])
+
+
+static func board_flush() -> Texture2D:
+	## Whole honeycomb as one sprite, clipped to a single outer mask.
+	return tex(BOARD_FLUSH)
 
 
 static func hex_tile(kind: String, variant: int = 0) -> Texture2D:

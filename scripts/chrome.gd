@@ -45,7 +45,7 @@ const RACK_PEG_OWNED := Color("4e9a68")
 const RACK_PEG_LOCKED := Color("2a5640")
 const HEX_LINE := Color("f2e6c4")
 ## Same height and ink as the ATTACK / RECON keys. Width approaches those keys.
-const RAIL_CHIP_SIZE := Vector2(200, 108)
+const RAIL_CHIP_SIZE := Vector2(224, 108)
 const RAIL_FONT := 14
 const RAIL_ICON := 44
 const RAIL_INK := 10
@@ -539,7 +539,7 @@ static func high_ground_chip(active: bool = false) -> Control:
 	## Floating plate: stacked hexes, thick ink, drop shadow over the desk.
 	var panel := PanelContainer.new()
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.custom_minimum_size = Vector2(252, 112)
+	panel.custom_minimum_size = Vector2(244, 112)
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -555,7 +555,7 @@ static func high_ground_chip(active: bool = false) -> Control:
 	var lbl := Label.new()
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	## Two-line slot stays reserved so a parked chip (no +10%) does not collapse.
-	lbl.custom_minimum_size = Vector2(150, 72)
+	lbl.custom_minimum_size = Vector2(140, 72)
 	row.add_child(lbl)
 	panel.add_child(row)
 	panel.set_meta("high_icon", icon)
@@ -652,7 +652,7 @@ static func paint_high_ground_chip(panel: Control, active: bool) -> void:
 	var bg := Color("1a140f") if active else Color("14110e")
 	var chip_size := panel.custom_minimum_size
 	if chip_size.x < 8.0:
-		chip_size = Vector2(252, 112)
+		chip_size = Vector2(244, 112)
 	var box := float_box(bg, 16, 8, chip_size)
 	box.content_margin_left = 10
 	box.content_margin_right = 12
@@ -666,10 +666,10 @@ static func paint_high_ground_chip(panel: Control, active: bool) -> void:
 		icon.texture = make_icon("high", Color("9be05a") if active else Color("8fd15a"), 76)
 		icon.modulate = Color.WHITE
 	if lbl:
-		lbl.custom_minimum_size = Vector2(150, 72)
+		lbl.custom_minimum_size = Vector2(140, 72)
 		if active:
 			lbl.text = "%s\n+10%% ACCURACY" % Contract.HIGH_GROUND_LABEL
-			apply_label(lbl, 11, CREAM, true)
+			apply_label(lbl, 10, CREAM, true)
 		else:
 			lbl.text = Contract.HIGH_GROUND_LABEL
 			apply_label(lbl, 12, CREAM, true)

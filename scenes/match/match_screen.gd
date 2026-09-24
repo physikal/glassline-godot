@@ -1578,8 +1578,8 @@ func _build() -> void:
 	var wordmark := TextureRect.new()
 	wordmark.texture = Art.wordmark_plate()
 	## Smaller than the header cards. Reticle stays in the word; TURN sits under it.
-	wordmark.position = Vector2(510, 8)
-	wordmark.size = Vector2(260, 111)
+	wordmark.position = Vector2(539, 2)
+	wordmark.size = Vector2(202, 86)
 	wordmark.z_index = 5
 	wordmark.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	wordmark.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -1641,8 +1641,8 @@ func _build() -> void:
 	add_child(_btn_abandon)
 
 	_turn_pill = PanelContainer.new()
-	_turn_pill.position = Vector2(548, 120)
-	_turn_pill.size = Vector2(184, 42)
+	_turn_pill.position = Vector2(562, 96)
+	_turn_pill.size = Vector2(156, 34)
 	_turn_pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_turn_pill.z_index = 8
 	_paint_tight_plate(_turn_pill, Color("0c0a08"), 12, 7, 8, 4)
@@ -1651,7 +1651,7 @@ func _build() -> void:
 	_turn.text = "TURN  1"
 	_turn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_turn.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	Chrome.apply_label(_turn, 14, Chrome.CREAM, true)
+	Chrome.apply_label(_turn, 12, Chrome.CREAM, true)
 	_turn_pill.add_child(_turn)
 
 	_mount_float_legend()
@@ -1690,21 +1690,21 @@ func _build() -> void:
 	Chrome.apply_label(_phase, 8, Chrome.TEAL, true)
 	add_child(_phase)
 
-	_btn_attack = Chrome.game_button("attack", "ATTACK", Chrome.ATTACK_RED, Color.WHITE, Vector2(200, 108))
-	_btn_attack.position = Vector2(4, 586)
+	_btn_attack = Chrome.game_button("attack", "ATTACK", Chrome.ATTACK_RED, Color.WHITE, Vector2(164, 108))
+	_btn_attack.position = Vector2(8, 586)
 	_btn_attack.z_index = 4
 	_btn_attack.pressed.connect(_on_attack)
 	add_child(_btn_attack)
-	_btn_recon = Chrome.game_button("recon", "RECON", Chrome.RECON_BLUE, Color.WHITE, Vector2(200, 108))
-	_btn_recon.position = Vector2(208, 586)
+	_btn_recon = Chrome.game_button("recon", "RECON", Chrome.RECON_BLUE, Color.WHITE, Vector2(164, 108))
+	_btn_recon.position = Vector2(176, 586)
 	_btn_recon.z_index = 4
 	_btn_recon.pressed.connect(_on_recon)
 	add_child(_btn_recon)
 	## Soft rail stays UAV / DECOY / SMOKE under ABILITY. No wood-tray mat.
 	_mount_ability_rail(self, true)
 	_high_chip = Chrome.high_ground_chip(false)
-	_high_chip.position = Vector2(1024, 582)
-	_high_chip.size = Vector2(252, 112)
+	_high_chip.position = Vector2(1028, 582)
+	_high_chip.size = Vector2(244, 112)
 	_high_chip.z_index = 4
 	add_child(_high_chip)
 	_btn_high = Button.new()
@@ -1915,9 +1915,9 @@ func _mount_ability_rail(parent: Control, plate: bool) -> void:
 	rail.alignment = BoxContainer.ALIGNMENT_CENTER
 	if plate:
 		## Sits in the gap between RECON and HIGH GROUND. Chips match ATTACK height and approach its width.
-		rail.position = Vector2(412, 548)
-		rail.custom_minimum_size = Vector2(608, 150)
-		rail.size = Vector2(608, 150)
+		rail.position = Vector2(344, 548)
+		rail.custom_minimum_size = Vector2(680, 150)
+		rail.size = Vector2(680, 150)
 		rail.z_index = 4
 	else:
 		rail.size_flags_vertical = Control.SIZE_SHRINK_CENTER
