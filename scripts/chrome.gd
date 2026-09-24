@@ -44,7 +44,12 @@ const RACK_PEG_EQUIPPED := Color("7dce78")
 const RACK_PEG_OWNED := Color("4e9a68")
 const RACK_PEG_LOCKED := Color("2a5640")
 const HEX_LINE := Color("f2e6c4")
-const RAIL_CHIP_SIZE := Vector2(100, 72)
+## Same height and ink as the ATTACK / RECON keys. Width is the three-chip split.
+const RAIL_CHIP_SIZE := Vector2(138, 92)
+const RAIL_FONT := 12
+const RAIL_ICON := 26
+const RAIL_INK := 6
+const RAIL_RADIUS := 16
 ## Plate table under the baked ABILITY / HIGH GROUND keys. Matches the
 ## action-row wood so a cover does not read as a darker rivet panel.
 const DESK := Color("3a2a1a")
@@ -299,10 +304,10 @@ static func _apply_bevel_button(button: Button, bg: Color, radius: int, border_p
 				fill = bg.darkened(0.28)
 		var box := bevel_style(fill, sz, radius, border_px)
 		if tight:
-			box.content_margin_left = 6
-			box.content_margin_right = 6
-			box.content_margin_top = 4
-			box.content_margin_bottom = 4
+			box.content_margin_left = 8
+			box.content_margin_right = 8
+			box.content_margin_top = 6
+			box.content_margin_bottom = 8
 		else:
 			box.content_margin_left = 12
 			box.content_margin_right = 12
@@ -407,14 +412,14 @@ static func game_button(kind: String, text: String, bg: Color, fg: Color, min_si
 
 
 static func rail_chip(kind: String, text: String, bg: Color, fg: Color) -> Button:
-	## Compact ability-rail key under ABILITY. Same thick ink outline as ATTACK / RECON.
-	var button := _styled_button(text, bg, fg, RAIL_CHIP_SIZE, 16, 8)
+	## UAV / DECOY / SMOKE under ABILITY. Same gloss, ink, and height as ATTACK / RECON.
+	var button := _styled_button(text, bg, fg, RAIL_CHIP_SIZE, RAIL_RADIUS, RAIL_FONT)
 	button.set_meta("rail_chip", true)
 	button.clip_text = false
 	if kind != "":
-		button.icon = make_icon(kind, fg, 16)
-		button.add_theme_constant_override("h_separation", 4)
-		button.add_theme_constant_override("icon_max_width", 16)
+		button.icon = make_icon(kind, fg, RAIL_ICON)
+		button.add_theme_constant_override("h_separation", 8)
+		button.add_theme_constant_override("icon_max_width", RAIL_ICON)
 	_tighten_rail_chip(button)
 	return button
 
@@ -424,15 +429,15 @@ static func _tighten_rail_chip(button: Button) -> void:
 		return
 	button.custom_minimum_size = RAIL_CHIP_SIZE
 	button.size = RAIL_CHIP_SIZE
-	button.add_theme_font_size_override("font_size", 8)
-	button.add_theme_constant_override("icon_max_width", 18)
-	button.add_theme_constant_override("h_separation", 4)
+	button.add_theme_font_size_override("font_size", RAIL_FONT)
+	button.add_theme_constant_override("icon_max_width", RAIL_ICON)
+	button.add_theme_constant_override("h_separation", 8)
 	var bg := ABILITY_PURPLE
 	var box := button.get_theme_stylebox("normal")
 	if box is StyleBoxFlat:
 		bg = (box as StyleBoxFlat).bg_color
-	## Same glossy bevel and thick ink as ATTACK / RECON, sized for the three-chip rail.
-	_apply_bevel_button(button, bg, 14, 5)
+	## Same glossy bevel and thick ink as paint_float_key (ATTACK / RECON).
+	_apply_bevel_button(button, bg, RAIL_RADIUS, RAIL_INK)
 
 
 static func paint_decoy_button(button: Button, chrome: String) -> void:
@@ -451,8 +456,8 @@ static func paint_decoy_button(button: Button, chrome: String) -> void:
 		button.text = "%s SPENT" % Contract.DECOY_LABEL
 	else:
 		button.text = Contract.DECOY_LABEL
-	button.add_theme_font_size_override("font_size", 8 if bool(button.get_meta("rail_chip", false)) else 20)
-	button.icon = make_icon("decoy", Color.WHITE, 14 if bool(button.get_meta("rail_chip", false)) else 30)
+	button.add_theme_font_size_override("font_size", RAIL_FONT if bool(button.get_meta("rail_chip", false)) else 20)
+	button.icon = make_icon("decoy", Color.WHITE, RAIL_ICON if bool(button.get_meta("rail_chip", false)) else 30)
 	if locked:
 		button.tooltip_text = Contract.DECOY_TIP
 		var radius := 18
@@ -501,7 +506,7 @@ static func paint_smoke_chip(button: Button, available: bool, locked: bool = fal
 	var fg := Color.WHITE if lit else SMOKE_SPENT_INK
 	paint_chunk_button(button, bg, fg)
 	## One white puff. Locked and spent multiply it by the grey ink — no second texture.
-	var icon_px := 14 if bool(button.get_meta("rail_chip", false)) else 30
+	var icon_px := RAIL_ICON if bool(button.get_meta("rail_chip", false)) else 30
 	button.icon = make_icon("smoke", Color.WHITE, icon_px)
 	var icon_tint := Color.WHITE if lit else SMOKE_SPENT_INK
 	for state in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:

@@ -1030,6 +1030,8 @@ func _capture_soft_hud() -> void:
 		_submit(ActionIntent.start())
 		await get_tree().process_frame
 	if not ClientSession.use_live_api() and ClientSession.match_id != "":
+		## Locked frame is the lit chip (+10% ACCURACY). Parked copy stays the live default.
+		MockMatchServer.test_high_ground_active = true
 		MockMatchServer.reveal_inner_for_art(ClientSession.match_id)
 		_apply_server_reconnect()
 	snap = ClientSession.typed_snapshot()
@@ -1072,7 +1074,7 @@ func _capture_soft_hud() -> void:
 		else:
 			counts["unknown"] = int(counts["unknown"]) + 1
 	var revealed := int(counts["open"]) + int(counts["brush"]) + int(counts["hard"])
-	print("SOFT_HUD_TERRAIN open ", counts["open"], " brush ", counts["brush"], " hard ", counts["hard"], " listed ", revealed)
+	print("SOFT_HUD_TERRAIN open ", counts["open"], " brush ", counts["brush"], " hard ", counts["hard"], " listed ", revealed, " hg ", snap.you_high_ground_active())
 	print("SOFT_HUD_STILLS ", ProjectSettings.globalize_path(root))
 	get_tree().quit()
 
@@ -1932,9 +1934,10 @@ func _mount_ability_rail(parent: Control, plate: bool) -> void:
 	rail.add_theme_constant_override("separation", 2)
 	rail.alignment = BoxContainer.ALIGNMENT_CENTER
 	if plate:
-		rail.position = Vector2(476, 568)
-		rail.custom_minimum_size = Vector2(340, 112)
-		rail.size = Vector2(340, 112)
+		## Sits in the gap between RECON and HIGH GROUND. Chip row matches ATTACK height.
+		rail.position = Vector2(484, 564)
+		rail.custom_minimum_size = Vector2(432, 120)
+		rail.size = Vector2(432, 120)
 		rail.z_index = 4
 	else:
 		rail.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -1944,12 +1947,12 @@ func _mount_ability_rail(parent: Control, plate: bool) -> void:
 	_ability_cap.text = Contract.ABILITY_SLOT
 	_ability_cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_ability_cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	Chrome.apply_label(_ability_cap, 11, Chrome.CREAM, true)
+	Chrome.apply_label(_ability_cap, 12, Chrome.CREAM, true)
 	rail.add_child(_ability_cap)
 	var chips := HBoxContainer.new()
 	chips.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	chips.alignment = BoxContainer.ALIGNMENT_CENTER
-	chips.add_theme_constant_override("separation", 6)
+	chips.add_theme_constant_override("separation", 8)
 	rail.add_child(chips)
 	_btn_uav = Chrome.rail_chip("ability", Contract.ABILITY_LABEL, Chrome.ABILITY_PURPLE, Color.WHITE)
 	_btn_uav.tooltip_text = "Ability — UAV Sweep. Posts type: uav."

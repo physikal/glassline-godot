@@ -3607,6 +3607,13 @@ func _match_board_chrome_case(failed: PackedStringArray) -> void:
 	_expect(failed, atk_box != null and int(atk_box.get_meta("bevel_ink", 0)) >= 5, "ATTACK key has thick ink")
 	_expect(failed, atk_box != null and int(atk_box.get_meta("blur_shadow", 1)) == 0, "ATTACK key has no blurry drop shadow")
 	atk.free()
+	var rail: Button = Chrome.rail_chip("ability", Contract.ABILITY_LABEL, Chrome.ABILITY_PURPLE, Color.WHITE)
+	var rail_box: StyleBox = rail.get_theme_stylebox("normal")
+	_expect(failed, rail.custom_minimum_size.y == 92.0, "ability rail chip matches ATTACK height")
+	_expect(failed, rail_box != null and bool(rail_box.get_meta("chunk_bevel", false)), "ability rail chip is chunky bevel chrome")
+	_expect(failed, rail_box != null and int(rail_box.get_meta("bevel_ink", 0)) >= 6, "ability rail chip matches ATTACK ink")
+	_expect(failed, rail_box != null and int(rail_box.get_meta("blur_shadow", 1)) == 0, "ability rail chip has no blurry drop shadow")
+	rail.free()
 	var screen_src := FileAccess.get_file_as_string("res://scenes/match/match_screen.gd")
 	_expect(failed, screen_src.find("Vector2(250, 96)") < 0, "board well does not cut the header")
 	_expect(failed, screen_src.find("Vector2(250, 124)") >= 0, "board host stays on the cleared honeycomb seat")
@@ -4725,6 +4732,8 @@ func _journal_case(failed: PackedStringArray) -> void:
 	var tokens: Dictionary = created.get("joinTokens", {})
 	var join_a: Dictionary = server.join(mid, str(tokens.get("a", "")))
 	var join_b: Dictionary = server.join(mid, str(tokens.get("b", "")))
+	## Pin the mock clock. Real ticks past ~1s make 1000+timeout look like the past.
+	server.test_now_ms = 1000
 	server.force_end(mid, Contract.SEAT_A, Contract.END_KILL)
 	var pid_a := str(join_a.get("playerId", ""))
 	var pid_b := str(join_b.get("playerId", ""))
