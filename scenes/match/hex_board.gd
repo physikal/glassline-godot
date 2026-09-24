@@ -113,12 +113,14 @@ func _sync_faces() -> void:
 			var tile: Texture2D = Chrome.hex_tile(cell_kind(q, r))
 			s.texture = tile
 			if tile and tile.get_width() >= 24:
-				## Fit the pointy mask to the cell (extract hex_alpha_mask radius).
-				## Scaling the padded texture past the cell stacked the next UNKNOWN mark on this one.
-				var radius := minf(float(tile.get_width()), float(tile.get_height())) * 0.5 - 0.6
-				var mask_w := radius * 1.7320508
-				var mask_h := radius * 2.0
-				s.scale = Vector2(cell_w / mask_w, cell_h / mask_h)
+				## Tight pointy stamp: width is flat-to-flat, height is point-to-point.
+				## Fit that face to the cell. A hair of overlap closes the seam.
+				## Scaling a padded box past the cell stacked the next ? onto this hex.
+				var overlap := 0.8
+				s.scale = Vector2(
+					(cell_w + overlap) / float(tile.get_width()),
+					(cell_h + overlap) / float(tile.get_height())
+				)
 				s.visible = true
 			else:
 				s.visible = false
@@ -154,12 +156,19 @@ func render_ink(layer: CanvasItem) -> void:
 			var body := PackedVector2Array()
 			for p in corners:
 				body.append(center + p)
-			var outline := Color(0.10, 0.08, 0.07, 0.88)
-			if Contract.same_hex(_selected, Contract.hex_dict(q, r)):
-				outline = Color("e23b3b")
-			elif Contract.same_hex(_hover, Contract.hex_dict(q, r)):
-				outline = Color.WHITE
-			layer.draw_polyline(body + PackedVector2Array([body[0]]), outline, 1.6, true)
+			var face: Sprite2D = _faces.get(key)
+			var stamp_visible := face != null and face.visible
+			var selected := Contract.same_hex(_selected, Contract.hex_dict(q, r))
+			var hovered := Contract.same_hex(_hover, Contract.hex_dict(q, r))
+			## The stamp's own edge is the shared honeycomb line. A second inset
+			## stroke on every cell read as a stair / shingle. Hover and select still ring.
+			if not stamp_visible or selected or hovered:
+				var outline := Color(0.10, 0.08, 0.07, 0.88)
+				if selected:
+					outline = Color("e23b3b")
+				elif hovered:
+					outline = Color.WHITE
+				layer.draw_polyline(body + PackedVector2Array([body[0]]), outline, 1.6, true)
 			if _highlights.has(key):
 				layer.draw_arc(center, HEX_SIZE * 0.72, 0.0, TAU, 28, _highlights[key], 3.0, true)
 	if _smoke_tint and _you_hex != null:

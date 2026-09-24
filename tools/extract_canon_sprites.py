@@ -154,6 +154,40 @@ def apply_hex_mask(img: Image.Image) -> Image.Image:
     return out
 
 
+## Measured on match-board-canon.jpg. Same-row ? centers sit ~98px apart
+## (flat-to-flat). A 94×108 window centered between rows pulled the neighbor
+## border and a second ? into the mask, which tiled as a stair-stack.
+BOARD_PITCH = 98.0
+BOARD_HEX_CENTERS = {
+    "hex_open": (472, 216),
+    "hex_brush": (664, 216),
+    "hex_hard": (712, 300),
+    "hex_unknown": (517, 150),
+}
+
+
+def isolate_board_hex(plate: Image.Image, cx: float, cy: float, pitch: float = BOARD_PITCH) -> Image.Image:
+    """One pointy face. Width is flat-to-flat, height is point-to-point."""
+    width = int(round(pitch))
+    height = int(round(2.0 * pitch / math.sqrt(3.0)))
+    left = int(round(cx - width / 2.0))
+    top = int(round(cy - height / 2.0))
+    raw = plate.crop((left, top, left + width, top + height))
+    mask = Image.new("L", (width, height), 0)
+    draw = ImageDraw.Draw(mask)
+    rad = width / math.sqrt(3.0)
+    ccx = (width - 1) / 2.0
+    ccy = (height - 1) / 2.0
+    pts = []
+    for i in range(6):
+        ang = math.radians(60.0 * i - 30.0)
+        pts.append((ccx + rad * math.cos(ang), ccy + rad * math.sin(ang)))
+    draw.polygon(pts, fill=255)
+    out = raw.convert("RGBA")
+    out.putalpha(mask)
+    return out
+
+
 def extract_hex(hex_map: Image.Image) -> None:
     ## Tileable OPEN/BRUSH/HARD/? stamps from the match-board / hex-map plate.
     ## One face per kind — not a unique full-map painting.
@@ -171,17 +205,11 @@ def extract_hex(hex_map: Image.Image) -> None:
         raw = crop(hex_map, box, f"{name}_legend_raw")
         save_sprite(apply_hex_mask(raw), f"{name}_legend.png")
 
-    ## One tileable board face per kind — not unique per-hex map crops.
-    board = {
-        "hex_open": box_at(469, 218, 47, 54),
-        "hex_brush": box_at(656, 218, 47, 54),
-        "hex_hard": box_at(796, 299, 47, 54),
-        ## 328 landed the ? on the right edge, so tiled UNKNOWN marks stacked into the next cell.
-        "hex_unknown": box_at(360, 297, 47, 54),
-    }
-    for name, box in board.items():
-        raw = crop(hex_map, box, f"{name}_board_raw")
-        save_sprite(apply_hex_mask(raw), f"{name}_tile.png")
+    ## One tileable board face per kind. Center is the painted hex, pitch is
+    ## the canon flat-to-flat gap, so the mask does not swallow the neighbor.
+    for name, center in BOARD_HEX_CENTERS.items():
+        face = isolate_board_hex(hex_map, center[0], center[1])
+        save_sprite(face, f"{name}_tile.png")
 
     ## Clump-only overlays from the same brush / hard faces.
     brush = crop(hex_map, box_at(656, 218, 22, 20), "brush_clump_raw")

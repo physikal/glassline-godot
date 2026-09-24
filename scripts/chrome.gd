@@ -45,6 +45,10 @@ const RACK_PEG_OWNED := Color("4e9a68")
 const RACK_PEG_LOCKED := Color("2a5640")
 const HEX_LINE := Color("f2e6c4")
 const RAIL_CHIP_SIZE := Vector2(92, 64)
+## Plate table under the baked ABILITY / HIGH GROUND keys. Matches the
+## action-row wood so a cover does not read as a darker rivet panel.
+const DESK := Color("3a2a1a")
+const DESK_WELL := Color("211508")
 const _ArtPack := preload("res://scripts/art_pack.gd")
 
 
@@ -259,14 +263,14 @@ static func game_button(kind: String, text: String, bg: Color, fg: Color, min_si
 
 
 static func rail_chip(kind: String, text: String, bg: Color, fg: Color) -> Button:
-	## Compact ability-rail key. Words stay readable under the ABILITY label.
-	var button := _styled_button(text, bg, fg, RAIL_CHIP_SIZE, 12, 8)
+	## Compact ability-rail key under ABILITY. Same thick ink outline as ATTACK / RECON.
+	var button := _styled_button(text, bg, fg, RAIL_CHIP_SIZE, 16, 8)
 	button.set_meta("rail_chip", true)
 	button.clip_text = false
 	if kind != "":
-		button.icon = make_icon(kind, fg, 14)
-		button.add_theme_constant_override("h_separation", 2)
-		button.add_theme_constant_override("icon_max_width", 14)
+		button.icon = make_icon(kind, fg, 16)
+		button.add_theme_constant_override("h_separation", 4)
+		button.add_theme_constant_override("icon_max_width", 16)
 	_tighten_rail_chip(button)
 	return button
 
@@ -277,16 +281,20 @@ static func _tighten_rail_chip(button: Button) -> void:
 	button.custom_minimum_size = RAIL_CHIP_SIZE
 	button.size = RAIL_CHIP_SIZE
 	button.add_theme_font_size_override("font_size", 8)
-	button.add_theme_constant_override("icon_max_width", 14)
-	button.add_theme_constant_override("h_separation", 2)
+	button.add_theme_constant_override("icon_max_width", 16)
+	button.add_theme_constant_override("h_separation", 4)
 	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
 		var box := button.get_theme_stylebox(state)
 		if box is StyleBoxFlat:
 			var tight := (box as StyleBoxFlat).duplicate()
-			tight.content_margin_left = 2
-			tight.content_margin_right = 2
-			tight.content_margin_top = 2
-			tight.content_margin_bottom = 2
+			## Chunky plate weight: thick dark outline, rounded body. Not a wood rivet.
+			tight.set_border_width_all(4)
+			tight.border_color = INK
+			tight.set_corner_radius_all(16)
+			tight.content_margin_left = 4
+			tight.content_margin_right = 4
+			tight.content_margin_top = 4
+			tight.content_margin_bottom = 4
 			button.add_theme_stylebox_override(state, tight)
 
 
@@ -387,7 +395,7 @@ static func high_ground_chip(active: bool = false) -> Control:
 	## Snapshot-bound plate chip — not a 4th action key. Never invent the bonus.
 	var panel := PanelContainer.new()
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.custom_minimum_size = Vector2(208, 34)
+	panel.custom_minimum_size = Vector2(228, 68)
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_theme_constant_override("separation", 8)
@@ -491,13 +499,14 @@ static func paint_high_ground_chip(panel: Control, active: bool) -> void:
 	## Lit + “+10%” only while snapshot you.highGroundActive. Muted otherwise.
 	if panel == null:
 		return
-	var border := HIGH_GOLD if active else Color("3a3228")
-	var bg := Color("2a2214") if active else Color("1a1612")
-	var box := flat(bg, 12, border, 3 if active else 2)
-	box.content_margin_left = 10
-	box.content_margin_right = 12
-	box.content_margin_top = 6
-	box.content_margin_bottom = 6
+	## Thick ink (lit: gold) so the chip matches ATTACK / RECON weight. Muted stays a chunk, not a wood wash.
+	var border := HIGH_GOLD if active else INK
+	var bg := Color("2a2214") if active else Color("241810")
+	var box := flat(bg, 16, border, 4)
+	box.content_margin_left = 12
+	box.content_margin_right = 14
+	box.content_margin_top = 8
+	box.content_margin_bottom = 8
 	panel.add_theme_stylebox_override("panel", box)
 	var icon: TextureRect = panel.get_meta("high_icon") if panel.has_meta("high_icon") else null
 	var lbl: Label = panel.get_meta("high_label") if panel.has_meta("high_label") else null
