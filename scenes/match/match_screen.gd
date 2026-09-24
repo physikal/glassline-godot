@@ -1576,9 +1576,10 @@ func _build() -> void:
 	_add_float_player_card(false)
 	## Ring sits behind the word. The word is the header, centered, not a left logo.
 	var reticle := TextureRect.new()
-	reticle.texture = Chrome.make_wordmark_ring(168)
-	reticle.position = Vector2(556, 0)
-	reticle.size = Vector2(168, 168)
+	## Circle center sits on the word so the reticle crosses the letters.
+	reticle.texture = Chrome.make_wordmark_ring(112)
+	reticle.position = Vector2(584, 0)
+	reticle.size = Vector2(112, 112)
 	reticle.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	reticle.z_index = 3
 	add_child(reticle)
@@ -1591,7 +1592,7 @@ func _build() -> void:
 		title.text = "Glassline"
 	var title_bold := Label.new()
 	title_bold.text = title.text
-	title_bold.position = Vector2(342, 18)
+	title_bold.position = Vector2(341, 24)
 	title_bold.size = Vector2(600, 64)
 	title_bold.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title_bold.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -1602,7 +1603,7 @@ func _build() -> void:
 	add_child(title_bold)
 	var title_shadow := Label.new()
 	title_shadow.text = title.text
-	title_shadow.position = Vector2(344, 22)
+	title_shadow.position = Vector2(344, 28)
 	title_shadow.size = Vector2(600, 64)
 	title_shadow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title_shadow.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -1611,7 +1612,7 @@ func _build() -> void:
 	Chrome.apply_label(title_shadow, 32, Color("0c0a08"), true)
 	title_shadow.add_theme_constant_override("outline_size", 0)
 	add_child(title_shadow)
-	title.position = Vector2(340, 18)
+	title.position = Vector2(340, 24)
 	title.size = Vector2(600, 64)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -1627,7 +1628,7 @@ func _build() -> void:
 	clock_plate.size = Vector2(176, 52)
 	clock_plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	clock_plate.z_index = 5
-	_paint_tight_plate(clock_plate, Color("16120e"), 14, 5, 10, 6)
+	_paint_tight_plate(clock_plate, Color("0c0a08"), 10, 8, 10, 6)
 	add_child(clock_plate)
 	var clock_row := HBoxContainer.new()
 	clock_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1666,7 +1667,7 @@ func _build() -> void:
 	_turn_pill.size = Vector2(168, 34)
 	_turn_pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_turn_pill.z_index = 5
-	_paint_tight_plate(_turn_pill, Color("16120e"), 12, 4, 8, 4)
+	_paint_tight_plate(_turn_pill, Color("0c0a08"), 10, 7, 8, 4)
 	add_child(_turn_pill)
 	_turn = Label.new()
 	_turn.text = "TURN  1"
@@ -1806,7 +1807,8 @@ func _build() -> void:
 	Chrome.apply_label(_toast, 10, Color("f7e7a8"), true)
 	add_child(_toast)
 	_mute_btn = Chrome.gear_button(AudioJuice.muted)
-	_mute_btn.position = Vector2(1216, 16)
+	## Below the rival card. The gear is not parked on the portrait.
+	_mute_btn.position = Vector2(1218, 112)
 	_mute_btn.z_index = 7
 	_mute_btn.tooltip_text = Chrome.mute_button_tip(AudioJuice.muted)
 	_mute_btn.pressed.connect(_toggle_mute)
@@ -2017,7 +2019,7 @@ func _mount_float_legend() -> void:
 	plate.custom_minimum_size = plate.size
 	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	plate.z_index = 4
-	_paint_tight_plate(plate, Color("16120e"), 14, 5, 10, 8)
+	_paint_tight_plate(plate, Color("0c0a08"), 10, 8, 10, 8)
 	add_child(plate)
 	var legend := VBoxContainer.new()
 	legend.add_theme_constant_override("separation", 4)
@@ -2031,12 +2033,12 @@ func _mount_float_legend() -> void:
 
 func _add_float_player_card(is_you: bool) -> void:
 	var panel := PanelContainer.new()
-	panel.position = Vector2(8, 8) if is_you else Vector2(948, 8)
-	panel.size = Vector2(300, 92)
+	panel.position = Vector2(8, 6) if is_you else Vector2(968, 6)
+	panel.size = Vector2(280, 96)
 	panel.custom_minimum_size = panel.size
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.z_index = 5
-	_paint_tight_plate(panel, Color("16120e"), 14, 6, 8, 6)
+	_paint_tight_plate(panel, Color("0c0a08"), 10, 8, 8, 6)
 	add_child(panel)
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2044,9 +2046,9 @@ func _add_float_player_card(is_you: bool) -> void:
 	row.add_theme_constant_override("separation", 8)
 	panel.add_child(row)
 	var face := TextureRect.new()
-	face.texture = Chrome.make_plate_portrait("p1" if is_you else "p2", 64)
+	face.texture = Chrome.make_plate_portrait("p1" if is_you else "p2", 72)
 	face.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	face.custom_minimum_size = Vector2(64, 64)
+	face.custom_minimum_size = Vector2(72, 72)
 	face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	face.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	face.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2068,8 +2070,8 @@ func _add_float_player_card(is_you: bool) -> void:
 		star_row.alignment = BoxContainer.ALIGNMENT_END
 	var star := TextureRect.new()
 	var star_col := Color("3ec8e0") if is_you else Color("f0c44a")
-	star.texture = Chrome.make_icon("star", star_col, 18)
-	star.custom_minimum_size = Vector2(18, 18)
+	star.texture = Chrome.make_icon("star", star_col, 22)
+	star.custom_minimum_size = Vector2(22, 22)
 	star.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	star.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	star.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2085,10 +2087,10 @@ func _add_float_player_card(is_you: bool) -> void:
 		star_row.add_child(level)
 	col.add_child(star_row)
 	var bar := Panel.new()
-	bar.custom_minimum_size = Vector2(168, 18)
+	bar.custom_minimum_size = Vector2(160, 20)
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var bar_fill := Color("2eb8e6") if is_you else Color("f08a2a")
-	var bar_box := Chrome.bevel_style(bar_fill, Vector2(168, 18), 8, 3)
+	var bar_box := Chrome.bevel_style(bar_fill, Vector2(160, 20), 6, 3)
 	bar_box.content_margin_left = 0
 	bar_box.content_margin_right = 0
 	bar_box.content_margin_top = 0

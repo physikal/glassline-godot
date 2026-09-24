@@ -47,9 +47,9 @@ const HEX_LINE := Color("f2e6c4")
 ## Same height and ink as the ATTACK / RECON keys. Width is the three-chip split.
 const RAIL_CHIP_SIZE := Vector2(138, 92)
 const RAIL_FONT := 12
-const RAIL_ICON := 26
-const RAIL_INK := 6
-const RAIL_RADIUS := 16
+const RAIL_ICON := 34
+const RAIL_INK := 8
+const RAIL_RADIUS := 10
 ## Plate table under the baked ABILITY / HIGH GROUND keys. Matches the
 ## action-row wood so a cover does not read as a darker rivet panel.
 const DESK := Color("3a2a1a")
@@ -255,7 +255,7 @@ static func paint_float_key(button: Button) -> void:
 	var box := button.get_theme_stylebox("normal")
 	if box is StyleBoxFlat:
 		bg = (box as StyleBoxFlat).bg_color
-	_apply_bevel_button(button, bg, 16, 6)
+	_apply_bevel_button(button, bg, 10, 8)
 
 
 static func bevel_style(bg: Color, size: Vector2, radius: int = 14, border_px: int = 5) -> StyleBoxTexture:
@@ -324,28 +324,29 @@ static func _paint_bevel_image(bg: Color, w: int, h: int, rad: int, ink: int) ->
 	var inner_h := h - ink * 2
 	if inner_w < 4 or inner_h < 4:
 		return img
-	var gloss_h := maxi(4, int(float(inner_h) * 0.46))
+	## Short top lip only. A tall gloss reads as a glassy pill, not the plate's block.
+	var gloss_h := maxi(3, mini(8, int(float(inner_h) * 0.14)))
+	var edge := Color(0.04, 0.03, 0.02, 1.0)
 	for y in h:
 		for x in w:
 			if not _in_round_rect(x, y, w, h, rad):
 				continue
 			if not _in_round_rect(x - ink, y - ink, inner_w, inner_h, maxi(1, rad - ink)):
-				img.set_pixel(x, y, INK)
+				img.set_pixel(x, y, edge)
 				continue
 			var iy := y - ink
 			var ix := x - ink
 			var col := bg
-			if iy < 3:
-				col = bg.lightened(0.46)
+			if iy < 2:
+				col = bg.lightened(0.16)
 			elif iy < gloss_h:
-				var t := float(iy) / float(gloss_h)
-				col = bg.lightened(0.34 * (1.0 - t))
-			elif iy >= inner_h - 4:
-				col = bg.darkened(0.34)
+				col = bg.lightened(0.08)
+			elif iy >= inner_h - 5:
+				col = bg.darkened(0.28)
 			if ix < 2:
-				col = col.lightened(0.08)
+				col = col.darkened(0.06)
 			elif ix >= inner_w - 3:
-				col = col.darkened(0.12)
+				col = col.darkened(0.10)
 			img.set_pixel(x, y, col)
 	return img
 
@@ -402,11 +403,11 @@ static func action_button(kind: String, text: String, bg: Color, fg: Color, min_
 
 static func game_button(kind: String, text: String, bg: Color, fg: Color, min_size: Vector2 = Vector2(248, 76)) -> Button:
 	## Chunky floating match key — thick ink, drop shadow, not a wood-tray inset.
-	var button := _styled_button(text, bg, fg, min_size, 18, 13)
+	var button := _styled_button(text, bg, fg, min_size, 10, 13)
 	if kind != "":
-		button.icon = make_icon(kind, fg, 30)
-		button.add_theme_constant_override("h_separation", 12)
-		button.add_theme_constant_override("icon_max_width", 30)
+		button.icon = make_icon(kind, fg, 40)
+		button.add_theme_constant_override("h_separation", 10)
+		button.add_theme_constant_override("icon_max_width", 40)
 	paint_float_key(button)
 	return button
 
@@ -649,7 +650,7 @@ static func paint_high_ground_chip(panel: Control, active: bool) -> void:
 		return
 	## Near-black toast. +10% only while lit — parked keeps the same plate weight.
 	var bg := Color("1a140f") if active else Color("14110e")
-	var box := float_box(bg, 14, 6, Vector2(300, 112))
+	var box := float_box(bg, 10, 8, Vector2(300, 112))
 	box.content_margin_left = 10
 	box.content_margin_right = 12
 	box.content_margin_top = 6
@@ -735,42 +736,30 @@ static func grain_texture(base: Color, width: int = 128, height: int = 128) -> T
 
 
 static func make_match_desk(width: int = 1280, height: int = 720) -> Texture2D:
-	## Dark plank table under the board. Sharp seams and grain, not a light blur.
+	## Solid dark table. Horizontal grain only — not light vertical planks.
 	## Not a blit of the wood-tray match-board jpg.
 	var img := Image.create(width, height, false, Image.FORMAT_RGB8)
 	var tones := [
-		Color("3a2416"),
-		Color("2a1a10"),
-		Color("321e14"),
-		Color("24160e"),
-		Color("412818"),
-		Color("1c120c"),
-		Color("362214"),
+		Color("1a100c"),
+		Color("140e0a"),
+		Color("1c120e"),
+		Color("120c08"),
 	]
-	var plank_h := maxi(22, height / 18)
+	var plank_h := maxi(48, height / 8)
 	for y in height:
 		var plank := int(y / plank_h)
 		var local := y % plank_h
 		var base: Color = tones[posmod(plank, tones.size())]
-		var seam := local == 0 or local == plank_h - 1
-		var joint := posmod(plank * 173 + 40, width)
+		var seam := local <= 1
 		for x in width:
 			if seam:
-				img.set_pixel(x, y, Color("0c0806"))
+				img.set_pixel(x, y, Color("080604"))
 				continue
 			var col := base
-			if posmod(x + plank * 5, 7) == 0:
-				col = base.lightened(0.06)
-			elif posmod(x * 3 + plank, 11) == 0:
-				col = base.darkened(0.08)
-			if absi(x - joint) <= 1 and local > 2 and local < plank_h - 2:
-				col = Color("120c09")
-			var kx := posmod(plank * 97 + 80, width - 40) + 20
-			var ky := plank * plank_h + plank_h / 2
-			var kdx := x - kx
-			var kdy := (y - ky) * 2
-			if kdx * kdx + kdy * kdy < 36:
-				col = base.darkened(0.22)
+			if posmod(y, 5) == 0:
+				col = base.lightened(0.03)
+			elif posmod(y + x / 80, 9) == 0:
+				col = base.darkened(0.04)
 			img.set_pixel(x, y, col)
 	return ImageTexture.create_from_image(img)
 
@@ -783,12 +772,13 @@ static func make_wordmark_ring(px: int = 168) -> Texture2D:
 	var teal := Color("2ec8d6")
 	var ink := Color("06141c")
 	var c := px / 2
-	var outer := int(float(px) * 0.34)
-	var thick := maxi(5, px / 22)
+	## Circle is large enough to cross the word, not a ring parked under it.
+	var outer := int(float(px) * 0.36)
+	var thick := maxi(6, px / 16)
 	_stroke_ring(img, c, c, outer, thick + 3, ink)
 	_stroke_ring(img, c, c, outer, thick, teal)
 	var tick_w := maxi(3, px / 40)
-	var long_arm := int(float(px) * 0.12)
+	var long_arm := int(float(px) * 0.10)
 	var short_arm := int(float(px) * 0.06)
 	_fill_rect(img, c - tick_w, 1, tick_w * 2, long_arm, ink)
 	_fill_rect(img, c - tick_w + 1, 2, tick_w * 2 - 2, long_arm - 2, teal)
@@ -1247,54 +1237,75 @@ class _HexSwatch extends Control:
 
 
 static func _icon_crosshair(img: Image, color: Color) -> void:
-	var c := 14
-	_stroke_circle(img, c, c, 8, color)
-	_stroke_circle(img, c, c, 3, color)
-	_fill_rect(img, c - 1, 2, 3, 6, color)
-	_fill_rect(img, c - 1, 20, 3, 6, color)
-	_fill_rect(img, 2, c - 1, 6, 3, color)
-	_fill_rect(img, 20, c - 1, 6, 3, color)
+	## Filled sniper mark. Scales with the icon, not a 28px scribble in the corner.
+	var s := img.get_width()
+	var c := s / 2
+	var ring := int(float(s) * 0.30)
+	var thick := maxi(3, s / 7)
+	_stroke_ring(img, c, c, ring, thick, color)
+	var arm := maxi(3, s / 8)
+	var gap := ring - thick
+	_fill_rect(img, c - arm / 2, 1, arm, maxi(2, c - gap), color)
+	_fill_rect(img, c - arm / 2, c + gap, arm, maxi(2, s - (c + gap) - 1), color)
+	_fill_rect(img, 1, c - arm / 2, maxi(2, c - gap), arm, color)
+	_fill_rect(img, c + gap, c - arm / 2, maxi(2, s - (c + gap) - 1), arm, color)
+	_fill_circle(img, c, c, maxi(2, s / 10), color)
 
 
 static func _icon_binoculars(img: Image, color: Color) -> void:
-	_stroke_circle(img, 9, 15, 7, color)
-	_stroke_circle(img, 19, 15, 7, color)
-	_fill_circle(img, 9, 15, 3, color)
-	_fill_circle(img, 19, 15, 3, color)
-	_fill_rect(img, 12, 12, 5, 3, color)
-	_fill_rect(img, 6, 6, 5, 4, color)
-	_fill_rect(img, 18, 6, 5, 4, color)
+	var s := float(img.get_width())
+	var r := int(s * 0.24)
+	var y := int(s * 0.58)
+	var left := int(s * 0.32)
+	var right := int(s * 0.68)
+	_fill_circle(img, left, y, r, color)
+	_fill_circle(img, right, y, r, color)
+	_fill_circle(img, left, y, maxi(2, r - int(s * 0.08)), color.darkened(0.35))
+	_fill_circle(img, right, y, maxi(2, r - int(s * 0.08)), color.darkened(0.35))
+	_fill_circle(img, left, y, maxi(2, int(s * 0.06)), color)
+	_fill_circle(img, right, y, maxi(2, int(s * 0.06)), color)
+	_fill_rect(img, left, y - int(s * 0.06), right - left, maxi(3, int(s * 0.12)), color)
+	_fill_rect(img, left - int(s * 0.08), int(s * 0.16), int(s * 0.16), int(s * 0.22), color)
+	_fill_rect(img, right - int(s * 0.08), int(s * 0.16), int(s * 0.16), int(s * 0.22), color)
 
 
 static func _icon_smoke_puff(img: Image, color: Color) -> void:
-	## Toy-spy puff. Soft clouds — not a canister or a terrain stamp.
-	_fill_circle(img, 8, 16, 4, color)
-	_fill_circle(img, 14, 12, 6, color)
-	_fill_circle(img, 21, 16, 4, color)
-	_fill_circle(img, 14, 16, 3, color.lightened(0.2))
+	## Chunky filled clouds. Same weight as the attack crosshair.
+	var s := float(img.get_width())
+	_fill_circle(img, int(s * 0.30), int(s * 0.62), int(s * 0.18), color)
+	_fill_circle(img, int(s * 0.52), int(s * 0.42), int(s * 0.26), color)
+	_fill_circle(img, int(s * 0.74), int(s * 0.60), int(s * 0.18), color)
+	_fill_circle(img, int(s * 0.50), int(s * 0.58), int(s * 0.12), color.lightened(0.25))
 
 
 static func _icon_toy_doll(img: Image, color: Color) -> void:
-	## Stuffed toy dummy — cozy, not mil-sim smoke.
-	_fill_circle(img, 14, 8, 5, color)
-	_fill_circle(img, 14, 18, 7, color)
-	_fill_rect(img, 6, 14, 4, 6, color)
-	_fill_rect(img, 18, 14, 4, 6, color)
-	_fill_circle(img, 12, 7, 1, INK)
-	_fill_circle(img, 16, 7, 1, INK)
-	_fill_rect(img, 13, 10, 3, 1, INK)
+	## Filled toy doll. Not a thin stick figure.
+	var s := float(img.get_width())
+	var cx := int(s * 0.50)
+	_fill_circle(img, cx, int(s * 0.28), int(s * 0.16), color)
+	_fill_circle(img, cx, int(s * 0.62), int(s * 0.24), color)
+	_fill_rect(img, int(s * 0.16), int(s * 0.48), int(s * 0.16), int(s * 0.22), color)
+	_fill_rect(img, int(s * 0.68), int(s * 0.48), int(s * 0.16), int(s * 0.22), color)
+	_fill_circle(img, int(s * 0.44), int(s * 0.26), maxi(1, int(s * 0.04)), INK)
+	_fill_circle(img, int(s * 0.56), int(s * 0.26), maxi(1, int(s * 0.04)), INK)
 
 
 static func _icon_star(img: Image, color: Color) -> void:
-	var cx := 14.0
-	var cy := 14.0
-	for i in 5:
-		var a := deg_to_rad(-90.0 + float(i) * 72.0)
-		var b := deg_to_rad(-90.0 + float(i) * 72.0 + 36.0)
-		_line(img, cx + cos(a) * 11.0, cy + sin(a) * 11.0, cx + cos(b) * 4.5, cy + sin(b) * 4.5, color)
-		var c := deg_to_rad(-90.0 + float(i + 1) * 72.0)
-		_line(img, cx + cos(b) * 4.5, cy + sin(b) * 4.5, cx + cos(c) * 11.0, cy + sin(c) * 11.0, color)
-	_fill_circle(img, 14, 14, 3, color)
+	var w := float(img.get_width())
+	var h := float(img.get_height())
+	var cx := w * 0.5
+	var cy := h * 0.52
+	var outer := minf(w, h) * 0.46
+	var inner := outer * 0.42
+	var pts: Array[Vector2] = []
+	for i in 10:
+		var ang := deg_to_rad(-90.0 + float(i) * 36.0)
+		var rad := outer if i % 2 == 0 else inner
+		pts.append(Vector2(cx + cos(ang) * rad, cy + sin(ang) * rad))
+	for y in img.get_height():
+		for x in img.get_width():
+			if _point_in_poly(float(x) + 0.5, float(y) + 0.5, pts):
+				img.set_pixel(x, y, color)
 
 
 static func _fill_pointy_hex(img: Image, cx: float, cy: float, radius: float, color: Color) -> void:
@@ -1506,6 +1517,19 @@ static func _icon_clipboard(img: Image, color: Color) -> void:
 	_fill_rect(img, 10, 11, 9, 2, color)
 	_fill_rect(img, 10, 15, 9, 2, color)
 	_fill_rect(img, 10, 19, 7, 2, color)
+
+
+static func _point_in_poly(x: float, y: float, pts: Array[Vector2]) -> bool:
+	var inside := false
+	var n := pts.size()
+	var j := n - 1
+	for i in n:
+		var pi: Vector2 = pts[i]
+		var pj: Vector2 = pts[j]
+		if absf(pj.y - pi.y) > 0.001 and ((pi.y > y) != (pj.y > y)) and (x < (pj.x - pi.x) * (y - pi.y) / (pj.y - pi.y) + pi.x):
+			inside = not inside
+		j = i
+	return inside
 
 
 static func _px(img: Image, x: int, y: int, color: Color) -> void:
