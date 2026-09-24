@@ -176,7 +176,8 @@ def extract_hex(hex_map: Image.Image) -> None:
         "hex_open": box_at(469, 218, 47, 54),
         "hex_brush": box_at(656, 218, 47, 54),
         "hex_hard": box_at(796, 299, 47, 54),
-        "hex_unknown": box_at(328, 299, 47, 54),
+        ## 328 landed the ? on the right edge, so tiled UNKNOWN marks stacked into the next cell.
+        "hex_unknown": box_at(360, 297, 47, 54),
     }
     for name, box in board.items():
         raw = crop(hex_map, box, f"{name}_board_raw")

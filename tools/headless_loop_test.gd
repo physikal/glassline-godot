@@ -3417,6 +3417,24 @@ func _match_board_chrome_case(failed: PackedStringArray) -> void:
 	var face_b: Texture2D = Art.hex_tile(Contract.TYPE_BRUSH, 99)
 	_expect(failed, face_a != null and face_b != null, "brush stamp loads")
 	_expect(failed, face_a.get_image().get_data() == face_b.get_image().get_data(), "stamp is tileable, not a unique map face")
+	var unk: Texture2D = Art.hex_tile("unknown")
+	var unk_img := unk.get_image() if unk != null else null
+	var mark_x := 0.0
+	var mark_n := 0
+	if unk_img != null:
+		for y in unk_img.get_height():
+			for x in unk_img.get_width():
+				var px: Color = unk_img.get_pixel(x, y)
+				if px.a > 0.8 and px.r > 0.82 and px.g > 0.82 and px.b > 0.75:
+					mark_x += float(x)
+					mark_n += 1
+	_expect(failed, unk_img != null and mark_n > 40, "UNKNOWN stamp has a mark")
+	var mark_dx := 99.0
+	if unk_img != null and mark_n > 0:
+		mark_dx = mark_x / float(mark_n) - float(unk_img.get_width()) * 0.5
+	_expect(failed, absf(mark_dx) < 8.0, "UNKNOWN mark sits in its hex, not on the next cell")
+	var board_src := FileAccess.get_file_as_string("res://scenes/match/hex_board.gd")
+	_expect(failed, board_src.find("1.26") < 0, "hex faces fit the cell and do not bleed onto the next hex")
 	var plate: Texture2D = Art.match_board_plate()
 	_expect(failed, plate != null and plate.get_width() >= 1200, "match-board plate loads")
 	var Chrome := load("res://scripts/chrome.gd")
