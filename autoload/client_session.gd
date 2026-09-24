@@ -36,10 +36,12 @@ var queueing: bool = false
 var ghillie: bool = false
 var bandana: bool = false
 var poster: bool = false
+var rug: bool = false
 ## Cosmetic display cache from shop snapshot. Visual only — no combat.
 var owned_cosmetics: Array = []
 var equipped_cosmetic: String = ""
 var equipped_decor: String = ""
+var equipped_floor_decor: String = ""
 ## Visual gun rack. Starter Fieldbolt owned-by-default until Coder gun SKUs.
 var owned_guns: Array = [Contract.GUN_FIELDBOLT]
 var equipped_gun: String = Contract.GUN_FIELDBOLT
@@ -175,6 +177,8 @@ func apply_shop(bag: Dictionary) -> void:
 		equipped_cosmetic = str(shop.equipped)
 	if shop.equipped_decor_present:
 		equipped_decor = str(shop.equipped_decor)
+	if shop.equipped_floor_decor_present:
+		equipped_floor_decor = str(shop.equipped_floor_decor)
 	if shop.owned_guns_present:
 		owned_guns = shop.owned_guns.duplicate()
 	else:
@@ -222,6 +226,8 @@ func is_equipped(item_id: String) -> bool:
 	if Contract.is_part_chrome(item_id):
 		var pid := Contract.canonical_part_id(item_id)
 		return pid != "" and _equipped_part(Contract.part_slot(pid)) == pid and owns_part(pid)
+	if Contract.is_floor_decor(item_id):
+		return equipped_floor_decor == item_id
 	if Contract.is_decor_chrome(item_id):
 		return equipped_decor == item_id
 	return equipped_cosmetic == item_id
@@ -229,8 +235,9 @@ func is_equipped(item_id: String) -> bool:
 
 func bind_equip_local(item_id: String, slot: String = "") -> void:
 	## Visual toggle after a successful mock persist / LIVE local-only equip.
+	var use_floor := slot == Contract.DECOR_SLOT_FLOOR or Contract.is_floor_decor(item_id)
 	var use_gun := slot == Contract.GUN_SLOT or Contract.is_gun_chrome(item_id)
-	var use_decor := slot == "decor" or Contract.is_decor_chrome(item_id)
+	var use_decor := (slot == "decor" or Contract.is_decor_chrome(item_id)) and not use_floor
 	var use_part := Contract.is_part_slot(slot) or Contract.is_part_chrome(item_id)
 	if item_id != "" and not owns_cosmetic(item_id):
 		return
@@ -244,7 +251,9 @@ func bind_equip_local(item_id: String, slot: String = "") -> void:
 		_sync_part_stub()
 		_bind_part_feel({})
 		return
-	if use_decor:
+	if use_floor:
+		equipped_floor_decor = item_id
+	elif use_decor:
 		equipped_decor = item_id
 	else:
 		equipped_cosmetic = item_id
@@ -254,8 +263,10 @@ func bind_equip_local(item_id: String, slot: String = "") -> void:
 func _sync_cosmetic_flags() -> void:
 	ghillie = is_equipped(Contract.SHOP_STUB_ITEM_ID)
 	bandana = is_equipped(Contract.SHOP_BANDANA_ITEM_ID)
-	## Wall art binds equippedDecorId. Coexists with skin. Unequip decor hides it.
+	## Wall art binds equippedDecorId. Floor rug binds equippedFloorDecorId.
+	## The two slots coexist. Unequip one leaves the other.
 	poster = is_equipped(Contract.SHOP_POSTER_ITEM_ID)
+	rug = is_equipped(Contract.SHOP_RUG_ITEM_ID)
 
 
 func _sync_gun_stub() -> void:
@@ -432,7 +443,7 @@ func apply_snapshot(snap: Dictionary) -> void:
 		## A2: wallet is snapshot you.marks only. Replace — never invent / keep a local grant.
 		bind_marks(int(you.get("marks", 0)))
 		if you.has("owned") or you.has("equipped") or you.has("equippedSkinId") \
-				or you.has("equippedDecorId") or you.has("cosmetics") \
+				or you.has("equippedDecorId") or you.has("equippedFloorDecorId") or you.has("cosmetics") \
 				or you.has("equippedGunId") or you.has("ownedGuns") or you.has("ownedGunIds") \
 				or you.has("equippedOpticId") or you.has("equippedStockId") or you.has("equippedBarrelId") \
 				or you.has("ownedParts") or you.has("ownedPartIds") \
@@ -443,6 +454,7 @@ func apply_snapshot(snap: Dictionary) -> void:
 				"equipped": you.get("equippedSkinId", you.get("equipped", equipped_cosmetic)),
 				"equippedSkinId": you.get("equippedSkinId", you.get("equipped", equipped_cosmetic)),
 				"equippedDecorId": you.get("equippedDecorId", equipped_decor),
+				"equippedFloorDecorId": you.get("equippedFloorDecorId", equipped_floor_decor) if you.has("equippedFloorDecorId") else equipped_floor_decor,
 				"equippedGunId": you.get("equippedGunId", equipped_gun),
 				"ownedGuns": you.get("ownedGuns", you.get("ownedGunIds", owned_guns)),
 				"equippedOpticId": you.get("equippedOpticId", null) if you.has("equippedOpticId") else equipped_optic,

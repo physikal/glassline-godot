@@ -115,6 +115,11 @@ static func rack_peg_color(state: String) -> Color:
 			return RACK_PEG_LOCKED
 
 
+static func mute_peg_state(owned: bool, equipped: bool) -> String:
+	## Dim locked peg when the row is unowned. No gold strip, no juice cue.
+	return part_row_peg_state(owned, equipped)
+
+
 static func part_row_peg_state(owned: bool, equipped: bool) -> String:
 	## Bright leaf / mid green only when the PARTS chip is worn or owned.
 	## Unowned T1/T2/T3 rows use the locked peg — the dim mute, not a gold strip.
@@ -740,6 +745,35 @@ static func make_hideout_poster(width: int = 96, height: int = 128) -> Texture2D
 	_fill_circle(img, cx - 10, height - 24, 2, POSTER_TEAL)
 	_fill_circle(img, cx + 10, height - 24, 2, POSTER_TEAL)
 	_fill_rect(img, cx - 5, height - 26, 10, 4, ink)
+	return ImageTexture.create_from_image(img)
+
+
+static func make_hideout_rug(width: int = 480, height: int = 96) -> Texture2D:
+	## Chunky toy rug for the hideout floor. Teal field, gold band, cream fringe.
+	## Sits on lobby-canon wood. Not a map, not mil-sim camo.
+	var img := Image.create(width, height, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	var field := Color("1f6f62")
+	var band := Color("c9a24a")
+	var cream := POSTER_PAPER
+	var ink := Color("14241f")
+	var fringe := Color("f4efe4")
+	var margin := 10
+	_fill_rect(img, margin, 8, width - margin * 2, height - 16, ink)
+	_fill_rect(img, margin + 4, 12, width - (margin + 4) * 2, height - 24, field)
+	_fill_rect(img, margin + 10, 18, width - (margin + 10) * 2, 8, band)
+	_fill_rect(img, margin + 10, height - 26, width - (margin + 10) * 2, 8, band)
+	var cx := width / 2
+	var cy := height / 2
+	_fill_rect(img, cx - 18, cy - 10, 36, 20, cream)
+	_fill_rect(img, cx - 6, cy - 16, 12, 32, cream)
+	_fill_rect(img, cx - 4, cy - 4, 8, 8, band)
+	var step := 14
+	var x := margin
+	while x < width - margin:
+		_fill_rect(img, x, 2, 6, 8, fringe)
+		_fill_rect(img, x, height - 10, 6, 8, fringe)
+		x += step
 	return ImageTexture.create_from_image(img)
 
 

@@ -151,6 +151,17 @@ const SHOP_POSTER_ITEM_ID := "decor_poster_stub"
 const SHOP_POSTER_ITEM_NAME := "HIDEOUT POSTER"
 const SHOP_POSTER_KIND := "decor"
 const SHOP_POSTER_PRICE := 150
+## Floor decor. Same /shop spine as the wall poster. Slots coexist.
+## Wall stays equippedDecorId. Floor is equippedFloorDecorId. Practice Δ0.
+const SHOP_RUG_ITEM_ID := "decor_rug"
+const SHOP_RUG_ITEM_NAME := "HIDEOUT RUG"
+const SHOP_RUG_KIND := "decor"
+const SHOP_RUG_PRICE := 200
+const DECOR_SLOT_WALL := "wall"
+const DECOR_SLOT_FLOOR := "floor"
+## Soft P2 wood toast. Same hold as the parts plate. No juice cue.
+const RUG_TOAST_ON := "Rug on the floor"
+const RUG_TOAST_OFF := "Bare wood"
 const SHOP_ERR_INSUFFICIENT := "insufficient_marks"
 const SHOP_ERR_INVALID_BODY := "invalid_buy_body"
 const SHOP_ERR_ALREADY_OWNED := "already_owned"
@@ -726,7 +737,15 @@ static func shop_bandana_item() -> Dictionary:
 
 
 static func shop_poster_item() -> Dictionary:
-	return _shop_item(SHOP_POSTER_ITEM_ID, SHOP_POSTER_ITEM_NAME, SHOP_POSTER_KIND, SHOP_POSTER_PRICE)
+	var item := _shop_item(SHOP_POSTER_ITEM_ID, SHOP_POSTER_ITEM_NAME, SHOP_POSTER_KIND, SHOP_POSTER_PRICE)
+	item["decorSlot"] = DECOR_SLOT_WALL
+	return item
+
+
+static func shop_rug_item() -> Dictionary:
+	var item := _shop_item(SHOP_RUG_ITEM_ID, SHOP_RUG_ITEM_NAME, SHOP_RUG_KIND, SHOP_RUG_PRICE)
+	item["decorSlot"] = DECOR_SLOT_FLOOR
+	return item
 
 
 static func shop_gun_fieldbolt_item() -> Dictionary:
@@ -799,6 +818,7 @@ static func shop_catalog_items() -> Array:
 		shop_stub_item(),
 		shop_bandana_item(),
 		shop_poster_item(),
+		shop_rug_item(),
 		shop_gun_fieldbolt_item(),
 		shop_gun_railframe_item(),
 		shop_gun_crescent_item(),
@@ -836,6 +856,8 @@ static func _canonical_shop_id(item_id: String) -> String:
 		return SHOP_BANDANA_ITEM_ID
 	if item_id in ["hideout_poster", "poster_stub"]:
 		return SHOP_POSTER_ITEM_ID
+	if item_id in ["hideout_rug", "rug_stub"]:
+		return SHOP_RUG_ITEM_ID
 	var gun := canonical_gun_id(item_id)
 	if gun != "":
 		return gun
@@ -854,9 +876,29 @@ static func is_suit_chrome(item_id: String) -> bool:
 
 
 static func is_decor_chrome(item_id: String) -> bool:
+	## Wall poster only. The rug is floor decor and must not take this slot.
 	if item_id == "":
 		return false
 	return _canonical_shop_id(item_id) == SHOP_POSTER_ITEM_ID
+
+
+static func is_floor_decor(item_id: String) -> bool:
+	if item_id == "":
+		return false
+	return _canonical_shop_id(item_id) == SHOP_RUG_ITEM_ID
+
+
+static func decor_slot_of(item_id: String) -> String:
+	if is_floor_decor(item_id):
+		return DECOR_SLOT_FLOOR
+	if is_decor_chrome(item_id):
+		return DECOR_SLOT_WALL
+	return ""
+
+
+static func rug_toast(on_floor: bool) -> String:
+	## Buy and equip share the on-floor line. Unequip is bare wood.
+	return RUG_TOAST_ON if on_floor else RUG_TOAST_OFF
 
 
 static func gun_family_ids() -> Array:
@@ -1079,13 +1121,15 @@ static func shop_catalog_stub(
 	equipped_gun: String = GUN_FIELDBOLT,
 	equipped_optic: String = "",
 	equipped_stock: String = "",
-	equipped_barrel: String = ""
+	equipped_barrel: String = "",
+	equipped_floor_decor: String = ""
 ) -> Dictionary:
 	var owned_ids: Array = owned.duplicate()
 	if not owned_ids.has(GUN_FIELDBOLT):
 		owned_ids.append(GUN_FIELDBOLT)
 	var skin: Variant = equipped if equipped != "" else null
 	var decor: Variant = equipped_decor if equipped_decor != "" else null
+	var floor_decor: Variant = equipped_floor_decor if equipped_floor_decor != "" else null
 	var gun_id := canonical_gun_id(equipped_gun)
 	var gun: Variant = gun_id if gun_id != "" else null
 	var optic_id := canonical_part_id(equipped_optic)
@@ -1117,6 +1161,7 @@ static func shop_catalog_stub(
 			"equipped": skin,
 			"equippedSkinId": skin,
 			"equippedDecorId": decor,
+			"equippedFloorDecorId": floor_decor,
 			"equippedGunId": gun,
 			"equippedOpticId": optic,
 			"equippedStockId": stock,
@@ -1130,6 +1175,7 @@ static func shop_catalog_stub(
 		"equipped": skin,
 		"equippedSkinId": skin,
 		"equippedDecorId": decor,
+		"equippedFloorDecorId": floor_decor,
 		"equippedGunId": gun,
 		"equippedOpticId": optic,
 		"equippedStockId": stock,

@@ -110,6 +110,8 @@ func get_shop() -> Dictionary:
 					body["equipped"] = you.get("equippedSkinId")
 				if you.has("equippedDecorId"):
 					body["equippedDecorId"] = you.get("equippedDecorId")
+				if you.has("equippedFloorDecorId"):
+					body["equippedFloorDecorId"] = you.get("equippedFloorDecorId")
 				if you.has("equippedGunId"):
 					body["equippedGunId"] = you.get("equippedGunId")
 				if you.has("ownedGuns"):
