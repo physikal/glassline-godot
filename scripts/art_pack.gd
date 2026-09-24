@@ -21,10 +21,36 @@ const HEX_HARD := "res://assets/art_v2/hex_hard_legend.png"
 const HEX_UNKNOWN := "res://assets/art_v2/hex_unknown_legend.png"
 const STAMP_BRUSH := "res://assets/art_v2/stamp_brush.png"
 const STAMP_ROCK := "res://assets/art_v2/stamp_rock.png"
-const TILE_BRUSH := "res://assets/art_v2/hex_brush_tile.png"
-const TILE_HARD := "res://assets/art_v2/hex_hard_tile.png"
-const TILE_OPEN := "res://assets/art_v2/hex_open_tile.png"
-const TILE_UNKNOWN := "res://assets/art_v2/hex_unknown_tile.png"
+## Varied faces cropped from the locked match plate. Not one repeating stamp.
+const TILE_OPEN_VARS := [
+	"res://assets/art_v2/hex_open_v0.png",
+	"res://assets/art_v2/hex_open_v1.png",
+	"res://assets/art_v2/hex_open_v2.png",
+	"res://assets/art_v2/hex_open_v3.png",
+]
+const TILE_BRUSH_VARS := [
+	"res://assets/art_v2/hex_brush_v0.png",
+	"res://assets/art_v2/hex_brush_v1.png",
+	"res://assets/art_v2/hex_brush_v2.png",
+	"res://assets/art_v2/hex_brush_v3.png",
+]
+const TILE_HARD_VARS := [
+	"res://assets/art_v2/hex_hard_v0.png",
+	"res://assets/art_v2/hex_hard_v1.png",
+	"res://assets/art_v2/hex_hard_v2.png",
+	"res://assets/art_v2/hex_hard_v3.png",
+]
+const TILE_UNKNOWN_VARS := [
+	"res://assets/art_v2/hex_unknown_v0.png",
+	"res://assets/art_v2/hex_unknown_v1.png",
+]
+const FACE_PLATE_P1 := "res://assets/art_v2/face_plate_p1.png"
+const FACE_PLATE_P2 := "res://assets/art_v2/face_plate_p2.png"
+const WORDMARK_PLATE := "res://assets/art_v2/wordmark_plate.png"
+## One painted 9×7. Pixel (445, 244) is the board-local origin.
+const BOARD_FLUSH := "res://assets/art_v2/board_flush.png"
+## Locked-plate 9×7, row-major. o/b/h/u = OPEN/BRUSH/HARD/UNKNOWN.
+const PLATE_LAYOUT := "uboobohbhhoobhohbhhoobhbohbbhbboobbhhbhbbohbohhhbohbohuuhhbboou"
 const MATCH_BOARD := "res://assets/canon/match-board-canon.jpg"
 const MATCH_BOARD_FALLBACK := "res://assets/canon/hex-map.jpg"
 
@@ -110,17 +136,54 @@ static func hex_stamp(kind: String) -> Texture2D:
 	return hex_tile(kind)
 
 
+static func plate_kind(q: int, r: int) -> String:
+	## Terrain at this cell on the locked plate. Unknown where the plate is fog.
+	if q < 0 or r < 0 or q >= Contract.BOARD_Q or r >= Contract.BOARD_R:
+		return "unknown"
+	var i := r * Contract.BOARD_Q + q
+	match PLATE_LAYOUT[i]:
+		"o":
+			return Contract.TYPE_OPEN
+		"b":
+			return Contract.TYPE_BRUSH
+		"h":
+			return Contract.TYPE_HARD
+		_:
+			return "unknown"
+
+
+static func plate_cell(q: int, r: int) -> Texture2D:
+	## Flush crop of that plate hex. No extra painted rim.
+	return tex("res://assets/art_v2/plate_hex/%d_%d.png" % [q, r])
+
+
+static func board_flush() -> Texture2D:
+	## Whole honeycomb as one sprite, clipped to a single outer mask.
+	return tex(BOARD_FLUSH)
+
+
 static func hex_tile(kind: String, variant: int = 0) -> Texture2D:
-	## Tileable stamp: one painted face per kind. `variant` is ignored.
+	## Locked-plate faces. Variant picks a different crop so neighbors do not repeat.
+	var paths: Array = TILE_UNKNOWN_VARS
 	match kind:
 		Contract.TYPE_BRUSH:
-			return tex(TILE_BRUSH)
+			paths = TILE_BRUSH_VARS
 		Contract.TYPE_HARD:
-			return tex(TILE_HARD)
+			paths = TILE_HARD_VARS
 		Contract.TYPE_OPEN:
-			return tex(TILE_OPEN)
-		_:
-			return tex(TILE_UNKNOWN)
+			paths = TILE_OPEN_VARS
+	var idx := posmod(variant, paths.size())
+	return tex(str(paths[idx]))
+
+
+static func plate_face(kind: String) -> Texture2D:
+	if kind == "p2":
+		return tex(FACE_PLATE_P2)
+	return tex(FACE_PLATE_P1)
+
+
+static func wordmark_plate() -> Texture2D:
+	return tex(WORDMARK_PLATE)
 
 
 static func rack_position(family: String) -> Vector2:

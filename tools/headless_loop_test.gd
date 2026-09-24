@@ -3538,9 +3538,11 @@ func _match_board_chrome_case(failed: PackedStringArray) -> void:
 	_expect(failed, fog.terrain_map().is_empty(), "unknown / typeless rows stay FoW")
 	var Art := load("res://scripts/art_pack.gd")
 	var face_a: Texture2D = Art.hex_tile(Contract.TYPE_BRUSH, 0)
-	var face_b: Texture2D = Art.hex_tile(Contract.TYPE_BRUSH, 99)
+	var face_b: Texture2D = Art.hex_tile(Contract.TYPE_BRUSH, 1)
+	var face_wrap: Texture2D = Art.hex_tile(Contract.TYPE_BRUSH, 4)
 	_expect(failed, face_a != null and face_b != null, "brush stamp loads")
-	_expect(failed, face_a.get_image().get_data() == face_b.get_image().get_data(), "stamp is tileable, not a unique map face")
+	_expect(failed, face_a.get_image().get_data() != face_b.get_image().get_data(), "brush faces vary instead of one stamp")
+	_expect(failed, face_wrap != null and face_a.get_image().get_data() == face_wrap.get_image().get_data(), "brush variant index wraps")
 	var unk: Texture2D = Art.hex_tile("unknown")
 	var unk_img := unk.get_image() if unk != null else null
 	var mark_x := 0.0
@@ -3594,26 +3596,35 @@ func _match_board_chrome_case(failed: PackedStringArray) -> void:
 	_expect(failed, chip.custom_minimum_size.y >= 100.0, "HIGH GROUND chip is heavy plate weight")
 	var hg_icon: TextureRect = chip.get_meta("high_icon") if chip.has_meta("high_icon") else null
 	_expect(failed, hg_icon != null and hg_icon.custom_minimum_size.y >= 70.0, "HIGH GROUND icon fills the toast")
-	var hg_box := chip.get_theme_stylebox("panel") as StyleBoxFlat
-	_expect(failed, hg_box != null and hg_box.get_border_width(SIDE_TOP) >= 5, "HIGH GROUND outline is thick ink")
-	_expect(failed, hg_box != null and hg_box.shadow_size >= 6, "HIGH GROUND drops a shadow")
+	var hg_box: StyleBox = chip.get_theme_stylebox("panel")
+	_expect(failed, hg_box != null and bool(hg_box.get_meta("chunk_bevel", false)), "HIGH GROUND is chunky bevel chrome")
+	_expect(failed, hg_box != null and int(hg_box.get_meta("bevel_ink", 0)) >= 5, "HIGH GROUND outline is thick ink")
+	_expect(failed, hg_box != null and int(hg_box.get_meta("blur_shadow", 1)) == 0, "HIGH GROUND has no blurry drop shadow")
 	var parked_lbl: Label = chip.get_meta("high_label") if chip.has_meta("high_label") else null
 	_expect(failed, parked_lbl != null and parked_lbl.text.find("+10%") < 0, "parked HIGH GROUND omits +10%")
 	chip.free()
 	var atk: Button = Chrome.game_button("attack", "ATTACK", Chrome.ATTACK_RED, Color.WHITE, Vector2(220, 84))
-	var atk_box := atk.get_theme_stylebox("normal") as StyleBoxFlat
-	_expect(failed, atk_box != null and atk_box.get_border_width(SIDE_LEFT) >= 5, "ATTACK key has thick ink")
-	_expect(failed, atk_box != null and atk_box.shadow_size >= 6, "ATTACK key floats over the desk")
+	var atk_box: StyleBox = atk.get_theme_stylebox("normal")
+	_expect(failed, atk_box != null and bool(atk_box.get_meta("chunk_bevel", false)), "ATTACK key is chunky bevel chrome")
+	_expect(failed, atk_box != null and int(atk_box.get_meta("bevel_ink", 0)) >= 5, "ATTACK key has thick ink")
+	_expect(failed, atk_box != null and int(atk_box.get_meta("blur_shadow", 1)) == 0, "ATTACK key has no blurry drop shadow")
 	atk.free()
+	var rail: Button = Chrome.rail_chip("ability", Contract.ABILITY_LABEL, Chrome.ABILITY_PURPLE, Color.WHITE)
+	var rail_box: StyleBox = rail.get_theme_stylebox("normal")
+	_expect(failed, rail.custom_minimum_size.y == 108.0, "ability rail chip matches ATTACK height")
+	_expect(failed, rail_box != null and bool(rail_box.get_meta("chunk_bevel", false)), "ability rail chip is chunky bevel chrome")
+	_expect(failed, rail_box != null and int(rail_box.get_meta("bevel_ink", 0)) >= 6, "ability rail chip matches ATTACK ink")
+	_expect(failed, rail_box != null and int(rail_box.get_meta("blur_shadow", 1)) == 0, "ability rail chip has no blurry drop shadow")
+	rail.free()
 	var screen_src := FileAccess.get_file_as_string("res://scenes/match/match_screen.gd")
 	_expect(failed, screen_src.find("Vector2(250, 96)") < 0, "board well does not cut the header")
 	_expect(failed, screen_src.find("Vector2(250, 124)") >= 0, "board host stays on the cleared honeycomb seat")
 	_expect(failed, screen_src.find("plate.texture = plate_tex") < 0, "HUD does not blit the wood-tray plate")
 	_expect(failed, screen_src.find("func _mount_float_legend") >= 0, "legend is a floating plate")
 	_expect(failed, screen_src.find("Vector2(224, 248)") < 0, "legend is a slim plate, not a tall tray column")
-	_expect(failed, screen_src.find("make_wordmark_ring") >= 0, "Glassline sits on a centered crosshair")
+	_expect(failed, screen_src.find("wordmark_plate") >= 0, "Glassline is the locked-plate wordmark")
 	_expect(failed, screen_src.find("gear_button") >= 0, "corner control is a gear, not a sound pill")
-	_expect(failed, screen_src.find("apply_label(title, 32") >= 0, "Glassline wordmark is display size")
+	_expect(failed, screen_src.find("apply_label(title, 32") >= 0, "practice title stays display size")
 
 
 func _high_ground_case(failed: PackedStringArray) -> void:
@@ -4723,6 +4734,8 @@ func _journal_case(failed: PackedStringArray) -> void:
 	var tokens: Dictionary = created.get("joinTokens", {})
 	var join_a: Dictionary = server.join(mid, str(tokens.get("a", "")))
 	var join_b: Dictionary = server.join(mid, str(tokens.get("b", "")))
+	## Pin the mock clock. Real ticks past ~1s make 1000+timeout look like the past.
+	server.test_now_ms = 1000
 	server.force_end(mid, Contract.SEAT_A, Contract.END_KILL)
 	var pid_a := str(join_a.get("playerId", ""))
 	var pid_b := str(join_b.get("playerId", ""))
