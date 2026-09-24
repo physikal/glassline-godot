@@ -161,13 +161,16 @@ func equip_cosmetic(item_id: String, slot: String = "") -> Dictionary:
 	## 200 { ok, you: { marks, equippedSkinId, equippedDecorId, equippedGunId }, item? }.
 	## Slots never clobber each other. 403 not_owned. Marks untouched.
 	var payload: Dictionary = {}
+	var use_floor := slot == Contract.DECOR_SLOT_FLOOR or Contract.is_floor_decor(item_id)
 	var use_gun := slot == Contract.GUN_SLOT or Contract.is_gun_chrome(item_id)
-	var use_decor := slot == "decor" or Contract.is_decor_chrome(item_id)
+	var use_decor := (slot == "decor" or Contract.is_decor_chrome(item_id)) and not use_floor
 	var use_part := Contract.is_part_slot(slot) or Contract.is_part_chrome(item_id)
 	var part_slot := slot if Contract.is_part_slot(slot) else Contract.part_slot(item_id)
 	if item_id == "":
 		payload["itemId"] = null
-		if use_gun:
+		if use_floor:
+			payload["slot"] = Contract.DECOR_SLOT_FLOOR
+		elif use_gun:
 			payload["slot"] = Contract.GUN_SLOT
 		elif use_decor:
 			payload["slot"] = "decor"
@@ -177,7 +180,9 @@ func equip_cosmetic(item_id: String, slot: String = "") -> Dictionary:
 			payload["slot"] = "skin"
 	else:
 		payload["itemId"] = item_id
-		if use_gun:
+		if use_floor:
+			payload["slot"] = Contract.DECOR_SLOT_FLOOR
+		elif use_gun:
 			payload["slot"] = Contract.GUN_SLOT
 		elif use_decor:
 			payload["slot"] = "decor"

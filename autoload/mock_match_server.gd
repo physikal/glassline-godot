@@ -40,6 +40,7 @@ var account_marks: int = Contract.MOCK_WALLET_STUB
 var owned_cosmetics: Array = []
 var equipped_cosmetic: String = ""
 var equipped_decor: String = ""
+var equipped_floor_decor: String = ""
 var owned_guns: Array = [Contract.GUN_FIELDBOLT]
 var equipped_gun: String = Contract.GUN_FIELDBOLT
 ## Soft-feel parts. Slots coexist with skin / decor / gun. Never touch hit math.
@@ -125,6 +126,7 @@ func reset_wallet(value: int = Contract.MOCK_WALLET_STUB) -> void:
 	owned_cosmetics.clear()
 	equipped_cosmetic = ""
 	equipped_decor = ""
+	equipped_floor_decor = ""
 	owned_guns = [Contract.GUN_FIELDBOLT]
 	equipped_gun = Contract.GUN_FIELDBOLT
 	owned_parts = []
@@ -183,6 +185,8 @@ func buy_shop(item_id: String, client_buy_id: String = "") -> Dictionary:
 		if not owned_parts.has(item_id):
 			owned_parts.append(item_id)
 		_set_part_slot(item_id)
+	elif Contract.is_floor_decor(item_id):
+		equipped_floor_decor = item_id
 	elif Contract.is_decor_chrome(item_id):
 		equipped_decor = item_id
 	else:
@@ -196,8 +200,9 @@ func buy_shop(item_id: String, client_buy_id: String = "") -> Dictionary:
 func equip_cosmetic(item_id: String, slot: String = "") -> Dictionary:
 	## Visual only. Empty / null item_id unequips that slot. Unknown / unowned → reject.
 	## Same id is a no-op (idempotent). Marks untouched. Slots never clobber each other.
+	var use_floor := slot == Contract.DECOR_SLOT_FLOOR or Contract.is_floor_decor(item_id)
 	var use_gun := slot == Contract.GUN_SLOT or Contract.is_gun_chrome(item_id)
-	var use_decor := slot == "decor" or Contract.is_decor_chrome(item_id)
+	var use_decor := (slot == "decor" or Contract.is_decor_chrome(item_id)) and not use_floor
 	var use_part := Contract.is_part_slot(slot) or Contract.is_part_chrome(item_id)
 	var part_slot := slot if Contract.is_part_slot(slot) else Contract.part_slot(item_id)
 	if item_id == "" and use_part:
@@ -206,6 +211,14 @@ func equip_cosmetic(item_id: String, slot: String = "") -> Dictionary:
 			"type": "equip",
 			"itemId": null,
 			"slot": part_slot,
+		})
+	if item_id == "" and use_floor:
+		equipped_floor_decor = ""
+		return _shop_ok({
+			"type": "equip",
+			"itemId": null,
+			"slot": Contract.DECOR_SLOT_FLOOR,
+			"equippedFloorDecorId": null,
 		})
 	if item_id == "" and use_gun:
 		equipped_gun = ""
@@ -259,6 +272,14 @@ func equip_cosmetic(item_id: String, slot: String = "") -> Dictionary:
 			"itemId": item_id,
 			"slot": Contract.GUN_SLOT,
 			"equippedGunId": item_id,
+		})
+	if use_floor:
+		equipped_floor_decor = item_id
+		return _shop_ok({
+			"type": "equip",
+			"itemId": item_id,
+			"slot": Contract.DECOR_SLOT_FLOOR,
+			"equippedFloorDecorId": item_id,
 		})
 	if use_decor:
 		equipped_decor = item_id
@@ -320,7 +341,8 @@ func _shop_snapshot() -> Dictionary:
 		equipped_gun,
 		equipped_optic,
 		equipped_stock,
-		equipped_barrel
+		equipped_barrel,
+		equipped_floor_decor
 	)
 	var you: Dictionary = bag.get("you", {})
 	## ShopYou carries the operative card when the fields exist. Never the match charge.
@@ -357,6 +379,7 @@ func _shop_ok(result: Dictionary = {}) -> Dictionary:
 	var snap := _shop_snapshot()
 	var skin: Variant = equipped_cosmetic if equipped_cosmetic != "" else null
 	var decor: Variant = equipped_decor if equipped_decor != "" else null
+	var floor_decor: Variant = equipped_floor_decor if equipped_floor_decor != "" else null
 	var gun: Variant = equipped_gun if equipped_gun != "" else null
 	return {
 		"ok": true,
@@ -368,6 +391,7 @@ func _shop_ok(result: Dictionary = {}) -> Dictionary:
 		"equipped": skin,
 		"equippedSkinId": skin,
 		"equippedDecorId": decor,
+		"equippedFloorDecorId": floor_decor,
 		"equippedGunId": gun,
 		"equippedOpticId": equipped_optic if equipped_optic != "" else null,
 		"equippedStockId": equipped_stock if equipped_stock != "" else null,
@@ -393,6 +417,7 @@ func _shop_reject(reason: String) -> Dictionary:
 		"equipped": equipped_cosmetic if equipped_cosmetic != "" else null,
 		"equippedSkinId": equipped_cosmetic if equipped_cosmetic != "" else null,
 		"equippedDecorId": equipped_decor if equipped_decor != "" else null,
+		"equippedFloorDecorId": equipped_floor_decor if equipped_floor_decor != "" else null,
 		"equippedGunId": equipped_gun if equipped_gun != "" else null,
 		"equippedOpticId": equipped_optic if equipped_optic != "" else null,
 		"equippedStockId": equipped_stock if equipped_stock != "" else null,
@@ -1974,6 +1999,7 @@ func _snapshot_for_seat(match_state: Dictionary, seat: String) -> Dictionary:
 			"equippedSkinId": equipped_cosmetic if equipped_cosmetic != "" else null,
 			"equipped": equipped_cosmetic if equipped_cosmetic != "" else null,
 			"equippedDecorId": equipped_decor if equipped_decor != "" else null,
+			"equippedFloorDecorId": equipped_floor_decor if equipped_floor_decor != "" else null,
 			"equippedGunId": equipped_gun if equipped_gun != "" else null,
 			"ownedGuns": owned_guns.duplicate(),
 			"equippedOpticId": equipped_optic if equipped_optic != "" else null,

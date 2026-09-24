@@ -149,6 +149,7 @@ func _run() -> int:
 	_live_shop_shape_case(failed)
 	_shop_sink2_case(failed)
 	_shop_sink3_case(failed)
+	_rug_floor_case(failed)
 	_gun_chrome_case(failed)
 	_part_sink_case(failed)
 	_part_t2_case(failed)
@@ -2210,7 +2211,7 @@ func _shop_sink2_case(failed: PackedStringArray) -> void:
 	_expect(failed, live_two.name_of(Contract.SHOP_BANDANA_ITEM_ID) == "Bandana Skin (stub)", "prefer LIVE bandana name")
 	_expect(failed, live_two.has_item(Contract.SHOP_POSTER_ITEM_ID), "LIVE two-SKU merge appends poster")
 	_expect(failed, live_two.has_item(Contract.GUN_RAILFRAME), "LIVE two-SKU merge appends gun SKUs")
-	_expect(failed, live_two.items.size() == 15, "LIVE two-SKU merge keeps skins, guns, and T1–T3 parts")
+	_expect(failed, live_two.items.size() == 16, "LIVE two-SKU merge keeps skins, rug, guns, and T1–T3 parts")
 
 	var session = SessionScript.new()
 	session.apply_shop(catalog)
@@ -2295,7 +2296,7 @@ func _shop_sink3_case(failed: PackedStringArray) -> void:
 	_expect(failed, listed.has_item(Contract.SHOP_POSTER_ITEM_ID), "S3.1 catalog has poster")
 	_expect(failed, listed.price_of(Contract.SHOP_POSTER_ITEM_ID) == 150, "S3.1 GD price 150")
 	_expect(failed, listed.name_of(Contract.SHOP_POSTER_ITEM_ID) == Contract.SHOP_POSTER_ITEM_NAME, "S3.1 name HIDEOUT POSTER")
-	_expect(failed, listed.items.size() == 15, "S3.6 catalog rows (skins + poster + guns + T1–T3 parts)")
+	_expect(failed, listed.items.size() == 16, "S3.6 catalog rows (skins + poster + rug + guns + T1–T3 parts)")
 	_expect(failed, listed.has_item(Contract.GUN_FIELDBOLT), "S3.6 Fieldbolt catalog row")
 	_expect(failed, listed.balance() < 150, "S3.3 ★24 cannot afford ★150")
 	_expect(failed, not Shop.row_buy_enabled(false, listed.balance() >= 150), "S3.3 BUY disabled when Marks < 150")
@@ -2318,7 +2319,7 @@ func _shop_sink3_case(failed: PackedStringArray) -> void:
 	}))
 	_expect(failed, live_three.name_of(Contract.SHOP_POSTER_ITEM_ID) == "Hideout Poster (stub)", "prefer LIVE poster name")
 	_expect(failed, live_three.has_item(Contract.GUN_CRESCENT), "LIVE three-SKU merge appends gun SKUs")
-	_expect(failed, live_three.items.size() == 15, "prefer LIVE names; append missing gun and T1–T3 part SKUs")
+	_expect(failed, live_three.items.size() == 16, "prefer LIVE names; append missing rug, gun, and T1–T3 part SKUs")
 
 	var session = SessionScript.new()
 	session.apply_shop(catalog)
@@ -2432,13 +2433,135 @@ func _shop_sink3_case(failed: PackedStringArray) -> void:
 	session.free()
 
 
+func _rug_floor_case(failed: PackedStringArray) -> void:
+	## HIDEOUT RUG ★200. Floor slot coexists with the wall poster. Practice stays Δ0.
+	var before := failed.size()
+	server.clear_all()
+	server.reset_wallet(Contract.MOCK_WALLET_STUB)
+	var catalog: Dictionary = server.get_shop()
+	var listed = Shop.from_any(catalog)
+	_expect(failed, listed.has_item(Contract.SHOP_RUG_ITEM_ID), "rug catalog row")
+	_expect(failed, listed.price_of(Contract.SHOP_RUG_ITEM_ID) == 200, "rug ★200")
+	_expect(failed, listed.name_of(Contract.SHOP_RUG_ITEM_ID) == Contract.SHOP_RUG_ITEM_NAME, "rug name HIDEOUT RUG")
+	_expect(failed, str(listed.item_for(Contract.SHOP_RUG_ITEM_ID).get("kind", "")) == "decor", "rug kind decor")
+	_expect(failed, str(listed.item_for(Contract.SHOP_RUG_ITEM_ID).get("decorSlot", "")) == Contract.DECOR_SLOT_FLOOR, "rug decorSlot floor")
+	_expect(failed, Contract.is_floor_decor(Contract.SHOP_RUG_ITEM_ID), "rug is floor decor")
+	_expect(failed, not Contract.is_decor_chrome(Contract.SHOP_RUG_ITEM_ID), "rug is not the wall slot")
+	_expect(failed, Contract.is_decor_chrome(Contract.SHOP_POSTER_ITEM_ID), "poster stays wall decor")
+	_expect(failed, not Contract.is_floor_decor(Contract.SHOP_POSTER_ITEM_ID), "poster is not floor decor")
+	_expect(failed, Contract.decor_slot_of(Contract.SHOP_RUG_ITEM_ID) == "floor", "rug equip slot floor")
+	_expect(failed, Contract.decor_slot_of(Contract.SHOP_POSTER_ITEM_ID) == "wall", "poster equip slot wall")
+	_expect(failed, Contract.MARKS_PRACTICE == 0, "rug practice earn stays Δ0")
+	_expect(failed, Contract.rug_toast(true) == "Rug on the floor", "rug on toast")
+	_expect(failed, Contract.rug_toast(false) == "Bare wood", "rug off toast")
+	var toast_copy := Contract.RUG_TOAST_ON + Contract.RUG_TOAST_OFF
+	_expect(failed, toast_copy.find("%") < 0 and toast_copy.find("hit") < 0, "rug toast has no combat copy")
+	_expect(failed, Chrome.mute_peg_state(false, false) == "locked", "unowned rug peg is the locked mute")
+	_expect(failed, Chrome.mute_peg_state(true, true) == "equipped", "equipped rug peg is the lit leaf")
+	var lobby_src := FileAccess.get_file_as_string("res://scenes/lobby/hideout_lobby.gd")
+	var buy_body := _fn_body(lobby_src, "_on_shop_primary")
+	var equip_body := _fn_body(lobby_src, "_on_equip_toggle")
+	_expect(failed, buy_body.find("Contract.rug_toast(true)") >= 0, "rug buy uses the wood toast")
+	_expect(failed, equip_body.find("Contract.DECOR_SLOT_FLOOR") >= 0, "rug equip posts the floor slot")
+	_expect(failed, equip_body.find("Contract.rug_toast(next_id != \"\")") >= 0, "rug equip/unequip toast")
+	_expect(failed, buy_body.find("AudioJuice") < 0 and equip_body.find("AudioJuice") < 0, "rug buy/equip stays mute")
+	_expect(failed, lobby_src.find("make_hideout_rug") >= 0, "hideout floor binds a rug sprite")
+
+	var session = SessionScript.new()
+	session.apply_shop(catalog)
+	_expect(failed, not session.rug, "bare wood until the rug is equipped")
+	_expect(failed, session.equipped_floor_decor == "", "floor slot starts empty")
+	var poor: Dictionary = server.buy_shop(Contract.SHOP_RUG_ITEM_ID, Contract.new_client_buy_id())
+	_expect(failed, str(poor.get("error", "")) == Contract.SHOP_ERR_INSUFFICIENT, "rug 402")
+	session.bind_marks(999)
+	session.apply_shop(poor)
+	_expect(failed, session.marks == 24, "rug 402 rebinds snapshot marks")
+	_expect(failed, not session.rug, "402 does not lay the rug")
+
+	server.reset_wallet(400)
+	session.apply_shop(server.get_shop())
+	var poster_buy: Dictionary = server.buy_shop(Contract.SHOP_POSTER_ITEM_ID, "rug-poster")
+	session.apply_shop(poster_buy)
+	_expect(failed, session.poster, "poster up before the rug")
+	_expect(failed, not session.rug, "poster buy does not lay the rug")
+	var buy_id := "00000000-0000-4000-8000-0000000000rg"
+	var bought: Dictionary = server.buy_shop(Contract.SHOP_RUG_ITEM_ID, buy_id)
+	_expect(failed, bool(bought.get("ok", false)), "rug buy ok")
+	session.bind_marks(400)
+	session.apply_shop(bought)
+	_expect(failed, session.marks == 50, "rug 400-150-200 from snapshot")
+	_expect(failed, session.owns_cosmetic(Contract.SHOP_RUG_ITEM_ID), "owns rug")
+	_expect(failed, session.rug, "equippedFloorDecorId lays the rug")
+	_expect(failed, session.equipped_floor_decor == Contract.SHOP_RUG_ITEM_ID, "floor id is decor_rug")
+	_expect(failed, session.poster, "rug buy leaves the poster up")
+	_expect(failed, session.equipped_decor == Contract.SHOP_POSTER_ITEM_ID, "wall id stays the poster")
+	var replay: Dictionary = server.buy_shop(Contract.SHOP_RUG_ITEM_ID, buy_id)
+	_expect(failed, bool(replay.get("ok", false)) and server.account_marks == 50, "rug clientBuyId idempotent")
+
+	var off_floor: Dictionary = server.equip_cosmetic("", Contract.DECOR_SLOT_FLOOR)
+	session.apply_shop(off_floor)
+	_expect(failed, not session.rug and session.equipped_floor_decor == "", "unequip floor is bare wood")
+	_expect(failed, session.poster, "unequip rug leaves the poster")
+	_expect(failed, session.marks == 50, "floor unequip does not touch marks")
+	var on_floor: Dictionary = server.equip_cosmetic(Contract.SHOP_RUG_ITEM_ID, Contract.DECOR_SLOT_FLOOR)
+	session.apply_shop(on_floor)
+	_expect(failed, session.rug and session.poster, "re-equip rug keeps the poster")
+	var off_wall: Dictionary = server.equip_cosmetic("", "decor")
+	session.apply_shop(off_wall)
+	_expect(failed, session.rug and not session.poster, "unequip poster leaves the rug")
+	var on_wall: Dictionary = server.equip_cosmetic(Contract.SHOP_POSTER_ITEM_ID, "decor")
+	session.apply_shop(on_wall)
+	_expect(failed, session.poster and session.rug, "poster equip does not clear the rug")
+	_expect(failed, session.marks == 50, "poster equip marks unchanged")
+
+	var parsed = Shop.from_any({
+		"ok": true,
+		"you": {
+			"marks": 50,
+			"equippedDecorId": Contract.SHOP_POSTER_ITEM_ID,
+			"equippedFloorDecorId": Contract.SHOP_RUG_ITEM_ID,
+		},
+	})
+	_expect(failed, parsed.equipped_decor == Contract.SHOP_POSTER_ITEM_ID, "parser keeps wall id")
+	_expect(failed, parsed.equipped_floor_decor == Contract.SHOP_RUG_ITEM_ID, "parser reads equippedFloorDecorId")
+	_expect(failed, parsed.equipped_floor_decor_present, "floor field present")
+	var cleared = Shop.from_any({
+		"you": {
+			"equippedDecorId": Contract.SHOP_POSTER_ITEM_ID,
+			"equippedFloorDecorId": null,
+		},
+	})
+	_expect(failed, cleared.equipped_floor_decor == "", "null floor id is bare wood")
+	_expect(failed, cleared.equipped_decor == Contract.SHOP_POSTER_ITEM_ID, "null floor does not clear the poster")
+	var snap: Snapshot = Snapshot.from_dict({
+		"you": {
+			"equippedDecorId": Contract.SHOP_POSTER_ITEM_ID,
+			"equippedFloorDecorId": Contract.SHOP_RUG_ITEM_ID,
+		},
+	})
+	_expect(failed, snap.you_equipped_decor_id() == Contract.SHOP_POSTER_ITEM_ID, "snapshot wall poster")
+	_expect(failed, snap.you_equipped_floor_decor_id() == Contract.SHOP_RUG_ITEM_ID, "snapshot floor rug")
+
+	session.apply_shop({
+		"ok": true,
+		"you": {"marks": 50, "equippedDecorId": Contract.SHOP_POSTER_ITEM_ID},
+		"item": {"id": "decor_rug", "name": "HIDEOUT RUG", "price": 200, "kind": "decor", "decorSlot": "floor"},
+	})
+	_expect(failed, session.rug, "LIVE buy infers the floor slot")
+	_expect(failed, session.poster, "LIVE buy keeps equippedDecorId")
+	_expect(failed, session.equipped_cosmetic != Contract.SHOP_RUG_ITEM_ID, "rug buy does not write the skin slot")
+	session.free()
+	if failed.size() == before:
+		print("RUG_FLOOR_OK")
+
+
 func _gun_chrome_case(failed: PackedStringArray) -> void:
 	## kind: gun SKUs on the same /shop spine. Chrome only — zero combat.
 	server.clear_all()
 	server.reset_wallet(80)
 	var catalog: Dictionary = server.get_shop()
 	var listed = Shop.from_any(catalog)
-	_expect(failed, listed.items.size() == 15, "G1 catalog rows (skins + poster + guns + T1–T3 parts)")
+	_expect(failed, listed.items.size() == 16, "G1 catalog rows (skins + poster + rug + guns + T1–T3 parts)")
 	_expect(failed, listed.has_item(Contract.GUN_FIELDBOLT), "G1 Fieldbolt catalog row")
 	_expect(failed, listed.has_item(Contract.GUN_RAILFRAME), "G1 Railframe catalog row")
 	_expect(failed, listed.has_item(Contract.GUN_CRESCENT), "G1 Crescent catalog row")

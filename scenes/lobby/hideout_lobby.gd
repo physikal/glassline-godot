@@ -45,6 +45,7 @@ var _shop_col: VBoxContainer
 var _shop_lines: Dictionary = {}
 var _bandana_wash: ColorRect
 var _poster: TextureRect
+var _rug: TextureRect
 var _buying_id: String = ""
 var _gun_rack: Control
 var _gun_hands: TextureRect
@@ -115,6 +116,10 @@ func _ready() -> void:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 		DisplayServer.window_set_size(Vector2i(1280, 720))
 		await _capture_hideout_poster()
+	elif "--capture-hideout-rug" in args:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		await _capture_hideout_rug()
 	elif "--capture-equip-hideout" in args:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 		DisplayServer.window_set_size(Vector2i(1280, 720))
@@ -450,6 +455,64 @@ func _capture_hideout_poster() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	await _capture_named("res://artifacts/ux/hideout_poster_equipped.png", "S34_HIDEOUT_POSTER")
+
+
+func _capture_hideout_rug() -> void:
+	## Owned + equipped rug on the floor, then bare wood, then the ARMORY row.
+	if not ClientSession.use_live_api():
+		MockMatchServer.reset_wallet(400)
+	_bind_wallet()
+	_bind_shop()
+	_refresh_marks()
+	_refresh_shop()
+	await get_tree().process_frame
+	_on_shop_primary(Contract.SHOP_RUG_ITEM_ID)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if _shop_row:
+		_shop_row.visible = false
+	_quiet_rug_toast()
+	await _capture_named("res://artifacts/ux/hideout_rug_equipped.png", "RUG_EQUIPPED", false)
+	_on_equip_toggle(Contract.SHOP_RUG_ITEM_ID)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if _shop_row:
+		_shop_row.visible = false
+	_quiet_rug_toast()
+	await _capture_named("res://artifacts/ux/hideout_rug_bare_wood.png", "RUG_BARE_WOOD", false)
+	_on_equip_toggle(Contract.SHOP_RUG_ITEM_ID)
+	await get_tree().process_frame
+	if _shop_row:
+		_shop_row.visible = true
+		_shop_row.offset_left = 72
+		_shop_row.offset_right = -72
+		_shop_row.offset_top = -240
+		_shop_row.offset_bottom = -88
+	_hide_non_rug_shop_rows()
+	_quiet_rug_toast()
+	await _capture_named("res://artifacts/ux/armory_rug_row.png", "RUG_ARMORY_ROW")
+
+
+func _quiet_rug_toast() -> void:
+	## Stills show the floor or the row. The wood toast is the buy/equip line, not the still.
+	if _part_toast:
+		_part_toast.visible = false
+	_toast_msg("")
+
+
+func _hide_non_rug_shop_rows() -> void:
+	if _shop_col == null:
+		return
+	for child in _shop_col.get_children():
+		if child is Label and str((child as Label).text) == "ARMORY":
+			(child as CanvasItem).visible = true
+			continue
+		var matched := false
+		var rug_row: Variant = _shop_lines.get(Contract.SHOP_RUG_ITEM_ID, {}).get("row", null)
+		if child == rug_row:
+			matched = true
+		if child is CanvasItem:
+			(child as CanvasItem).visible = matched
 
 
 func _capture_equip_hideout() -> void:
@@ -1129,6 +1192,21 @@ func _build() -> void:
 	add_child(dock_cover)
 	_wood_covers.append(dock_cover)
 
+	## Floor rug — on the wood in front of the operative. Hidden until equippedFloorDecorId.
+	_rug = TextureRect.new()
+	_rug.texture = Chrome.make_hideout_rug(480, 96)
+	_rug.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_rug.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_rug.stretch_mode = TextureRect.STRETCH_SCALE
+	_rug.set_anchors_preset(PRESET_CENTER_BOTTOM)
+	_rug.offset_left = -250
+	_rug.offset_right = 250
+	_rug.offset_top = -188
+	_rug.offset_bottom = -104
+	_rug.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_rug.visible = false
+	add_child(_rug)
+
 	## Operative hit — ghillie stays off the dock so PLAY can read as the CTA.
 	var operative := Button.new()
 	operative.flat = true
@@ -1381,7 +1459,8 @@ func _make_shop_line(item: Dictionary) -> PanelContainer:
 	col.add_child(line)
 
 	var peg: Panel = null
-	if Contract.is_part_chrome(item_id):
+	var floor_row := Contract.is_floor_decor(item_id)
+	if Contract.is_part_chrome(item_id) or floor_row:
 		## Peg then toy glyph. Unowned starts on the locked mute; refresh lifts owned/equipped.
 		var mark := HBoxContainer.new()
 		mark.add_theme_constant_override("separation", 8)
@@ -1392,8 +1471,11 @@ func _make_shop_line(item: Dictionary) -> PanelContainer:
 		peg.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		mark.add_child(peg)
 		var glyph := TextureRect.new()
-		glyph.texture = Chrome.make_icon(Contract.part_glyph(item_id), Chrome.HIGH_GOLD, 22)
-		glyph.custom_minimum_size = Vector2(22, 22)
+		if floor_row:
+			glyph.texture = Chrome.make_hideout_rug(44, 22)
+		else:
+			glyph.texture = Chrome.make_icon(Contract.part_glyph(item_id), Chrome.HIGH_GOLD, 22)
+		glyph.custom_minimum_size = Vector2(44, 22) if floor_row else Vector2(22, 22)
 		glyph.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		mark.add_child(glyph)
@@ -1922,7 +2004,7 @@ func _bind_wallet() -> void:
 	if wallet.has("marks"):
 		ClientSession.bind_marks(int(wallet.get("marks")))
 	if wallet.has("owned") or wallet.has("equipped") or wallet.has("equippedSkinId") \
-			or wallet.has("equippedDecorId") or wallet.has("equippedGunId") \
+			or wallet.has("equippedDecorId") or wallet.has("equippedFloorDecorId") or wallet.has("equippedGunId") \
 			or wallet.has("ownedGuns") or wallet.has("you"):
 		ClientSession.apply_shop(wallet)
 
@@ -2032,6 +2114,8 @@ func _refresh_bg() -> void:
 		_bandana_wash.visible = ClientSession.bandana and not ClientSession.ghillie
 	if _poster:
 		_poster.visible = ClientSession.poster
+	if _rug:
+		_rug.visible = ClientSession.rug
 
 
 func _plate_without_baked_chrome(src: Texture2D) -> Texture2D:
@@ -2120,10 +2204,11 @@ func _refresh_shop() -> void:
 				Chrome.paint_chunk_button(btn, Chrome.LOADOUT_BLUE, Color.WHITE)
 			else:
 				Chrome.paint_chunk_button(btn, Color("3a322c"), Color(0.72, 0.68, 0.58, 0.70))
-		if part:
+		if part or Contract.is_floor_decor(str(item_id)):
 			var peg: Panel = widgets.get("peg")
 			if peg:
-				Chrome.paint_rack_peg(peg, Chrome.part_row_peg_state(owned, equipped))
+				var peg_state := Chrome.part_row_peg_state(owned, equipped) if part else Chrome.mute_peg_state(owned, equipped)
+				Chrome.paint_rack_peg(peg, peg_state)
 		if status:
 			if pending:
 				status.text = ""
@@ -2191,8 +2276,8 @@ func _on_shop_primary(item_id: String) -> void:
 	_refresh_marks()
 	_buying_id = ""
 	if shop.is_insufficient():
-		if Contract.is_part_chrome(item_id):
-			## One shared wood toast. Do not stamp the line onto this chip.
+		if Contract.is_part_chrome(item_id) or Contract.is_floor_decor(item_id):
+			## One shared wood toast. Do not stamp the line onto this chip. No juice cue.
 			_show_part_wood_toast(Contract.SHOP_INSUFFICIENT_COPY, false)
 		else:
 			if status:
@@ -2213,6 +2298,9 @@ func _on_shop_primary(item_id: String) -> void:
 		## Skins / guns keep the row as the only status.
 		if Contract.is_part_chrome(item_id):
 			_show_part_wood_toast(Contract.part_buy_toast(item_id), true)
+		elif Contract.is_floor_decor(item_id):
+			## Same clearing wood plate as parts. Buy lands the rug. No sfx.
+			_show_part_wood_toast(Contract.rug_toast(true), true)
 		else:
 			_toast_msg("")
 	_refresh_shop()
@@ -2225,7 +2313,9 @@ func _on_equip_toggle(item_id: String) -> void:
 	var marks_before := int(ClientSession.marks)
 	var next_id := "" if ClientSession.is_equipped(item_id) else item_id
 	var slot := "skin"
-	if Contract.is_gun_chrome(item_id):
+	if Contract.is_floor_decor(item_id):
+		slot = Contract.DECOR_SLOT_FLOOR
+	elif Contract.is_gun_chrome(item_id):
 		slot = Contract.GUN_SLOT
 	elif Contract.is_decor_chrome(item_id):
 		slot = "decor"
@@ -2251,6 +2341,9 @@ func _on_equip_toggle(item_id: String) -> void:
 	_refresh_shop()
 	if int(ClientSession.marks) != marks_before:
 		_toast_msg("Marks chip rebound from snapshot")
+	elif Contract.is_floor_decor(item_id):
+		## Equip and unequip share the wood plate. Unequip is bare wood. No sfx.
+		_show_part_wood_toast(Contract.rug_toast(next_id != ""), true)
 	else:
 		## Soft P2: EQUIP / EQUIPPED / OWNED row copy is the single wear status.
 		_toast_msg("")
