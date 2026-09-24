@@ -1566,7 +1566,7 @@ func _build() -> void:
 	## legend, button tray). Do not blit it — chrome is floating plates.
 	var desk := TextureRect.new()
 	desk.texture = Chrome.make_match_desk(1280, 720)
-	desk.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	desk.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	desk.stretch_mode = TextureRect.STRETCH_SCALE
 	desk.set_anchors_preset(PRESET_FULL_RECT)
 	desk.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1577,14 +1577,14 @@ func _build() -> void:
 	## Locked-plate Glassline lettering with the reticle through the word.
 	var wordmark := TextureRect.new()
 	wordmark.texture = Art.wordmark_plate()
-	## Plate scale: word sits in the header, reticle through the letters, TURN below it.
-	wordmark.position = Vector2(475, 0)
-	wordmark.size = Vector2(330, 141)
+	## Smaller than the header cards. Reticle stays in the word; TURN sits under it.
+	wordmark.position = Vector2(510, 8)
+	wordmark.size = Vector2(260, 111)
+	wordmark.z_index = 5
 	wordmark.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	wordmark.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	wordmark.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	wordmark.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	wordmark.z_index = 6
 	wordmark.visible = not ClientSession.is_practice() and not ClientSession.is_job()
 	add_child(wordmark)
 	if ClientSession.is_practice() or ClientSession.is_job():
@@ -1641,17 +1641,17 @@ func _build() -> void:
 	add_child(_btn_abandon)
 
 	_turn_pill = PanelContainer.new()
-	_turn_pill.position = Vector2(565, 144)
-	_turn_pill.size = Vector2(150, 32)
+	_turn_pill.position = Vector2(548, 120)
+	_turn_pill.size = Vector2(184, 42)
 	_turn_pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_turn_pill.z_index = 7
+	_turn_pill.z_index = 8
 	_paint_tight_plate(_turn_pill, Color("0c0a08"), 12, 7, 8, 4)
 	add_child(_turn_pill)
 	_turn = Label.new()
 	_turn.text = "TURN  1"
 	_turn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_turn.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	Chrome.apply_label(_turn, 10, Chrome.CREAM, true)
+	Chrome.apply_label(_turn, 14, Chrome.CREAM, true)
 	_turn_pill.add_child(_turn)
 
 	_mount_float_legend()
@@ -1691,20 +1691,20 @@ func _build() -> void:
 	add_child(_phase)
 
 	_btn_attack = Chrome.game_button("attack", "ATTACK", Chrome.ATTACK_RED, Color.WHITE, Vector2(200, 108))
-	_btn_attack.position = Vector2(8, 586)
+	_btn_attack.position = Vector2(4, 586)
 	_btn_attack.z_index = 4
 	_btn_attack.pressed.connect(_on_attack)
 	add_child(_btn_attack)
 	_btn_recon = Chrome.game_button("recon", "RECON", Chrome.RECON_BLUE, Color.WHITE, Vector2(200, 108))
-	_btn_recon.position = Vector2(214, 586)
+	_btn_recon.position = Vector2(208, 586)
 	_btn_recon.z_index = 4
 	_btn_recon.pressed.connect(_on_recon)
 	add_child(_btn_recon)
 	## Soft rail stays UAV / DECOY / SMOKE under ABILITY. No wood-tray mat.
 	_mount_ability_rail(self, true)
 	_high_chip = Chrome.high_ground_chip(false)
-	_high_chip.position = Vector2(970, 582)
-	_high_chip.size = Vector2(300, 112)
+	_high_chip.position = Vector2(1024, 582)
+	_high_chip.size = Vector2(252, 112)
 	_high_chip.z_index = 4
 	add_child(_high_chip)
 	_btn_high = Button.new()
@@ -1915,9 +1915,9 @@ func _mount_ability_rail(parent: Control, plate: bool) -> void:
 	rail.alignment = BoxContainer.ALIGNMENT_CENTER
 	if plate:
 		## Sits in the gap between RECON and HIGH GROUND. Chips match ATTACK height and approach its width.
-		rail.position = Vector2(422, 552)
-		rail.custom_minimum_size = Vector2(540, 148)
-		rail.size = Vector2(540, 148)
+		rail.position = Vector2(412, 548)
+		rail.custom_minimum_size = Vector2(608, 150)
+		rail.size = Vector2(608, 150)
 		rail.z_index = 4
 	else:
 		rail.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -1932,7 +1932,7 @@ func _mount_ability_rail(parent: Control, plate: bool) -> void:
 	var chips := HBoxContainer.new()
 	chips.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	chips.alignment = BoxContainer.ALIGNMENT_CENTER
-	chips.add_theme_constant_override("separation", 6)
+	chips.add_theme_constant_override("separation", 4)
 	rail.add_child(chips)
 	_btn_uav = Chrome.rail_chip("ability", Contract.ABILITY_LABEL, Chrome.ABILITY_PURPLE, Color.WHITE)
 	_btn_uav.tooltip_text = "Ability — UAV Sweep. Posts type: uav."

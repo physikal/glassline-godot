@@ -95,7 +95,7 @@ func _build_faces() -> void:
 		for r in Contract.BOARD_R:
 			var s := Sprite2D.new()
 			s.centered = true
-			s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			s.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 			s.z_index = 1
 			s.z_as_relative = true
 			add_child(s)
@@ -116,9 +116,9 @@ func _sync_faces() -> void:
 			s.texture = tile
 			s.modulate = Color.WHITE
 			if tile and tile.get_width() >= 24:
-				## Tight pointy stamp: width is flat-to-flat, height is point-to-point.
-				## A hair of overlap closes the seam. The crop already has the plate edge.
-				var overlap := 1.2
+				## Expanded plate sample. Overlap is the same pixels on both sides of
+				## a shared edge, so the honeycomb closes without a doubled rim.
+				var overlap := 8.0
 				s.scale = Vector2(
 					(cell_w + overlap) / float(tile.get_width()),
 					(cell_h + overlap) / float(tile.get_height())
@@ -130,7 +130,9 @@ func _sync_faces() -> void:
 
 func _draw() -> void:
 	_sync_faces()
-	var corners := HexMath.hex_corners(HEX_SIZE - 1.2)
+	## Full hex under every face. A hairline crack shows terrain, not the desk.
+	var corners := HexMath.hex_corners(HEX_SIZE + 1.5)
+	var fallback_corners := HexMath.hex_corners(HEX_SIZE - 1.2)
 	for q in Contract.BOARD_Q:
 		for r in Contract.BOARD_R:
 			var center := HexMath.axial_to_pixel(q, r, HEX_SIZE) - _origin
@@ -140,9 +142,13 @@ func _draw() -> void:
 			var body := PackedVector2Array()
 			for p in corners:
 				body.append(center + p)
+			draw_colored_polygon(body, fill)
 			var face: Sprite2D = _faces.get(key)
 			if face == null or not face.visible:
-				draw_colored_polygon(body, fill)
+				var slim := PackedVector2Array()
+				for p in fallback_corners:
+					slim.append(center + p)
+				draw_colored_polygon(slim, fill)
 				_paint_fallback(center, kind, fill)
 	if _ink:
 		_ink.queue_redraw()
