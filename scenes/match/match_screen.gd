@@ -1574,61 +1574,38 @@ func _build() -> void:
 
 	_add_float_player_card(true)
 	_add_float_player_card(false)
-	## Ring sits behind the word. The word is the header, centered, not a left logo.
-	var reticle := TextureRect.new()
-	## Circle center sits on the word so the reticle crosses the letters.
-	reticle.texture = Chrome.make_wordmark_ring(112)
-	reticle.position = Vector2(584, 0)
-	reticle.size = Vector2(112, 112)
-	reticle.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	reticle.z_index = 3
-	add_child(reticle)
-	var title := Label.new()
-	if ClientSession.is_practice():
-		title.text = "PRACTICE"
-	elif ClientSession.is_job():
-		title.text = "SP JOB"
-	else:
-		title.text = "Glassline"
-	var title_bold := Label.new()
-	title_bold.text = title.text
-	title_bold.position = Vector2(341, 24)
-	title_bold.size = Vector2(600, 64)
-	title_bold.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title_bold.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title_bold.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	title_bold.z_index = 6
-	Chrome.apply_label(title_bold, 32, Color.WHITE, true)
-	title_bold.add_theme_constant_override("outline_size", 0)
-	add_child(title_bold)
-	var title_shadow := Label.new()
-	title_shadow.text = title.text
-	title_shadow.position = Vector2(344, 28)
-	title_shadow.size = Vector2(600, 64)
-	title_shadow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title_shadow.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title_shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	title_shadow.z_index = 5
-	Chrome.apply_label(title_shadow, 32, Color("0c0a08"), true)
-	title_shadow.add_theme_constant_override("outline_size", 0)
-	add_child(title_shadow)
-	title.position = Vector2(340, 24)
-	title.size = Vector2(600, 64)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	title.z_index = 6
-	Chrome.apply_label(title, 32, Color.WHITE, true)
-	title.add_theme_constant_override("outline_size", 3)
-	title.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
-	add_child(title)
+	## Locked-plate Glassline lettering with the reticle through the word.
+	var wordmark := TextureRect.new()
+	wordmark.texture = Art.wordmark_plate()
+	wordmark.position = Vector2(465, -2)
+	wordmark.size = Vector2(350, 150)
+	wordmark.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	wordmark.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	wordmark.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	wordmark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wordmark.z_index = 6
+	wordmark.visible = not ClientSession.is_practice() and not ClientSession.is_job()
+	add_child(wordmark)
+	if ClientSession.is_practice() or ClientSession.is_job():
+		var title := Label.new()
+		title.text = "PRACTICE" if ClientSession.is_practice() else "SP JOB"
+		title.position = Vector2(340, 24)
+		title.size = Vector2(600, 64)
+		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		title.z_index = 6
+		Chrome.apply_label(title, 32, Color.WHITE, true)
+		title.add_theme_constant_override("outline_size", 3)
+		title.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
+		add_child(title)
 
 	var clock_plate := PanelContainer.new()
 	clock_plate.position = Vector2(8, 104)
 	clock_plate.size = Vector2(176, 52)
 	clock_plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	clock_plate.z_index = 5
-	_paint_tight_plate(clock_plate, Color("0c0a08"), 10, 8, 10, 6)
+	_paint_tight_plate(clock_plate, Color("0c0a08"), 14, 8, 10, 6)
 	add_child(clock_plate)
 	var clock_row := HBoxContainer.new()
 	clock_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1667,7 +1644,7 @@ func _build() -> void:
 	_turn_pill.size = Vector2(168, 34)
 	_turn_pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_turn_pill.z_index = 5
-	_paint_tight_plate(_turn_pill, Color("0c0a08"), 10, 7, 8, 4)
+	_paint_tight_plate(_turn_pill, Color("0c0a08"), 12, 7, 8, 4)
 	add_child(_turn_pill)
 	_turn = Label.new()
 	_turn.text = "TURN  1"
@@ -2019,7 +1996,7 @@ func _mount_float_legend() -> void:
 	plate.custom_minimum_size = plate.size
 	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	plate.z_index = 4
-	_paint_tight_plate(plate, Color("0c0a08"), 10, 8, 10, 8)
+	_paint_tight_plate(plate, Color("0c0a08"), 16, 8, 10, 8)
 	add_child(plate)
 	var legend := VBoxContainer.new()
 	legend.add_theme_constant_override("separation", 4)
@@ -2038,7 +2015,7 @@ func _add_float_player_card(is_you: bool) -> void:
 	panel.custom_minimum_size = panel.size
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.z_index = 5
-	_paint_tight_plate(panel, Color("0c0a08"), 10, 8, 8, 6)
+	_paint_tight_plate(panel, Color("0c0a08"), 16, 8, 8, 6)
 	add_child(panel)
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE

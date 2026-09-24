@@ -3538,9 +3538,11 @@ func _match_board_chrome_case(failed: PackedStringArray) -> void:
 	_expect(failed, fog.terrain_map().is_empty(), "unknown / typeless rows stay FoW")
 	var Art := load("res://scripts/art_pack.gd")
 	var face_a: Texture2D = Art.hex_tile(Contract.TYPE_BRUSH, 0)
-	var face_b: Texture2D = Art.hex_tile(Contract.TYPE_BRUSH, 99)
+	var face_b: Texture2D = Art.hex_tile(Contract.TYPE_BRUSH, 1)
+	var face_wrap: Texture2D = Art.hex_tile(Contract.TYPE_BRUSH, 4)
 	_expect(failed, face_a != null and face_b != null, "brush stamp loads")
-	_expect(failed, face_a.get_image().get_data() == face_b.get_image().get_data(), "stamp is tileable, not a unique map face")
+	_expect(failed, face_a.get_image().get_data() != face_b.get_image().get_data(), "brush faces vary instead of one stamp")
+	_expect(failed, face_wrap != null and face_a.get_image().get_data() == face_wrap.get_image().get_data(), "brush variant index wraps")
 	var unk: Texture2D = Art.hex_tile("unknown")
 	var unk_img := unk.get_image() if unk != null else null
 	var mark_x := 0.0
@@ -3620,9 +3622,9 @@ func _match_board_chrome_case(failed: PackedStringArray) -> void:
 	_expect(failed, screen_src.find("plate.texture = plate_tex") < 0, "HUD does not blit the wood-tray plate")
 	_expect(failed, screen_src.find("func _mount_float_legend") >= 0, "legend is a floating plate")
 	_expect(failed, screen_src.find("Vector2(224, 248)") < 0, "legend is a slim plate, not a tall tray column")
-	_expect(failed, screen_src.find("make_wordmark_ring") >= 0, "Glassline sits on a centered crosshair")
+	_expect(failed, screen_src.find("wordmark_plate") >= 0, "Glassline is the locked-plate wordmark")
 	_expect(failed, screen_src.find("gear_button") >= 0, "corner control is a gear, not a sound pill")
-	_expect(failed, screen_src.find("apply_label(title, 32") >= 0, "Glassline wordmark is display size")
+	_expect(failed, screen_src.find("apply_label(title, 32") >= 0, "practice title stays display size")
 
 
 func _high_ground_case(failed: PackedStringArray) -> void:

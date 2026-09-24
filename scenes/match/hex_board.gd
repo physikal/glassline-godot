@@ -1,6 +1,6 @@
 extends Node2D
 ## Interactive 9×7 axial board (BOARD_Q=9 cols × BOARD_R=7 rows, 63 hexes).
-## Faces are tileable OPEN/BRUSH/HARD/? stamps. Snapshot owns revealed types.
+## Faces are varied OPEN/BRUSH/HARD/? crops. Snapshot owns revealed types.
 ## Client never invents terrain. UNKNOWN is FoW chrome only.
 
 const HexMath := preload("res://scripts/hex_math.gd")
@@ -112,11 +112,9 @@ func _sync_faces() -> void:
 			var key := "%d,%d" % [q, r]
 			var s: Sprite2D = _faces[key]
 			s.position = HexMath.axial_to_pixel(q, r, HEX_SIZE) - _origin
-			var tile: Texture2D = Chrome.hex_tile(cell_kind(q, r))
+			var tile: Texture2D = Chrome.hex_tile(cell_kind(q, r), q * 5 + r * 11)
 			s.texture = tile
-			## Same stamp, slight warmth so neighbors are not a rubber stamp.
-			var warmth := 0.94 + float((q * 3 + r * 5) % 5) * 0.03
-			s.modulate = Color(warmth, warmth, warmth * 0.98)
+			s.modulate = Color.WHITE
 			if tile and tile.get_width() >= 24:
 				## Tight pointy stamp: width is flat-to-flat, height is point-to-point.
 				## Fit that face to the cell. One pixel of overlap closes the seam

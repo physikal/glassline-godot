@@ -46,10 +46,10 @@ const RACK_PEG_LOCKED := Color("2a5640")
 const HEX_LINE := Color("f2e6c4")
 ## Same height and ink as the ATTACK / RECON keys. Width is the three-chip split.
 const RAIL_CHIP_SIZE := Vector2(138, 92)
-const RAIL_FONT := 12
-const RAIL_ICON := 34
+const RAIL_FONT := 11
+const RAIL_ICON := 36
 const RAIL_INK := 8
-const RAIL_RADIUS := 10
+const RAIL_RADIUS := 16
 ## Plate table under the baked ABILITY / HIGH GROUND keys. Matches the
 ## action-row wood so a cover does not read as a darker rivet panel.
 const DESK := Color("3a2a1a")
@@ -255,7 +255,7 @@ static func paint_float_key(button: Button) -> void:
 	var box := button.get_theme_stylebox("normal")
 	if box is StyleBoxFlat:
 		bg = (box as StyleBoxFlat).bg_color
-	_apply_bevel_button(button, bg, 10, 8)
+	_apply_bevel_button(button, bg, 16, 8)
 
 
 static func bevel_style(bg: Color, size: Vector2, radius: int = 14, border_px: int = 5) -> StyleBoxTexture:
@@ -403,11 +403,11 @@ static func action_button(kind: String, text: String, bg: Color, fg: Color, min_
 
 static func game_button(kind: String, text: String, bg: Color, fg: Color, min_size: Vector2 = Vector2(248, 76)) -> Button:
 	## Chunky floating match key — thick ink, drop shadow, not a wood-tray inset.
-	var button := _styled_button(text, bg, fg, min_size, 10, 13)
+	var button := _styled_button(text, bg, fg, min_size, 16, 13)
 	if kind != "":
-		button.icon = make_icon(kind, fg, 40)
+		button.icon = make_icon(kind, fg, 46)
 		button.add_theme_constant_override("h_separation", 10)
-		button.add_theme_constant_override("icon_max_width", 40)
+		button.add_theme_constant_override("icon_max_width", 46)
 	paint_float_key(button)
 	return button
 
@@ -650,7 +650,7 @@ static func paint_high_ground_chip(panel: Control, active: bool) -> void:
 		return
 	## Near-black toast. +10% only while lit — parked keeps the same plate weight.
 	var bg := Color("1a140f") if active else Color("14110e")
-	var box := float_box(bg, 10, 8, Vector2(300, 112))
+	var box := float_box(bg, 16, 8, Vector2(300, 112))
 	box.content_margin_left = 10
 	box.content_margin_right = 12
 	box.content_margin_top = 6
@@ -736,31 +736,45 @@ static func grain_texture(base: Color, width: int = 128, height: int = 128) -> T
 
 
 static func make_match_desk(width: int = 1280, height: int = 720) -> Texture2D:
-	## Solid dark table. Horizontal grain only — not light vertical planks.
+	## Warmer solid wood/stone from the locked plate's brown, not black slats.
 	## Not a blit of the wood-tray match-board jpg.
 	var img := Image.create(width, height, false, Image.FORMAT_RGB8)
-	var tones := [
-		Color("1a100c"),
-		Color("140e0a"),
-		Color("1c120e"),
-		Color("120c08"),
-	]
-	var plank_h := maxi(48, height / 8)
+	var noise := FastNoiseLite.new()
+	noise.seed = 11
+	noise.noise_type = FastNoiseLite.TYPE_SIMPLEX
+	noise.frequency = 0.012
+	var grain := FastNoiseLite.new()
+	grain.seed = 27
+	grain.noise_type = FastNoiseLite.TYPE_SIMPLEX
+	grain.frequency = 0.05
+	var seams: Array[int] = []
+	var cursor := 18
+	var step := 0
+	while cursor < height:
+		seams.append(cursor)
+		step += 1
+		cursor += 70 + (step * 23) % 48
 	for y in height:
-		var plank := int(y / plank_h)
-		var local := y % plank_h
-		var base: Color = tones[posmod(plank, tones.size())]
-		var seam := local <= 1
+		var on_seam := false
+		for s in seams:
+			if absi(y - s) == 0:
+				on_seam = true
+				break
 		for x in width:
-			if seam:
-				img.set_pixel(x, y, Color("080604"))
-				continue
-			var col := base
-			if posmod(y, 5) == 0:
-				col = base.lightened(0.03)
-			elif posmod(y + x / 80, 9) == 0:
-				col = base.darkened(0.04)
-			img.set_pixel(x, y, col)
+			var n := noise.get_noise_2d(float(x), float(y))
+			var g := grain.get_noise_2d(float(x) * 0.4, float(y))
+			## Plate wood sits near (62, 40, 24). Keep it warm and mostly solid.
+			var r := 0.26 + n * 0.045 + g * 0.02
+			var gv := 0.16 + n * 0.03 + g * 0.012
+			var b := 0.09 + n * 0.018 + g * 0.008
+			if on_seam:
+				r *= 0.78
+				gv *= 0.76
+				b *= 0.74
+			if n > 0.62:
+				r -= 0.015
+				b += 0.012
+			img.set_pixel(x, y, Color(clampf(r, 0.0, 1.0), clampf(gv, 0.0, 1.0), clampf(b, 0.0, 1.0)))
 	return ImageTexture.create_from_image(img)
 
 
@@ -970,42 +984,24 @@ static func make_face(kind: String, px: int = 44) -> Texture2D:
 
 
 static func make_plate_portrait(kind: String, px: int = 64) -> Texture2D:
-	## Bordered match-card face. Teal operative crop stays; rival is the plate's cap, not a foliage crop.
+	## Bordered match-card face cropped from the locked plate (teal operative, orange-cap rival).
 	var img := Image.create(px, px, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
 	var you := kind != "p2"
 	var accent := Color("3ec8e0") if you else Color("f08a2a")
-	_fill_round(img, 0, 0, px, px, 12, INK)
-	_fill_round(img, 3, 3, px - 6, px - 6, 10, accent.darkened(0.15))
-	_fill_round(img, 6, 6, px - 12, px - 12, 8, accent)
-	var inner := 9
-	_fill_round(img, inner, inner, px - inner * 2, px - inner * 2, 6, Color("24180f"))
-	if you:
-		var plate: Texture2D = _ArtPack.face_texture("p1")
-		if plate:
-			var src := plate.get_image()
-			if src:
-				if src.is_compressed():
-					src.decompress()
-				var side := px - inner * 2 - 4
-				src.resize(side, side, Image.INTERPOLATE_NEAREST)
-				_blit_round(img, src, inner + 2, inner + 2, 6)
-				_fill_round_ring(img, 3, 3, px - 6, 5, accent)
-				return ImageTexture.create_from_image(img)
-	var cx := px / 2
-	var cy := px / 2 + 2
-	var cap := Color("1f8f78") if you else Color("e07a22")
-	var skin := Color("e6c39a")
-	_fill_circle(img, cx, cy + 4, int(float(px) * 0.24), skin)
-	_fill_rect(img, cx - int(float(px) * 0.26), cy - int(float(px) * 0.28), int(float(px) * 0.52), int(float(px) * 0.18), cap)
-	_fill_rect(img, cx - int(float(px) * 0.30), cy - int(float(px) * 0.12), int(float(px) * 0.60), int(float(px) * 0.08), cap.darkened(0.18))
-	var gw := int(float(px) * 0.16)
-	var gh := int(float(px) * 0.12)
-	_fill_rect(img, cx - gw - 2, cy - 1, gw, gh, INK)
-	_fill_rect(img, cx + 2, cy - 1, gw, gh, INK)
-	_fill_rect(img, cx - gw, cy + 1, gw - 4, gh - 4, accent.lightened(0.25))
-	_fill_rect(img, cx + 4, cy + 1, gw - 4, gh - 4, accent.lightened(0.25))
-	_fill_rect(img, cx - 4, cy + int(float(px) * 0.16), 8, 2, Color("c45a4a"))
+	_fill_round(img, 0, 0, px, px, 14, INK)
+	_fill_round(img, 4, 4, px - 8, px - 8, 12, accent)
+	var inner := 7
+	_fill_round(img, inner, inner, px - inner * 2, px - inner * 2, 8, Color("24180f"))
+	var plate: Texture2D = _ArtPack.plate_face("p1" if you else "p2")
+	if plate:
+		var src := plate.get_image()
+		if src:
+			if src.is_compressed():
+				src.decompress()
+			var side := px - inner * 2 - 2
+			src.resize(side, side, Image.INTERPOLATE_NEAREST)
+			_blit_round(img, src, inner + 1, inner + 1, 8)
 	return ImageTexture.create_from_image(img)
 
 
@@ -1240,10 +1236,10 @@ static func _icon_crosshair(img: Image, color: Color) -> void:
 	## Filled sniper mark. Scales with the icon, not a 28px scribble in the corner.
 	var s := img.get_width()
 	var c := s / 2
-	var ring := int(float(s) * 0.30)
-	var thick := maxi(3, s / 7)
+	var ring := int(float(s) * 0.32)
+	var thick := maxi(4, s / 5)
 	_stroke_ring(img, c, c, ring, thick, color)
-	var arm := maxi(3, s / 8)
+	var arm := maxi(4, s / 6)
 	var gap := ring - thick
 	_fill_rect(img, c - arm / 2, 1, arm, maxi(2, c - gap), color)
 	_fill_rect(img, c - arm / 2, c + gap, arm, maxi(2, s - (c + gap) - 1), color)
@@ -1254,7 +1250,7 @@ static func _icon_crosshair(img: Image, color: Color) -> void:
 
 static func _icon_binoculars(img: Image, color: Color) -> void:
 	var s := float(img.get_width())
-	var r := int(s * 0.24)
+	var r := int(s * 0.28)
 	var y := int(s * 0.58)
 	var left := int(s * 0.32)
 	var right := int(s * 0.68)
