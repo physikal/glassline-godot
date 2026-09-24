@@ -221,6 +221,38 @@ static func pill_chip(bg: Color = INK, border: Color = Color("3d2a1c")) -> Panel
 	return panel
 
 
+static func float_box(bg: Color, radius: int = 16, border_px: int = 5) -> StyleBoxFlat:
+	## Thick ink + drop. The plate sits on the desk, not inside a wood tray.
+	var box := flat(bg, radius, INK, border_px)
+	box.shadow_color = Color(0, 0, 0, 0.62)
+	box.shadow_size = 10
+	box.shadow_offset = Vector2(0, 6)
+	return box
+
+
+static func paint_float_panel(panel: Control, bg: Color, radius: int = 16, border_px: int = 5) -> void:
+	if panel == null:
+		return
+	panel.add_theme_stylebox_override("panel", float_box(bg, radius, border_px))
+
+
+static func paint_float_key(button: Button) -> void:
+	## ATTACK / RECON weight. Same ink and drop as the locked floating keys.
+	if button == null:
+		return
+	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+		var box := button.get_theme_stylebox(state)
+		if box is StyleBoxFlat:
+			var heavy := (box as StyleBoxFlat).duplicate()
+			heavy.set_border_width_all(6)
+			heavy.border_color = INK
+			heavy.set_corner_radius_all(18)
+			heavy.shadow_color = Color(0, 0, 0, 0.58)
+			heavy.shadow_size = 8
+			heavy.shadow_offset = Vector2(0, 5)
+			button.add_theme_stylebox_override(state, heavy)
+
+
 static func dock_button(text: String, bg: Color, fg: Color, min_size: Vector2, icon_kind: String = "") -> Button:
 	var radius := int(min_size.y * 0.5)
 	var button := _styled_button(text, bg, fg, min_size, radius, 12 if min_size.x < 340 else 14)
@@ -253,12 +285,13 @@ static func action_button(kind: String, text: String, bg: Color, fg: Color, min_
 
 
 static func game_button(kind: String, text: String, bg: Color, fg: Color, min_size: Vector2 = Vector2(248, 76)) -> Button:
-	## Chunky match-board game key — not a thin SaaS pill.
-	var button := _styled_button(text, bg, fg, min_size, 20, 12)
+	## Chunky floating match key — thick ink, drop shadow, not a wood-tray inset.
+	var button := _styled_button(text, bg, fg, min_size, 18, 13)
 	if kind != "":
 		button.icon = make_icon(kind, fg, 30)
 		button.add_theme_constant_override("h_separation", 12)
 		button.add_theme_constant_override("icon_max_width", 30)
+	paint_float_key(button)
 	return button
 
 
@@ -287,18 +320,17 @@ static func _tighten_rail_chip(button: Button) -> void:
 		var box := button.get_theme_stylebox(state)
 		if box is StyleBoxFlat:
 			var tight := (box as StyleBoxFlat).duplicate()
-			## Chunky plate weight: thick dark outline, rounded body, a drop so the
-			## key floats over the desk. Not a wood rivet and not an inset tray.
-			tight.set_border_width_all(4)
+			## Same floating weight as ATTACK / RECON, sized for the three-chip rail.
+			tight.set_border_width_all(5)
 			tight.border_color = INK
-			tight.set_corner_radius_all(16)
+			tight.set_corner_radius_all(14)
 			tight.content_margin_left = 4
 			tight.content_margin_right = 4
 			tight.content_margin_top = 4
 			tight.content_margin_bottom = 4
-			tight.shadow_color = Color(0, 0, 0, 0.45)
-			tight.shadow_size = 4
-			tight.shadow_offset = Vector2(0, 3)
+			tight.shadow_color = Color(0, 0, 0, 0.55)
+			tight.shadow_size = 6
+			tight.shadow_offset = Vector2(0, 4)
 			button.add_theme_stylebox_override(state, tight)
 
 
@@ -397,7 +429,7 @@ static func paint_smoke_chip(button: Button, available: bool, locked: bool = fal
 
 static func high_ground_chip(active: bool = false) -> Control:
 	## Snapshot-bound plate chip — not a 4th action key. Never invent the bonus.
-	## Heavy floating plate: stacked hexes + thick ink, the josh-bar weight.
+	## Floating plate: stacked hexes, thick ink, drop shadow over the desk.
 	var panel := PanelContainer.new()
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.custom_minimum_size = Vector2(300, 112)
@@ -507,17 +539,13 @@ static func paint_high_ground_chip(panel: Control, active: bool) -> void:
 	## Lit + “+10%” only while snapshot you.highGroundActive. Muted otherwise.
 	if panel == null:
 		return
-	## Thick floating plate. Muted keeps the stacked-hex weight and omits +10%.
-	var border := HIGH_GOLD if active else INK
-	var bg := Color("3a3018") if active else Color("2c2418")
-	var box := flat(bg, 18, border, 6)
+	## Thick ink always. Gold border read as a tray highlight. +10% only while lit.
+	var bg := Color("2a2014") if active else Color("1c140e")
+	var box := float_box(bg, 16, 6)
 	box.content_margin_left = 12
 	box.content_margin_right = 14
 	box.content_margin_top = 10
 	box.content_margin_bottom = 10
-	box.shadow_color = Color(0, 0, 0, 0.55)
-	box.shadow_size = 8
-	box.shadow_offset = Vector2(0, 5)
 	panel.add_theme_stylebox_override("panel", box)
 	var icon: TextureRect = panel.get_meta("high_icon") if panel.has_meta("high_icon") else null
 	var lbl: Label = panel.get_meta("high_label") if panel.has_meta("high_label") else null
