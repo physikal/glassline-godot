@@ -229,9 +229,9 @@ static func pill_chip(bg: Color = INK, border: Color = Color("3d2a1c")) -> Panel
 static func float_box(bg: Color, radius: int = 16, border_px: int = 5) -> StyleBoxFlat:
 	## Thick ink + drop. The plate sits on the desk, not inside a wood tray.
 	var box := flat(bg, radius, INK, border_px)
-	box.shadow_color = Color(0, 0, 0, 0.62)
-	box.shadow_size = 10
-	box.shadow_offset = Vector2(0, 6)
+	box.shadow_color = Color(0, 0, 0, 0.78)
+	box.shadow_size = 12
+	box.shadow_offset = Vector2(0, 7)
 	return box
 
 
@@ -441,17 +441,19 @@ static func high_ground_chip(active: bool = false) -> Control:
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 10)
+	row.add_theme_constant_override("separation", 8)
 	var icon := TextureRect.new()
 	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	icon.custom_minimum_size = Vector2(56, 56)
+	## Fills the toast. A 56px mark left the plate looking short of the canon chip.
+	icon.custom_minimum_size = Vector2(76, 76)
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(icon)
 	var lbl := Label.new()
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	lbl.custom_minimum_size = Vector2(196, 72)
+	## Two-line slot stays reserved so a parked chip (no +10%) does not collapse.
+	lbl.custom_minimum_size = Vector2(170, 72)
 	row.add_child(lbl)
 	panel.add_child(row)
 	panel.set_meta("high_icon", icon)
@@ -544,26 +546,28 @@ static func paint_high_ground_chip(panel: Control, active: bool) -> void:
 	## Lit + “+10%” only while snapshot you.highGroundActive. Muted otherwise.
 	if panel == null:
 		return
-	## Thick ink always. Gold border read as a tray highlight. +10% only while lit.
-	var bg := Color("2a2014") if active else Color("1c140e")
-	var box := float_box(bg, 16, 6)
-	box.content_margin_left = 12
-	box.content_margin_right = 14
-	box.content_margin_top = 10
-	box.content_margin_bottom = 10
+	## Near-black toast. +10% only while lit — parked keeps the same plate weight.
+	var bg := Color("16120e") if active else Color("100e0c")
+	var box := float_box(bg, 16, 7)
+	box.content_margin_left = 10
+	box.content_margin_right = 12
+	box.content_margin_top = 6
+	box.content_margin_bottom = 6
 	panel.add_theme_stylebox_override("panel", box)
 	var icon: TextureRect = panel.get_meta("high_icon") if panel.has_meta("high_icon") else null
 	var lbl: Label = panel.get_meta("high_label") if panel.has_meta("high_label") else null
 	if icon:
-		icon.texture = make_icon("high", Color("8fd15a") if active else Color("6a9a3c"), 56)
+		icon.custom_minimum_size = Vector2(76, 76)
+		icon.texture = make_icon("high", Color("9be05a") if active else Color("8fd15a"), 76)
 		icon.modulate = Color.WHITE
 	if lbl:
+		lbl.custom_minimum_size = Vector2(170, 72)
 		if active:
 			lbl.text = "%s\n+10%% ACCURACY" % Contract.HIGH_GROUND_LABEL
 			apply_label(lbl, 11, CREAM, true)
 		else:
 			lbl.text = Contract.HIGH_GROUND_LABEL
-			apply_label(lbl, 11, CREAM, true)
+			apply_label(lbl, 12, CREAM, true)
 	panel.tooltip_text = Contract.HIGH_GROUND_COPY if active else Contract.HIGH_GROUND_MUTED_COPY
 	panel.set_meta("high_active", active)
 
@@ -627,6 +631,94 @@ static func grain_texture(base: Color, width: int = 128, height: int = 128) -> T
 				clampf(base.b + lift * 0.55, 0.0, 1.0)
 			))
 	return ImageTexture.create_from_image(img)
+
+
+static func make_match_desk(width: int = 480, height: int = 270) -> Texture2D:
+	## Lighter table than hideout wood so near-black chrome reads as floating plates.
+	## Not a blit of the wood-tray match-board jpg.
+	var img := Image.create(width, height, false, Image.FORMAT_RGB8)
+	var noise := FastNoiseLite.new()
+	noise.seed = 11
+	noise.noise_type = FastNoiseLite.TYPE_VALUE
+	noise.frequency = 0.045
+	var dark := Color("6b4a32")
+	var mid := Color("8d6244")
+	var lite := Color("c9a67a")
+	for y in height:
+		for x in width:
+			var n := noise.get_noise_2d(float(x) * 0.22, float(y) * 3.4)
+			var ring := 0.06 * sin(float(x) * 0.11 + float(y) * 0.04)
+			var t := clampf(0.52 + n * 0.34 + ring, 0.0, 1.0)
+			var c: Color
+			if t < 0.45:
+				c = dark.lerp(mid, t / 0.45)
+			else:
+				c = mid.lerp(lite, (t - 0.45) / 0.55)
+			img.set_pixel(x, y, c)
+	return ImageTexture.create_from_image(img)
+
+
+static func make_wordmark_ring(px: int = 140) -> Texture2D:
+	## Cyan crosshair behind the centered Glassline word. Center stays clear.
+	var img := Image.create(px, px, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	var col := Color("7ec8e8")
+	var c := px / 2
+	var outer := int(float(px) * 0.46)
+	var inner := int(float(px) * 0.34)
+	var outer2 := outer * outer
+	var inner2 := inner * inner
+	for y in px:
+		for x in px:
+			var d := (x - c) * (x - c) + (y - c) * (y - c)
+			if d <= outer2 and d >= inner2:
+				img.set_pixel(x, y, col)
+	var tick := maxi(4, px / 16)
+	var arm := maxi(4, c - outer - 2)
+	_fill_rect(img, c - tick / 2, 2, tick, arm, col)
+	_fill_rect(img, c - tick / 2, c + outer, tick, arm, col)
+	_fill_rect(img, 2, c - tick / 2, arm, tick, col)
+	_fill_rect(img, c + outer, c - tick / 2, arm, tick, col)
+	return ImageTexture.create_from_image(img)
+
+
+static func gear_button(muted: bool) -> Button:
+	## Circular corner control. Mute copy stays on the tooltip, not a SOUND pill.
+	var button := Button.new()
+	button.text = ""
+	button.focus_mode = Control.FOCUS_NONE
+	button.custom_minimum_size = Vector2(52, 52)
+	button.size = Vector2(52, 52)
+	var icon := TextureRect.new()
+	icon.name = "GearIcon"
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon.set_anchors_preset(Control.PRESET_FULL_RECT)
+	icon.offset_left = 10
+	icon.offset_top = 10
+	icon.offset_right = -10
+	icon.offset_bottom = -10
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	button.add_child(icon)
+	button.set_meta("gear_icon", icon)
+	paint_gear_button(button, muted)
+	return button
+
+
+static func paint_gear_button(button: Button, muted: bool) -> void:
+	if button == null:
+		return
+	button.text = ""
+	var box := float_box(Color("100e0c"), 26, 4)
+	box.content_margin_left = 0
+	box.content_margin_right = 0
+	box.content_margin_top = 0
+	box.content_margin_bottom = 0
+	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+		button.add_theme_stylebox_override(state, box)
+	var icon: TextureRect = button.get_meta("gear_icon") if button.has_meta("gear_icon") else null
+	if icon:
+		icon.texture = make_icon("gear_off" if muted else "gear", CREAM, 52)
 
 
 static func make_wood_texture(width: int = 320, height: int = 180) -> Texture2D:
@@ -695,6 +787,10 @@ static func make_icon(kind: String, color: Color, px: int = 28) -> Texture2D:
 			_icon_speaker(img, color, false)
 		"speaker_off", "mute":
 			_icon_speaker(img, color, true)
+		"gear":
+			_icon_gear(img, color, false)
+		"gear_off":
+			_icon_gear(img, color, true)
 		"part_optic", "optic":
 			_icon_toy_optic(img, color)
 		"part_stock", "stock":
@@ -976,6 +1072,22 @@ static func _icon_leaf(img: Image, color: Color) -> void:
 	_fill_circle(img, 16, 16, 7, color)
 	_fill_circle(img, 10, 12, 5, color)
 	_fill_rect(img, 13, 16, 3, 9, WOOD)
+
+
+static func _icon_gear(img: Image, color: Color, slashed: bool) -> void:
+	var w := img.get_width()
+	var c := w / 2
+	var tooth := maxi(3, w / 9)
+	var reach := int(float(w) * 0.40)
+	for i in 8:
+		var ang := deg_to_rad(float(i) * 45.0)
+		var cx := int(round(float(c) + cos(ang) * float(reach - tooth)))
+		var cy := int(round(float(c) + sin(ang) * float(reach - tooth)))
+		_fill_circle(img, cx, cy, tooth, color)
+	_fill_circle(img, c, c, int(float(w) * 0.26), color)
+	_fill_circle(img, c, c, int(float(w) * 0.11), Color("100e0c"))
+	if slashed:
+		_line(img, float(w) * 0.22, float(w) * 0.78, float(w) * 0.78, float(w) * 0.22, Color("c23b3b"))
 
 
 static func _icon_clock(img: Image, color: Color) -> void:
