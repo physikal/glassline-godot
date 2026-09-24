@@ -45,7 +45,6 @@ var _shop_col: VBoxContainer
 var _shop_lines: Dictionary = {}
 var _bandana_wash: ColorRect
 var _poster: TextureRect
-var _rug: TextureRect
 var _buying_id: String = ""
 var _gun_rack: Control
 var _gun_hands: TextureRect
@@ -1192,21 +1191,6 @@ func _build() -> void:
 	add_child(dock_cover)
 	_wood_covers.append(dock_cover)
 
-	## Floor rug — on the wood in front of the operative. Hidden until equippedFloorDecorId.
-	_rug = TextureRect.new()
-	_rug.texture = Chrome.make_hideout_rug(480, 96)
-	_rug.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	_rug.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_rug.stretch_mode = TextureRect.STRETCH_SCALE
-	_rug.set_anchors_preset(PRESET_CENTER_BOTTOM)
-	_rug.offset_left = -250
-	_rug.offset_right = 250
-	_rug.offset_top = -188
-	_rug.offset_bottom = -104
-	_rug.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_rug.visible = false
-	add_child(_rug)
-
 	## Operative hit — ghillie stays off the dock so PLAY can read as the CTA.
 	var operative := Button.new()
 	operative.flat = true
@@ -2114,8 +2098,6 @@ func _refresh_bg() -> void:
 		_bandana_wash.visible = ClientSession.bandana and not ClientSession.ghillie
 	if _poster:
 		_poster.visible = ClientSession.poster
-	if _rug:
-		_rug.visible = ClientSession.rug
 
 
 func _plate_without_baked_chrome(src: Texture2D) -> Texture2D:
@@ -2145,6 +2127,9 @@ func _plate_without_baked_chrome(src: Texture2D) -> Texture2D:
 	var wood := img.get_pixel(px, py)
 	for cover in _wood_covers:
 		cover.color = wood
+	## Floor decor only. Wall poster stays a separate TextureRect on equippedDecorId.
+	if ClientSession.rug:
+		Chrome.stamp_hideout_rug(img)
 	return ImageTexture.create_from_image(img)
 
 

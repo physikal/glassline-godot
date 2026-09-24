@@ -816,8 +816,7 @@ static func make_hideout_poster(width: int = 96, height: int = 128) -> Texture2D
 
 
 static func make_hideout_rug(width: int = 480, height: int = 96) -> Texture2D:
-	## Chunky toy rug for the hideout floor. Teal field, gold band, cream fringe.
-	## Sits on lobby-canon wood. Not a map, not mil-sim camo.
+	## ARMORY glyph. The floor sprite is stamp_hideout_rug — this chip stays small.
 	var img := Image.create(width, height, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
 	var field := Color("1f6f62")
@@ -842,6 +841,74 @@ static func make_hideout_rug(width: int = 480, height: int = 96) -> Texture2D:
 		_fill_rect(img, x, height - 10, 6, 8, fringe)
 		x += step
 	return ImageTexture.create_from_image(img)
+
+
+static func stamp_hideout_rug(img: Image) -> void:
+	## Lay a toy rug on the open floor planks. Props and the operative stay —
+	## only warm plank pixels inside the floor trapezoid are replaced.
+	## The near edge stops above the dock (bottom 200px). Not a HUD strip.
+	if img == null:
+		return
+	var w := img.get_width()
+	var h := img.get_height()
+	if w < 64 or h < 64:
+		return
+	var y0 := h - 312
+	var y1 := h - 204
+	var far_l := int(float(w) * 360.0 / 1280.0)
+	var far_r := int(float(w) * 940.0 / 1280.0)
+	var near_l := int(float(w) * 200.0 / 1280.0)
+	var near_r := int(float(w) * 1100.0 / 1280.0)
+	var field := Color("1f6f62")
+	var field2 := Color("18564c")
+	var gold := Color("c9a24a")
+	var cream := Color("f4efe4")
+	var ink := Color("14241f")
+	var span := maxi(1, y1 - y0)
+	for y in range(y0, y1 + 1):
+		var t := float(y - y0) / float(span)
+		var xl := int(round(lerpf(float(far_l), float(near_l), t)))
+		var xr := int(round(lerpf(float(far_r), float(near_r), t)))
+		xl = clampi(xl, 0, w - 1)
+		xr = clampi(xr, 0, w)
+		var cx := (xl + xr) / 2
+		var cy := (y0 + y1) / 2 + 10
+		for x in range(xl, xr):
+			if not _is_open_plank(img.get_pixel(x, y)):
+				continue
+			var edge := (x - xl) < 8 or (xr - x) < 8 or (y - y0) < 7 or (y1 - y) < 8
+			var inner := (x - xl) < 16 or (xr - x) < 16 or (y - y0) < 14 or (y1 - y) < 16
+			var fringe := (y - y0) < 5 or (y1 - y) < 6
+			var stripe := ((x + y * 2) / 18) % 2 == 0
+			var manh := absi(x - cx) + absi((y - cy) * 2)
+			var col := field
+			if fringe and (x / 8) % 2 == 0:
+				col = cream
+			elif edge:
+				col = ink
+			elif inner and not stripe:
+				col = gold
+			elif manh < 14:
+				col = gold
+			elif manh < 28:
+				col = cream
+			elif stripe:
+				col = field
+			else:
+				col = field2
+			img.set_pixel(x, y, col)
+
+
+static func _is_open_plank(c: Color) -> bool:
+	## Warm lobby-canon floor. Skips the teal hoodie, beanbag, and crates.
+	var r := c.r8
+	var g := c.g8
+	var b := c.b8
+	if r < 22 or r > 200 or b > 110:
+		return false
+	if g > r + 8 and b > 35:
+		return false
+	return r > g - 2 and g + 6 >= b and (r - b) > 14
 
 
 static func hex_swatch(fill: Color, px: int = 22) -> Control:
