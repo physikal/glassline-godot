@@ -44,10 +44,10 @@ const RACK_PEG_EQUIPPED := Color("7dce78")
 const RACK_PEG_OWNED := Color("4e9a68")
 const RACK_PEG_LOCKED := Color("2a5640")
 const HEX_LINE := Color("f2e6c4")
-## Same height and ink as the ATTACK / RECON keys. Width is the three-chip split.
-const RAIL_CHIP_SIZE := Vector2(140, 108)
-const RAIL_FONT := 12
-const RAIL_ICON := 40
+## Same height and ink as the ATTACK / RECON keys. Width approaches those keys.
+const RAIL_CHIP_SIZE := Vector2(176, 108)
+const RAIL_FONT := 14
+const RAIL_ICON := 44
 const RAIL_INK := 10
 const RAIL_RADIUS := 18
 ## Plate table under the baked ABILITY / HIGH GROUND keys. Matches the
@@ -700,6 +700,16 @@ static func hex_tile(kind: String, variant: int = 0) -> Texture2D:
 	return _ArtPack.hex_tile(kind, variant)
 
 
+static func hex_face(q: int, r: int, kind: String) -> Texture2D:
+	## Plate crop when the snapshot kind is the locked-plate kind. Live hash
+	## mismatches keep a same-kind variant so FoW never shows the wrong terrain.
+	if kind == _ArtPack.plate_kind(q, r):
+		var face := _ArtPack.plate_cell(q, r)
+		if face != null:
+			return face
+	return hex_tile(kind, q * 5 + r * 11)
+
+
 static func hex_legend_tex(kind: String) -> Texture2D:
 	return _ArtPack.hex_legend(kind)
 
@@ -736,24 +746,15 @@ static func grain_texture(base: Color, width: int = 128, height: int = 128) -> T
 
 
 static func make_match_desk(width: int = 1280, height: int = 720) -> Texture2D:
-	## Locked-plate desk bricks, tiled. Not a procedural brown and not the wood-tray jpg.
+	## One continuous locked-plate desk. Not a repeated brick-crop stamp.
 	var src := Image.new()
-	var img := Image.create(width, height, false, Image.FORMAT_RGB8)
-	if src.load("res://assets/art_v2/desk_plate.png") != OK:
+	if src.load("res://assets/art_v2/desk_continuous.png") != OK:
+		var img := Image.create(width, height, false, Image.FORMAT_RGB8)
 		img.fill(Color("3a2618"))
 		return ImageTexture.create_from_image(img)
-	var sw := src.get_width()
-	var sh := src.get_height()
-	var y := 0
-	while y < height:
-		var x := 0
-		var copy_h := mini(sh, height - y)
-		while x < width:
-			var copy_w := mini(sw, width - x)
-			img.blit_rect(src, Rect2i(0, 0, copy_w, copy_h), Vector2i(x, y))
-			x += sw
-		y += sh
-	return ImageTexture.create_from_image(img)
+	if src.get_width() != width or src.get_height() != height:
+		src.resize(width, height, Image.INTERPOLATE_LANCZOS)
+	return ImageTexture.create_from_image(src)
 
 
 static func make_wordmark_ring(px: int = 168) -> Texture2D:

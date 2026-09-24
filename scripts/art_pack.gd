@@ -47,6 +47,8 @@ const TILE_UNKNOWN_VARS := [
 const FACE_PLATE_P1 := "res://assets/art_v2/face_plate_p1.png"
 const FACE_PLATE_P2 := "res://assets/art_v2/face_plate_p2.png"
 const WORDMARK_PLATE := "res://assets/art_v2/wordmark_plate.png"
+## Locked-plate 9×7, row-major. o/b/h/u = OPEN/BRUSH/HARD/UNKNOWN.
+const PLATE_LAYOUT := "uboobohbhhoobhohbhhoobhbohbbhbboobbhhbhbbohbohhhbohbohuuhhbboou"
 const MATCH_BOARD := "res://assets/canon/match-board-canon.jpg"
 const MATCH_BOARD_FALLBACK := "res://assets/canon/hex-map.jpg"
 
@@ -130,6 +132,27 @@ static func hex_legend(kind: String) -> Texture2D:
 static func hex_stamp(kind: String) -> Texture2D:
 	## Full painted hex-map face. Never a 26px legend icon / white square.
 	return hex_tile(kind)
+
+
+static func plate_kind(q: int, r: int) -> String:
+	## Terrain at this cell on the locked plate. Unknown where the plate is fog.
+	if q < 0 or r < 0 or q >= Contract.BOARD_Q or r >= Contract.BOARD_R:
+		return "unknown"
+	var i := r * Contract.BOARD_Q + q
+	match PLATE_LAYOUT[i]:
+		"o":
+			return Contract.TYPE_OPEN
+		"b":
+			return Contract.TYPE_BRUSH
+		"h":
+			return Contract.TYPE_HARD
+		_:
+			return "unknown"
+
+
+static func plate_cell(q: int, r: int) -> Texture2D:
+	## Flush crop of that plate hex. No extra painted rim.
+	return tex("res://assets/art_v2/plate_hex/%d_%d.png" % [q, r])
 
 
 static func hex_tile(kind: String, variant: int = 0) -> Texture2D:

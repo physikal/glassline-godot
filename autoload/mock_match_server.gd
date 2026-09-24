@@ -8,6 +8,7 @@ extends Node
 ##   match_event(player_id, event, snapshot)  == SSE { event, snapshot }
 
 const Contract := preload("res://types/contract.gd")
+const ArtPack := preload("res://scripts/art_pack.gd")
 const HexMath := preload("res://scripts/hex_math.gd")
 const ActionResult := preload("res://types/action_result.gd")
 
@@ -1262,14 +1263,21 @@ func rematch(match_id: String, player_id: String, accept: bool) -> Dictionary:
 
 
 func reveal_inner_for_art(match_id: String) -> void:
-	## Capture-only. Same first-select hash as live; does not invent types.
+	## Capture-only. Stamps the locked-plate terrain map. Live hash stays on first select.
 	if not _matches.has(match_id):
 		return
 	var match_state: Dictionary = _matches[match_id]
-	for q in range(1, Contract.BOARD_Q - 1):
-		for r in range(1, Contract.BOARD_R - 1):
-			_reveal(match_state, Contract.SEAT_A, q, r)
-			_reveal(match_state, Contract.SEAT_B, q, r)
+	for q in Contract.BOARD_Q:
+		for r in Contract.BOARD_R:
+			var key := "%d,%d" % [q, r]
+			var kind := ArtPack.plate_kind(q, r)
+			for seat in [Contract.SEAT_A, Contract.SEAT_B]:
+				var bag: Dictionary = match_state["revealed"][seat]
+				## (0,0) stays fog so the rim test holds. Plate unknowns stay fog.
+				if (q == 0 and r == 0) or kind == "unknown":
+					bag.erase(key)
+				else:
+					bag[key] = kind
 
 
 func terrain_fingerprint(match_id: String) -> String:

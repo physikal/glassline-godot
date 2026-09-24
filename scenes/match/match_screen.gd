@@ -1060,12 +1060,12 @@ func _capture_soft_hud() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(root))
 	_save_hud_png(root + "/full_plate.png", "SOFT_FULL")
 	var full := get_viewport().get_texture().get_image()
-	full.get_region(Rect2i(0, 0, 1280, 130)).save_png(ProjectSettings.globalize_path(root + "/top_chrome.png"))
+	full.get_region(Rect2i(0, 0, 1280, 190)).save_png(ProjectSettings.globalize_path(root + "/top_chrome.png"))
 	full.get_region(Rect2i(0, 96, 220, 280)).save_png(ProjectSettings.globalize_path(root + "/legend_timer.png"))
 	full.get_region(Rect2i(200, 100, 900, 480)).save_png(ProjectSettings.globalize_path(root + "/board_full.png"))
 	full.get_region(Rect2i(0, 540, 1280, 180)).save_png(ProjectSettings.globalize_path(root + "/ability_rail.png"))
 	full.get_region(Rect2i(900, 540, 380, 180)).save_png(ProjectSettings.globalize_path(root + "/high_ground.png"))
-	full.get_region(Rect2i(1100, 180, 180, 200)).save_png(ProjectSettings.globalize_path(root + "/table_corner.png"))
+	full.get_region(Rect2i(1180, 200, 100, 340)).save_png(ProjectSettings.globalize_path(root + "/table_corner.png"))
 	var counts := {"open": 0, "brush": 0, "hard": 0, "unknown": 0}
 	for cell in snap.terrain():
 		var kind := str(cell.get("type", "unknown"))
@@ -1577,8 +1577,9 @@ func _build() -> void:
 	## Locked-plate Glassline lettering with the reticle through the word.
 	var wordmark := TextureRect.new()
 	wordmark.texture = Art.wordmark_plate()
-	wordmark.position = Vector2(450, -4)
-	wordmark.size = Vector2(380, 162)
+	## Plate scale: word sits in the header, reticle through the letters, TURN below it.
+	wordmark.position = Vector2(475, 0)
+	wordmark.size = Vector2(330, 141)
 	wordmark.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	wordmark.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	wordmark.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
@@ -1640,10 +1641,10 @@ func _build() -> void:
 	add_child(_btn_abandon)
 
 	_turn_pill = PanelContainer.new()
-	_turn_pill.position = Vector2(556, 104)
-	_turn_pill.size = Vector2(168, 34)
+	_turn_pill.position = Vector2(565, 144)
+	_turn_pill.size = Vector2(150, 32)
 	_turn_pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_turn_pill.z_index = 5
+	_turn_pill.z_index = 7
 	_paint_tight_plate(_turn_pill, Color("0c0a08"), 12, 7, 8, 4)
 	add_child(_turn_pill)
 	_turn = Label.new()
@@ -1689,20 +1690,20 @@ func _build() -> void:
 	Chrome.apply_label(_phase, 8, Chrome.TEAL, true)
 	add_child(_phase)
 
-	_btn_attack = Chrome.game_button("attack", "ATTACK", Chrome.ATTACK_RED, Color.WHITE, Vector2(224, 108))
-	_btn_attack.position = Vector2(12, 586)
+	_btn_attack = Chrome.game_button("attack", "ATTACK", Chrome.ATTACK_RED, Color.WHITE, Vector2(200, 108))
+	_btn_attack.position = Vector2(8, 586)
 	_btn_attack.z_index = 4
 	_btn_attack.pressed.connect(_on_attack)
 	add_child(_btn_attack)
-	_btn_recon = Chrome.game_button("recon", "RECON", Chrome.RECON_BLUE, Color.WHITE, Vector2(224, 108))
-	_btn_recon.position = Vector2(248, 586)
+	_btn_recon = Chrome.game_button("recon", "RECON", Chrome.RECON_BLUE, Color.WHITE, Vector2(200, 108))
+	_btn_recon.position = Vector2(214, 586)
 	_btn_recon.z_index = 4
 	_btn_recon.pressed.connect(_on_recon)
 	add_child(_btn_recon)
 	## Soft rail stays UAV / DECOY / SMOKE under ABILITY. No wood-tray mat.
 	_mount_ability_rail(self, true)
 	_high_chip = Chrome.high_ground_chip(false)
-	_high_chip.position = Vector2(928, 582)
+	_high_chip.position = Vector2(970, 582)
 	_high_chip.size = Vector2(300, 112)
 	_high_chip.z_index = 4
 	add_child(_high_chip)
@@ -1913,10 +1914,10 @@ func _mount_ability_rail(parent: Control, plate: bool) -> void:
 	rail.add_theme_constant_override("separation", 2)
 	rail.alignment = BoxContainer.ALIGNMENT_CENTER
 	if plate:
-		## Sits in the gap between RECON and HIGH GROUND. Chip row matches ATTACK height.
-		rail.position = Vector2(484, 556)
-		rail.custom_minimum_size = Vector2(432, 140)
-		rail.size = Vector2(432, 140)
+		## Sits in the gap between RECON and HIGH GROUND. Chips match ATTACK height and approach its width.
+		rail.position = Vector2(422, 552)
+		rail.custom_minimum_size = Vector2(540, 148)
+		rail.size = Vector2(540, 148)
 		rail.z_index = 4
 	else:
 		rail.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -1931,7 +1932,7 @@ func _mount_ability_rail(parent: Control, plate: bool) -> void:
 	var chips := HBoxContainer.new()
 	chips.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	chips.alignment = BoxContainer.ALIGNMENT_CENTER
-	chips.add_theme_constant_override("separation", 8)
+	chips.add_theme_constant_override("separation", 6)
 	rail.add_child(chips)
 	_btn_uav = Chrome.rail_chip("ability", Contract.ABILITY_LABEL, Chrome.ABILITY_PURPLE, Color.WHITE)
 	_btn_uav.tooltip_text = "Ability — UAV Sweep. Posts type: uav."

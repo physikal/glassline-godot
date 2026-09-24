@@ -1,6 +1,6 @@
 extends Node2D
 ## Interactive 9×7 axial board (BOARD_Q=9 cols × BOARD_R=7 rows, 63 hexes).
-## Faces are varied OPEN/BRUSH/HARD/? crops. Snapshot owns revealed types.
+## Faces are locked-plate hex crops when the snapshot kind matches that cell.
 ## Client never invents terrain. UNKNOWN is FoW chrome only.
 
 const HexMath := preload("res://scripts/hex_math.gd")
@@ -112,14 +112,13 @@ func _sync_faces() -> void:
 			var key := "%d,%d" % [q, r]
 			var s: Sprite2D = _faces[key]
 			s.position = HexMath.axial_to_pixel(q, r, HEX_SIZE) - _origin
-			var tile: Texture2D = Chrome.hex_tile(cell_kind(q, r), q * 5 + r * 11)
+			var tile: Texture2D = Chrome.hex_face(q, r, cell_kind(q, r))
 			s.texture = tile
 			s.modulate = Color.WHITE
 			if tile and tile.get_width() >= 24:
 				## Tight pointy stamp: width is flat-to-flat, height is point-to-point.
-				## Fit that face to the cell. One pixel of overlap closes the seam
-				## without stacking a second north cap onto the neighbor.
-				var overlap := 3.0
+				## A hair of overlap closes the seam. The crop already has the plate edge.
+				var overlap := 1.2
 				s.scale = Vector2(
 					(cell_w + overlap) / float(tile.get_width()),
 					(cell_h + overlap) / float(tile.get_height())
