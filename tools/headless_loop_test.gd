@@ -3448,6 +3448,14 @@ func _match_board_chrome_case(failed: PackedStringArray) -> void:
 	_expect(failed, absf(mark_dx) < 8.0, "UNKNOWN mark sits in its hex, not on the next cell")
 	_expect(failed, absf(mark_dy) < 10.0, "UNKNOWN mark is centered, not stacked on the neighbor")
 	_expect(failed, unk_img != null and (mark_bot - mark_top) < int(float(unk_img.get_height()) * 0.55), "UNKNOWN has one mark, not a stair of two")
+	var north_dark := 0
+	if unk_img != null:
+		var mid_x := int(unk_img.get_width() / 2)
+		for y in mini(18, unk_img.get_height()):
+			var top_px: Color = unk_img.get_pixel(mid_x, y)
+			if top_px.a > 0.8 and top_px.r < 0.12 and top_px.g < 0.12 and top_px.b < 0.12:
+				north_dark += 1
+	_expect(failed, north_dark < 8, "UNKNOWN north point is a thin edge, not a black stair cap")
 	var board_src := FileAccess.get_file_as_string("res://scenes/match/hex_board.gd")
 	_expect(failed, board_src.find("1.26") < 0, "hex faces fit the cell and do not bleed onto the next hex")
 	_expect(failed, board_src.find("cell_w + overlap") >= 0, "hex face fits flat-to-flat onto the cell")
@@ -3459,7 +3467,10 @@ func _match_board_chrome_case(failed: PackedStringArray) -> void:
 	hot.free()
 	var chip: Control = Chrome.high_ground_chip(false)
 	_expect(failed, chip != null and not (chip is Button), "HIGH GROUND is a chip, not an action key")
+	_expect(failed, chip.custom_minimum_size.y >= 100.0, "HIGH GROUND chip is heavy plate weight")
 	chip.free()
+	var screen_src := FileAccess.get_file_as_string("res://scenes/match/match_screen.gd")
+	_expect(failed, screen_src.find("Vector2(250, 96)") < 0, "board well does not cut the header")
 
 
 func _high_ground_case(failed: PackedStringArray) -> void:

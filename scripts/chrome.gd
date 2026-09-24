@@ -287,7 +287,8 @@ static func _tighten_rail_chip(button: Button) -> void:
 		var box := button.get_theme_stylebox(state)
 		if box is StyleBoxFlat:
 			var tight := (box as StyleBoxFlat).duplicate()
-			## Chunky plate weight: thick dark outline, rounded body. Not a wood rivet.
+			## Chunky plate weight: thick dark outline, rounded body, a drop so the
+			## key floats over the desk. Not a wood rivet and not an inset tray.
 			tight.set_border_width_all(4)
 			tight.border_color = INK
 			tight.set_corner_radius_all(16)
@@ -295,6 +296,9 @@ static func _tighten_rail_chip(button: Button) -> void:
 			tight.content_margin_right = 4
 			tight.content_margin_top = 4
 			tight.content_margin_bottom = 4
+			tight.shadow_color = Color(0, 0, 0, 0.45)
+			tight.shadow_size = 4
+			tight.shadow_offset = Vector2(0, 3)
 			button.add_theme_stylebox_override(state, tight)
 
 
@@ -393,20 +397,24 @@ static func paint_smoke_chip(button: Button, available: bool, locked: bool = fal
 
 static func high_ground_chip(active: bool = false) -> Control:
 	## Snapshot-bound plate chip — not a 4th action key. Never invent the bonus.
+	## Heavy floating plate: stacked hexes + thick ink, the josh-bar weight.
 	var panel := PanelContainer.new()
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.custom_minimum_size = Vector2(228, 68)
+	panel.custom_minimum_size = Vector2(300, 112)
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_theme_constant_override("separation", 8)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 10)
 	var icon := TextureRect.new()
 	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	icon.custom_minimum_size = Vector2(18, 18)
+	icon.custom_minimum_size = Vector2(56, 56)
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(icon)
 	var lbl := Label.new()
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.custom_minimum_size = Vector2(196, 72)
 	row.add_child(lbl)
 	panel.add_child(row)
 	panel.set_meta("high_icon", icon)
@@ -499,27 +507,30 @@ static func paint_high_ground_chip(panel: Control, active: bool) -> void:
 	## Lit + “+10%” only while snapshot you.highGroundActive. Muted otherwise.
 	if panel == null:
 		return
-	## Thick ink (lit: gold) so the chip matches ATTACK / RECON weight. Muted stays a chunk, not a wood wash.
+	## Thick floating plate. Muted keeps the stacked-hex weight and omits +10%.
 	var border := HIGH_GOLD if active else INK
-	var bg := Color("2a2214") if active else Color("241810")
-	var box := flat(bg, 16, border, 4)
+	var bg := Color("3a3018") if active else Color("2c2418")
+	var box := flat(bg, 18, border, 6)
 	box.content_margin_left = 12
 	box.content_margin_right = 14
-	box.content_margin_top = 8
-	box.content_margin_bottom = 8
+	box.content_margin_top = 10
+	box.content_margin_bottom = 10
+	box.shadow_color = Color(0, 0, 0, 0.55)
+	box.shadow_size = 8
+	box.shadow_offset = Vector2(0, 5)
 	panel.add_theme_stylebox_override("panel", box)
 	var icon: TextureRect = panel.get_meta("high_icon") if panel.has_meta("high_icon") else null
 	var lbl: Label = panel.get_meta("high_label") if panel.has_meta("high_label") else null
 	if icon:
-		icon.texture = make_icon("high", HIGH_GOLD if active else Color("5a5348"), 18)
-		icon.modulate = Color.WHITE if active else Color(1, 1, 1, 0.42)
+		icon.texture = make_icon("high", Color("8fd15a") if active else Color("6a9a3c"), 56)
+		icon.modulate = Color.WHITE
 	if lbl:
 		if active:
-			lbl.text = "%s  +10%%" % Contract.HIGH_GROUND_LABEL
-			apply_label(lbl, 8, CREAM, true)
+			lbl.text = "%s\n+10%% ACCURACY" % Contract.HIGH_GROUND_LABEL
+			apply_label(lbl, 11, CREAM, true)
 		else:
 			lbl.text = Contract.HIGH_GROUND_LABEL
-			apply_label(lbl, 8, Color("7a7268"), true)
+			apply_label(lbl, 11, CREAM, true)
 	panel.tooltip_text = Contract.HIGH_GROUND_COPY if active else Contract.HIGH_GROUND_MUTED_COPY
 	panel.set_meta("high_active", active)
 
@@ -564,6 +575,25 @@ static func terrain_color(kind: String) -> Color:
 			return HARD
 		_:
 			return UNKNOWN
+
+
+static func grain_texture(base: Color, width: int = 128, height: int = 128) -> Texture2D:
+	## Low-contrast desk grain. A flat ColorRect reads as an inset wood tray.
+	var img := Image.create(width, height, false, Image.FORMAT_RGB8)
+	var noise := FastNoiseLite.new()
+	noise.seed = 19
+	noise.noise_type = FastNoiseLite.TYPE_SIMPLEX
+	noise.frequency = 0.08
+	for y in height:
+		for x in width:
+			var n := noise.get_noise_2d(float(x), float(y))
+			var lift := 0.06 * n
+			img.set_pixel(x, y, Color(
+				clampf(base.r + lift, 0.0, 1.0),
+				clampf(base.g + lift * 0.85, 0.0, 1.0),
+				clampf(base.b + lift * 0.55, 0.0, 1.0)
+			))
+	return ImageTexture.create_from_image(img)
 
 
 static func make_wood_texture(width: int = 320, height: int = 180) -> Texture2D:
@@ -828,16 +858,33 @@ static func _icon_star(img: Image, color: Color) -> void:
 	_fill_circle(img, 14, 14, 3, color)
 
 
+static func _fill_pointy_hex(img: Image, cx: float, cy: float, radius: float, color: Color) -> void:
+	var w := img.get_width()
+	var h := img.get_height()
+	var ap := radius * 0.8660254
+	for y in h:
+		for x in w:
+			var dx := absf(float(x) + 0.5 - cx)
+			var dy := absf(float(y) + 0.5 - cy)
+			var slack := minf(ap - dx, ap - (dx * 0.5 + dy * 0.8660254))
+			if slack >= 0.0:
+				img.set_pixel(x, y, color)
+
+
 static func _icon_high_ground(img: Image, color: Color) -> void:
-	## Stacked hex chips — plate HIGH GROUND, not a mountain / mil-sim badge.
-	_fill_rect(img, 10, 4, 8, 6, color)
-	_fill_rect(img, 8, 6, 12, 4, color)
-	_fill_rect(img, 6, 12, 8, 6, color)
-	_fill_rect(img, 4, 14, 12, 4, color)
-	_fill_rect(img, 14, 12, 8, 6, color)
-	_fill_rect(img, 12, 14, 12, 4, color)
-	_fill_rect(img, 10, 20, 8, 6, color)
-	_fill_rect(img, 8, 22, 12, 4, color)
+	## Three stacked pointy hexes — the plate HIGH GROUND chip, not a mountain.
+	var w := float(img.get_width())
+	var h := float(img.get_height())
+	var ink := Color(0.08, 0.06, 0.05, 1.0)
+	var spots := [
+		[w * 0.50, h * 0.74, w * 0.22],
+		[w * 0.32, h * 0.46, w * 0.18],
+		[w * 0.68, h * 0.46, w * 0.18],
+		[w * 0.50, h * 0.22, w * 0.15],
+	]
+	for spot in spots:
+		_fill_pointy_hex(img, spot[0], spot[1], spot[2] + 1.6, ink)
+		_fill_pointy_hex(img, spot[0], spot[1], spot[2], color)
 
 
 static func _icon_toy_optic(img: Image, color: Color) -> void:

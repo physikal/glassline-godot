@@ -11,7 +11,9 @@ const Snapshot := preload("res://types/snapshot.gd")
 signal hex_clicked(q: int, r: int)
 signal hex_hovered(q: int, r: int)
 
-const HEX_SIZE := 44.0
+## Fits the plate well under the header and above the action row.
+## 9×7 pointy grid: height is 11×size, so 40 keeps the top points off the turn bar.
+const HEX_SIZE := 40.0
 const PREVIEW_YOU := Vector2i(2, 2)
 const PREVIEW_RIVAL := Vector2i(6, 4)
 
@@ -114,9 +116,9 @@ func _sync_faces() -> void:
 			s.texture = tile
 			if tile and tile.get_width() >= 24:
 				## Tight pointy stamp: width is flat-to-flat, height is point-to-point.
-				## Fit that face to the cell. A hair of overlap closes the seam.
-				## Scaling a padded box past the cell stacked the next ? onto this hex.
-				var overlap := 0.8
+				## Fit that face to the cell. One pixel of overlap closes the seam
+				## without stacking a second north cap onto the neighbor.
+				var overlap := 1.0
 				s.scale = Vector2(
 					(cell_w + overlap) / float(tile.get_width()),
 					(cell_h + overlap) / float(tile.get_height())

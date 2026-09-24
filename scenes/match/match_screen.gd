@@ -1602,20 +1602,23 @@ func _build() -> void:
 		add_child(well)
 
 	if _plate_hud:
-		## The match plate paints its own hex illustration. Cover that patch
-		## with the table color so only the live 9×7 sits on the desk.
-		## A grained wood rect read as a riveted panel around the honeycomb.
-		var desk_cover := ColorRect.new()
-		desk_cover.color = Chrome.DESK_WELL
-		desk_cover.position = Vector2(250, 96)
-		desk_cover.size = Vector2(980, 468)
+		## Hide the baked hex illustration without cutting the header / turn
+		## bar (that bar ends ~y=118). Grain, not a flat well — a flat rect
+		## read as an inset wood tray beside the legend.
+		var desk_cover := TextureRect.new()
+		desk_cover.texture = Chrome.grain_texture(Chrome.DESK_WELL)
+		desk_cover.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+		desk_cover.stretch_mode = TextureRect.STRETCH_SCALE
+		desk_cover.position = Vector2(248, 122)
+		desk_cover.size = Vector2(990, 436)
 		desk_cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(desk_cover)
 
 	_board_host = Control.new()
 	if _plate_hud:
-		_board_host.position = Vector2(300, 108)
-		_board_host.size = Vector2(820, 450)
+		## Center hex sits in the host. Top points land on y≈122, under the header.
+		_board_host.position = Vector2(250, 124)
+		_board_host.size = Vector2(940, 436)
 	else:
 		_board_host.position = Vector2(220, 132)
 		_board_host.size = Vector2(840, 470)
@@ -1650,24 +1653,30 @@ func _build() -> void:
 		_btn_recon.position = Vector2(330, 572)
 		_btn_recon.pressed.connect(_on_recon)
 		add_child(_btn_recon)
-		## Painted ABILITY key becomes the rail. Desk color hides the bake
-		## without a darker wood frame. Chips carry the chunky outline.
-		var ability_mat := ColorRect.new()
-		ability_mat.color = Chrome.DESK
+		## Painted ABILITY key becomes the rail. Grain hides the bake so the
+		## chips float on the desk instead of sitting in a flat wood tray.
+		var ability_mat := TextureRect.new()
+		ability_mat.texture = Chrome.grain_texture(Chrome.DESK)
+		ability_mat.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+		ability_mat.stretch_mode = TextureRect.STRETCH_SCALE
 		ability_mat.position = Vector2(610, 560)
 		ability_mat.size = Vector2(320, 148)
 		ability_mat.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(ability_mat)
 		_mount_ability_rail(self, true)
-		## Cover the plate's baked HIGH GROUND paint. Chip binds you.highGroundActive.
-		var high_stamp := ColorRect.new()
-		high_stamp.color = Chrome.DESK
-		high_stamp.position = Vector2(930, 560)
-		high_stamp.size = Vector2(330, 148)
-		high_stamp.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		add_child(high_stamp)
+		## Baked HIGH GROUND paint stays covered. The live chip is the chunky
+		## floating plate (stacked hexes, thick outline). +10% only when lit.
+		var high_back := TextureRect.new()
+		high_back.texture = Chrome.grain_texture(Chrome.DESK, 64, 64)
+		high_back.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+		high_back.stretch_mode = TextureRect.STRETCH_SCALE
+		high_back.position = Vector2(928, 560)
+		high_back.size = Vector2(324, 140)
+		high_back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(high_back)
 		_high_chip = Chrome.high_ground_chip(false)
-		_high_chip.position = Vector2(980, 590)
+		_high_chip.position = Vector2(936, 568)
+		_high_chip.z_index = 4
 		add_child(_high_chip)
 		_btn_high = Button.new()
 		_btn_high.visible = false
@@ -1703,7 +1712,7 @@ func _build() -> void:
 		_high_cap.visible = false
 		add_child(_high_cap)
 		_high_chip = Chrome.high_ground_chip(false)
-		_high_chip.position = Vector2(1024, 598)
+		_high_chip.position = Vector2(960, 590)
 		add_child(_high_chip)
 	## Ability chips are mounted in _mount_ability_rail. No free-float keys.
 
